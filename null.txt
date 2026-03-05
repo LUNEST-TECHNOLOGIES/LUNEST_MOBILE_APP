@@ -1,0 +1,46 @@
+performance & Stability Optimization Plan
+The user is experiencing sluggishness and input instability in the listing creation flow. I will implement several optimizations to ensure a smooth, premium experience.
+
+Proposed Changes
+[Component] 
+location.jsx
+State Management Optimization:
+Ensure local state updates are immediate for high responsiveness.
+Consolidate debounced saves to prevent multiple rapid network/DB calls.
+Fix the setTimeout in the draft-loading useEffect to properly synchronize the GooglePlacesAutocomplete ref without causing loops.
+Landmark Sync: Apply debouncing to landmark updates (currently synchronous and potentially slow).
+[Component] 
+property-details.jsx
+Input Stability:
+Review the 
+updatePropertyDetails
+ function to ensure it doesn't trigger unnecessary re-renders of the entire form on every keystroke.
+Fix the duplicate setShowCancelModal(false) calls and refine navigation logic.
+Counter Optimization: Ensure counter updates are smooth and properly synchronized with the draft.
+[Component] 
+photos.jsx
+Upload Optimization: Ensure video/photo uploads don't block the UI thread.
+Verification Plan
+Manual Verification
+Input Responsiveness: Type rapidly in all text fields; verify zero lag.
+Draft Persistence: Navigate away and back; verify all data is retained.
+Navigation Smoothness: Test all buttons and transitions; verify they feel "snappy".
+Map Interaction: Verify marker dragging and address search are fluid.
+[Component] 
+property-details.jsx
+Navigation Fix: Investigate if router.dismissAll() is causing the POP_TO_TOP error and replace with a safer navigation action if necessary.
+[Backend] 
+listing_route.ts
+Validation: Verify that uploadVideoFiles is correctly imported and used in the route.
+Verification Plan
+Automated Tests
+N/A
+Manual Verification
+Search: Type an address; verify suggestions appear.
+Select: Pick a suggestion; verify all fields (City, State, Country) and Map update.
+Manual: Type a manual address; verify it stays in the field and the map updates after a delay (geocoding).
+Navigation: Move back and forward; verify the address is still present.
+Web Fallback: Ensure it still gracefully falls back to a plain TextInput on web if the component is null.
+
+Comment
+Ctrl+Alt+M

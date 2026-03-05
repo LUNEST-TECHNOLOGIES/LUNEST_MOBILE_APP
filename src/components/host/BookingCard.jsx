@@ -1,0 +1,417 @@
+import {
+    ImageBackground,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from "react-native";
+import Svg, { Circle, Path } from "react-native-svg";
+import ChatIcon from "../../assets/icons/bookings/chat.svg";
+
+const STATUS_CONFIG = {
+  CANCELED: {
+    label: "CANCELED",
+    color: "#FD3131",
+    bgColor: "rgba(253, 49, 49, 0.1)",
+  },
+  CONFIRMED: {
+    label: "CONFIRMED",
+    color: "#31EB3D",
+    bgColor: "rgba(49, 235, 61, 0.1)",
+  },
+  COMPLETED: {
+    label: "COMPLETED",
+    color: "#6371F1",
+    bgColor: "rgba(99, 113, 241, 0.1)",
+  },
+  PENDING: {
+    label: "RESERVED",
+    color: "#FDAE31",
+    bgColor: "rgba(253, 174, 49, 0.1)",
+  },
+  RESERVED: {
+    label: "RESERVED",
+    color: "#FDAE31",
+    bgColor: "rgba(253, 174, 49, 0.1)",
+  },
+  ONGOING: {
+    label: "ONGOING",
+    color: "#192DFF",
+    bgColor: "rgba(25, 45, 255, 0.1)",
+  },
+};
+
+const CloseIcon = ({ size = 14, color = "#FD3131" }) => (
+  <Svg width={size} height={size} viewBox="0 0 14 14" fill="none">
+    <Path
+      d="M10.5 3.5L3.5 10.5M3.5 3.5L10.5 10.5"
+      stroke={color}
+      strokeWidth={1.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+const CheckIcon = ({ size = 14, color = "#31EB3D" }) => (
+  <Svg width={size} height={size} viewBox="0 0 14 14" fill="none">
+    <Path
+      d="M11.667 3.5L5.25 9.917L2.333 7"
+      stroke={color}
+      strokeWidth={1.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+const DoubleCheckIcon = ({ size = 14, color = "#6371F1" }) => (
+  <Svg width={size} height={size} viewBox="0 0 14 14" fill="none">
+    <Path
+      d="M1 7L4 10L10 4M7 10L10 7"
+      stroke={color}
+      strokeWidth={1.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+const ClockIcon = ({ size = 14, color = "#FDAE31" }) => (
+  <Svg width={size} height={size} viewBox="0 0 14 14" fill="none">
+    <Circle cx="7" cy="7" r="5.5" stroke={color} strokeWidth={1.5} />
+    <Path
+      d="M7 4V7L9 8"
+      stroke={color}
+      strokeWidth={1.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+const StatusBadge = ({ status }) => {
+  const config = STATUS_CONFIG[status] || STATUS_CONFIG.PENDING;
+  const getIcon = () => {
+    switch (status) {
+      case "CANCELED":
+        return <CloseIcon color={config.color} />;
+      case "CONFIRMED":
+        return <CheckIcon color={config.color} />;
+      case "COMPLETED":
+        return <DoubleCheckIcon color={config.color} />;
+      case "PENDING":
+      case "RESERVED":
+        return <ClockIcon color={config.color} />;
+      default:
+        return <ClockIcon color={config.color} />;
+    }
+  };
+  return (
+    <View style={styles.statusBadge}>
+      <View style={styles.statusBadgeContent}>
+        {getIcon()}
+        <Text style={[styles.statusText, { color: config.color }]}>
+          {config.label}
+        </Text>
+      </View>
+    </View>
+  );
+};
+
+const DEMO_PROPERTY_IMAGE = require("../../assets/images/prop_image.png");
+
+const BookingCard = ({
+  booking,
+  onViewDetails,
+  onMarkConfirmed,
+  onCancel,
+  onMessage,
+}) => {
+  const isPending =
+    booking.status === "PENDING" || booking.status === "RESERVED";
+  const isConfirmed = booking.status === "CONFIRMED";
+  const isOngoing = booking.status === "ONGOING";
+  const isCompleted = booking.status === "COMPLETED";
+
+  // Use local image or fallback to demo
+  const imageSource = booking.propertyImage
+    ? typeof booking.propertyImage === "string"
+      ? { uri: booking.propertyImage }
+      : booking.propertyImage
+    : DEMO_PROPERTY_IMAGE;
+
+  return (
+    <View style={styles.bookingCard}>
+      {/* Property Image with Status Badge */}
+      <ImageBackground
+        source={imageSource}
+        style={styles.propertyImage}
+        imageStyle={styles.propertyImageStyle}
+      >
+        <StatusBadge status={booking.status} />
+      </ImageBackground>
+
+      {/* Booking Details */}
+      <View style={styles.bookingDetails}>
+        {/* Guest Info Row */}
+        <View style={styles.guestInfoRow}>
+          <View style={styles.guestNameContainer}>
+            <Text style={styles.guestName}>{booking.guestName || "Guest"}</Text>
+            <TouchableOpacity onPress={() => onMessage()}>
+              <Text style={styles.guestProfileLink}>Guest Profile</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Property Name */}
+        <Text style={styles.propertyName} numberOfLines={1}>
+          {booking.propertyName || "Property"}
+        </Text>
+
+        {/* Booking ID and Price */}
+        <View style={styles.priceRow}>
+          <View style={styles.bookingIdContainer}>
+            <Text style={styles.bookingId}>{booking.bookingId || "N/A"}</Text>
+          </View>
+          <View style={styles.priceContainer}>
+            <Text style={styles.price}>
+              ₦{booking.price?.toLocaleString() || "0"}
+            </Text>
+            <Text style={styles.paidLabel}>Paid</Text>
+          </View>
+        </View>
+
+        {/* Date Row */}
+        <View style={styles.dateRow}>
+          <View style={styles.dateContainer}>
+            <Text style={styles.dateText}>{booking.dates || "No dates"}</Text>
+          </View>
+          <View style={styles.nightsContainer}>
+            <Text style={styles.nightsText}>{booking.nights || 0} Nights</Text>
+          </View>
+        </View>
+
+        {/* Actions Row */}
+        <View style={styles.actionsRow}>
+          <TouchableOpacity
+            style={styles.viewDetailsButton}
+            onPress={onViewDetails}
+          >
+            <Text style={styles.viewDetailsText}>View details</Text>
+          </TouchableOpacity>
+
+          {/* Reserved/Pending - Mark as Confirmed + Cancel options */}
+          {isPending && (
+            <View style={styles.pendingActions}>
+              <TouchableOpacity
+                style={styles.acceptButton}
+                onPress={onMarkConfirmed}
+              >
+                <CheckIcon size={16} color="#31EB3D" />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.declineButton} onPress={onCancel}>
+                <CloseIcon size={16} color="#F16363" />
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Confirmed - Message + Cancel options */}
+          {isConfirmed && (
+            <View style={styles.pendingActions}>
+              <View style={styles.messageButton}>
+                <ChatIcon width={14} height={17} />
+              </View>
+              <TouchableOpacity style={styles.declineButton} onPress={onCancel}>
+                <CloseIcon size={16} color="#F16363" />
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Ongoing - Message option */}
+          {isOngoing && (
+            <View style={styles.messageButton}>
+              <ChatIcon width={14} height={17} />
+            </View>
+          )}
+
+          {/* Completed - Message option */}
+          {isCompleted && (
+            <View style={styles.messageButton}>
+              <ChatIcon width={14} height={17} />
+            </View>
+          )}
+        </View>
+      </View>
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  bookingCard: {
+    flexDirection: "row",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 7,
+    padding: 5,
+    gap: 10,
+    boxShadow: "0px 4px 15px rgba(239, 239, 239, 0.81)",
+    elevation: 4,
+  },
+  propertyImage: {
+    width: 120,
+    height: 120,
+    borderRadius: 5,
+    overflow: "hidden",
+    backgroundColor: "#F5F5F5",
+  },
+  propertyImageStyle: {
+    borderRadius: 5,
+  },
+  statusBadge: {
+    position: "absolute",
+    top: 7,
+    left: 5,
+    borderRadius: 20,
+    overflow: "hidden",
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+  },
+  statusBadgeContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  statusText: {
+    fontSize: 10,
+    fontWeight: "700",
+  },
+  bookingDetails: {
+    flex: 1,
+    paddingVertical: 5,
+    gap: 5,
+  },
+  guestInfoRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  guestNameContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    flex: 1,
+    gap: 20,
+  },
+  guestName: {
+    fontSize: 10,
+    fontWeight: "500",
+    color: "#000000",
+  },
+  guestProfileLink: {
+    fontSize: 8,
+    fontWeight: "500",
+    color: "#6371F1",
+    textDecorationLine: "underline",
+  },
+  propertyName: {
+    fontSize: 10,
+    fontWeight: "500",
+    color: "#464646",
+  },
+  priceRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-end",
+  },
+  bookingIdContainer: {
+    flexDirection: "row",
+  },
+  bookingId: {
+    fontSize: 8,
+    fontWeight: "500",
+    color: "#000000",
+  },
+  priceContainer: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: 3,
+  },
+  price: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#000000",
+  },
+  paidLabel: {
+    fontSize: 8,
+    color: "#292929",
+  },
+  dateRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  dateContainer: {
+    height: 9,
+  },
+  dateText: {
+    fontSize: 8,
+    color: "#000000",
+  },
+  nightsContainer: {
+    height: 9,
+  },
+  nightsText: {
+    fontSize: 8,
+    fontWeight: "500",
+    color: "#7C7C7C",
+  },
+  actionsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 5,
+  },
+  viewDetailsButton: {
+    borderWidth: 1,
+    borderColor: "#000000",
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+  },
+  viewDetailsText: {
+    fontSize: 11,
+    fontWeight: "500",
+    color: "#292929",
+  },
+  pendingActions: {
+    flexDirection: "row",
+    gap: 13,
+  },
+  acceptButton: {
+    width: 27,
+    height: 26,
+    borderRadius: 16,
+    backgroundColor: "rgba(49, 235, 61, 0.1)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  declineButton: {
+    width: 27,
+    height: 26,
+    borderRadius: 16,
+    backgroundColor: "rgba(241, 99, 99, 0.1)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  messageButton: {
+    width: 24,
+    height: 24,
+    borderRadius: 16,
+    backgroundColor: "#010135",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+});
+
+export default BookingCard;

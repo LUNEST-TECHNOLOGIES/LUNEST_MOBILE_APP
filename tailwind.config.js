@@ -1,0 +1,86 @@
+/** @type {import('tailwindcss').Config} */
+module.exports = {
+  content: [
+    "./App.{js,jsx,ts,tsx}",
+    "./app/**/*.{js,jsx,ts,tsx}",
+    "./src/**/*.{js,jsx,ts,tsx}",
+    "./components/**/*.{js,jsx,ts,tsx}",
+  ],
+  presets: [require("nativewind/preset")],
+  theme: {
+    extend: {
+      colors: {
+        primary: "#010135",
+        secondary: "#192dff",
+        accent: "#6366F1",
+        gray: {
+          50: "#F9FAFB",
+          100: "#F3F4F6",
+          200: "#E5E7EB",
+          300: "#D1D5DB",
+          400: "#9CA3AF",
+          500: "#656565",
+          600: "#4B5563",
+          700: "#374151",
+          800: "#1F2937",
+          900: "#111827",
+        },
+        success: "#10B981",
+        error: "#EF4444",
+        warning: "#F59E0B",
+        info: "#3B82F6",
+      },
+      fontFamily: {
+        // System fonts used as fallback since Aeonik fonts are not available
+        sans: ["System"],
+      },
+      fontSize: {
+        xs: ["12px", "16px"],
+        sm: ["13px", "20px"],
+        base: ["14px", "22px"],
+        lg: ["16px", "24px"],
+        xl: ["18px", "26px"],
+        "2xl": ["22px", "30px"],
+        "3xl": ["28px", "36px"],
+      },
+      spacing: {
+        0: "0px",
+        2: "8px",
+        3: "12px",
+        4: "16px",
+        5: "20px",
+        6: "24px",
+        8: "32px",
+        10: "40px",
+      },
+      borderRadius: {
+        none: "0px",
+        sm: "4px",
+        base: "8px",
+        md: "12px",
+        lg: "16px",
+        xl: "20px",
+        full: "9999px",
+      },
+      lineHeight: {
+        tight: "1.25",
+        normal: "1.5",
+        relaxed: "1.625",
+        loose: "2",
+      },
+      letterSpacing: {
+        tight: "-0.02em",
+        normal: "0em",
+        wide: "0.02em",
+      },
+      boxShadow: {
+        none: "none",
+        sm: "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
+        base: "0 2px 4px 0 rgba(0, 0, 0, 0.1)",
+        md: "0 4px 8px 0 rgba(0, 0, 0, 0.15)",
+        lg: "0 8px 16px 0 rgba(0, 0, 0, 0.2)",
+      },
+    },
+  },
+  plugins: [],
+};

@@ -1,0 +1,19 @@
+{
+    "folders": [
+		{
+			"path": "../../../../../ReactApp/lunest back/lunest_backend"
+		},
+		{
+			"path": "../../../../../Lunest Admin Dashboard/lunest-admin"
+		},
+		{
+			"path": "../../.."
+		},
+		{
+			"path": "../../../../../greylight"
+		}
+	],
+    "settings": {
+        "powershell.cwd": "Lunest_app"
+    }
+}

@@ -1,5 +1,4 @@
-import React from "react";
-import { View, Text, Pressable, StyleSheet, Platform, StatusBar } from "react-native";
+import { Platform, Pressable, StatusBar, StyleSheet, Text, View } from "react-native";
 import LocationIcon from "../../assets/icons/home/LocationIcon.svg";
 import NotificationIcon from "../../assets/icons/home/NotificationIcon.svg";
 

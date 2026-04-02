@@ -6,7 +6,6 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AccountStatusProvider, UserModeProvider } from "../src/context";
 import { useReferralTracker } from "../src/hooks/useReferralTracker";
-import OfflineBanner from "../src/components/common/OfflineBanner";
 import apiClient from "../src/services/apiClient";
 import authService from "../src/services/authService";
 

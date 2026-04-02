@@ -6,6 +6,7 @@ import {
     useWindowDimensions,
     View,
 } from "react-native";
+import React, { useMemo } from "react";
 import Svg, { Path } from "react-native-svg";
 
 // Import custom category icons from category_icon folder
@@ -47,21 +48,49 @@ const CATEGORIES = [
   { key: "all", label: "All", Icon: AllIcon },
   { key: "shortlet", label: "Shortlet", Icon: ShortletIcon },
   { key: "standard-flat", label: "Standard Flat", Icon: StandardFlatIcon },
+  { key: "apartment", label: "Apartment", Icon: StandardFlatIcon },
+  { key: "studio", label: "Studio", Icon: SelfContainIcon },
+  { key: "mini-flat", label: "Mini Flat", Icon: StandardFlatIcon },
+  { key: "room-parlour", label: "Room & Parlour", Icon: SelfContainIcon },
   { key: "self-contain", label: "Self-Contain", Icon: SelfContainIcon },
   { key: "purchase", label: "Purchase", Icon: PurchaseIcon },
   { key: "luxury", label: "Luxury", Icon: LuxuryIcon },
+  { key: "penthouse", label: "Penthouse", Icon: LuxuryIcon },
+  { key: "mansion", label: "Mansion", Icon: DuplexIcon },
   { key: "private-homes", label: "Private Homes", Icon: PrivateHomesIcon },
   { key: "hotel", label: "Hotel", Icon: HotelIcon },
   { key: "office", label: "Office", Icon: OfficeIcon },
+  { key: "warehouse", label: "Warehouse", Icon: OfficeIcon },
+  { key: "land", label: "Land", Icon: PrivateHomesIcon },
+  { key: "shop", label: "Shop", Icon: OfficeIcon },
   { key: "duplex", label: "Duplex", Icon: DuplexIcon },
   { key: "bungalow", label: "Bungalow", Icon: BungalowIcon },
   { key: "others", label: "Others", Icon: OthersIcon },
 ];
 
-const CategorySlider = ({ activeCategory = "all", onCategoryPress }) => {
+const CategorySlider = ({ activeCategory = "all", onCategoryPress, availableListings = [] }) => {
   const { width, height } = useWindowDimensions();
   const isSmallScreen = width < 375;
   const isMediumScreen = width >= 375 && width < 414;
+
+  // Filter categories to only show those with listings available
+  const filteredCategories = useMemo(() => {
+    if (!availableListings || availableListings.length === 0) {
+      // Fallback: show first few if no data or loading
+      return CATEGORIES.slice(0, 8); 
+    }
+    
+    return CATEGORIES.filter(category => {
+      // Always show 'All'
+      if (category.key === "all") return true;
+      
+      // Match category against propertyType in available listings
+      return availableListings.some(listing => {
+        const listingType = (listing.propertyType || "").toLowerCase().replace(/\s+/g, '-');
+        return listingType === category.key.toLowerCase();
+      });
+    });
+  }, [availableListings]);
 
   // Responsive values
   const containerHeight = isSmallScreen ? 65 : isMediumScreen ? 72 : 80;
@@ -81,7 +110,7 @@ const CategorySlider = ({ activeCategory = "all", onCategoryPress }) => {
           { paddingHorizontal, gap },
         ]}
       >
-        {CATEGORIES.map((category) => {
+        {filteredCategories.map((category) => {
           const isActive = activeCategory === category.key;
           const IconComponent = category.Icon;
           const iconColor = isActive ? "#192DFF" : "#3D3D3D";
@@ -89,8 +118,8 @@ const CategorySlider = ({ activeCategory = "all", onCategoryPress }) => {
           return (
             <Pressable
               key={category.key}
+              onPress={() => onCategoryPress(category.key)}
               style={styles.categoryItem}
-              onPress={() => onCategoryPress?.(category.key)}
             >
               <View
                 style={[

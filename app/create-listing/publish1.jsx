@@ -61,17 +61,7 @@ const PUBLISH1 = ({ route }) => {
   const router = useRouter();
   const listingId = route?.params?.listingId || null;
 
-  // Auto-navigate to publish2 after 2 seconds
-  React.useEffect(() => {
-    const timer = setTimeout(() => {
-      router.replace({
-        pathname: "/create-listing/publish2",
-        params: { listingId },
-      });
-    }, 2000);
-
-    return () => clearTimeout(timer);
-  }, [listingId]);
+  // Listing successfully submitted - user can now choose to go to dashboard or view listing
 
   const handleGoToDashboard = () => {
     router.dismissAll();

@@ -3,20 +3,20 @@
  * Choose between For Rent or For Sale
  */
 
-import React, { useState, useEffect } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
 import {
-  View,
-  Text,
+  Platform,
   Pressable,
   StyleSheet,
-  Platform,
+  Text,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
 import Svg, { Path } from 'react-native-svg';
 import CancelConfirmationModal from '../../src/components/create-listing/CancelConfirmationModal';
-import draftListingService from '../../src/services/draftListingService';
 import useDraftListing from '../../src/hooks/useDraftListing';
+import draftListingService from '../../src/services/draftListingService';
 
 // Close X Icon - with explicit dimensions for web
 const CloseIcon = ({ size = 24, color = '#000000' }) => (

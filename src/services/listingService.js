@@ -16,6 +16,7 @@ export const LISTING_STATUSES = {
   SOLD: "SOLD",
   REJECTED: "REJECTED",
   SUSPENDED: "SUSPENDED",
+  PAUSED: "PAUSED",
 };
 
 // Listing Status Display Names
@@ -26,6 +27,7 @@ export const LISTING_STATUS_LABELS = {
   [LISTING_STATUSES.SOLD]: "Sold",
   [LISTING_STATUSES.REJECTED]: "Rejected",
   [LISTING_STATUSES.SUSPENDED]: "Suspended",
+  [LISTING_STATUSES.PAUSED]: "Paused",
 };
 
 // Listing Status Colors for UI
@@ -36,6 +38,7 @@ export const LISTING_STATUS_COLORS = {
   [LISTING_STATUSES.SOLD]: "#6B7280", // gray
   [LISTING_STATUSES.REJECTED]: "#EF4444", // red
   [LISTING_STATUSES.SUSPENDED]: "#F97316", // orange
+  [LISTING_STATUSES.PAUSED]: "#FD3131", // red
 };
 
 class ListingService {
@@ -378,17 +381,28 @@ class ListingService {
         },
       );
 
-      console.log("[ListingService] User listings fetched successfully");
-      console.log("[ListingService] Response:", response);
+      const listings =
+        response && response.body
+          ? response.body
+          : response && response.data
+            ? response.data
+            : [];
+
+      console.log(
+        `✅ [ListingService] Fetched ${listings.length} host listings`,
+      );
+
+      // Log status breakdown for better debugging
+      const statusBreakdown = listings.reduce((acc, l) => {
+        const s = l.status || "UNKNOWN";
+        acc[s] = (acc[s] || 0) + 1;
+        return acc;
+      }, {});
+      console.log("📋 [ListingService] Status Breakdown:", statusBreakdown);
 
       return {
         success: true,
-        listings:
-          response && response.body
-            ? response.body
-            : response && response.data
-              ? response.data
-              : [],
+        listings: listings,
       };
     } catch (error) {
       console.error("[ListingService] Error fetching user listings:", error);
@@ -577,11 +591,6 @@ class ListingService {
       const response = await apiClient.patch(
         "/v1/listings/listing/update/" + listingId,
         updateData,
-        {
-          headers: {
-            Authorization: "Bearer " + token,
-          },
-        },
       );
 
       console.log("[ListingService] Listing updated successfully");
@@ -707,8 +716,63 @@ class ListingService {
       console.error("[ListingService] Error deleting listing:", error);
       return {
         success: false,
-        message: error?.response?.message || error?.message || "Failed to delete listing",
+        message:
+          error?.response?.message ||
+          error?.message ||
+          "Failed to delete listing",
       };
+    }
+  }
+
+  /**
+   * Toggle listing availability (pause/unpause)
+   * Pausing sets status to PAUSED, unpausing restores to AVAILABLE
+   * @param {string} listingId - The listing ID
+   * @param {boolean} pause - true to pause, false to unpause
+   * @returns {Promise<Object>} Result with updated listing
+   */
+  async toggleListingAvailability(listingId, pause) {
+    console.log(
+      `[ListingService] ${pause ? "Pausing" : "Unpausing"} listing:`,
+      listingId,
+    );
+    try {
+      const token = await authService.getToken();
+      if (!token) {
+        return { success: false, message: "Authentication required" };
+      }
+
+      const newStatus = pause ? "PAUSED" : "AVAILABLE";
+      const response = await apiClient.patch(
+        "/v1/listings/listing/update/" + listingId,
+        { status: newStatus },
+      );
+
+      console.log(
+        `[ListingService] Listing ${pause ? "paused" : "unpaused"} successfully`,
+      );
+      return {
+        success: true,
+        message: `Listing ${pause ? "paused" : "resumed"} successfully`,
+        listing: response?.body || response?.data,
+      };
+    } catch (error) {
+      console.error(
+        `[ListingService] Error ${pause ? "pausing" : "unpausing"} listing:`,
+        error,
+      );
+
+      let userMessage = `Failed to ${pause ? "pause" : "resume"} listing`;
+      if (error.status === 403) {
+        userMessage =
+          "Permission denied. You can only update your own listings.";
+      } else if (error.status === 401) {
+        userMessage = "Session expired. Please log in again.";
+      } else if (error.status === 404) {
+        userMessage = "Listing not found.";
+      }
+
+      return { success: false, message: userMessage };
     }
   }
 
@@ -1014,9 +1078,7 @@ class ListingService {
       const categorized = NetworkErrorHandler.categorizeError(error);
       return {
         success: false,
-        message:
-          categorized.userMessage ||
-          "Failed to upload videos. Please try again.",
+        message: categorized.userMessage || "Failed to upload videos. Please try again.",
         error: categorized.type,
         details: error.message,
       };
@@ -1026,31 +1088,67 @@ class ListingService {
   /**
    * Upload photos for a listing
    * @param {string} listingId - The listing ID
-   * @param {Array} photos - Array of photo URIs or FormData
+   * @param {Array} photos - Array of photo URIs
    * @returns {Promise<Object>} Response
    */
   async uploadListingPhotos(listingId, photos) {
     console.log("[ListingService] Uploading photos for listing:", listingId);
+    if (!photos || photos.length === 0) return { success: true, photos: [] };
+
     try {
       const token = await authService.getToken();
-      if (!token) {
-        return {
-          success: false,
-          message: "Authentication required",
-        };
+      const baseURL = await configService.getBaseURL();
+      const formData = new FormData();
+
+      for (let i = 0; i < photos.length; i++) {
+        let uri = photos[i];
+        if (typeof uri !== 'string') uri = uri.url || uri.uri;
+        if (!uri) continue;
+
+        if (Platform.OS === "web") {
+          try {
+            let blob;
+            if (uri.startsWith("data:")) {
+              const parts = uri.split(",");
+              const byteCharacters = atob(parts[1]);
+              const byteNumbers = new Array(byteCharacters.length);
+              for (let j = 0; j < byteCharacters.length; j++) byteNumbers[j] = byteCharacters.charCodeAt(j);
+              const byteArray = new Uint8Array(byteNumbers);
+              blob = new Blob([byteArray], { type: "image/jpeg" });
+            } else {
+              const resp = await fetch(uri);
+              blob = await resp.blob();
+            }
+            formData.append("photos", blob, `photo_${i}.jpg`);
+          } catch (err) {
+            console.error("[ListingService] Web photo prepare error:", err);
+            continue;
+          }
+        } else {
+          // Native
+          const filename = uri.split("/").pop() || `photo_${i}.jpg`;
+          const match = /\.(\w+)$/.exec(filename);
+          const type = match ? `image/${match[1]}` : `image/jpeg`;
+          formData.append("photos", { uri, name: filename, type });
+        }
       }
 
-      console.log("[ListingService] Photo upload not yet implemented");
+      const response = await fetch(`${baseURL}/v1/listings/listing/upload-photos/${listingId}`, {
+        method: "POST",
+        headers: { Authorization: "Bearer " + token },
+        body: formData,
+      });
+
+      if (!response.ok) throw new Error(`Upload failed: ${response.status}`);
+      const data = await response.json();
+      
       return {
-        success: false,
-        message: "Photo upload not yet implemented",
+        success: true,
+        photos: data.body?.photos || data.photos || [],
       };
     } catch (error) {
-      console.error("[ListingService] Error uploading photos:", error);
-      return {
-        success: false,
-        message: "Failed to upload photos",
-      };
+      console.error("[ListingService] Photo upload error:", error);
+      return { success: false, message: error.message };
     }
   }
 
@@ -1074,29 +1172,26 @@ class ListingService {
       if (payload.intent) {
         payload.intent = String(payload.intent).toUpperCase();
       }
-      
+
       // Ensure houseRules is a string to prevent validation errors
-      if (payload.houseRules && typeof payload.houseRules === 'object') {
+      if (payload.houseRules && typeof payload.houseRules === "object") {
         payload.houseRules = JSON.stringify(payload.houseRules, null, 2);
       }
 
       let response;
-      // If we have a mongo _id, or if draftId is a mongo ObjectId format
-      const hasMongoId =
-        draftData._id ||
-        (draftData.draftId &&
-          !draftData.draftId.startsWith("draft_") &&
-          !draftData.draftId.startsWith("edit_"));
-      const existingId =
-        draftData._id || (hasMongoId ? draftData.draftId : null);
+      // Only update (PATCH) if the draft has been previously synced to backend (_id exists)
+      // If no _id, always create (POST) a new draft
+      const existingId = draftData._id;
 
       if (existingId) {
+        console.log("[ListingService] Updating existing draft:", existingId);
         response = await apiClient.patch(
           "/v1/listings/listing/update/" + existingId,
-          { update: payload },
+          payload, // REMOVED nested { update: ... }
           { headers: { Authorization: "Bearer " + token } },
         );
       } else {
+        console.log("[ListingService] Creating new draft");
         response = await apiClient.post(
           "/v1/listings/listing/create",
           payload,
@@ -1185,7 +1280,10 @@ class ListingService {
           "[ListingService] Draft ID is not a valid ObjectId, skipping backend delete:",
           draftId,
         );
-        return { success: true, message: "Local draft deleted (no valid backend ID)." };
+        return {
+          success: true,
+          message: "Local draft deleted (no valid backend ID).",
+        };
       }
 
       const token = await authService.getToken();
@@ -1203,7 +1301,9 @@ class ListingService {
       // Treat 404 as success — the draft is already gone from the server
       const status = error?.status || error?.response?.status;
       if (status === 404) {
-        console.log("[ListingService] Draft already deleted from server (404).");
+        console.log(
+          "[ListingService] Draft already deleted from server (404).",
+        );
         return { success: true, message: "Draft already deleted." };
       }
       console.error("[ListingService] Error deleting draft:", error);

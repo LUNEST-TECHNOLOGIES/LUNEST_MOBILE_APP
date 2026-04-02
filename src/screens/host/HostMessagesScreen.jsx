@@ -3,17 +3,15 @@
  * Shows all messages/conversations for the host
  */
 
-import React from 'react';
 import {
-  View,
-  Text,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  useWindowDimensions,
+    ScrollView,
+    StyleSheet,
+    Text,
+    useWindowDimensions,
+    View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Svg, { Path, Circle, Rect } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 
 const MessageIcon = ({ size = 60, color = '#CCCCCC' }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -31,9 +29,6 @@ const HostMessagesScreen = () => {
   const { width } = useWindowDimensions();
   const containerWidth = Math.min(width - 40, 500);
 
-  // Placeholder - will be replaced with actual messages
-  const messages = [];
-
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
@@ -46,18 +41,13 @@ const HostMessagesScreen = () => {
         contentContainerStyle={[styles.scrollContent, { alignItems: 'center' }]}
         showsVerticalScrollIndicator={false}
       >
-        {messages.length === 0 ? (
-          <View style={[styles.emptyContainer, { width: containerWidth }]}>
-            <MessageIcon size={80} color="#CCCCCC" />
-            <Text style={styles.emptyTitle}>No Messages Yet</Text>
-            <Text style={styles.emptySubtext}>
-              When guests contact you about your listings, their messages will appear here
-            </Text>
-          </View>
-        ) : (
-          // TODO: Render messages list
-          <View />
-        )}
+        <View style={[styles.emptyContainer, { width: containerWidth }]}>
+          <MessageIcon size={80} color="#CCCCCC" />
+          <Text style={styles.emptyTitle}>Coming Soon!</Text>
+          <Text style={styles.emptySubtext}>
+            Messaging feature is under development.
+          </Text>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );

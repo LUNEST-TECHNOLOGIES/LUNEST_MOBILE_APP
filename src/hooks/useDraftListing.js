@@ -5,8 +5,8 @@
  * Ensures all user selections are retained across navigation
  */
 
-import { useEffect, useState, useCallback } from 'react';
 import { useLocalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
 import draftListingService from '../services/draftListingService';
 
 export const useDraftListing = () => {

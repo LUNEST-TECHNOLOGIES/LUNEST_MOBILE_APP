@@ -1,16 +1,16 @@
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View
 } from "react-native";
 import configService from "../../services/configService";
 import listingService from "../../services/listingService";
 import * as ImageUtils from "../../utils/imageUtils";
 import PropertyCard from "../PropertyCard";
+import { HorizontalPropertySkeleton } from "../skeletons";
 import SectionHeader from "./SectionHeader";
 
 // Local property image
@@ -38,21 +38,43 @@ const TopPicksSection = ({
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // If external listings are provided, use them
+    // If external listings are provided, use them (from HomeScreen location-based filtering)
     if (externalListings && externalListings.length > 0) {
-      // Transform external listings to ensure image format is correct
-      const transformedExternal = externalListings.map((listing) => ({
-        ...listing,
-        // Ensure image is in correct format for PropertyCard
-        image: listing.image
-          ? typeof listing.image === "string"
-            ? listing.image
-            : listing.image
-          : propImage,
-      }));
-      setListings(transformedExternal);
-      setLoading(false);
+      console.log(
+        "✅ [TopPicksSection] Received",
+        externalListings.length,
+        "external listings (location-based from HomeScreen)",
+      );
+      const getBase = async () => {
+        try {
+          const baseURL = await configService.getBaseURL();
+          // Transform external listings to ensure image format is correct
+          const transformedExternal = externalListings.map((listing) => ({
+            ...listing,
+            // Ensure image is in correct format for PropertyCard
+            image: listing.image
+              ? { uri: ImageUtils.resolveImageUrlSync(listing.image, baseURL) }
+              : listing.propertyImages?.[0]
+                ? { uri: ImageUtils.resolveImageUrlSync(listing.propertyImages[0], baseURL) }
+                : null,
+          }));
+          setListings(transformedExternal);
+          console.log(
+            "✅ [TopPicksSection] Transformed",
+            transformedExternal.length,
+            "listings with resolved image URLs",
+          );
+          setLoading(false);
+        } catch (error) {
+          console.error("❌ [TopPicksSection] Error transforming listings:", error);
+          setLoading(false);
+        }
+      };
+      getBase();
     } else {
+      console.log(
+        "ℹ️ [TopPicksSection] No external listings provided - falling back to fetch all",
+      );
       loadTopPickListings();
     }
   }, [externalListings]);
@@ -60,7 +82,7 @@ const TopPicksSection = ({
   const loadTopPickListings = async () => {
     try {
       setLoading(true);
-      console.log("[TopPicksSection] Fetching top pick listings...");
+      console.log("🔍 [TopPicksSection] Fetching top pick listings (no location filter)...");
 
       // Fetch published listings (AVAILABLE and BOOKED) with limit for top picks
       const baseURL = await configService.getBaseURL();
@@ -74,22 +96,47 @@ const TopPicksSection = ({
           id: listing._id || listing.id,
           image: listing.propertyImages?.[0]
             ? { uri: ImageUtils.resolveImageUrlSync(listing.propertyImages[0], baseURL) }
-            : propImage,
+            : null,
           title: listing.propertyName || listing.propertyTitle || "Untitled",
-          location:
-            listing.propertyLocation?.fullAddress ||
-            listing.propertyLocation?.city ||
-            listing.address ||
-            "Unknown Location",
+          location: (() => {
+            const city = listing.propertyLocation?.city || listing.city;
+            const state = listing.propertyLocation?.state || listing.state;
+            
+            if (city && state) {
+              return `${city}, ${state}`;
+            } else if (city) {
+              return city;
+            } else if (state) {
+              return state;
+            } else {
+              // Try to extract from address field
+              const address = listing.propertyLocation?.fullAddress || listing.address;
+              if (address && typeof address === 'string') {
+                // Look for common patterns like "City, State" or "City State"
+                const parts = address.split(',').map(p => p.trim()).filter(p => p);
+                if (parts.length >= 2) {
+                  return `${parts[0]}, ${parts[1]}`;
+                } else if (parts.length === 1) {
+                  // Try to split by space for patterns like "Lagos Nigeria"
+                  const spaceParts = parts[0].split(' ').filter(p => p.length > 2);
+                  if (spaceParts.length >= 2) {
+                    return `${spaceParts[0]}, ${spaceParts[1]}`;
+                  }
+                }
+              }
+              return address || "Nigeria";
+            }
+          })(),
           price: listing.propertyPrice?.price || listing.price || 0,
           currency:
             listing.propertyPrice?.currency || listing.currency || "NGN",
-          rating: listing.rating || 4.5,
+          rating: listing.averageRating || listing.rating || null,
           isFavorite: false, // Can be enhanced with bookmark check
           host: listing.host || {},
           propertyType: listing.propertyType,
           bedrooms: listing.bedrooms,
           bathrooms: listing.bathrooms,
+          amenities: listing.amenities || [],
           guests: listing.guests,
           status: listing.status || "AVAILABLE", // Include status for availability display
           isAvailable: listing.status === "AVAILABLE", // Show as bookable
@@ -98,16 +145,19 @@ const TopPicksSection = ({
 
         setListings(transformedListings);
         console.log(
-          "[TopPicksSection] Loaded",
+          "✅ [TopPicksSection] Loaded",
           transformedListings.length,
-          "listings",
+          "listings (no location filter)",
         );
       } else {
-        console.log("[TopPicksSection] No listings available");
+        console.log("ℹ️ [TopPicksSection] No listings available");
         setListings([]);
       }
     } catch (error) {
-      console.error("[TopPicksSection] Error loading listings:", error);
+      console.error(
+        "❌ [TopPicksSection] Error loading listings:",
+        error.message || error,
+      );
       setListings([]);
     } finally {
       setLoading(false);
@@ -138,7 +188,7 @@ const TopPicksSection = ({
     console.log("Favorite toggled:", id, isFavorite);
   };
 
-  // Show loading indicator if loading
+  // Show skeleton loading state
   if (loading) {
     return (
       <View style={styles.container}>
@@ -147,9 +197,15 @@ const TopPicksSection = ({
           icon="flame"
           showSeeAll={false}
         />
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="small" color="#192DFF" />
-        </View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.skeletonScrollContent}
+        >
+          <HorizontalPropertySkeleton />
+          <HorizontalPropertySkeleton />
+          <HorizontalPropertySkeleton />
+        </ScrollView>
       </View>
     );
   }
@@ -207,6 +263,9 @@ const TopPicksSection = ({
               price={listing.price}
               rating={listing.rating}
               isFavorite={isFavorite}
+              bedrooms={listing.bedrooms}
+              bathrooms={listing.bathrooms}
+              amenities={listing.amenities}
               onPress={() => handlePropertyPress(listing)}
               onFavoritePress={handleFavoritePress}
             />
@@ -228,6 +287,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "stretch",
     gap: 12, // Ensures spacing between cards (supported in RN 0.71+)
+  },
+  skeletonScrollContent: {
+    paddingVertical: 8,
+    paddingRight: 16,
+    paddingLeft: 8,
+    flexDirection: "row",
+    gap: 12,
   },
   loadingContainer: {
     paddingVertical: 20,

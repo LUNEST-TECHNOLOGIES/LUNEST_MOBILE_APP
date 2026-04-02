@@ -4,18 +4,24 @@
  * Status types: CONFIRMED, PENDING, FAILED
  */
 import { Ionicons } from "@expo/vector-icons";
+import * as FileSystem from "expo-file-system/legacy";
 import { useRouter } from "expo-router";
+import * as Sharing from "expo-sharing";
 import { useCallback, useEffect, useState } from "react";
 import {
     ActivityIndicator,
+    Alert,
     FlatList,
+    Platform,
     Pressable,
     RefreshControl,
     StyleSheet,
     Text,
     TouchableOpacity,
+    TouchableWithoutFeedback,
     View,
 } from "react-native";
+import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 import authService from "../../services/authService";
@@ -35,7 +41,7 @@ const BackIcon = ({ size = 24, color = "black" }) => (
 
 // Transaction type icons and colors
 const TRANSACTION_CONFIG = {
-  // New unified categories
+  // ── Guest-side categories ──
   BOOKING: {
     icon: "calendar-outline",
     label: "Booking Payment",
@@ -71,19 +77,49 @@ const TRANSACTION_CONFIG = {
     flow: "inflow",
     description: "Booking refund",
   },
+  // ── Host-side categories ──
   HOST_EARNING: {
-    icon: "home-outline",
-    label: "Rent Income (Net)",
+    icon: "cash-outline",
+    label: "Net Earning",
     color: "#2E7D32",
     flow: "inflow",
-    description: "Earned from guest booking (net of fees)",
+    description: "Net earning after fees",
   },
+  RENT: {
+    icon: "home-outline",
+    label: "Rent Income",
+    color: "#2E7D32",
+    flow: "inflow",
+    description: "Rent payment from guest",
+  },
+  SERVICE_CHARGE: {
+    icon: "construct-outline",
+    label: "Service Charge",
+    color: "#2E7D32",
+    flow: "inflow",
+    description: "Service/cleaning fee from guest",
+  },
+  // ── Shared categories (both guest & host) ──
   PLATFORM_FEE: {
     icon: "card-outline",
-    label: "App fee (deduction)",
+    label: "App Fee",
     color: "#B70808",
     flow: "outflow",
     description: "Platform service fee",
+  },
+  VAT: {
+    icon: "receipt-outline",
+    label: "VAT",
+    color: "#B70808",
+    flow: "outflow",
+    description: "Value Added Tax on app fee",
+  },
+  SECURITY_DEPOSIT: {
+    icon: "lock-closed-outline",
+    label: "Caution Fee",
+    color: "#EF6C00",
+    flow: "outflow",
+    description: "Refundable caution fee",
   },
   TRANSFER: {
     icon: "swap-horizontal-outline",
@@ -92,14 +128,21 @@ const TRANSACTION_CONFIG = {
     flow: "outflow",
     description: "Wallet transfer",
   },
-  SECURITY_DEPOSIT: {
-    icon: "lock-closed-outline",
-    label: "Caution Fee",
-    color: "#192DFF",
+  COUPON_PAYMENT: {
+    icon: "pricetag-outline",
+    label: "Coupon Payment",
+    color: "#2E7D32",
     flow: "outflow",
-    description: "Held caution fee",
+    description: "Coupon discount applied",
   },
-  // Legacy types for backward compatibility
+  COUPON_FULL_COVERAGE: {
+    icon: "pricetag-outline",
+    label: "Coupon Full Coverage",
+    color: "#1B8A22",
+    flow: "outflow",
+    description: "Full booking amount covered by coupon",
+  },
+  // ── Legacy / backward-compat categories ──
   BOOKING_PAYMENT: {
     icon: "calendar-outline",
     label: "Booking Payment",
@@ -130,7 +173,7 @@ const TRANSACTION_CONFIG = {
   },
   APP_CHARGE: {
     icon: "card-outline",
-    label: "App fee (deduction)",
+    label: "App Fee",
     color: "#B70808",
     flow: "outflow",
     description: "Platform service fee",
@@ -142,7 +185,7 @@ const TRANSACTION_CONFIG = {
     flow: "inflow",
     description: "Promotional reward",
   },
-  // Cancellation transaction types
+  // ── Cancellation categories ──
   CANCELLATION_PENALTY: {
     icon: "alert-circle-outline",
     label: "Cancellation Penalty",
@@ -156,21 +199,6 @@ const TRANSACTION_CONFIG = {
     color: "#0308AC",
     flow: "inflow",
     description: "Refund from booking cancellation",
-  },
-  // Booking breakdown types (host-side) — legacy, kept for backward compatibility
-  RENT: {
-    icon: "home-outline",
-    label: "Rent Income",
-    color: "#2E7D32",
-    flow: "inflow",
-    description: "Rent payment for booking",
-  },
-  SERVICE_CHARGE: {
-    icon: "construct-outline",
-    label: "Service Charge",
-    color: "#2E7D32",
-    flow: "inflow",
-    description: "Service/cleaning fee for booking",
   },
 };
 
@@ -215,11 +243,40 @@ const TransactionHistoryScreen = () => {
   const [totalOutflow, setTotalOutflow] = useState(0);
   const [error, setError] = useState(null);
 
+  // States for Export Modal
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [fromDate, setFromDate] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+  const [toDate, setToDate] = useState(new Date());
+  const [showFromPicker, setShowFromPicker] = useState(false);
+  const [showToPicker, setShowToPicker] = useState(false);
+  const [exportFormat, setExportFormat] = useState("pdf"); // 'pdf' or 'csv'
+  const [exporting, setExporting] = useState(false);
+
+  const months = [
+    { label: "January", value: 0 },
+    { label: "February", value: 1 },
+    { label: "March", value: 2 },
+    { label: "April", value: 3 },
+    { label: "May", value: 4 },
+    { label: "June", value: 5 },
+    { label: "July", value: 6 },
+    { label: "August", value: 7 },
+    { label: "September", value: 8 },
+    { label: "October", value: 9 },
+    { label: "November", value: 10 },
+    { label: "December", value: 11 },
+  ];
+
+  const currentYear = new Date().getFullYear();
+  const years = Array.from(new Array(5), (val, index) => currentYear - index);
+
   // Group transactions by month
   const groupTransactionsByMonth = (txns) => {
     const grouped = {};
     // Filter valid transactions
-    const validTxns = txns.filter(txn => txn && typeof txn === 'object' && txn.amount !== undefined);
+    const validTxns = txns.filter(
+      (txn) => txn && typeof txn === "object" && txn.amount !== undefined,
+    );
     validTxns.forEach((txn) => {
       const date = new Date(txn.timestamp || txn.createdAt);
       const monthYear = date.toLocaleString("en-US", {
@@ -302,7 +359,10 @@ const TransactionHistoryScreen = () => {
 
         // Ensure txnList is an array
         if (!Array.isArray(txnList)) {
-          console.error("[TransactionHistory] txnList is not an array:", txnList);
+          console.error(
+            "[TransactionHistory] txnList is not an array:",
+            txnList,
+          );
           setTransactions([]);
           setTotalInflow(0);
           setTotalOutflow(0);
@@ -310,11 +370,30 @@ const TransactionHistoryScreen = () => {
         }
 
         // Filter out invalid transactions
-        const validTxns = txnList.filter(txn => txn && typeof txn === 'object');
-        console.log("[TransactionHistory] Valid transactions:", validTxns.length);
+        const validTxns = txnList.filter(
+          (txn) => txn && typeof txn === "object",
+        );
+        console.log(
+          "[TransactionHistory] Valid transactions:",
+          validTxns.length,
+        );
+
+        // Remove duplicates based on unique identifiers
+        const uniqueTxns = validTxns.filter((txn, index, self) => {
+          // Create unique key based on multiple fields to identify duplicates
+          const uniqueKey = `${txn.type}_${txn.amount}_${txn.timestamp || txn.createdAt}_${txn.bookingRef || txn.metadata?.bookingRef || ''}`;
+          return index === self.findIndex((t) => 
+            `${t.type}_${t.amount}_${t.timestamp || t.createdAt}_${t.bookingRef || t.metadata?.bookingRef || ''}` === uniqueKey
+          );
+        });
+        
+        console.log(
+          "[TransactionHistory] Unique transactions after deduplication:",
+          uniqueTxns.length,
+        );
 
         // Map category to type for UI compatibility
-        const mappedTxns = validTxns.map((txn) => ({
+        const mappedTxns = uniqueTxns.map((txn) => ({
           ...txn,
           // Use category as the display type; preserve original CREDIT/DEBIT as originalType
           originalType: txn.type,
@@ -389,9 +468,13 @@ const TransactionHistoryScreen = () => {
   const getFilteredTransactions = () => {
     if (activeFilter === "ALL") return transactions;
     if (activeFilter === "INFLOW") {
-      return transactions.filter((txn) => isInflowTransaction(txn.type, txn.originalType));
+      return transactions.filter((txn) =>
+        isInflowTransaction(txn.type, txn.originalType),
+      );
     }
-    return transactions.filter((txn) => !isInflowTransaction(txn.type, txn.originalType));
+    return transactions.filter(
+      (txn) => !isInflowTransaction(txn.type, txn.originalType),
+    );
   };
 
   const formatAmount = (amount) => {
@@ -401,20 +484,333 @@ const TransactionHistoryScreen = () => {
   const formatDate = (dateStr) => {
     const date = new Date(dateStr);
     const day = date.getDate();
-    const weekday = date.toLocaleString("en-US", { weekday: "short" });
+    const month = date.toLocaleString("en-US", { month: "short" });
+    const year = date.getFullYear();
     const time = date.toLocaleString("en-US", {
       hour: "2-digit",
       minute: "2-digit",
       hour12: true,
     });
-    return `${day} ${weekday}, ${time.toLowerCase()}`;
+    return `${day} ${month} ${year}, ${time.toLowerCase()}`;
+  };
+
+  // Download transaction report from backend API (works on iOS, Android, and Web)
+  const downloadTransactionReport = async () => {
+    setShowExportModal(false);
+
+    setShowExportModal(false);
+
+    // Use selected date objects directly, adjusting to start/end of day
+    const start = new Date(fromDate.getFullYear(), fromDate.getMonth(), fromDate.getDate(), 0, 0, 0);
+    const end = new Date(toDate.getFullYear(), toDate.getMonth(), toDate.getDate(), 23, 59, 59);
+
+    if (start > end) {
+      Alert.alert(
+        "Invalid Range",
+        'The "From" date cannot be after the "To" date.',
+      );
+      return;
+    }
+
+    try {
+      setExporting(true);
+
+      const token = await authService.getToken();
+      const baseURL = await configService.getBaseURL();
+
+      if (!token) {
+        Alert.alert("Error", "Please log in to download your statement.");
+        return;
+      }
+
+      // Build query params for the backend statement API
+      const params = new URLSearchParams();
+      params.append("startDate", start.toISOString());
+      params.append("endDate", end.toISOString());
+
+      const format = exportFormat; // 'pdf' or 'csv'
+      const url = `${baseURL}/v1/statements/${format}?${params.toString()}`;
+
+      console.log(
+        `[TransactionHistory] Downloading ${format.toUpperCase()} from:`,
+        url,
+      );
+
+      const fileExt = format === "pdf" ? "pdf" : "csv";
+      const mimeType = format === "pdf" ? "application/pdf" : "text/csv";
+      const dateSuffix = new Date().toISOString().split("T")[0];
+      const fileName = `LUNEST_Statement_${dateSuffix}.${fileExt}`;
+
+      if (Platform.OS === "web") {
+        // Web: use fetch + blob + anchor download
+        const response = await fetch(url, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: mimeType,
+          },
+        });
+
+        if (!response.ok) {
+          console.error(
+            "[TransactionHistory] Web download failed:",
+            response.status,
+          );
+          Alert.alert(
+            "Error",
+            "Failed to download statement. Please try again.",
+          );
+          return;
+        }
+
+        const blob = await response.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = blobUrl;
+        anchor.download = fileName;
+        document.body.appendChild(anchor);
+        anchor.click();
+        document.body.removeChild(anchor);
+        URL.revokeObjectURL(blobUrl);
+
+        Alert.alert("Success", "Statement downloaded successfully.");
+      } else {
+        // Native (iOS/Android): use FileSystem + Sharing
+        const fileUri = `${FileSystem.cacheDirectory}${fileName}`;
+
+        const downloadResult = await FileSystem.downloadAsync(url, fileUri, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: mimeType,
+          },
+        });
+
+        if (downloadResult.status !== 200) {
+          console.error(
+            "[TransactionHistory] Download failed:",
+            downloadResult.status,
+          );
+          Alert.alert(
+            "Error",
+            "Failed to download statement. Please try again.",
+          );
+          return;
+        }
+
+        // Share the downloaded file
+        const isAvailable = await Sharing.isAvailableAsync();
+        if (isAvailable) {
+          await Sharing.shareAsync(downloadResult.uri, {
+            mimeType,
+            dialogTitle: `Share Transaction ${format.toUpperCase()}`,
+            UTI:
+              format === "pdf"
+                ? "com.adobe.pdf"
+                : "public.comma-separated-values-text",
+          });
+        } else {
+          Alert.alert("Success", `Statement saved to ${downloadResult.uri}`);
+        }
+      }
+    } catch (error) {
+      console.error("[TransactionHistory] Download Error:", error);
+      Alert.alert(
+        "Error",
+        "Failed to download statement. Please check your connection and try again.",
+      );
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  // Render Export Overlay (Bottom Sheet Style)
+  const renderExportModal = () => {
+    if (!showExportModal) return null;
+
+    return (
+      <View style={styles.overlayRoot}>
+        <TouchableWithoutFeedback onPress={() => setShowExportModal(false)}>
+          <View style={styles.overlayBackdrop} />
+        </TouchableWithoutFeedback>
+        <View style={styles.overlaySheet}>
+          <View style={styles.overlayHandleRow}>
+            <View style={styles.overlayHandle} />
+          </View>
+          <View style={styles.overlayHeaderRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.overlayTitle}>Download Statement</Text>
+              <Text style={styles.overlaySubtitle}>
+                Choose format and date range
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={styles.overlayCloseBtn}
+              onPress={() => setShowExportModal(false)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons name="close" size={22} color="#010135" />
+            </TouchableOpacity>
+          </View>
+
+          <Text style={styles.overlaySectionLabel}>FORMAT</Text>
+          <View style={styles.formatRow}>
+            <TouchableOpacity
+              style={[
+                styles.formatChip,
+                exportFormat === "pdf" && styles.formatChipActive,
+              ]}
+              onPress={() => setExportFormat("pdf")}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name="document-text-outline"
+                size={16}
+                color={exportFormat === "pdf" ? "#FFFFFF" : "#010135"}
+              />
+              <Text
+                style={[
+                  styles.formatChipText,
+                  exportFormat === "pdf" && styles.formatChipTextActive,
+                ]}
+              >
+                PDF Statement
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.formatChip,
+                exportFormat === "csv" && styles.formatChipActive,
+              ]}
+              onPress={() => setExportFormat("csv")}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name="grid-outline"
+                size={16}
+                color={exportFormat === "csv" ? "#FFFFFF" : "#010135"}
+              />
+              <Text
+                style={[
+                  styles.formatChipText,
+                  exportFormat === "csv" && styles.formatChipTextActive,
+                ]}
+              >
+                CSV Spreadsheet
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <Text style={styles.overlaySectionLabel}>DATE RANGE</Text>
+          <View style={styles.dateRangeCard}>
+            <View style={styles.dateRow}>
+              <Text style={styles.dateLabel}>From</Text>
+              <TouchableOpacity
+                style={styles.datePickerField}
+                onPress={() => setShowFromPicker(true)}
+              >
+                <Ionicons
+                  name="calendar-outline"
+                  size={16}
+                  color="#192DFF"
+                  style={{ marginRight: 8 }}
+                />
+                <Text style={styles.dateText}>
+                  {fromDate.toLocaleDateString("en-GB", {
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
+                  })}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.dateDivider} />
+
+            <View style={styles.dateRow}>
+              <Text style={styles.dateLabel}>To</Text>
+              <TouchableOpacity
+                style={styles.datePickerField}
+                onPress={() => setShowToPicker(true)}
+              >
+                <Ionicons
+                  name="calendar-outline"
+                  size={16}
+                  color="#192DFF"
+                  style={{ marginRight: 8 }}
+                />
+                <Text style={styles.dateText}>
+                  {toDate.toLocaleDateString("en-GB", {
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
+                  })}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <TouchableOpacity
+            style={[
+              styles.downloadBtn,
+              exporting && styles.downloadBtnDisabled,
+            ]}
+            onPress={downloadTransactionReport}
+            disabled={exporting}
+            activeOpacity={0.8}
+          >
+            {exporting ? (
+              <ActivityIndicator
+                size="small"
+                color="#FFFFFF"
+                style={{ marginRight: 8 }}
+              />
+            ) : (
+              <Ionicons
+                name="download-outline"
+                size={20}
+                color="#FFFFFF"
+                style={{ marginRight: 8 }}
+              />
+            )}
+            <Text style={styles.downloadBtnText}>
+              {exporting
+                ? "Generating Statement..."
+                : `Download ${exportFormat.toUpperCase()}`}
+            </Text>
+          </TouchableOpacity>
+
+          <DateTimePickerModal
+            isVisible={showFromPicker}
+            mode="date"
+            date={fromDate}
+            onConfirm={(date) => {
+              setFromDate(date);
+              setShowFromPicker(false);
+            }}
+            onCancel={() => setShowFromPicker(false)}
+            maximumDate={new Date()}
+          />
+
+          <DateTimePickerModal
+            isVisible={showToPicker}
+            mode="date"
+            date={toDate}
+            onConfirm={(date) => {
+              setToDate(date);
+              setShowToPicker(false);
+            }}
+            onCancel={() => setShowToPicker(false)}
+            maximumDate={new Date()}
+          />
+        </View>
+      </View>
+    );
   };
 
   // Render single transaction item
   const renderTransactionItem = ({ item }) => {
     // Validate item
-    if (!item || typeof item !== 'object' || item.amount === undefined) {
-      console.error('[TransactionHistory] Invalid transaction item:', item);
+    if (!item || typeof item !== "object" || item.amount === undefined) {
+      console.error("[TransactionHistory] Invalid transaction item:", item);
       return null;
     }
 
@@ -424,22 +820,77 @@ const TransactionHistoryScreen = () => {
 
     // Format payment method for display
     const paymentMethod = item.method || "SYSTEM";
-    const methodLabel = paymentMethod === "PAYSTACK" ? "Paystack" :
-                       paymentMethod === "WALLET" ? "Wallet" : paymentMethod;
+    const methodLabel =
+      paymentMethod === "PAYSTACK"
+        ? "Paystack"
+        : paymentMethod === "WALLET"
+          ? "Wallet"
+          : paymentMethod;
 
-    const isStandardized = item.description && (
-      item.description.includes("(deduction)") || 
-      item.description.includes("VAT on") ||
-      item.description.includes("Host VAT") ||
-      item.description.includes("Caution Fee") ||
-      item.description.includes("Rent fee") ||
-      item.description.includes("Earnings from") ||
-      item.description.includes("Booking Payment") ||
-      item.description.includes("App fee") ||
-      item.description.includes("VAT")
-    );
+    // Use backend description when it contains a booking ref or recognizable detail
+    const isStandardized =
+      item.description &&
+      (item.description.includes("#") || // Has booking ref (e.g. - #LUN...)
+        item.description.includes("deduction") ||
+        item.description.includes("VAT on") ||
+        item.description.includes("Caution Fee") ||
+        item.description.includes("Rent Income") ||
+        item.description.includes("Rent fee") ||
+        item.description.includes("Service Charge") ||
+        item.description.includes("App Fee") ||
+        item.description.includes("App fee") ||
+        item.description.includes("net earning") ||
+        item.description.includes("Booking #"));
+
+    let displayLabel = isStandardized ? item.description : config.label;
     
-    const displayLabel = isStandardized ? item.description : config.label;
+    // Extract booking reference from various sources
+    const bookingRef = item.bookingRef || 
+                      item.metadata?.bookingRef || 
+                      item.reference?.bookingRef ||
+                      item.description?.match(/#([A-Z0-9]+)/)?.[1] ||
+                      item.description?.match(/LUN[A-Z0-9]+/)?.[0] ||
+                      "";
+    
+    // Debug: Log booking reference extraction for booking and coupon transactions
+    if ((item.type === "BOOKING" || item.type === "BOOKING_PAYMENT" || item.type === "COUPON_PAYMENT" || item.type === "COUPON_FULL_COVERAGE") && bookingRef) {
+      console.log('🔍 [TransactionHistory] Booking ref extracted:', {
+        transactionType: item.type,
+        bookingRef,
+        description: item.description,
+        metadata: item.metadata,
+        reference: item.reference
+      });
+    }
+    
+    // Explicitly handle booking payment label with booking reference
+    if (item.type === "BOOKING" || item.type === "BOOKING_PAYMENT") {
+      displayLabel = bookingRef ? `Booking Payment (${bookingRef})` : config.label;
+    }
+    
+    // Explicitly handle coupon payment label with booking reference
+    if (item.type === "COUPON_PAYMENT") {
+      const couponCode = item.couponCode || item.metadata?.couponCode;
+      const baseLabel = couponCode ? `Coupon Applied (${couponCode})` : "Coupon Discount";
+      displayLabel = bookingRef ? `${baseLabel} (${bookingRef})` : baseLabel;
+    }
+    
+    // Explicitly handle coupon full coverage label with booking reference
+    if (item.type === "COUPON_FULL_COVERAGE") {
+      const couponCode = item.couponCode || item.metadata?.couponCode;
+      const baseLabel = couponCode ? `Coupon Full Coverage (${couponCode})` : "Coupon Full Coverage";
+      displayLabel = bookingRef ? `${baseLabel} (${bookingRef})` : baseLabel;
+    }
+
+    // Explicitly handle security deposit inflow label for host/guest
+    if (item.type === "SECURITY_DEPOSIT" && isInflow) {
+      displayLabel = item.description || "Caution Fee Released";
+    }
+    
+    // Extract coupon info for display
+    const couponCode = item.couponCode || item.metadata?.couponCode;
+    const couponDiscount = item.couponDiscount || item.metadata?.couponDiscount || 0;
+    const showCouponInfo = (item.type === "BOOKING" || item.type === "BOOKING_PAYMENT") && couponDiscount > 0;
 
     return (
       <Pressable
@@ -455,6 +906,8 @@ const TransactionHistoryScreen = () => {
               dateTime: formatDate(item.timestamp || item.createdAt),
               description: item.description,
               method: methodLabel,
+              couponCode: item.couponCode || item.metadata?.couponCode || "",
+              couponDiscount: item.couponDiscount || item.metadata?.couponDiscount || "",
             },
           });
         }}
@@ -470,14 +923,17 @@ const TransactionHistoryScreen = () => {
           </View>
           <View style={styles.transactionInfo}>
             <Text style={styles.transactionType}>{displayLabel}</Text>
+            {showCouponInfo && (
+              <Text style={{ fontSize: 12, color: "#2E7D32", marginTop: 4 }}>
+                Coupon: {couponCode || "Applied"} (-₦{Number(couponDiscount).toLocaleString()})
+              </Text>
+            )}
             <View style={styles.transactionMeta}>
               <Text style={styles.transactionDate}>
                 {formatDate(item.timestamp || item.createdAt)}
               </Text>
               <View style={styles.methodBadge}>
-                <Text style={styles.transactionMethod}>
-                  {methodLabel}
-                </Text>
+                <Text style={styles.transactionMethod}>{methodLabel}</Text>
               </View>
             </View>
           </View>
@@ -580,7 +1036,12 @@ const TransactionHistoryScreen = () => {
           <BackIcon size={24} color="#000" />
         </Pressable>
         <Text style={styles.headerTitle}>Transaction History</Text>
-        <View style={styles.headerSpacer} />
+        <Pressable
+          onPress={() => setShowExportModal(true)}
+          style={styles.downloadButton}
+        >
+          <Ionicons name="download-outline" size={24} color="#000" />
+        </Pressable>
       </View>
 
       {/* Filter Tabs */}
@@ -658,6 +1119,21 @@ const TransactionHistoryScreen = () => {
           showsVerticalScrollIndicator={false}
         />
       )}
+
+      {/* Export Options Modal */}
+      {renderExportModal()}
+
+      {/* Downloading overlay */}
+      {exporting && !showExportModal && (
+        <View style={styles.downloadingOverlay}>
+          <View style={styles.downloadingCard}>
+            <ActivityIndicator size="large" color="#192DFF" />
+            <Text style={styles.downloadingText}>
+              Generating your {exportFormat.toUpperCase()} statement...
+            </Text>
+          </View>
+        </View>
+      )}
     </SafeAreaView>
   );
 };
@@ -683,6 +1159,9 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "600",
     color: "#000000",
+  },
+  downloadButton: {
+    padding: 4,
   },
   headerSpacer: {
     width: 32,
@@ -911,6 +1390,198 @@ const styles = StyleSheet.create({
   transactionAmount: {
     fontSize: 14,
     fontWeight: "500",
+  },
+  // ── Overlay (Bottom Sheet) ──
+  overlayRoot: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: "flex-end",
+    zIndex: 1000,
+  },
+  overlayBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(1, 1, 53, 0.55)",
+  },
+  overlaySheet: {
+    backgroundColor: "#FFFFFF",
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: 24,
+    paddingBottom: 36,
+    maxHeight: "82%",
+  },
+  overlayHandleRow: {
+    alignItems: "center",
+    paddingTop: 12,
+    paddingBottom: 4,
+  },
+  overlayHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#D9D9D9",
+  },
+  overlayHeaderRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    marginTop: 16,
+    marginBottom: 20,
+  },
+  overlayTitle: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: "#010135",
+    letterSpacing: -0.3,
+  },
+  overlaySubtitle: {
+    fontSize: 13,
+    color: "#7A7A7A",
+    marginTop: 4,
+  },
+  overlayCloseBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#F2F2F7",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  overlaySectionLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#999",
+    letterSpacing: 1,
+    marginBottom: 10,
+  },
+  // ── Format Chips ──
+  formatRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginBottom: 24,
+  },
+  formatChip: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 13,
+    borderRadius: 12,
+    backgroundColor: "#F2F4FF",
+    gap: 6,
+  },
+  formatChipActive: {
+    backgroundColor: "#010135",
+  },
+  formatChipText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#010135",
+  },
+  formatChipTextActive: {
+    color: "#FFFFFF",
+  },
+  // ── Date Range Card ──
+  dateRangeCard: {
+    backgroundColor: "#F8F9FC",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#ECEDF2",
+    marginBottom: 28,
+    overflow: "hidden",
+  },
+  dateRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+  },
+  dateLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#010135",
+    width: 40,
+  },
+  datePickerRow: {
+    flex: 1,
+    flexDirection: "row",
+    gap: 8,
+  },
+  datePickerField: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    paddingHorizontal: 12,
+    height: 48,
+  },
+  dateText: {
+    fontSize: 14,
+    color: "#010135",
+    fontWeight: "500",
+  },
+  dateDivider: {
+    height: 1,
+    backgroundColor: "#ECEDF2",
+    marginHorizontal: 16,
+  },
+  // ── Download Button ──
+  downloadBtn: {
+    backgroundColor: "#192DFF",
+    borderRadius: 14,
+    paddingVertical: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#192DFF",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  downloadBtnDisabled: {
+    backgroundColor: "#A0AAFF",
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  downloadBtnText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "700",
+    letterSpacing: 0.2,
+  },
+  // ── Downloading Overlay ──
+  downloadingOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 1001,
+  },
+  downloadingCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 32,
+    alignItems: "center",
+    gap: 16,
+    width: "80%",
+    maxWidth: 300,
+  },
+  downloadingText: {
+    fontSize: 15,
+    fontWeight: "500",
+    color: "#010135",
+    textAlign: "center",
   },
 });
 

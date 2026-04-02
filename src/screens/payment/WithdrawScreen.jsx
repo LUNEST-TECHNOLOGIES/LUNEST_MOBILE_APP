@@ -54,6 +54,9 @@ const WithdrawScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [toast, setToast] = useState({ visible: false, message: "", type: "success" });
 
+  // Use a ref to track the last verified combination to prevent redundant calls (429 errors)
+  const lastVerifiedKey = useRef("");
+
   // Refresh wallet balance when screen comes into focus
   useFocusEffect(
     useCallback(() => {
@@ -72,7 +75,10 @@ const WithdrawScreen = () => {
   // Auto-verify account when account number is complete and bank is selected
   useEffect(() => {
     if (accountNumber.length === 10 && selectedBank) {
-      verifyAccount();
+      const currentKey = `${selectedBank.code}-${accountNumber}`;
+      if (lastVerifiedKey.current !== currentKey) {
+        verifyAccount();
+      }
     } else {
       setAccountName("");
     }
@@ -128,6 +134,9 @@ const WithdrawScreen = () => {
   const verifyAccount = async () => {
     if (!selectedBank || accountNumber.length !== 10) return;
 
+    const currentKey = `${selectedBank.code}-${accountNumber}`;
+    lastVerifiedKey.current = currentKey;
+
     setVerifyingAccount(true);
     setAccountName("");
 
@@ -139,6 +148,8 @@ const WithdrawScreen = () => {
       setAccountName(result.account_name);
     } catch (error) {
       console.error("[Withdraw] Error verifying account:", error);
+      // Reset ref so user can try again
+      lastVerifiedKey.current = ""; 
       showToast("Could not verify account. Please check the details.", "error");
     } finally {
       setVerifyingAccount(false);
@@ -158,6 +169,10 @@ const WithdrawScreen = () => {
     const formatted = formatAmount(value);
     setAmount(formatted);
   };
+
+  // Withdrawal success state
+  const [withdrawalSuccess, setWithdrawalSuccess] = useState(false);
+  const [withdrawalDetails, setWithdrawalDetails] = useState(null);
 
   const handleWithdraw = async () => {
     const numericAmount = Number(amount);
@@ -198,12 +213,17 @@ const WithdrawScreen = () => {
       );
 
       if (result.status === "PENDING") {
-        showToast("Withdrawal initiated successfully!", "success");
-        // Refresh balance before navigating back
+        // Refresh balance immediately
         await fetchWalletBalance();
-        setTimeout(() => {
-          router.back();
-        }, 2000);
+        // Show success screen
+        setWithdrawalDetails({
+          amount: numericAmount,
+          bankName: selectedBank.name,
+          accountNumber,
+          accountName,
+          reference: result.reference || result.transferCode || null,
+        });
+        setWithdrawalSuccess(true);
       }
     } catch (error) {
       console.error("[Withdraw] Error:", error);
@@ -212,6 +232,104 @@ const WithdrawScreen = () => {
       setLoading(false);
     }
   };
+
+  // Render withdrawal success screen
+  if (withdrawalSuccess && withdrawalDetails) {
+    return (
+      <SafeAreaView style={styles.container} edges={["top"]}>
+        <View style={styles.successScreen}>
+          {/* Success Icon */}
+          <View style={styles.successIconContainer}>
+            <View style={styles.successIconOuter}>
+              <View style={styles.successIconInner}>
+                <Ionicons name="checkmark" size={40} color="#FFFFFF" />
+              </View>
+            </View>
+          </View>
+
+          {/* Success Title */}
+          <Text style={styles.successTitle}>Withdrawal Initiated!</Text>
+          <Text style={styles.successSubtitle}>
+            Your withdrawal is being processed and will arrive in your bank account shortly.
+          </Text>
+
+          {/* Amount */}
+          <View style={styles.successAmountCard}>
+            <Text style={styles.successAmountLabel}>Amount</Text>
+            <Text style={styles.successAmountValue}>
+              {formatCurrency(withdrawalDetails.amount)}
+            </Text>
+          </View>
+
+          {/* Details Card */}
+          <View style={styles.successDetailsCard}>
+            <View style={styles.successDetailRow}>
+              <Text style={styles.successDetailLabel}>Bank</Text>
+              <Text style={styles.successDetailValue}>{withdrawalDetails.bankName}</Text>
+            </View>
+            <View style={styles.successDetailDivider} />
+            <View style={styles.successDetailRow}>
+              <Text style={styles.successDetailLabel}>Account</Text>
+              <Text style={styles.successDetailValue}>
+                ●●●●●●{withdrawalDetails.accountNumber.slice(-4)}
+              </Text>
+            </View>
+            <View style={styles.successDetailDivider} />
+            <View style={styles.successDetailRow}>
+              <Text style={styles.successDetailLabel}>Account Name</Text>
+              <Text style={styles.successDetailValue} numberOfLines={1}>{withdrawalDetails.accountName}</Text>
+            </View>
+            <View style={styles.successDetailDivider} />
+            <View style={styles.successDetailRow}>
+              <Text style={styles.successDetailLabel}>Status</Text>
+              <View style={styles.successStatusBadge}>
+                <Text style={styles.successStatusText}>Processing</Text>
+              </View>
+            </View>
+            {withdrawalDetails.reference && (
+              <>
+                <View style={styles.successDetailDivider} />
+                <View style={styles.successDetailRow}>
+                  <Text style={styles.successDetailLabel}>Reference</Text>
+                  <Text style={[styles.successDetailValue, { fontSize: 12 }]} numberOfLines={1}>
+                    {withdrawalDetails.reference}
+                  </Text>
+                </View>
+              </>
+            )}
+          </View>
+
+          {/* Processing Time Note */}
+          <View style={styles.successProcessingNote}>
+            <Ionicons name="time-outline" size={16} color="#F59E0B" />
+            <Text style={styles.successProcessingText}>
+              Typically processed within 24 hours. You'll receive a notification when complete.
+            </Text>
+          </View>
+
+          {/* Action Buttons */}
+          <View style={styles.successButtonsContainer}>
+            <TouchableOpacity
+              style={styles.successPrimaryButton}
+              onPress={() => {
+                router.replace("/transaction-history");
+              }}
+            >
+              <Ionicons name="receipt-outline" size={18} color="#FFFFFF" />
+              <Text style={styles.successPrimaryButtonText}>View Transactions</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.successSecondaryButton}
+              onPress={() => router.back()}
+            >
+              <Text style={styles.successSecondaryButtonText}>Back to Wallet</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   const filteredBanks = banks.filter((bank) =>
     bank.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -692,6 +810,156 @@ const styles = StyleSheet.create({
   bankItemText: {
     fontSize: 16,
     color: "#333",
+  },
+  // Success Screen styles
+  successScreen: {
+    flex: 1,
+    paddingHorizontal: 24,
+    paddingTop: 40,
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+  },
+  successIconContainer: {
+    marginBottom: 24,
+  },
+  successIconOuter: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: "rgba(16, 185, 129, 0.1)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  successIconInner: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: "#10B981",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  successTitle: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#111827",
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  successSubtitle: {
+    fontSize: 14,
+    color: "#6B7280",
+    textAlign: "center",
+    lineHeight: 20,
+    paddingHorizontal: 20,
+    marginBottom: 28,
+  },
+  successAmountCard: {
+    backgroundColor: "#F0F4FF",
+    borderRadius: 16,
+    paddingVertical: 20,
+    paddingHorizontal: 32,
+    alignItems: "center",
+    marginBottom: 20,
+    width: "100%",
+  },
+  successAmountLabel: {
+    fontSize: 13,
+    color: "#6B7280",
+    marginBottom: 4,
+    fontWeight: "500",
+  },
+  successAmountValue: {
+    fontSize: 32,
+    fontWeight: "800",
+    color: "#192DFF",
+  },
+  successDetailsCard: {
+    backgroundColor: "#F9FAFB",
+    borderRadius: 16,
+    padding: 16,
+    width: "100%",
+    marginBottom: 16,
+  },
+  successDetailRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 10,
+  },
+  successDetailLabel: {
+    fontSize: 14,
+    color: "#6B7280",
+    fontWeight: "500",
+  },
+  successDetailValue: {
+    fontSize: 14,
+    color: "#111827",
+    fontWeight: "600",
+    maxWidth: "60%",
+    textAlign: "right",
+  },
+  successDetailDivider: {
+    height: 1,
+    backgroundColor: "#E5E7EB",
+  },
+  successStatusBadge: {
+    backgroundColor: "#FEF3C7",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  successStatusText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#D97706",
+  },
+  successProcessingNote: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFFBEB",
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    gap: 8,
+    width: "100%",
+    marginBottom: 28,
+  },
+  successProcessingText: {
+    fontSize: 12,
+    color: "#92400E",
+    lineHeight: 18,
+    flex: 1,
+  },
+  successButtonsContainer: {
+    width: "100%",
+    gap: 12,
+  },
+  successPrimaryButton: {
+    backgroundColor: "#192DFF",
+    borderRadius: 12,
+    paddingVertical: 16,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 8,
+  },
+  successPrimaryButtonText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+  successSecondaryButton: {
+    backgroundColor: "transparent",
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: "center",
+    borderWidth: 1.5,
+    borderColor: "#E5E7EB",
+  },
+  successSecondaryButtonText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#374151",
   },
 });
 

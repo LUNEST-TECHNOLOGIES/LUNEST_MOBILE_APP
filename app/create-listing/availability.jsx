@@ -3,38 +3,36 @@
  * Set property availability and booking settings
  */
 
-import React, { useState, useEffect } from 'react';
+import { format } from "date-fns";
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
 import {
-  View,
-  Text,
+  Alert,
   Pressable,
   ScrollView,
   Switch,
-  Alert,
+  Text,
   TextInput,
+  View,
 } from 'react-native';
+import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
 import Svg, { Path } from 'react-native-svg';
-import CancelConfirmationModal from '../../src/components/create-listing/CancelConfirmationModal';
-import Input from '../../src/components/Input';
 import Button from '../../src/components/Button';
-import draftListingService from '../../src/services/draftListingService';
-import { useDraftListing } from '../../src/hooks/useDraftListing';
+import CancelConfirmationModal from '../../src/components/create-listing/CancelConfirmationModal';
 import {
   baseStyles,
+  footerStyles,
   headerStyles,
+  infoBoxStyles,
   progressStyles,
   scrollStyles,
-  toggleStyles,
-  inputStyles,
-  infoBoxStyles,
-  footerStyles,
   textStyles,
+  toggleStyles
 } from '../../src/constants/styles';
 import { COLORS } from '../../src/constants/theme';
-import DateTimePickerModal from "react-native-modal-datetime-picker";
-import { format } from "date-fns";
+import { useDraftListing } from '../../src/hooks/useDraftListing';
+import draftListingService from '../../src/services/draftListingService';
 
 // House Rules options
 const HOUSE_RULES = [
@@ -101,14 +99,15 @@ const Availability = () => {
   const [isCheckOutPickerVisible, setCheckOutPickerVisible] = useState(false);
   const [selectedRules, setSelectedRules] = useState([]);
   const [additionalRules, setAdditionalRules] = useState('');
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
 
   // Load draft data on mount
   useEffect(() => {
-    if (draftData) {
+    if (draftData && !initialLoadDone) {
       setInstantBooking(draftData.instantBooking !== false);
-      setMinStay(draftData.minStay || '1');
-      setMaxStay(draftData.maxStay || '30');
-      setAdvanceNotice(draftData.advanceNotice || '1');
+      setMinStay(String(draftData.minStay || '1'));
+      setMaxStay(String(draftData.maxStay || '30'));
+      setAdvanceNotice(String(draftData.advanceNotice || '1'));
       setAvailableNow(draftData.availableNow !== false);
       setAvailabilityStatus(draftData.availabilityStatus || 'available');
       setCheckInTime(draftData.checkInTime || null);
@@ -124,8 +123,9 @@ const Availability = () => {
         }
       }
       setAdditionalRules(draftData.additionalRules || '');
+      setInitialLoadDone(true);
     }
-  }, [draftData]);
+  }, [draftData, initialLoadDone]);
 
   // Toggle house rule selection
   const toggleRule = (ruleId) => {
@@ -139,6 +139,17 @@ const Availability = () => {
       return newRules;
     });
   };
+
+  // Debounced save for text inputs to prevent glitching
+  const debouncedSave = useCallback(
+    (text) => {
+      const timeoutId = setTimeout(() => {
+        saveDraftData({ additionalRules: text });
+      }, 500);
+      return () => clearTimeout(timeoutId);
+    },
+    [saveDraftData]
+  );
 
   // Auto-save function
   const updateAvailability = (updates) => {
@@ -215,6 +226,7 @@ const Availability = () => {
     const finalDraftId = (draftData && draftData.draftId) || draftId || draftListingService.generateDraftId();
     
     saveDraftData({
+      ...draftData,  // Preserve all existing data
       instantBooking,
       minStay,
       maxStay,
@@ -255,6 +267,7 @@ const Availability = () => {
     const finalDraftId = (draftData && draftData.draftId) || draftId || draftListingService.generateDraftId();
     
     saveDraftData({
+      ...draftData,  // Preserve all existing data
       instantBooking,
       minStay,
       maxStay,
@@ -375,14 +388,17 @@ const Availability = () => {
                 fontSize: 14,
                 color: '#333',
                 marginTop: 8,
+                backgroundColor: '#fff',
               }}
               placeholder="Add any other rules guests should know about..."
               placeholderTextColor="#999"
               multiline
+              scrollEnabled={false}
+              textAlignVertical="top"
               value={additionalRules}
               onChangeText={(text) => {
                 setAdditionalRules(text);
-                saveDraftData({ additionalRules: text });
+                debouncedSave(text);
               }}
             />
           </View>

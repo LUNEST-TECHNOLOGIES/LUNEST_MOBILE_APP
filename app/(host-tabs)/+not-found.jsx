@@ -99,7 +99,7 @@ export default function HostTabsNotFoundScreen() {
         {/* Mode indicator */}
         <View style={styles.modeIndicator}>
           <Text style={styles.modeText}>
-            You're in <Text style={styles.modeBold}>Host Mode</Text>
+            You're in <Text style={styles.modeBold}>Host/Landlord Mode</Text>
           </Text>
         </View>
 

@@ -373,6 +373,62 @@ class BookmarkService {
       console.error("[BookmarkService] Error clearing local bookmarks:", error);
     }
   }
+
+  /**
+   * Batch check bookmark statuses for a list of listing IDs
+   * @param {Array} listingIds - Array of listing IDs to check
+   * @returns {Object} result - Success status and map of results
+   */
+  async checkBatchBookmarks(listingIds) {
+    try {
+      if (!listingIds || listingIds.length === 0) {
+        return { success: true, statuses: {} };
+      }
+
+      await this.initialize();
+      const token = await authService.getToken();
+
+      if (!token) {
+        // Handle unauthenticated case by checking local bookmarks
+        const localBookmarks = await this.getLocalBookmarks();
+        const statuses = {};
+        
+        listingIds.forEach(id => {
+          const bookmark = localBookmarks.find(b => 
+            b.listing === id || (b.listing && b.listing._id === id)
+          );
+          statuses[id] = {
+            isBookmarked: !!bookmark,
+            bookmarkId: bookmark ? bookmark._id : null
+          };
+        });
+        
+        return { success: true, statuses };
+      }
+
+      const response = await fetch(this.baseURL + "/v1/bookmarks/bookmark/batch-check", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + token,
+        },
+        body: JSON.stringify({ listingIds }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to check batch bookmarks");
+      }
+
+      const result = await response.json();
+      return { 
+        success: true, 
+        statuses: result.body || {} 
+      };
+    } catch (error) {
+      console.error("[BookmarkService] Error in batch check:", error);
+      return { success: false, statuses: {} };
+    }
+  }
 }
 
 const bookmarkService = new BookmarkService();

@@ -77,6 +77,8 @@ const formatNumber = (num) => {
 
 const DashboardStatsCards = ({
   totalEarnings = 0,
+  walletBalance = 0,
+  pendingBalance = 0,
   totalBookings = 0,
   totalListings = 0,
   bookingsPeriod = "30 days",
@@ -84,6 +86,8 @@ const DashboardStatsCards = ({
 }) => {
   // Safe string conversion for all dynamic text
   const safeEarningsValue = String(formatCurrency(totalEarnings));
+  const safeWalletValue = String(formatCurrency(walletBalance));
+  const safePendingValue = String(formatCurrency(pendingBalance));
   const safeBookingsValue = String(formatNumber(totalBookings));
   const safeListingsValue = String(totalListings);
   const safeEarningsPeriod = String(earningsPeriod);
@@ -91,7 +95,7 @@ const DashboardStatsCards = ({
 
   return (
     <View style={styles.container}>
-      {/* Total Earnings - Full width dark card */}
+      {/* Earnings Section - Full width dark card */}
       <View style={styles.earningsCard}>
         <View style={styles.cardContent}>
           <EarningsIcon />
@@ -100,6 +104,16 @@ const DashboardStatsCards = ({
               Total Earnings ({safeEarningsPeriod})
             </Text>
             <Text style={styles.earningsValue}>{safeEarningsValue}</Text>
+            <View style={styles.walletBalanceRow}>
+              <Text style={styles.walletBalanceLabel}>Available:</Text>
+              <Text style={styles.walletBalanceValue}>{safeWalletValue}</Text>
+            </View>
+            {pendingBalance > 0 && (
+              <View style={styles.pendingBalanceRow}>
+                <Text style={styles.pendingBalanceLabel}>Pending (24h):</Text>
+                <Text style={styles.pendingBalanceValue}>{safePendingValue}</Text>
+              </View>
+            )}
           </View>
         </View>
       </View>
@@ -177,6 +191,44 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     
     color: "#FFFFFF",
+  },
+  walletBalanceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 4,
+  },
+  walletBalanceLabel: {
+    fontSize: 11,
+    fontWeight: "500",
+    color: "#FFFFFF",
+    opacity: 0.8,
+  },
+  walletBalanceValue: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#FFFFFF",
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  pendingBalanceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 2,
+  },
+  pendingBalanceLabel: {
+    fontSize: 10,
+    fontWeight: "500",
+    color: "#FFFFFF",
+    opacity: 0.7,
+  },
+  pendingBalanceValue: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#FDB913",
   },
   bottomRow: {
     flexDirection: "row",

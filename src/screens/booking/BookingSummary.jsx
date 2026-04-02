@@ -1,22 +1,25 @@
 import { differenceInDays, format, parse } from "date-fns";
+import * as Linking from "expo-linking";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    Image,
-    Modal,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
+  ActivityIndicator,
+  Image,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import ArrowLeftIcon from "../../assets/icons/bookings/arrow-left.svg";
 import CalendarIcon from "../../assets/icons/vuesax/outline/calendar.svg";
+import ToastNotification, { TOAST_TYPE } from "../../components/common/ToastNotification";
 import PaymentMethodModal from "../../components/modals/PaymentMethodModal";
 import authService from "../../services/authService";
 import bookingService from "../../services/bookingService";
@@ -35,7 +38,22 @@ const BookingSummary = () => {
   );
   const [couponCode, setCouponCode] = useState("");
   const [couponDiscount, setCouponDiscount] = useState(0);
+  const [couponApplied, setCouponApplied] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [fetchedBooking, setFetchedBooking] = useState(null);
+  const [isFetchingBooking, setIsFetchingBooking] = useState(false);
+
+  // Toast notifications
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastConfig, setToastConfig] = useState({
+    type: TOAST_TYPE.SUCCESS,
+    message: "",
+  });
+
+  const showToast = (message, type = TOAST_TYPE.SUCCESS) => {
+    setToastConfig({ message, type });
+    setToastVisible(true);
+  };
 
   // Check if this is from a reservation payment
   const fromReservation = params.fromReservation === "true";
@@ -45,6 +63,17 @@ const BookingSummary = () => {
   const listingId = params.listingId;
   const propertyName = params.propertyName || "Property";
   const propertyLocation = params.location || "Lagos, Nigeria";
+  
+  // Extract additional notes from params
+  const additionalNotes = params.notes || "";
+
+  // Debug: Log received dates
+  console.log("[BookingSummary] Received dates:", {
+    checkInDate: params?.checkInDate,
+    checkOutDate: params?.checkOutDate,
+    checkInType: typeof params?.checkInDate,
+    checkOutType: typeof params?.checkOutDate
+  });
 
   // Cover image URL from listing images - validate it's a valid URL
   const coverImage =
@@ -67,22 +96,37 @@ const BookingSummary = () => {
     const checkInDate = params?.checkInDate;
     const checkOutDate = params?.checkOutDate;
 
+    console.log("[BookingSummary] calculateNumberOfNights input:", {
+      checkInDate,
+      checkOutDate
+    });
+
     if (!checkInDate || !checkOutDate) {
+      console.log("[BookingSummary] No dates provided, returning fallback 4");
       return 4; // fallback to 4 nights if dates not provided
     }
 
     try {
-      // Parse dates from format "15-6-2025" (day-month-year)
-      const checkIn = parse(checkInDate, 'd-M-yyyy', new Date());
-      const checkOut = parse(checkOutDate, 'd-M-yyyy', new Date());
+      // Parse dates from ISO format "YYYY-MM-DD" or standard ISO
+      const checkIn = new Date(checkInDate);
+      const checkOut = new Date(checkOutDate);
+
+      console.log("[BookingSummary] calculateNumberOfNights parsed dates:", {
+        checkIn,
+        checkOut,
+        checkInYear: checkIn.getFullYear(),
+        checkOutYear: checkOut.getFullYear()
+      });
 
       // Calculate difference in days
       const nights = differenceInDays(checkOut, checkIn);
 
       // Ensure at least 1 night and not negative
-      return Math.max(1, nights);
+      const result = Math.max(1, nights);
+      console.log("[BookingSummary] calculateNumberOfNights result:", result);
+      return result;
     } catch (error) {
-      console.warn('Error calculating number of nights:', error);
+      console.error("[BookingSummary] Error calculating nights:", error);
       return 4; // fallback
     }
   };
@@ -97,15 +141,17 @@ const BookingSummary = () => {
     }
 
     try {
-      const checkIn = parse(checkInDate, 'd-M-yyyy', new Date());
-      const checkOut = parse(checkOutDate, 'd-M-yyyy', new Date());
+      const checkIn = new Date(checkInDate);
+      const checkOut = new Date(checkOutDate);
 
-      const months = (checkOut.getFullYear() - checkIn.getFullYear()) * 12 + (checkOut.getMonth() - checkIn.getMonth());
+      let months =
+        (checkOut.getFullYear() - checkIn.getFullYear()) * 12 +
+        (checkOut.getMonth() - checkIn.getMonth());
       if (checkOut.getDate() < checkIn.getDate()) months -= 1;
 
       return Math.max(1, months);
     } catch (error) {
-      console.warn('Error calculating number of months:', error);
+      console.warn("Error calculating number of months:", error);
       return 1;
     }
   };
@@ -120,31 +166,90 @@ const BookingSummary = () => {
     }
 
     try {
-      const checkIn = parse(checkInDate, 'd-M-yyyy', new Date());
-      const checkOut = parse(checkOutDate, 'd-M-yyyy', new Date());
+      const checkIn = new Date(checkInDate);
+      const checkOut = new Date(checkOutDate);
 
       let years = checkOut.getFullYear() - checkIn.getFullYear();
-      if (checkOut.getMonth() < checkIn.getMonth() || (checkOut.getMonth() === checkIn.getMonth() && checkOut.getDate() < checkIn.getDate())) {
+      if (
+        checkOut.getMonth() < checkIn.getMonth() ||
+        (checkOut.getMonth() === checkIn.getMonth() &&
+          checkOut.getDate() < checkIn.getDate())
+      ) {
         years -= 1;
       }
 
       return Math.max(1, years);
     } catch (error) {
-      console.warn('Error calculating number of years:', error);
-      return 1;
+      console.warn("Error calculating number of years:", error);
     }
   };
+  const [userData, setUserData] = useState(null);
+
+  useEffect(() => {
+    authService.getUserData().then(data => setUserData(data)).catch(() => {});
+    
+    // Fetch existing booking if bookingId is provided
+    if (existingBookingId) {
+      // Ensure we have a string ID if it's somehow an object
+      let cleanId = existingBookingId;
+      if (typeof existingBookingId === 'object' && existingBookingId !== null) {
+        cleanId = existingBookingId.path || existingBookingId._id || existingBookingId.id || String(existingBookingId);
+      }
+      
+      setIsFetchingBooking(true);
+      bookingService.fetchBookingById(cleanId)
+        .then(result => {
+          if (result.success && result.booking) {
+            setFetchedBooking(result.booking);
+            // If the booking already has a coupon, update the state
+            if (result.booking.couponApplied) {
+              setCouponCode(result.booking.couponApplied.code || "");
+              setCouponDiscount(result.booking.couponApplied.discountApplied || 0);
+              setCouponApplied(true);
+            }
+          }
+        })
+        .catch(err => console.error("[BookingSummary] Fetch booking error:", err))
+        .finally(() => setIsFetchingBooking(false));
+    }
+  }, [existingBookingId]);
 
   // Format date for display (e.g., "15 Jun, 2025")
   const formatDisplayDate = (dateStr) => {
     if (!dateStr) return null;
+    
+    // Ensure we have a valid Date object
+    // If it's already an ISO string (YYYY-MM-DD), Date() parses it correctly and unambiguously
+    const date = new Date(dateStr);
+    
+    // Check if valid
+    if (!isNaN(date.getTime())) {
+      const formatted = format(date, "d MMM, yyyy");
+      console.log("[BookingSummary] formatDisplayDate result:", formatted, "year:", date.getFullYear());
+      return formatted;
+    }
 
     try {
-      const date = parse(dateStr, 'd-M-yyyy', new Date());
-      return format(date, 'd MMM, yyyy');
+      // Handle legacy format fallback "15-6-2025" (day-month-year)
+      const parsed = parse(dateStr, "d-M-yyyy", new Date());
+      if (!isNaN(parsed.getTime())) {
+        const formatted = format(parsed, "d MMM, yyyy");
+        console.log("[BookingSummary] formatDisplayDate (legacy d-M-yyyy):", formatted);
+        return formatted;
+      }
+      
+      // Try other fallback format "d/MM/yyyy"
+      const parsed2 = parse(dateStr, "d/MM/yyyy", new Date());
+      if (!isNaN(parsed2.getTime())) {
+        const formatted = format(parsed2, "d MMM, yyyy");
+        return formatted;
+      }
+      
+      console.warn("[BookingSummary] could not parse dateStr:", dateStr);
+      return dateStr;
     } catch (error) {
-      console.warn('Error formatting display date:', error);
-      return dateStr; // fallback to original string
+      console.error("Error formatting display date:", error, dateStr);
+      return dateStr;
     }
   };
 
@@ -191,45 +296,175 @@ const BookingSummary = () => {
   // Host's Total = rental + service charge + caution fee (what host priced)
   const hostTotal = hostSubtotal + securityDeposit;
 
-  // App charge for guest (5% of total amount including caution fee)
+  // NEW: Coupon applies to Rent + Service Charge (taxable components)
+  // The Security Deposit is a refundable escrow amount and should NOT be discounted.
   const GUEST_FEE_PERCENT = 5;
   const VAT_PERCENT = 7.5;
+
+  // Calculate coupon discount on HOST SUBTOTAL (excluding caution fee)
+  let couponDiscountAmount = 0;
+  if (couponApplied && couponDiscount > 0) {
+    couponDiscountAmount = Math.min(couponDiscount, hostSubtotal);
+  }
   
-  // Base fee is on (Rent + SC + Caution Fee)
-  const guestFeeBase = Math.round((hostTotal * GUEST_FEE_PERCENT) / 100);
+  // Discounted subtotal (Rent + SC) and original caution fee
+  const discountedHostSubtotal = Math.max(0, hostSubtotal - couponDiscountAmount);
+  const discountedGuestBase = discountedHostSubtotal + securityDeposit;
+  
+  // App fee and VAT calculated on DISCOUNTED guest base (Net Rent/SC + Full Caution)
+  const guestFeeBase = Math.round((discountedGuestBase * GUEST_FEE_PERCENT) / 100);
   const guestVat = Math.round((guestFeeBase * VAT_PERCENT) / 100);
   const appCharge = guestFeeBase + guestVat;
 
-  // Calculate subtotal before discount (what guest pays)
-  const subtotal = hostTotal + appCharge;
+  // Final total = discounted subtotal + caution fee + app fee + VAT
+  const total = discountedGuestBase + appCharge;
+  
+  // Subtotal before coupon (for display)
+  const subtotalBeforeDiscount = hostTotal;
+  
+  // Subtotal after coupon (for display)
+  const discountedSubtotal = discountedGuestBase;
 
-  // Calculate total with discount
-  const total = Math.max(0, subtotal - couponDiscount);
+  // PREFER FETCHED BOOKING PRICING IF AVAILABLE
+  const displayPricing = fetchedBooking?.pricingBreakdown || {
+    rentalSubtotal,
+    serviceCharge,
+    securityDeposit,
+    hostTotal,
+    appCharge,
+    subtotalBeforeDiscount: hostTotal,
+    couponDiscount,
+    total,
+    guestTotal: total,
+    rentalPrice,
+    numberOfUnits: periodUnits,
+    pricingPeriod,
+    periodLabel
+  };
 
   const [couponLoading, setCouponLoading] = useState(false);
 
   const handleApplyCoupon = async () => {
-    if (!couponCode.trim()) return;
+    // Toggle: if already applied, remove coupon
+    if (couponApplied) {
+      setCouponCode("");
+      setCouponDiscount(0);
+      setCouponApplied(false);
+      showToast("Coupon removed", TOAST_TYPE.INFO);
+      return;
+    }
+    if (!couponCode.trim()) {
+      showToast("Please enter a coupon code", TOAST_TYPE.ERROR);
+      return;
+    }
     setCouponLoading(true);
     try {
-      const referralService = (await import("../../services/referralService")).default;
-      const result = await referralService.validateCoupon(couponCode.trim());
+      const referralService = (await import("../../services/referralService"))
+        .default;
+      // Pass the discountable booking amount for validation checks
+      const result = await referralService.validateCoupon(couponCode.trim(), hostSubtotal);
       if (result.success) {
-        const discount = result.data.discount;
-        // FIXED → flat amount, PERCENTAGE → % of subtotal
+        const couponData = result.data;
+        const discount = couponData.discount;
+        
+        // Check if coupon has already been used by this user (NO REUSE)
+        if (couponData.hasBeenUsedByUser) {
+          const errorMsg = "This coupon has already been used by you. You can only use each coupon once.";
+          showToast(errorMsg, TOAST_TYPE.ERROR);
+          setCouponCode("");
+          setCouponDiscount(0);
+          setCouponApplied(false);
+          setCouponLoading(false);
+          return;
+        }
+        
+        // Check if coupon has usage limits
+        if (couponData.maxUses && couponData.usedCount >= couponData.maxUses) {
+          showToast("This coupon has reached its usage limit", TOAST_TYPE.ERROR);
+          setCouponCode("");
+          setCouponDiscount(0);
+          setCouponApplied(false);
+          setCouponLoading(false);
+          return;
+        }
+        
+        // Check if coupon is expired
+        if (couponData.expiryDate && new Date(couponData.expiryDate) < new Date()) {
+          showToast("This coupon has expired", TOAST_TYPE.ERROR);
+          setCouponCode("");
+          setCouponDiscount(0);
+          setCouponApplied(false);
+          setCouponLoading(false);
+          return;
+        }
+        
+        // FIXED → flat amount, PERCENTAGE → % of discountable subtotal (rent + service)
         const amount =
           discount.type === "PERCENTAGE"
-            ? Math.round(subtotal * (discount.value / 100))
+            ? Math.round(hostSubtotal * (discount.value / 100))
             : discount.value;
         setCouponDiscount(amount);
+        setCouponApplied(true);
+        
+        // Log coupon application for debugging
+        console.log("[BookingSummary] Coupon applied successfully:", {
+          code: couponCode.trim(),
+          discountType: discount.type,
+          discountValue: discount.value,
+          calculatedAmount: amount,
+          hostSubtotal: hostSubtotal,
+          newTotal: hostTotal - amount,
+        });
+        
+        // Show success toast
+        showToast(
+          `Coupon applied! You save ₦${amount.toLocaleString()}`,
+          TOAST_TYPE.SUCCESS
+        );
       } else {
-        Alert.alert("Invalid Coupon", result.message || "Coupon code is invalid or expired.");
+        // Handle specific coupon validation errors with clear user-friendly messages
+        let errorMsg = "Invalid coupon code";
+        
+        if (result.message) {
+          const msg = result.message.toLowerCase();
+          if (msg.includes("not found") || msg.includes("doesn't exist") || msg.includes("invalid")) {
+            errorMsg = "This coupon code doesn't exist. Please check and try again.";
+          } else if (msg.includes("expired")) {
+            errorMsg = "This coupon has expired and can no longer be used.";
+          } else if (msg.includes("usage") || msg.includes("limit")) {
+            errorMsg = "This coupon has reached its usage limit.";
+          } else if (msg.includes("minimum") || msg.includes("amount")) {
+            errorMsg = "This booking doesn't meet the minimum amount required for this coupon.";
+          } else {
+            errorMsg = result.message;
+          }
+        }
+        
+        showToast(errorMsg, TOAST_TYPE.ERROR);
         setCouponCode("");
         setCouponDiscount(0);
+        setCouponApplied(false);
       }
     } catch (error) {
-      Alert.alert("Error", "Failed to validate coupon. Please try again.");
+      console.error("[BookingSummary] Coupon validation error:", error);
+      
+      // Handle network or server errors with user-friendly messages
+      let errorMsg = "Unable to validate coupon. Please try again.";
+      
+      if (error?.response?.status === 404) {
+        errorMsg = "Coupon not found. Please check the code and try again.";
+      } else if (error?.response?.status === 400) {
+        errorMsg = error?.response?.data?.message || "Invalid coupon code.";
+      } else if (error?.response?.status >= 500) {
+        errorMsg = "Server error. Please try again in a moment.";
+      } else if (error?.message?.includes("Network")) {
+        errorMsg = "Network error. Please check your connection.";
+      }
+      
+      showToast(errorMsg, TOAST_TYPE.ERROR);
+      setCouponCode("");
       setCouponDiscount(0);
+      setCouponApplied(false);
     } finally {
       setCouponLoading(false);
     }
@@ -240,74 +475,99 @@ const BookingSummary = () => {
       title: propertyName,
       location: propertyLocation,
       coverImage: coverImage,
-      bookingType: params?.bookingType || "Daily",
-      checkIn: formatDisplayDate(params?.checkInDate) || "15 Jun, 2025",
-      checkOut: formatDisplayDate(params?.checkOutDate) || "19 Jun, 2025",
+      bookingType: params?.bookingType || fetchedBooking?.type || "Daily",
+      checkIn: formatDisplayDate(params?.checkInDate) || formatDisplayDate(fetchedBooking?.checkIn) || "15 Jun, 2025",
+      checkOut: formatDisplayDate(params?.checkOutDate) || formatDisplayDate(fetchedBooking?.checkOut) || "19 Jun, 2025",
       guests: {
-        adults: params?.adults || 2,
-        children: params?.children || 2,
+        adults: params?.adults || fetchedBooking?.guests?.adults || 2,
+        children: params?.children || fetchedBooking?.guests?.children || 0,
         pets: params?.pets || "No pets",
       },
     },
     pricing: {
-      // Rental breakdown
-      rentalPrice: rentalPrice,
-      numberOfUnits: periodUnits,
-      pricingPeriod: pricingPeriod,
-      periodLabel: periodLabel,
-      rentalSubtotal: rentalSubtotal,
+      // Rental breakdown using displayPricing helper
+      rentalPrice: displayPricing.rentalPrice || rentalPrice,
+      numberOfUnits: displayPricing.numberOfUnits || periodUnits,
+      pricingPeriod: displayPricing.pricingPeriod || pricingPeriod,
+      periodLabel: displayPricing.periodLabel || periodLabel,
+      rentalSubtotal: displayPricing.rentalSubtotal || rentalSubtotal,
 
-      // Additional charges (set by host)
-      serviceCharge: serviceCharge, // Service charge set by host (not percentage)
-      serviceChargeLabel: "Service Charge", // Label for display
-      securityDeposit: securityDeposit,
+      // Additional charges
+      serviceCharge: displayPricing.serviceCharge || serviceCharge,
+      serviceChargeLabel: "Service Charge",
+      securityDeposit: displayPricing.securityDeposit || securityDeposit,
 
-      // Host's total before platform fee
-      hostTotal: hostTotal,
-
-      // App charge (5% guest fee)
-      appCharge: appCharge,
-      amount: params.totalPrice,
+      // Totals
+      hostTotal: displayPricing.hostTotal || hostTotal,
+      appCharge: displayPricing.appCharge || appCharge,
+      amount: displayPricing.total,
       totalAmount: {
-        price: total,
+        price: displayPricing.total,
         currency: "NGN",
       },
-      discount: couponDiscount,
+      discount: displayPricing.couponDiscount || couponDiscount,
       couponCode: couponCode.trim(),
-      total: total,
+      total: displayPricing.total,
     },
   };
 
   // If client passed a calculated breakdown, prefer it for display and totals
   try {
     const passedBreakdownRaw = params?.priceBreakdown;
-    const passedBreakdown = typeof passedBreakdownRaw === 'string' && passedBreakdownRaw.length > 0
-      ? JSON.parse(passedBreakdownRaw)
-      : passedBreakdownRaw;
+    const passedBreakdown =
+      typeof passedBreakdownRaw === "string" && passedBreakdownRaw.length > 0
+        ? JSON.parse(passedBreakdownRaw)
+        : passedBreakdownRaw;
 
-    if (passedBreakdown && typeof passedBreakdown === 'object') {
-      bookingSummary.pricing.rentalSubtotal = passedBreakdown.baseAmount ?? bookingSummary.pricing.rentalSubtotal;
-      bookingSummary.pricing.numberOfUnits = passedBreakdown.units ?? bookingSummary.pricing.numberOfUnits;
-      bookingSummary.pricing.periodUnits = passedBreakdown.periodUnits ?? bookingSummary.pricing.periodUnits;
-      bookingSummary.pricing.periodLabel = passedBreakdown.periodLabel ?? bookingSummary.pricing.periodLabel;
+    if (passedBreakdown && typeof passedBreakdown === "object") {
+      bookingSummary.pricing.rentalSubtotal =
+        passedBreakdown.baseAmount ?? bookingSummary.pricing.rentalSubtotal;
+      bookingSummary.pricing.numberOfUnits =
+        passedBreakdown.units ?? bookingSummary.pricing.numberOfUnits;
+      bookingSummary.pricing.periodUnits =
+        passedBreakdown.periodUnits ?? bookingSummary.pricing.periodUnits;
+      bookingSummary.pricing.periodLabel =
+        passedBreakdown.periodLabel ?? bookingSummary.pricing.periodLabel;
       // Use the passed service fee as a platform/processing fee display (may differ from host serviceCharge)
       bookingSummary.pricing.serviceFee = passedBreakdown.serviceFee ?? 0;
-      bookingSummary.pricing.securityDeposit = passedBreakdown.deposit ?? bookingSummary.pricing.securityDeposit;
+      bookingSummary.pricing.securityDeposit =
+        passedBreakdown.deposit ?? bookingSummary.pricing.securityDeposit;
 
-      // Recompute hostTotal based on rentalSubtotal + host serviceCharge (host-set) + caution fee
-      const hostSubtotalNew = bookingSummary.pricing.rentalSubtotal + (bookingSummary.pricing.serviceCharge || 0);
-      bookingSummary.pricing.hostTotal = hostSubtotalNew + bookingSummary.pricing.securityDeposit;
+      const hostSubtotalNew =
+        bookingSummary.pricing.rentalSubtotal +
+        (bookingSummary.pricing.serviceCharge || 0);
 
-      const guestFeeBaseNew = Math.round((bookingSummary.pricing.hostTotal * GUEST_FEE_PERCENT) / 100);
+      bookingSummary.pricing.hostTotal =
+        hostSubtotalNew + bookingSummary.pricing.securityDeposit;
+
+      // Restrict coupon calculation to only the rent/service subtotal
+      let couponDiscountAmountNew = 0;
+      if (couponApplied && bookingSummary.pricing.discount > 0) {
+        couponDiscountAmountNew = Math.min(bookingSummary.pricing.discount, hostSubtotalNew);
+      }
+      
+      const discountedHostSubtotalNew = Math.max(0, hostSubtotalNew - couponDiscountAmountNew);
+      const discountedGuestBaseNew = discountedHostSubtotalNew + bookingSummary.pricing.securityDeposit;
+
+      // Apply app fees mapped only to the discounted base
+      const guestFeeBaseNew = Math.round(
+        (discountedGuestBaseNew * GUEST_FEE_PERCENT) / 100,
+      );
       const guestVatNew = Math.round((guestFeeBaseNew * VAT_PERCENT) / 100);
+      
       bookingSummary.pricing.appCharge = guestFeeBaseNew + guestVatNew;
-      bookingSummary.pricing.subtotal = bookingSummary.pricing.hostTotal + bookingSummary.pricing.appCharge;
+      bookingSummary.pricing.subtotal =
+        bookingSummary.pricing.hostTotal + bookingSummary.pricing.appCharge;
 
-      bookingSummary.pricing.total = passedBreakdown.total ?? Math.max(0, bookingSummary.pricing.subtotal - bookingSummary.pricing.discount);
+      // Arithmetic amount to pay
+      bookingSummary.pricing.total = Math.max(
+        0,
+        discountedGuestBaseNew + bookingSummary.pricing.appCharge
+      );
     }
   } catch (e) {
     // ignore parse errors
-    console.warn('[BookingSummary] Failed to parse passed priceBreakdown', e);
+    console.warn("[BookingSummary] Failed to parse passed priceBreakdown", e);
   }
 
   const handleGoBack = () => {
@@ -318,40 +578,240 @@ const BookingSummary = () => {
     router.back();
   };
 
-  const handleProceedToPayment = () => {
+  const handleProceedToPayment = async () => {
+    // If coupon covers the full amount (total = 0), create booking directly without payment modal
+    if (couponApplied && couponDiscount > 0 && bookingSummary.pricing.total === 0) {
+      setIsProcessing(true);
+      try {
+        const user = await authService.getUserData();
+
+        const parseDate = (dateStr) => {
+          if (!dateStr) return new Date().toISOString();
+          
+          console.log("[BookingSummary] parseDate input:", dateStr);
+          
+          if (typeof dateStr === "string" && dateStr.includes("-")) {
+            // Handle both YYYY-MM-DD and D-M-YYYY
+            const parts = dateStr.split("-");
+            if (parts.length === 3) {
+              const year = parts[0].length === 4 ? parts[0] : parts[2];
+              const month = parts[0].length === 4 ? parts[1] : parts[1];
+              const day = parts[0].length === 4 ? parts[2] : parts[0];
+              
+              const parsedDate = new Date(
+                parseInt(year),
+                parseInt(month) - 1,
+                parseInt(day),
+              );
+              console.log("[BookingSummary] parseDate result:", parsedDate.toISOString());
+              return parsedDate.toISOString();
+            }
+          }
+          
+          // Try other formats
+          if (typeof dateStr === "string" && dateStr.includes("/")) {
+            const parts = dateStr.split("/");
+            if (parts.length === 3) {
+              const [day, month, year] = parts;
+              const parsedDate = new Date(
+                parseInt(year),
+                parseInt(month) - 1,
+                parseInt(day),
+              );
+              console.log("[BookingSummary] parseDate (d/M/yyyy):", parsedDate.toISOString());
+              return parsedDate.toISOString();
+            }
+          }
+          
+          const parsed = new Date(dateStr);
+          const result = isNaN(parsed.getTime())
+            ? new Date().toISOString()
+            : parsed.toISOString();
+          console.log("[BookingSummary] parseDate (fallback):", result);
+          return result;
+        };
+
+        const mapBookingType = (type) => {
+          if (!type) return "DAILY";
+          const upperType = type.toUpperCase();
+          if (upperType.includes("/")) {
+            const firstType = upperType.split("/")[0].trim();
+            if (["DAILY", "WEEKLY", "MONTHLY", "YEARLY"].includes(firstType))
+              return firstType;
+          }
+          const typeMap = {
+            DAILY: "DAILY",
+            WEEKLY: "WEEKLY",
+            MONTHLY: "MONTHLY",
+            YEARLY: "YEARLY",
+            ANNUALLY: "YEARLY",
+            ANNUAL: "YEARLY",
+            NIGHT: "DAILY",
+            NIGHTLY: "DAILY",
+          };
+          return typeMap[upperType] || "DAILY";
+        };
+
+        const displayHostTotal = bookingSummary.pricing.hostTotal;
+        const displayRentalSubtotal = bookingSummary.pricing.rentalSubtotal;
+        const displayServiceCharge = bookingSummary.pricing.serviceCharge || 0;
+        const displaySecurityDeposit =
+          bookingSummary.pricing.securityDeposit || 0;
+        const displayAppCharge = bookingSummary.pricing.appCharge || 0;
+        const displayTotal = bookingSummary.pricing.total || 0;
+
+        const bookingData = {
+          listing: params?.listingId,
+          type: mapBookingType(bookingSummary.property.bookingType),
+          guests: {
+            adults:
+              parseInt(params?.adults) || bookingSummary.property.guests.adults,
+            children:
+              parseInt(params?.children) ||
+              bookingSummary.property.guests.children,
+            pets: 0,
+          },
+          checkIn: parseDate(
+            params?.checkInDate || bookingSummary.property.checkIn,
+          ),
+          checkOut: parseDate(
+            params?.checkOutDate || bookingSummary.property.checkOut,
+          ),
+          // Coupon covers full amount - no external payment needed
+          paymentMethod: null,
+          status: "CONFIRMED",
+          totalAmount: { price: displayHostTotal, currency: "NGN" },
+          priceBreakdown: {
+            rentalSubtotal: displayRentalSubtotal,
+            serviceCharge: displayServiceCharge,
+            securityDeposit: displaySecurityDeposit,
+            hostTotal: displayHostTotal,
+            guestFee: displayAppCharge,
+            subtotalBeforeDiscount: displayHostTotal + displayAppCharge,
+            couponApplied: true,
+            couponCode: couponCode.trim(),
+            couponDiscount: couponDiscount,
+            amountAfterCoupon: displayTotal,
+            guestTotal: displayTotal,
+            paymentMethodUsed: "COUPON",
+            amountPaidViaPayment: 0, // Coupon covers full amount
+            couponType: "FULL_COVERAGE", // Indicates coupon fully covered the cost
+          },
+          bookedBy: user?._id || user?.id,
+          couponCode: couponCode.trim(),
+          couponDiscount: couponDiscount,
+          additionalNotes: additionalNotes, // Add additional notes
+        };
+
+        const existingBookingId = params?.bookingId; // Assuming bookingId can be passed as a param for updates
+
+        const result = existingBookingId
+          ? await bookingService.updateBookingStatus(existingBookingId, "CONFIRMED", {
+              paymentMethod: "COUPON",
+              paymentReference: null,
+              pricingBreakdown: bookingData.priceBreakdown,
+              couponCode: bookingData.couponCode,
+              couponDiscount: bookingData.couponDiscount,
+            })
+          : await bookingService.createBooking(bookingData);
+
+        if (result.success) {
+          // Track coupon usage if a coupon was applied
+          if (couponApplied && couponCode.trim()) {
+            const referralService = (await import("../../services/referralService")).default;
+            await referralService.trackCouponUsage(
+              couponCode.trim(),
+              result.booking?._id,
+              couponDiscount
+            ).catch(err => {
+              console.warn("[BookingSummary] Failed to track coupon usage:", err);
+              // Don't fail the booking if tracking fails
+            });
+          }
+
+          router.replace({
+            pathname: "/booking-confirmation",
+            params: {
+              status: "Confirmed",
+              propertyName: bookingSummary.property.title,
+              location: bookingSummary.property.location,
+              coverImage: bookingSummary.property.coverImage || "",
+              bookingType: bookingSummary.property.bookingType,
+              checkIn: bookingSummary.property.checkIn,
+              checkOut: bookingSummary.property.checkOut,
+              paymentMethod: "Coupon",
+              total: `₦${displayTotal.toLocaleString()}`,
+              refCode: result.booking?.referenceCode || generateRefCode(),
+              bookingId: result.booking?._id,
+              listingId: params?.listingId,
+              couponApplied: couponApplied ? "true" : "false",
+              couponCode: couponCode.trim() || "",
+              couponDiscount: couponDiscount || 0,
+              subtotalBeforeDiscount: displayHostTotal + displayAppCharge,
+            },
+          });
+        } else {
+          showToast(result.message || "Failed to create booking. Please try again.", TOAST_TYPE.ERROR);
+        }
+      } catch (error) {
+        console.error("[BookingSummary] Coupon booking error:", error);
+        showToast("An error occurred while processing your booking. Please try again.", TOAST_TYPE.ERROR);
+      } finally {
+        setIsProcessing(false);
+      }
+      return;
+    }
     // Show payment method selection modal
     setShowPaymentModal(true);
   };
 
   const handlePaymentMethodSelect = async (paymentData) => {
     console.log("[BookingSummary] Payment method selected:", paymentData);
+    console.log("[BookingSummary] Coupon details:", {
+      couponApplied,
+      couponCode,
+      couponDiscount,
+      hostTotal,
+      total: bookingSummary.pricing.total,
+      displayTotal: bookingSummary.pricing.total || total,
+    });
     setShowPaymentModal(false);
     setIsProcessing(true);
 
     try {
       // Get current user info
       const user = await authService.getUserData();
-
       // Helper function to convert date string to ISO format
       const parseDate = (dateStr) => {
         if (!dateStr) return new Date().toISOString();
-        // Handle "DD-MM-YYYY" format
+        
+        // If it's already a valid date string (like ISO), use it
+        const dateObj = new Date(dateStr);
+        if (!isNaN(dateObj.getTime())) {
+          return dateObj.toISOString();
+        }
+
+        // Handle both YYYY-MM-DD and D-M-YYYY
         if (typeof dateStr === "string" && dateStr.includes("-")) {
           const parts = dateStr.split("-");
           if (parts.length === 3) {
-            const [day, month, year] = parts;
-            return new Date(
+            const year = parts[0].length === 4 ? parts[0] : parts[2];
+            const month = parts[0].length === 4 ? parts[1] : parts[1];
+            const day = parts[0].length === 4 ? parts[2] : parts[0];
+            
+            const parsed = new Date(
               parseInt(year),
               parseInt(month) - 1,
               parseInt(day),
-            ).toISOString();
+            );
+            if (!isNaN(parsed.getTime())) {
+              return parsed.toISOString();
+            }
           }
         }
-        // Handle other formats
-        const parsed = new Date(dateStr);
-        return isNaN(parsed.getTime())
-          ? new Date().toISOString()
-          : parsed.toISOString();
+        
+        // Final fallback
+        return new Date().toISOString();
       };
 
       // Map booking type to valid enum values
@@ -384,7 +844,8 @@ const BookingSummary = () => {
       const displayHostTotal = bookingSummary.pricing.hostTotal;
       const displayRentalSubtotal = bookingSummary.pricing.rentalSubtotal;
       const displayServiceCharge = bookingSummary.pricing.serviceCharge || 0;
-      const displaySecurityDeposit = bookingSummary.pricing.securityDeposit || 0;
+      const displaySecurityDeposit =
+        bookingSummary.pricing.securityDeposit || 0;
       const displayAppCharge = bookingSummary.pricing.appCharge || 0;
       const displayTotal = bookingSummary.pricing.total || total;
       const bookingData = {
@@ -412,16 +873,28 @@ const BookingSummary = () => {
           price: displayHostTotal, // Backend expects host's total, it calculates guest total
           currency: "NGN",
         },
-        // Also send the full breakdown for reference
+        // Enhanced price breakdown with coupon and payment tracking
         priceBreakdown: {
           rentalSubtotal: displayRentalSubtotal,
           serviceCharge: displayServiceCharge,
           securityDeposit: displaySecurityDeposit,
           hostTotal: displayHostTotal,
           guestFee: displayAppCharge,
+          subtotalBeforeDiscount: displayHostTotal + displayAppCharge, // Total before coupon
+          couponApplied: couponApplied,
+          couponCode: couponCode.trim() || null,
+          couponDiscount: couponDiscount || 0, // Discount amount from coupon
+          amountAfterCoupon: displayTotal, // Amount to pay after coupon deduction
           guestTotal: displayTotal,
+          paymentMethodUsed: paymentData.reserveAndPayLater
+            ? "RESERVE_AND_PAY_LATER"
+            : paymentData.paymentMethod?.toUpperCase() || "WALLET",
+          amountPaidViaPayment: displayTotal, // What user actually paid through payment method
         },
         bookedBy: user?._id || user?.id,
+        couponCode: couponCode.trim() || undefined,
+        couponDiscount: couponDiscount || undefined,
+        additionalNotes: additionalNotes, // Add additional notes
       };
 
       // Determine booking status based on payment method
@@ -429,9 +902,27 @@ const BookingSummary = () => {
         // Reserve and Pay Later - Create booking with RESERVED status
         bookingData.status = "RESERVED";
 
-        const result = await bookingService.createBooking(bookingData);
+        const result = existingBookingId
+          ? await bookingService.updateBookingStatus(existingBookingId, "RESERVED", {
+              pricingBreakdown: bookingData.priceBreakdown,
+              couponCode: bookingData.couponCode,
+              couponDiscount: bookingData.couponDiscount
+            })
+          : await bookingService.createBooking(bookingData);
 
         if (result.success) {
+          // Track coupon usage if a coupon was applied
+          if (couponApplied && couponCode.trim()) {
+            const referralService = (await import("../../services/referralService")).default;
+            await referralService.trackCouponUsage(
+              couponCode.trim(),
+              result.booking?._id,
+              couponDiscount
+            ).catch(err => {
+              console.warn("[BookingSummary] Failed to track coupon usage:", err);
+            });
+          }
+
           // Navigate to booking confirmation with reserved status
           router.replace({
             pathname: "/booking-confirmation",
@@ -451,13 +942,14 @@ const BookingSummary = () => {
               countdownTime: "3600",
               bookingId: result.booking?._id,
               listingId: params?.listingId,
+              couponApplied: couponApplied ? "true" : "false",
+              couponCode: couponCode || "",
+              couponDiscount: couponDiscount.toString(),
+              subtotalBeforeDiscount: (displayHostTotal + displayAppCharge).toString(),
             },
           });
         } else {
-          Alert.alert(
-            "Booking Failed",
-            result.message || "Failed to create reservation. Please try again.",
-          );
+          showToast(result.message || "Failed to create reservation. Please try again.", TOAST_TYPE.ERROR);
         }
       } else if (
         paymentData.paymentMethod === "paystack" ||
@@ -468,10 +960,7 @@ const BookingSummary = () => {
           // Get user email
           const email = user?.email || user?.emailAddress;
           if (!email) {
-            Alert.alert(
-              "Error",
-              "Please update your profile with an email address",
-            );
+            showToast("Please update your profile with an email address", TOAST_TYPE.ERROR);
             return;
           }
 
@@ -486,15 +975,42 @@ const BookingSummary = () => {
             },
           );
 
+          console.log("[BookingSummary] Paystack payment initialized:", {
+            amount: displayTotal,
+            email: email,
+            reference: paymentResult.reference,
+            hasAuthUrl: !!paymentResult.authorization_url,
+            couponApplied,
+            couponCode,
+            couponDiscount,
+          });
+
           if (paymentResult.authorization_url) {
-            // Open Paystack checkout
-            const browserResult = await WebBrowser.openBrowserAsync(
-              paymentResult.authorization_url,
-              {
-                dismissButtonStyle: "close",
-                presentationStyle: "fullScreen",
+            // Create callback URL for deep linking back to app
+            const callbackUrl = Linking.createURL("payment-callback", {
+              queryParams: {
+                type: "booking_payment",
+                amount: displayTotal.toString(),
               },
+            });
+
+            // Open Paystack checkout with auth session for better deep linking
+            const browserResult = await WebBrowser.openAuthSessionAsync(
+              paymentResult.authorization_url,
+              callbackUrl,
             );
+
+            console.log("[BookingSummary] Browser result:", browserResult);
+
+            // Check if deep link was successful
+            if (browserResult.type === "success") {
+              console.log("[BookingSummary] Deep link successful, payment callback handled");
+              // The payment-callback screen will handle verification
+              return;
+            }
+
+            // Fallback: Verify payment after browser closes
+            console.log("[BookingSummary] Browser closed, verifying payment status...");
 
             // Verify payment after browser closes
             const verifyResult = await paymentService.verifyPayment(
@@ -506,9 +1022,29 @@ const BookingSummary = () => {
               bookingData.status = "CONFIRMED";
               bookingData.paymentReference = paymentResult.reference;
 
-              const result = await bookingService.createBooking(bookingData);
+              const result = existingBookingId
+                ? await bookingService.updateBookingStatus(existingBookingId, "CONFIRMED", {
+                    paymentMethod: paymentData.paymentMethod?.toUpperCase(),
+                    paymentReference: paymentResult.reference,
+                    pricingBreakdown: bookingData.priceBreakdown,
+                    couponCode: bookingData.couponCode,
+                    couponDiscount: bookingData.couponDiscount
+                  })
+                : await bookingService.createBooking(bookingData);
 
               if (result.success) {
+                // Track coupon usage if a coupon was applied
+                if (couponApplied && couponCode.trim()) {
+                  const referralService = (await import("../../services/referralService")).default;
+                  await referralService.trackCouponUsage(
+                    couponCode.trim(),
+                    result.booking?._id,
+                    couponDiscount
+                  ).catch(err => {
+                    console.warn("[BookingSummary] Failed to track coupon usage:", err);
+                  });
+                }
+
                 router.replace({
                   pathname: "/booking-confirmation",
                   params: {
@@ -524,42 +1060,57 @@ const BookingSummary = () => {
                     refCode: result.booking?.referenceCode || generateRefCode(),
                     bookingId: result.booking?._id,
                     listingId: params?.listingId,
+                    propertyImage: bookingSummary.property.coverImage || "",
+                    couponApplied: couponApplied ? "true" : "false",
+                    couponCode: couponCode || "",
+                    couponDiscount: couponDiscount.toString(),
+                    subtotalBeforeDiscount: (displayHostTotal + displayAppCharge).toString(),
                   },
                 });
               } else {
-                Alert.alert(
-                  "Error",
-                  "Booking creation failed after payment. Please contact support.",
-                );
+                showToast("Booking creation failed after payment. Please contact support.", TOAST_TYPE.ERROR);
               }
             } else if (verifyResult.status === "CANCELED") {
-              Alert.alert(
-                "Payment Canceled",
-                "Your payment was canceled. You can try again or choose a different payment method.",
-              );
+              showToast("Payment was canceled. Please try again.", TOAST_TYPE.INFO);
             } else {
-              Alert.alert(
-                "Payment Pending",
-                "Your payment is being processed. Please check your bookings for updates.",
-              );
+              showToast("Your payment is being processed. Please check your bookings.", TOAST_TYPE.INFO);
             }
           } else {
-            Alert.alert("Error", "Failed to initialize payment");
+            showToast("Failed to initialize payment. Please try again.", TOAST_TYPE.ERROR);
           }
         } catch (paystackError) {
           console.error("[BookingSummary] Paystack error:", paystackError);
-          Alert.alert(
-            "Payment Error",
-            paystackError.message || "Failed to process payment",
-          );
+          const gatewayMsg = paystackError?.response?.body?.gateway_response;
+          const displayMessage = gatewayMsg || paystackError.message || "Failed to process payment";
+          showToast(displayMessage, TOAST_TYPE.ERROR);
         }
       } else {
         // Wallet payment - Create booking with CONFIRMED status
         bookingData.status = "CONFIRMED";
 
-        const result = await bookingService.createBooking(bookingData);
+        const existingBookingIdFromParams = params?.bookingId || params?.existingBookingId;
+        const result = existingBookingIdFromParams
+          ? await bookingService.updateBookingStatus(existingBookingIdFromParams, "CONFIRMED", {
+              paymentMethod: "WALLET",
+              pricingBreakdown: bookingData.priceBreakdown,
+              couponCode: bookingData.couponCode,
+              couponDiscount: bookingData.couponDiscount
+            })
+          : await bookingService.createBooking(bookingData);
 
         if (result.success) {
+          // Track coupon usage if a coupon was applied
+          if (couponApplied && couponCode.trim()) {
+            const referralService = (await import("../../services/referralService")).default;
+            await referralService.trackCouponUsage(
+              couponCode.trim(),
+              result.booking?._id,
+              couponDiscount
+            ).catch(err => {
+              console.warn("[BookingSummary] Failed to track coupon usage:", err);
+            });
+          }
+
           // Navigate to booking confirmation with confirmed status
           router.replace({
             pathname: "/booking-confirmation",
@@ -576,21 +1127,21 @@ const BookingSummary = () => {
               refCode: result.booking?.referenceCode || generateRefCode(),
               bookingId: result.booking?._id,
               listingId: params?.listingId,
+              couponApplied: couponApplied ? "true" : "false",
+              couponCode: couponCode || "",
+              couponDiscount: couponDiscount.toString(),
+              subtotalBeforeDiscount: (displayHostTotal + displayAppCharge).toString(),
             },
           });
         } else {
-          Alert.alert(
-            "Payment Failed",
-            result.message || "Failed to process payment. Please try again.",
-          );
+          const errorMsg = result.message || "Failed to process payment. Please try again.";
+          showToast(errorMsg, TOAST_TYPE.ERROR);
         }
       }
     } catch (error) {
       console.error("[BookingSummary] Error processing payment:", error);
-      Alert.alert(
-        "Error",
-        "An error occurred while processing your booking. Please try again.",
-      );
+      const errorMsg = error?.message || "An error occurred. Please try again.";
+      showToast(errorMsg, TOAST_TYPE.ERROR);
     } finally {
       setIsProcessing(false);
     }
@@ -617,6 +1168,8 @@ const BookingSummary = () => {
         // Pass reservation info if coming from Pay Now on reserved booking
         fromReservation: fromReservation ? "true" : "false",
         bookingId: existingBookingId || "",
+        couponCode: couponCode.trim() || "",
+        couponDiscount: couponDiscount || 0,
       },
     });
   };
@@ -630,269 +1183,440 @@ const BookingSummary = () => {
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
-      <View style={styles.header}>
-        <Pressable style={styles.backButton} onPress={handleGoBack}>
-          <ArrowLeftIcon width={24} height={24} />
-        </Pressable>
-        <Text style={styles.headerTitle}>Booking Summary</Text>
-        <View style={{ width: 40 }} />
-      </View>
-
-      <ScrollView
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
       >
-        {/* Booking Details Card */}
-        <View style={styles.cardContainer}>
-          <View style={styles.card}>
-            {/* Property Cover Image */}
-            <Image
-              source={
-                bookingSummary.property.coverImage
-                  ? { uri: bookingSummary.property.coverImage }
-                  : DEFAULT_PROPERTY_IMAGE
-              }
-              style={styles.propertyImage}
-              resizeMode="cover"
-            />
-
-            {/* Property Details */}
-            <View style={styles.detailsContainer}>
-              <View style={styles.titleLocationRow}>
-                <Text style={styles.propertyTitle}>
-                  {bookingSummary.property.title}
-                </Text>
-                <Text style={styles.location}>
-                  {bookingSummary.property.location}
-                </Text>
-              </View>
-
-              {/* Booking Type */}
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Booking Type:</Text>
-                <Text style={styles.infoValue}>
-                  {bookingSummary.property.bookingType}
-                </Text>
-              </View>
-
-              {/* Check-in/Check-out */}
-              <View style={styles.datesRow}>
-                <View style={styles.dateColumn}>
-                  <View style={styles.dateHeader}>
-                    <CalendarIcon width={16} height={16} />
-                    <Text style={styles.dateLabel}>Check in</Text>
-                  </View>
-                  <Text style={styles.dateValue}>
-                    {bookingSummary.property.checkIn}
-                  </Text>
-                </View>
-                <View style={styles.spacer} />
-                <View style={styles.dateColumn}>
-                  <View style={styles.dateHeader}>
-                    <CalendarIcon width={16} height={16} />
-                    <Text style={styles.dateLabel}>Check out</Text>
-                  </View>
-                  <Text style={styles.dateValue}>
-                    {bookingSummary.property.checkOut}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Guests */}
-              <View style={styles.guestsRow}>
-                <Text style={styles.guestsLabel}>Guests:</Text>
-                <Text style={styles.guestsValue}>
-                  • {bookingSummary.property.guests.adults} Adults •{" "}
-                  {bookingSummary.property.guests.children} Children •{" "}
-                  {bookingSummary.property.guests.pets}
-                </Text>
-              </View>
-            </View>
-
-            {/* Edit Button */}
-            <Pressable style={styles.editButton} onPress={handleEdit}>
-              <Text style={styles.editButtonText}>Edit</Text>
-            </Pressable>
-          </View>
+        <View style={styles.header}>
+          <Pressable style={styles.backButton} onPress={handleGoBack}>
+            <ArrowLeftIcon width={24} height={24} />
+          </Pressable>
+          <Text style={styles.headerTitle}>Booking Summary</Text>
+          <View style={{ width: 40 }} />
         </View>
 
-        {/* Price Breakdown */}
-        <View style={styles.priceBreakdownSection}>
-          <Text style={styles.sectionTitle}>Price Breakdown:</Text>
-
-          <View style={styles.priceCard}>
-            {/* Rental Price Section */}
-            <View style={[styles.priceRow, styles.priceRowTop]}>
-              <View>
-                <Text style={styles.priceLabel}>Rental Price</Text>
-                <Text style={styles.priceSublabel}>
-                  ₦{bookingSummary.pricing.rentalPrice.toLocaleString()} ×{" "}
-                  {bookingSummary.pricing.numberOfUnits} {bookingSummary.pricing.periodLabel}
-                </Text>
-              </View>
-              <Text style={styles.priceAmount}>
-                ₦{bookingSummary.pricing.rentalSubtotal.toLocaleString()}
-              </Text>
-            </View>
-
-            {/* Service Charge - Set by host */}
-            <View style={styles.priceRow}>
-              <View>
-                <Text style={styles.priceLabel}>Service Charge</Text>
-                <Text style={styles.priceSublabel}>(Set by host)</Text>
-              </View>
-              <Text style={styles.priceAmount}>
-                ₦{bookingSummary.pricing.serviceCharge.toLocaleString()}
-              </Text>
-            </View>
-
-            {/* Caution Fee */}
-            <View style={styles.priceRow}>
-              <View>
-                <Text style={styles.priceLabel}>Caution Fee</Text>
-                <Text style={styles.priceSublabel}>(Refundable)</Text>
-              </View>
-              <Text style={styles.priceAmount}>
-                ₦{bookingSummary.pricing.securityDeposit.toLocaleString()}
-              </Text>
-            </View>
-
-            {/* Subtotal Before App Charge */}
-            <View style={[styles.priceRow, styles.subtotalRow]}>
-              <Text style={styles.subtotalLabel}>Subtotal:</Text>
-              <Text style={styles.subtotalAmount}>
-                ₦
-                {(
-                  bookingSummary.pricing.rentalSubtotal +
-                  bookingSummary.pricing.serviceCharge +
-                  bookingSummary.pricing.securityDeposit
-                ).toLocaleString()}
-              </Text>
-            </View>
-
-            {/* App Charge */}
-            <View style={[styles.priceRow, styles.priceRowBottom]}>
-              <View>
-                <Text style={styles.priceLabel}>App Charge + VAT</Text>
-              </View>
-              <Text style={styles.priceAmount}>
-                ₦{bookingSummary.pricing.appCharge.toLocaleString()}
-              </Text>
-            </View>
-
-            {/* Coupon Section */}
-            <View style={styles.couponSection}>
-              <Text style={styles.couponLabel}>Coupon</Text>
-              <View style={styles.couponInputRow}>
-                <TextInput
-                  style={styles.couponInput}
-                  placeholder="Enter coupon code"
-                  placeholderTextColor="#999"
-                  value={couponCode}
-                  onChangeText={setCouponCode}
-                  editable={true}
-                />
-                <Pressable
-                  style={styles.couponButton}
-                  onPress={handleApplyCoupon}
-                >
-                  <Text style={styles.couponButtonText}>Apply</Text>
-                </Pressable>
-              </View>
-              <Text style={styles.couponOptional}>Optional</Text>
-              {couponDiscount > 0 && (
-                <Text style={styles.couponSuccess}>
-                  Discount applied: ₦{couponDiscount.toLocaleString()}
-                </Text>
-              )}
-            </View>
-
-            {/* Total */}
-            <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>Total:</Text>
-              <Text style={styles.totalAmount}>
-                ₦{bookingSummary.pricing.total.toLocaleString()}
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Cancellation Policy */}
-        <Pressable
-          style={styles.cancellationSection}
-          onPress={() => setShowCancelPolicy(true)}
+        <ScrollView
+          style={styles.scrollView}
+          showsVerticalScrollIndicator={false}
         >
-          <Text style={styles.cancellationText}>
-            <Text>This booking is non-refundable. </Text>
-            <Text style={styles.cancellationLink}>View Policy</Text>
-          </Text>
-        </Pressable>
+          {/* Booking Details Card */}
+          <View style={styles.cardContainer}>
+            <View style={styles.card}>
+              {/* Property Cover Image */}
+              <Image
+                source={
+                  bookingSummary.property.coverImage
+                    ? { uri: bookingSummary.property.coverImage }
+                    : DEFAULT_PROPERTY_IMAGE
+                }
+                style={styles.propertyImage}
+                resizeMode="cover"
+              />
 
-        <View style={styles.bottomSpacer} />
-      </ScrollView>
+              {/* Property Details */}
+              <View style={styles.detailsContainer}>
+                <View style={styles.titleLocationRow}>
+                  <Text style={styles.propertyTitle}>
+                    {bookingSummary.property.title}
+                  </Text>
+                  <Text style={styles.location}>
+                    {bookingSummary.property.location}
+                  </Text>
+                </View>
 
-      {/* Proceed to Payment Button */}
-      <View style={styles.buttonContainer}>
-        <Pressable
-          style={styles.proceedButton}
-          onPress={handleProceedToPayment}
-        >
-          <Text style={styles.proceedButtonText}>Proceed to Payment</Text>
-        </Pressable>
-      </View>
+                {/* Booking Type */}
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Booking Type:</Text>
+                  <Text style={styles.infoValue}>
+                    {bookingSummary.property.bookingType}
+                  </Text>
+                </View>
 
-      {/* Cancellation Policy Modal */}
-      <Modal visible={showCancelPolicy} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <Pressable
-            style={styles.modalBackdrop}
-            onPress={() => setShowCancelPolicy(false)}
-          />
-          <View style={styles.policyContainer}>
-            <View style={styles.policyHeader}>
-              <Text style={styles.policyTitle}>Cancellation Policy</Text>
-              <Pressable onPress={() => setShowCancelPolicy(false)}>
-                <Text style={styles.closeButton}>✕</Text>
+                {/* Check-in/Check-out */}
+                <View style={styles.datesRow}>
+                  <View style={styles.dateColumn}>
+                    <View style={styles.dateHeader}>
+                      <CalendarIcon width={16} height={16} />
+                      <Text style={styles.dateLabel}>Check in</Text>
+                    </View>
+                    <Text style={styles.dateValue}>
+                      {bookingSummary.property.checkIn}
+                    </Text>
+                  </View>
+                  <View style={styles.spacer} />
+                  <View style={styles.dateColumn}>
+                    <View style={styles.dateHeader}>
+                      <CalendarIcon width={16} height={16} />
+                      <Text style={styles.dateLabel}>Check out</Text>
+                    </View>
+                    <Text style={styles.dateValue}>
+                      {bookingSummary.property.checkOut}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Guests */}
+                <View style={styles.guestsRow}>
+                  <Text style={styles.guestsLabel}>Guests:</Text>
+                  <Text style={styles.guestsValue}>
+                    • {bookingSummary.property.guests.adults} Adults •{" "}
+                    {bookingSummary.property.guests.children} Children •{" "}
+                    {bookingSummary.property.guests.pets}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Edit Button */}
+              <Pressable style={styles.editButton} onPress={handleEdit}>
+                <Text style={styles.editButtonText}>Edit</Text>
               </Pressable>
             </View>
-            <ScrollView style={styles.policyContent}>
-              <Text style={styles.policyText}>
-                This booking is non-refundable. Once you confirm your booking
-                and payment is processed, you will not be able to cancel or
-                request a refund.
-              </Text>
-              <Text style={styles.policyText}>
-                If you need to modify your booking, please contact the property
-                host directly through the messaging feature.
-              </Text>
-            </ScrollView>
           </View>
-        </View>
-      </Modal>
 
-      {/* Payment Method Selection Modal */}
-      <PaymentMethodModal
-        visible={showPaymentModal}
-        onClose={() => setShowPaymentModal(false)}
-        onSelect={handlePaymentMethodSelect}
-        onWalletSelect={handleWalletSelect}
-        loading={isProcessing}
-        totalAmount={bookingSummary.pricing.total}
-        hideReserveOption={params.fromReservation === "true"}
-        bookingDetails={bookingSummary}
-      />
+          {/* Price Breakdown */}
+          <View style={styles.priceBreakdownSection}>
+            <Text style={styles.sectionTitle}>Price Breakdown:</Text>
 
-      {/* Processing Overlay */}
-      {isProcessing && (
-        <View style={styles.processingOverlay}>
-          <View style={styles.processingCard}>
-            <ActivityIndicator size="large" color="#192DFF" />
-            <Text style={styles.processingText}>
-              Processing your booking...
+            <View style={styles.priceCard}>
+              {/* Rental Price Section */}
+              <View style={[styles.priceRow, styles.priceRowTop]}>
+                <View>
+                  <Text style={styles.priceLabel}>Rental Price</Text>
+                  <Text style={styles.priceSublabel}>
+                    ₦
+                    {Number(bookingSummary.pricing.rentalPrice).toLocaleString(
+                      "en-NG",
+                      { minimumFractionDigits: 2, maximumFractionDigits: 2 },
+                    )}{" "}
+                    × {bookingSummary.pricing.numberOfUnits}{" "}
+                    {bookingSummary.pricing.periodLabel}
+                  </Text>
+                </View>
+                <Text style={styles.priceAmount}>
+                  ₦
+                  {Number(bookingSummary.pricing.rentalSubtotal).toLocaleString(
+                    "en-NG",
+                    { minimumFractionDigits: 2, maximumFractionDigits: 2 },
+                  )}
+                </Text>
+              </View>
+
+              {/* Service Charge - Set by host */}
+              <View style={styles.priceRow}>
+                <View>
+                  <Text style={styles.priceLabel}>Service Charge</Text>
+                  <Text style={styles.priceSublabel}>(Set by host)</Text>
+                </View>
+                <Text style={styles.priceAmount}>
+                  ₦
+                  {Number(bookingSummary.pricing.serviceCharge).toLocaleString(
+                    "en-NG",
+                    { minimumFractionDigits: 2, maximumFractionDigits: 2 },
+                  )}
+                </Text>
+              </View>
+
+              {/* Caution Fee */}
+              <View style={styles.priceRow}>
+                <View>
+                  <Text style={styles.priceLabel}>Caution Fee</Text>
+                  <Text style={styles.priceSublabel}>(Refundable)</Text>
+                </View>
+                <Text style={styles.priceAmount}>
+                  ₦
+                  {Number(
+                    bookingSummary.pricing.securityDeposit,
+                  ).toLocaleString("en-NG", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </Text>
+              </View>
+
+              {/* Subtotal Before Coupon */}
+              <View style={[styles.priceRow, styles.subtotalRow]}>
+                <Text style={styles.subtotalLabel}>Subtotal:</Text>
+                <Text style={styles.subtotalAmount}>
+                  ₦
+                  {(
+                    bookingSummary.pricing.rentalSubtotal +
+                    bookingSummary.pricing.serviceCharge +
+                    bookingSummary.pricing.securityDeposit
+                  ).toLocaleString("en-NG", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </Text>
+              </View>
+
+              {/* Coupon Section */}
+              <View style={styles.couponSection}>
+                <Text style={styles.couponLabel}>Coupon</Text>
+                <View style={styles.couponInputRow}>
+                  <TextInput
+                    style={[
+                      styles.couponInput,
+                      couponApplied && {
+                        backgroundColor: "#f0f0f0",
+                        color: "#999",
+                      },
+                    ]}
+                    placeholder="Enter coupon code"
+                    placeholderTextColor="#999"
+                    value={couponCode}
+                    onChangeText={setCouponCode}
+                    editable={!couponApplied}
+                  />
+                  <Pressable
+                    style={[
+                      styles.couponButton,
+                      couponApplied && {
+                        backgroundColor: "#27AE60",
+                        borderColor: "#27AE60",
+                      },
+                      couponLoading && { opacity: 0.7 },
+                    ]}
+                    onPress={handleApplyCoupon}
+                    disabled={couponLoading}
+                  >
+                    {couponLoading ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <Text style={styles.couponButtonText}>
+                        {couponApplied ? "Remove" : "Apply"}
+                      </Text>
+                    )}
+                  </Pressable>
+                </View>
+                <Text style={styles.couponOptional}>Optional</Text>
+                {couponDiscount > 0 && (
+                  <Text style={styles.couponSuccess}>
+                    Discount applied: ₦
+                    {couponDiscount.toLocaleString("en-NG", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </Text>
+                )}
+              </View>
+
+              {/* Coupon Discount Row */}
+              {couponDiscount > 0 && (
+                <>
+                  <View style={styles.priceRow}>
+                    <Text style={[styles.priceLabel, { color: "#27AE60" }]}>
+                      Coupon Discount
+                    </Text>
+                    <Text style={[styles.priceAmount, { color: "#27AE60" }]}>
+                      -₦
+                      {couponDiscount.toLocaleString("en-NG", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </Text>
+                  </View>
+                  
+                  {/* After Coupon Subtotal */}
+                  <View style={styles.priceRow}>
+                    <Text style={[styles.priceLabel, { color: "#666" }]}>
+                      After Coupon
+                    </Text>
+                    <Text style={[styles.priceAmount, { color: "#666" }]}>
+                      ₦
+                      {discountedSubtotal.toLocaleString("en-NG", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </Text>
+                  </View>
+                </>
+              )}
+
+              {/* App Charge (5% of Discounted Subtotal) */}
+              <View style={styles.priceRow}>
+                <View style={{ flex: 1, paddingRight: 10 }}>
+                  <Text style={styles.priceLabel}>
+                    App Charge ({GUEST_FEE_PERCENT}%)
+                  </Text>
+                  <Text style={styles.priceSublabel}>
+                    {couponDiscount > 0 ? "Calculated on discounted amount. Note: caution fee is NOT discounted." : ""}
+                  </Text>
+                </View>
+                <Text style={styles.priceAmount}>
+                  ₦
+                  {guestFeeBase.toLocaleString("en-NG", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </Text>
+              </View>
+
+              {/* VAT on App Charge */}
+              <View style={[styles.priceRow, styles.priceRowBottom]}>
+                <View>
+                  <Text style={styles.priceLabel}>
+                    VAT ({VAT_PERCENT}% of App Charge)
+                  </Text>
+                </View>
+                <Text style={styles.priceAmount}>
+                  ₦
+                  {guestVat.toLocaleString("en-NG", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </Text>
+              </View>
+
+              {/* Free Booking Info Alert */}
+              {couponDiscount > 0 &&
+                bookingSummary.pricing.total === 0 && (
+                  <View
+                    style={{
+                      backgroundColor: "#E8F5E9",
+                      borderRadius: 8,
+                      padding: 12,
+                      marginVertical: 8,
+                      borderLeftWidth: 4,
+                      borderLeftColor: "#27AE60",
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: "#1B5E20",
+                        fontSize: 13,
+                        fontWeight: "600",
+                      }}
+                    >
+                      🎉 Booking is FREE!
+                    </Text>
+                    <Text
+                      style={{
+                        color: "#2E7D32",
+                        fontSize: 12,
+                        marginTop: 4,
+                      }}
+                    >
+                      Your coupon covers the full booking amount. Click "Proceed
+                      to booking" to confirm your reservation instantly.
+                    </Text>
+                  </View>
+                )}
+
+              {/* Total */}
+              <View style={styles.totalRow}>
+                <Text style={styles.totalLabel}>
+                  {couponDiscount > 0 ? "Amount to Pay:" : "Total:"}
+                </Text>
+                <Text style={styles.totalAmount}>
+                  ₦
+                  {Number(bookingSummary.pricing.total).toLocaleString(
+                    "en-NG",
+                    { minimumFractionDigits: 2, maximumFractionDigits: 2 },
+                  )}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Cancellation Policy */}
+          <Pressable
+            style={styles.cancellationSection}
+            onPress={() => setShowCancelPolicy(true)}
+          >
+            <Text style={styles.cancellationText}>
+              <Text>This booking is non-refundable. </Text>
+              <Text style={styles.cancellationLink}>View Policy</Text>
             </Text>
-          </View>
+          </Pressable>
+
+          <View style={styles.bottomSpacer} />
+        </ScrollView>
+
+        {/* Proceed to Payment Button */}
+        <View style={styles.buttonContainer}>
+          <Pressable
+            style={[
+              styles.proceedButton,
+              couponApplied &&
+                couponDiscount > 0 &&
+                bookingSummary.pricing.total === 0 && {
+                  backgroundColor: "#27AE60",
+                },
+            ]}
+            onPress={handleProceedToPayment}
+          >
+            <Text style={styles.proceedButtonText}>
+              {couponApplied &&
+                couponDiscount > 0 &&
+                bookingSummary.pricing.total === 0
+                ? "Proceed to booking"
+                : "Proceed to Payment"}
+            </Text>
+          </Pressable>
         </View>
-      )}
+
+        {/* Cancellation Policy Modal */}
+        <Modal visible={showCancelPolicy} transparent animationType="slide">
+          <View style={styles.modalOverlay}>
+            <Pressable
+              style={styles.modalBackdrop}
+              onPress={() => setShowCancelPolicy(false)}
+            />
+            <View style={styles.policyContainer}>
+              <View style={styles.policyHeader}>
+                <Text style={styles.policyTitle}>Cancellation Policy</Text>
+                <Pressable onPress={() => setShowCancelPolicy(false)}>
+                  <Text style={styles.closeButton}>✕</Text>
+                </Pressable>
+              </View>
+              <ScrollView style={styles.policyContent}>
+                <Text style={styles.policyText}>
+                  This booking is non-refundable. Once you confirm your booking
+                  and payment is processed, you will not be able to cancel or
+                  request a refund.
+                </Text>
+                <Text style={styles.policyText}>
+                  If you need to modify your booking, please contact the
+                  property host directly through the messaging feature.
+                </Text>
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Payment Method Selection Modal */}
+        <PaymentMethodModal
+          visible={showPaymentModal}
+          onClose={() => setShowPaymentModal(false)}
+          onSelect={handlePaymentMethodSelect}
+          onWalletSelect={handleWalletSelect}
+          loading={isProcessing}
+          totalAmount={bookingSummary.pricing.total}
+          hideReserveOption={params.fromReservation === "true"}
+          bookingDetails={bookingSummary}
+        />
+
+        {/* Processing Overlay */}
+        {isProcessing && (
+          <View style={styles.processingOverlay}>
+            <View style={styles.processingCard}>
+              <ActivityIndicator size="large" color="#192DFF" />
+              <Text style={styles.processingText}>
+                Processing your booking...
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* Toast Notification */}
+        <ToastNotification
+          visible={toastVisible}
+          type={toastConfig.type}
+          message={toastConfig.message}
+          onHide={() => setToastVisible(false)}
+        />
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
@@ -1149,12 +1873,13 @@ const styles = StyleSheet.create({
   couponButton: {
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: "#4a4a4a",
-    backgroundColor: "#4a4a4a",
+    borderColor: "#192DFF",
+    backgroundColor: "#192DFF",
     paddingHorizontal: 16,
     paddingVertical: 10,
     justifyContent: "center",
     alignItems: "center",
+    minWidth: 70,
   },
   couponButtonText: {
     fontSize: 12,

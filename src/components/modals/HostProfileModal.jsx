@@ -13,15 +13,14 @@ import {
     Pressable,
     StyleSheet,
     Text,
+    TouchableOpacity,
     View,
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 
-// Import icons from assets (same as host-information page)
 import ShieldTickIcon from '../../assets/icons/shield-tick.svg';
 import StarIcon from '../../assets/icons/star.svg';
 
-// Import services
 import authService from '../../services/authService';
 
 // Close Icon
@@ -59,9 +58,13 @@ const HostProfileModal = ({
   hostId,
   host: initialHost = {},
   isConfirmed = false,
+  status = "",
 }) => {
   const [loading, setLoading] = useState(false);
   const [hostData, setHostData] = useState(initialHost);
+
+  const statusLower = (status || "").toLowerCase();
+  const isOngoingOrConfirmed = isConfirmed || statusLower === "ongoing" || statusLower === "confirmed";
 
   useEffect(() => {
     const fetchHostData = async () => {
@@ -75,7 +78,7 @@ const HostProfileModal = ({
               name: user.fullName || user.firstName + ' ' + user.lastName,
               email: user.emailAddress || user.email,
               phone: user.phoneNumber || user.phone,
-              rating: user.hostRating || 5.0,
+              rating: user.hostRating || null,
               isVerified: user.isVerified || user.verified,
               avatar: user.avatar || user.profilePicture,
             });
@@ -95,7 +98,7 @@ const HostProfileModal = ({
     name = 'Host Name',
     email = 'host•••••••••@email.com',
     phone = '+234800••••••0',
-    rating = 5.0,
+    rating = null,
     isVerified = true,
     avatar = null,
   } = hostData;
@@ -106,14 +109,14 @@ const HostProfileModal = ({
         ? `${email.substring(0, 4)}•••••••••@${email.split('@')[1]}`
         : email);
 
-  const displayPhone = isConfirmed 
+  const displayPhone = isOngoingOrConfirmed 
     ? phone 
     : (phone.length > 6 
         ? `${phone.substring(0, 7)}••••••${phone.slice(-1)}`
         : phone);
 
   const handleDialHost = () => {
-    if (isConfirmed && phone && phone !== '-') {
+    if (isOngoingOrConfirmed && phone && phone !== '-') {
       Linking.openURL(`tel:${phone.replace(/\s/g, '')}`);
     }
   };
@@ -154,17 +157,30 @@ const HostProfileModal = ({
                 <View style={styles.contactInfo}>
                   <Text style={styles.hostName}>{name}</Text>
                   <Text style={styles.contactText}>{displayEmail}</Text>
-                  <Pressable onPress={handleDialHost} disabled={!isConfirmed}>
-                    <Text style={[styles.contactText, isConfirmed && { color: '#010135', textDecorationLine: 'underline' }]}>
+                  <TouchableOpacity 
+                    onPress={handleDialHost} 
+                    disabled={!isOngoingOrConfirmed}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[
+                      styles.contactText, 
+                      isOngoingOrConfirmed && { 
+                        color: '#6371F1', 
+                        textDecorationLine: 'underline',
+                        fontWeight: '600'
+                      }
+                    ]}>
                       {displayPhone}
                     </Text>
-                  </Pressable>
+                  </TouchableOpacity>
                 </View>
 
                 {/* Rating */}
                 <View style={styles.ratingContainer}>
                   <View style={styles.ratingRow}>
-                    <Text style={styles.ratingText}>{rating.toFixed(1)}</Text>
+                    <Text style={styles.ratingText}>
+                      {rating ? rating.toFixed(1) : "N/A"}
+                    </Text>
                     <StarIcon width={15} height={15} />
                   </View>
                 </View>

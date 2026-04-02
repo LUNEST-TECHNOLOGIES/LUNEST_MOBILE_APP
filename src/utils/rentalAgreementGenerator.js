@@ -221,7 +221,7 @@ export const generateRentalAgreementHTML = ({
   <ol>
     <li>All payments must be processed exclusively through LUNEST.</li>
     <li>Direct off-platform payments void platform protections.</li>
-    <li>Host payouts shall be processed according to LUNEST payout schedule.</li>
+    <li>Host/Landlord payouts shall be processed according to LUNEST payout schedule.</li>
   </ol>
 
   <h2>5. SECURITY DEPOSIT / CAUTION FEE</h2>
@@ -236,7 +236,7 @@ export const generateRentalAgreementHTML = ({
   <h3>5.3 Platform-Held Deposit</h3>
   <p>Where the deposit is held by LUNEST:</p>
   <ul>
-    <li>Host must submit any damage claim within 48 hours after checkout.</li>
+    <li>Host/Landlord must submit any damage claim within 48 hours after checkout.</li>
     <li>Claims must include verifiable evidence.</li>
     <li>If no claim is filed within the claim window, the deposit shall be automatically refunded.</li>
     <li>LUNEST may mediate disputes and determine reasonable deductions.</li>
@@ -260,7 +260,7 @@ export const generateRentalAgreementHTML = ({
   <h2>8. UTILITIES AND MAINTENANCE</h2>
   <p><strong>Short-Term (Nightly):</strong> Utilities included unless otherwise stated.</p>
   <p><strong>Monthly/Yearly:</strong> Utility responsibility per specific listing agreement.</p>
-  <p>Host shall maintain structural integrity and habitability. Guest shall promptly report defects via the LUNEST platform.</p>
+  <p>Host/Landlord shall maintain structural integrity and habitability. Guest shall promptly report defects via the LUNEST platform.</p>
 
   <h2>9. CANCELLATION AND TERMINATION</h2>
   <div class="field-row"><span class="field-label">Cancellation Policy Type:</span> ${listing.cancellationPolicy || "Standard Platform Policy"}</div>

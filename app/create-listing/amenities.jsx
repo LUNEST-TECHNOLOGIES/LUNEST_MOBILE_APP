@@ -284,33 +284,63 @@ const Amenities = () => {
 
   // Load draft data on mount
   useEffect(() => {
+    console.log('📂 [Amenities] Loading draft data:', draftData?.draftId);
     if (draftData) {
       const storedSelected = ensureArray(draftData.selectedAmenities);
       const storedCustom = ensureArray(draftData.customAmenities);
       
+      console.log('📊 [Amenities] Found amenities in draft:', {
+        selectedCount: storedSelected.length,
+        customCount: storedCustom.length,
+        selected: storedSelected,
+        custom: storedCustom
+      });
+      
       const standard = [];
       const customFromSelected = [];
+      const customIds = [];
 
       storedSelected.forEach(item => {
         if (ALL_STANDARD_IDS.includes(item)) {
           standard.push(item);
         } else {
-          // It's a custom amenity string (label) coming from HostListingsScreen
-          // Check if it's already in storedCustom to avoid duplicates
-          const alreadyExists = storedCustom.some(c => c.label === item);
-          if (!alreadyExists) {
-             customFromSelected.push({
-                id: `custom_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          // Check if it's an existing custom ID already in storedCustom
+          const existingById = storedCustom.find(c => c.id === item);
+          if (existingById) {
+            customIds.push(item);
+          } else if (!item.startsWith('custom_')) {
+            // It's a raw string label (legacy/different source)
+            const alreadyByLabel = storedCustom.find(c => c.label === item);
+            if (alreadyByLabel) {
+              customIds.push(alreadyByLabel.id);
+            } else {
+              // Truly new custom label, normalize into an object
+              const newId = `custom_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+              customFromSelected.push({
+                id: newId,
                 label: item,
                 isCustom: true
-             });
+              });
+              customIds.push(newId);
+            }
           }
+          // If it IS a custom ID (starts with custom_) but NOT in storedCustom, 
+          // we ignore it to prevent showing the ID string in the UI.
         }
       });
 
-      setSelectedAmenities(standard);
-      setCustomAmenities([...storedCustom, ...customFromSelected]);
+      const finalSelected = [...standard, ...customIds];
+      const finalCustom = [...storedCustom, ...customFromSelected];
+      
+      console.log('📝 [Amenities] Setting amenities state:', {
+        selected: finalSelected,
+        custom: finalCustom
+      });
+
+      setSelectedAmenities(finalSelected);
+      setCustomAmenities(finalCustom);
     } else {
+      console.log('📂 [Amenities] No draft data found, using empty state');
       setSelectedAmenities([]);
       setCustomAmenities([]);
     }

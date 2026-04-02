@@ -2,17 +2,17 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useVideoPlayer, VideoView } from "expo-video";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ActivityIndicator,
-  Dimensions,
-  FlatList,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View
+    ActivityIndicator,
+    Dimensions,
+    FlatList,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import ArrowLeftIcon from "../../assets/icons/bookings/arrow-left.svg";
@@ -55,7 +55,7 @@ const toTitleCase = (str) => {
     .replace(/_/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-  
+
   if (!cleaned) return "";
 
   return cleaned
@@ -88,18 +88,27 @@ const maskGuestName = (fullName) => {
 const formatReviewDate = (dateString) => {
   if (!dateString) return "";
   const d = new Date(dateString);
-  const datePart = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  const timePart = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+  const datePart = d.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+  const timePart = d.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
   return `${datePart} at ${timePart}`;
 };
 
 // Helper function to extract and format amenity value
 const formatAmenity = (amenity) => {
   if (!amenity) return "";
-  
+
   let text = "";
   if (typeof amenity === "object") {
-    text = amenity.value || amenity.label || amenity.name || JSON.stringify(amenity);
+    text =
+      amenity.value || amenity.label || amenity.name || JSON.stringify(amenity);
   } else {
     text = String(amenity);
   }
@@ -117,7 +126,7 @@ const formatAmenity = (amenity) => {
 
 // Helper function to convert house rule IDs to readable labels
 const convertHouseRulesToLabels = (rules) => {
-  if (!rules) return [];
+  if (!rules || rules === "0" || rules === 0) return [];
 
   if (typeof rules === "object" && !Array.isArray(rules)) {
     // Handle object format: { no_smoking: true, no_pets: false, ... }
@@ -126,9 +135,7 @@ const convertHouseRulesToLabels = (rules) => {
       .map(([ruleId, _]) => {
         if (!ruleId || ruleId === null || ruleId === undefined) return null;
         const stringId = String(ruleId);
-        return (
-          HOUSE_RULES_MAP[stringId] || toTitleCase(stringId)
-        );
+        return HOUSE_RULES_MAP[stringId] || toTitleCase(stringId);
       })
       .filter(Boolean);
   }
@@ -143,13 +150,14 @@ const convertHouseRulesToLabels = (rules) => {
       if (Array.isArray(parsed)) {
         return convertHouseRulesToLabels(parsed);
       }
-      return [rules];
+      // If it's a plain string, return as is (ignore "0")
+      return rules === "0" ? [] : [rules];
     } catch {
       if (rules.includes(",")) {
         const splitRules = rules
           .split(",")
           .map((rule) => rule.trim())
-          .filter((rule) => rule);
+          .filter((rule) => rule && rule !== "0");
         if (splitRules.every((rule) => /^\d+$/.test(rule))) {
           const ruleIds = Object.keys(HOUSE_RULES_MAP);
           return splitRules
@@ -164,15 +172,17 @@ const convertHouseRulesToLabels = (rules) => {
         }
         return splitRules.map(toTitleCase);
       }
-      return [toTitleCase(rules)];
+      return rules === "0" ? [] : [toTitleCase(rules)];
     }
   }
 
   if (Array.isArray(rules)) {
     return rules
       .map((rule) => {
+        if (rule === "0") return null;
         if (typeof rule === "string") return toTitleCase(rule);
-        if (typeof rule === "object") return toTitleCase(rule.label || rule.name || rule.value);
+        if (typeof rule === "object")
+          return toTitleCase(rule.label || rule.name || rule.value);
         return null;
       })
       .filter(Boolean);
@@ -184,8 +194,6 @@ const convertHouseRulesToLabels = (rules) => {
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const MEDIA_ITEM_WIDTH = SCREEN_WIDTH - 32; // Full width minus padding
 const MEDIA_ITEM_HEIGHT = 280;
-
-
 
 const FullDetailsScreen = () => {
   const router = useRouter();
@@ -202,6 +210,31 @@ const FullDetailsScreen = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [baseURL, setBaseURL] = useState("");
+
+  // Helper for image URL resolution
+  const convertImageUrl = (image) => {
+    if (!image) return null;
+    const path = typeof image === "object" ? image.url || image.uri : image;
+    const baseUrl = configService.getBaseURLSync();
+    return resolveImageUrlSync(path, baseUrl);
+  };
+
+  // Parse review images robustly (handles JSON strings and arrays)
+  const parseImages = (imagesData) => {
+    if (!imagesData) return [];
+    if (Array.isArray(imagesData)) return imagesData.filter((img) => !!img);
+    if (typeof imagesData === "string" && imagesData.trim().startsWith("[")) {
+      try {
+        const parsed = JSON.parse(imagesData);
+        return Array.isArray(parsed) ? parsed.filter((img) => !!img) : [];
+      } catch (e) {
+        return [imagesData];
+      }
+    }
+    if (typeof imagesData === "string" && imagesData.length > 0)
+      return [imagesData];
+    return [];
+  };
   const [reviewText, setReviewText] = useState("");
   const [hostCurrentAvatar, setHostCurrentAvatar] = useState(null);
   const [hostCurrentRating, setHostCurrentRating] = useState(null);
@@ -261,36 +294,49 @@ const FullDetailsScreen = () => {
               "[FullDetailsScreen] Error fetching host data:",
               hostError,
             );
-
-
           }
-          
+
           // Fetch host total listings count
           try {
-              const hostId = listingData.hostInfo?._id || listingData.host?._id;
-              if (hostId) {
-                  const listingsResult = await listingService.fetchAllListings({
-                      host: hostId,
-                      status: { $in: ["AVAILABLE", "BOOKED", "PENDING"] },
-                  });
-                  if (listingsResult?.success && Array.isArray(listingsResult.listings)) {
-                      setHostTotalListings(listingsResult.listings.length);
-                      console.log("[FullDetailsScreen] Host total listings:", listingsResult.listings.length);
-                  }
+            const hostId = listingData.hostInfo?._id || listingData.host?._id;
+            if (hostId) {
+              const listingsResult = await listingService.fetchAllListings({
+                host: hostId,
+                status: { $in: ["AVAILABLE", "BOOKED", "PENDING"] },
+              });
+              if (
+                listingsResult?.success &&
+                Array.isArray(listingsResult.listings)
+              ) {
+                setHostTotalListings(listingsResult.listings.length);
+                console.log(
+                  "[FullDetailsScreen] Host total listings:",
+                  listingsResult.listings.length,
+                );
               }
+            }
           } catch (listingsError) {
-              console.warn("[FullDetailsScreen] Error fetching host listings:", listingsError);
+            console.warn(
+              "[FullDetailsScreen] Error fetching host listings:",
+              listingsError,
+            );
           }
 
-          // Fetch listing reviews
           try {
-              const reviewsResult = await bookingService.fetchListingReviews(listingId);
-              if (reviewsResult.success) {
-                  setListingReviews(reviewsResult.reviews);
-                  console.log("[FullDetailsScreen] Listing reviews fetched:", reviewsResult.reviews.length);
-              }
+            const reviewsResult =
+              await bookingService.fetchListingReviews(listingId);
+            if (reviewsResult.success) {
+              setListingReviews(reviewsResult.reviews);
+              console.log(
+                "[FullDetailsScreen] Listing reviews fetched:",
+                reviewsResult.reviews.length,
+              );
+            }
           } catch (reviewsError) {
-              console.warn("[FullDetailsScreen] Error fetching listing reviews:", reviewsError);
+            console.warn(
+              "[FullDetailsScreen] Error fetching listing reviews:",
+              reviewsError,
+            );
           }
         } else {
           setError(result?.message || "Failed to load listing");
@@ -308,65 +354,86 @@ const FullDetailsScreen = () => {
 
   useEffect(() => {
     loadListingData();
-    
+
     // Check if user is eligible to post a review
     const checkReviewEligibility = async () => {
-        try {
-            const myBookingsRes = await bookingService.fetchGuestBookings();
-            if (myBookingsRes.success && myBookingsRes.bookings) {
-                const completedUnreviewed = myBookingsRes.bookings.find(
-                    (b) =>
-                        (b.listing?._id === listingId || b.listing === listingId) &&
-                        b.status === "COMPLETED" &&
-                        (!b.guestReview || !b.guestReview.rating || b.guestReview.rating === 0)
-                );
-                setUserHasBooked(!!completedUnreviewed);
-            }
-        } catch (error) {
-            console.warn("[FullDetailsScreen] Error checking review eligibility:", error);
+      try {
+        const myBookingsRes = await bookingService.fetchGuestBookings();
+        if (myBookingsRes.success && myBookingsRes.bookings) {
+          const completedUnreviewed = myBookingsRes.bookings.find(
+            (b) =>
+              (b.listing?._id === listingId || b.listing === listingId) &&
+              b.status === "COMPLETED" &&
+              (!b.guestReview ||
+                !b.guestReview.rating ||
+                b.guestReview.rating === 0),
+          );
+          setUserHasBooked(!!completedUnreviewed);
         }
+      } catch (error) {
+        console.warn(
+          "[FullDetailsScreen] Error checking review eligibility:",
+          error,
+        );
+      }
     };
     checkReviewEligibility();
   }, [listingId, loadListingData]);
 
-  const convertImageUrl = (image) => {
-    const baseUrl = configService.getBaseURLSync();
-    return resolveImageUrlSync(image, baseUrl);
-  };
-
   const handlePostReview = async (reviewData) => {
     if (!listingId) return;
-    
+
     // Find the eligible booking ID
     let targetBookingId = null;
     try {
-        const myBookingsRes = await bookingService.fetchGuestBookings();
-        if (myBookingsRes.success && myBookingsRes.bookings) {
-            const completedUnreviewed = myBookingsRes.bookings.find(
-                (b) =>
-                    (b.listing?._id === listingId || b.listing === listingId) &&
-                    b.status === "COMPLETED" &&
-                    (!b.guestReview || !b.guestReview.rating || b.guestReview.rating === 0)
-            );
-            targetBookingId = completedUnreviewed?._id;
-        }
+      const myBookingsRes = await bookingService.fetchGuestBookings();
+      if (myBookingsRes.success && myBookingsRes.bookings) {
+        const completedUnreviewed = myBookingsRes.bookings.find(
+          (b) =>
+            (b.listing?._id === listingId || b.listing === listingId) &&
+            b.status === "COMPLETED" &&
+            (!b.guestReview ||
+              !b.guestReview.rating ||
+              b.guestReview.rating === 0),
+        );
+        targetBookingId = completedUnreviewed?._id;
+      }
     } catch (e) {
-        console.warn("[FullDetailsScreen] Could not find booking for review:", e);
+      console.warn("[FullDetailsScreen] Could not find booking for review:", e);
     }
 
     if (!targetBookingId) {
-        console.warn("[FullDetailsScreen] No eligible booking found for review");
-        return;
+      console.warn("[FullDetailsScreen] No eligible booking found for review");
+      return;
     }
 
     setIsPostingReview(true);
     try {
+      let uploadedImageUrls = reviewData.images || [];
+
+      // 1. Upload images if any
+      if (reviewData.images && reviewData.images.length > 0) {
+        console.log("[FullDetailsScreen] Uploading review images...");
+        const uploadResult = await bookingService.uploadReviewImages(
+          reviewData.images,
+        );
+        if (uploadResult.success && uploadResult.images) {
+          uploadedImageUrls = uploadResult.images;
+        } else {
+          Alert.alert(
+            "Upload Failed",
+            "Could not upload review images. Proceeding without them?",
+          );
+          uploadedImageUrls = [];
+        }
+      }
+
+      // 2. Submit review with uploaded URLs
       const result = await bookingService.submitReview(
         targetBookingId,
         reviewData.rating,
         reviewData.feedback,
-        reviewData.images,
-        reviewData.categories
+        uploadedImageUrls,
       );
 
       if (result.success) {
@@ -374,9 +441,10 @@ const FullDetailsScreen = () => {
         setReviewText("");
         setUserHasBooked(false); // Can't review again
         // Refresh reviews
-        const reviewsResult = await bookingService.fetchListingReviews(listingId);
+        const reviewsResult =
+          await bookingService.fetchListingReviews(listingId);
         if (reviewsResult.success) {
-            setListingReviews(reviewsResult.reviews);
+          setListingReviews(reviewsResult.reviews);
         }
       }
     } catch (error) {
@@ -488,7 +556,7 @@ const FullDetailsScreen = () => {
   const getPropertyMedia = () => {
     const images = getPropertyImages();
     const videos = getPropertyVideos();
-    // Images first, then videos 
+    // Images first, then videos
     return [...images, ...videos];
   };
 
@@ -508,12 +576,12 @@ const FullDetailsScreen = () => {
       features.push({
         label: `${listing.bathrooms} Bathroom${listing.bathrooms > 1 ? "s" : ""}`,
       });
-    
+
     // Add furnishing if available
     if (listing.furnishing) {
-        features.push({
-            label: toTitleCase(listing.furnishing)
-        });
+      features.push({
+        label: toTitleCase(listing.furnishing),
+      });
     }
 
     // Add some amenities as features if available
@@ -526,57 +594,71 @@ const FullDetailsScreen = () => {
   };
 
   // Property data derived from actual listing
-  const propertyData = {
-    id: listing?._id || listingId,
-    title:
-      listing?.propertyName || listing?.propertyTitle || "Property Details",
-    location: getLocationString(),
-    price: formatPrice(listing?.price || listing?.propertyPrice?.price),
-    priceType: formatPricingPeriod(listing?.pricingPeriod),
-    priceNote:
-      listing?.securityDeposit > 0
-        ? `Caution fee: ${formatCurrency(listing.securityDeposit)}`
-        : "Contact host for additional fees",
-    description: listing?.description || "No description available",
-    propertyImages: getPropertyImages(),
-    propertyMedia: getPropertyMedia(),
-    features: getFeatures(),
-    amenities: (listing?.amenities || []).map(formatAmenity),
-    regulations: (() => {
-      // Converted house rules and additional rules
-      const houseRulesLabels = convertHouseRulesToLabels(listing?.houseRules);
-      
-      const additionalRulesArray = listing?.additionalRules
-        ? typeof listing.additionalRules === "string"
-          ? listing.additionalRules
-              .split(",")
-              .map((rule) => rule.trim())
-              .filter((rule) => rule)
-          : Array.isArray(listing.additionalRules)
-            ? listing.additionalRules
-                .map((rule) => String(rule || "").trim())
-                .filter((rule) => rule)
-            : [String(listing.additionalRules)]
-        : [];
+  const propertyData = useMemo(
+    () => ({
+      id: listing?._id || listingId,
+      title:
+        listing?.propertyName || listing?.propertyTitle || "Property Details",
+      location: getLocationString(),
+      price: formatPrice(listing?.price || listing?.propertyPrice?.price),
+      priceType: formatPricingPeriod(listing?.pricingPeriod),
+      priceNote:
+        listing?.securityDeposit > 0
+          ? "Additional fees may apply"
+          : "Contact host for additional fees",
+      description: listing?.description || "No description available",
+      propertyImages: getPropertyImages(),
+      propertyMedia: getPropertyMedia(),
+      features: getFeatures(),
+      amenities: (listing?.amenities || []).map(formatAmenity),
+      regulations: (() => {
+        // Converted house rules and additional rules
+        const houseRulesLabels = convertHouseRulesToLabels(listing?.houseRules);
 
-      return [
-        ...houseRulesLabels,
-        ...additionalRulesArray,
-      ].filter((rule) => rule && rule.trim());
-    })(),
-    landmarks: listing?.landmarks || [],
-    host: {
-      name: listing?.hostInfo?.fullName || "Host",
-      totalListings: hostTotalListings || 0,
-      rating: listing?.hostInfo?.hostRating || hostCurrentRating || 5.0,
-      isVerified: listing?.hostInfo?.hostApplicationStatus === "APPROVED",
-      avatar: convertImageUrl(listing?.hostInfo?.avatar || hostCurrentAvatar),
-    },
-    averageRating: listing?.averageRating || 0,
-    ratingCount: listing?.ratingCount || 0,
-    isBooked: listing?.status === "BOOKED",
-    reviews: listingReviews,
-  };
+        const additionalRulesArray = listing?.additionalRules
+          ? typeof listing.additionalRules === "string"
+            ? listing.additionalRules
+                .split(",")
+                .map((rule) => rule.trim())
+                .filter((rule) => rule)
+            : Array.isArray(listing.additionalRules)
+              ? listing.additionalRules
+                  .map((rule) => String(rule || "").trim())
+                  .filter((rule) => rule)
+              : [String(listing.additionalRules)]
+          : [];
+
+        return [...houseRulesLabels, ...additionalRulesArray].filter(
+          (rule) => rule && rule.trim(),
+        );
+      })(),
+      landmarks: listing?.landmarks || [],
+      host: {
+        name: listing?.hostInfo?.fullName || listing?.host?.fullName || "Host",
+        totalListings: hostTotalListings || 0,
+        rating: hostCurrentRating || listing?.hostInfo?.hostRating || null,
+        isVerified: listing?.hostInfo?.hostApplicationStatus === "APPROVED",
+        avatar: convertImageUrl(hostCurrentAvatar || listing?.hostInfo?.avatar),
+      },
+      averageRating: listing?.averageRating || 0,
+      ratingCount: listing?.ratingCount || 0,
+      rating: listing?.averageRating || null,
+      isBooked: listing?.status === "BOOKED",
+      reviews: listingReviews,
+    }),
+    [
+      listing,
+      listingId,
+      hostTotalListings,
+      hostCurrentRating,
+      hostCurrentAvatar,
+      listingReviews,
+      getLocationString,
+      getPropertyImages,
+      getPropertyMedia,
+      getFeatures,
+    ],
+  );
 
   const renderWhatYouGetSection = () => {
     const features = propertyData.features;
@@ -607,57 +689,6 @@ const FullDetailsScreen = () => {
     const index = Math.round(offset / MEDIA_ITEM_WIDTH);
     setCurrentImageIndex(index);
   }, []);
-
-  // Video player component for the slider
-  const VideoPlayer = ({ uri, isActive }) => {
-    const player = useVideoPlayer(uri, player => {
-      player.loop = true;
-      player.pause();
-    });
-    const [showPlayButton, setShowPlayButton] = useState(true);
-
-    const togglePlayPause = () => {
-      if (player.playing) {
-        player.pause();
-        setShowPlayButton(true);
-      } else {
-        player.play();
-        setShowPlayButton(false);
-      }
-    };
-
-    // Pause video when not active in view
-    useEffect(() => {
-      if (!isActive) {
-        player.pause();
-        setShowPlayButton(true);
-      }
-    }, [isActive, player]);
-
-    return (
-      <Pressable onPress={togglePlayPause} style={styles.mediaItemContainer}>
-        <VideoView
-          player={player}
-          style={styles.videoPlayer}
-          contentFit="cover"
-          nativeControls={true}
-          allowsFullscreen={true}
-        />
-        {showPlayButton && (
-          <View style={styles.playButtonOverlay}>
-            <Ionicons
-              name="play-circle"
-              size={64}
-              color="rgba(255,255,255,0.9)"
-            />
-          </View>
-        )}
-        <View style={styles.videoIndicator}>
-          <Ionicons name="videocam" size={16} color="#FFF" />
-        </View>
-      </Pressable>
-    );
-  };
 
   // Handle image press to open full-screen viewer
   const handleImagePress = (index) => {
@@ -831,8 +862,8 @@ const FullDetailsScreen = () => {
     const hostAvatarUrl = hostCurrentAvatar
       ? convertImageUrl(hostCurrentAvatar)
       : listing?.hostInfo?.avatar || listing?.host?.avatar
-      ? convertImageUrl(listing.hostInfo?.avatar || listing.host?.avatar)
-      : null;
+        ? convertImageUrl(listing.hostInfo?.avatar || listing.host?.avatar)
+        : null;
 
     return (
       <Pressable style={styles.hostSection} onPress={handleMessageHost}>
@@ -849,17 +880,21 @@ const FullDetailsScreen = () => {
             <EllipseAvatar width={60} height={60} style={styles.hostAvatar} />
           )}
           <View style={styles.hostInfo}>
-            <Text style={styles.hostedByLabel}>Hosted by:</Text>
+            <Text style={styles.hostedByLabel}>Hosted by/Landlord:</Text>
             <Text style={styles.hostName}>{propertyData.host.name}</Text>
-            
+
             <View style={styles.hostStatsRow}>
               <Text style={styles.hostListings}>
                 {propertyData.host.totalListings} Listings
               </Text>
               <View style={styles.hostStatDivider} />
               <View style={styles.hostRating}>
-                <Text style={styles.ratingText}>{Number(propertyData.host.rating).toFixed(1)}</Text>
-                <StarIcon width={14} height={14} style={styles.ratingIcon} />
+                <Text style={styles.ratingText}>
+                  {propertyData.host.rating ? 
+                    Number(propertyData.host.rating).toFixed(1) : 
+                    "N/A"}
+                </Text>
+                <StarIcon width={14} height={14} fill="#FFD700" style={styles.ratingIcon} />
               </View>
             </View>
           </View>
@@ -871,7 +906,12 @@ const FullDetailsScreen = () => {
                   <Text style={styles.verifiedText}>VERIFIED</Text>
                 </View>
               )}
-              <Pressable onPress={(e) => { e.stopPropagation(); setShowVerifiedInfo(true); }}>
+              <Pressable
+                onPress={(e) => {
+                  e.stopPropagation();
+                  setShowVerifiedInfo(true);
+                }}
+              >
                 <CircleInfo2Icon width={18} height={18} color="#010135" />
               </Pressable>
             </View>
@@ -889,15 +929,15 @@ const FullDetailsScreen = () => {
     const numRating = Number(rating) || 0;
     for (let i = 1; i <= 5; i++) {
       stars.push(
-        <Ionicons 
-          key={i} 
-          name={i <= numRating ? "star" : "star-outline"} 
-          size={14} 
-          color="#FFB800" 
-        />
+        <Ionicons
+          key={i}
+          name={i <= numRating ? "star" : "star-outline"}
+          size={14}
+          color="#FFD700"
+        />,
       );
     }
-    return <View style={{ flexDirection: 'row', gap: 2 }}>{stars}</View>;
+    return <View style={{ flexDirection: "row", gap: 2 }}>{stars}</View>;
   };
 
   const renderReviewsSection = () => {
@@ -912,39 +952,89 @@ const FullDetailsScreen = () => {
 
     return (
       <View style={styles.reviewsSection}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <Text style={styles.sectionTitle}>Guest Reviews ({propertyData.reviews.length})</Text>
+        <View
+          style={{
+            flexDirection: "row",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: 12,
+          }}
+        >
+          <Text style={styles.sectionTitle}>
+            Guest Reviews ({propertyData.reviews.length})
+          </Text>
           {propertyData.averageRating > 0 && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              <Ionicons name="star" size={16} color="#FFB800" />
-              <Text style={{ fontWeight: '700', fontSize: 16 }}>{propertyData.averageRating}</Text>
+            <View
+              style={{ flexDirection: "row", alignItems: "center", gap: 4 }}
+            >
+              <Ionicons name="star" size={16} color="#FFD700" />
+              <Text style={{ fontWeight: "700", fontSize: 16 }}>
+                {propertyData.averageRating}
+              </Text>
             </View>
           )}
         </View>
         <View style={styles.reviewsContainer}>
-          {(Array.isArray(propertyData.reviews) ? propertyData.reviews : []).slice(0, 3).map((review, index) => (
-            <View key={index} style={styles.reviewCard}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                {renderStars(review.rating)}
+          {(Array.isArray(propertyData.reviews) ? propertyData.reviews : [])
+            .slice(0, 3)
+            .map((review, index) => (
+              <View key={index} style={styles.reviewCard}>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: 4,
+                  }}
+                >
+                  {renderStars(review.rating)}
+                  <Text style={styles.reviewAuthor}>
+                    {review.reviewedAt
+                      ? new Date(review.reviewedAt).toLocaleDateString(
+                          "en-US",
+                          { month: "short", day: "numeric", year: "numeric" },
+                        )
+                      : "Recently"}
+                  </Text>
+                </View>
+                <Text style={styles.reviewText}>
+                  "{review.feedback || review.text || "No feedback provided"}"
+                </Text>
+                {(() => {
+                  const reviewImages = parseImages(review.images);
+                  if (reviewImages.length === 0) return null;
+                  return (
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      style={{ marginTop: 8 }}
+                    >
+                      {reviewImages.map((img, imgIdx) => (
+                        <Image
+                          key={imgIdx}
+                          source={{ uri: convertImageUrl(img) }}
+                          style={{
+                            width: 60,
+                            height: 60,
+                            borderRadius: 6,
+                            marginRight: 6,
+                          }}
+                        />
+                      ))}
+                    </ScrollView>
+                  );
+                })()}
                 <Text style={styles.reviewAuthor}>
-                  {review.reviewedAt ? new Date(review.reviewedAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : "Recently"}
+                  —{" "}
+                  {maskGuestName(
+                    review.reviewer?.fullName ||
+                      review.author?.fullName ||
+                      review.author ||
+                      "Anonymous",
+                  )}
                 </Text>
               </View>
-              <Text style={styles.reviewText}>
-                  "{review.feedback || review.text || "No feedback provided"}"
-              </Text>
-              {review.images && review.images.length > 0 && (
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
-                  {review.images.map((img, imgIdx) => (
-                    <Image key={imgIdx} source={{ uri: convertImageUrl(img) }} style={{ width: 60, height: 60, borderRadius: 6, marginRight: 6 }} />
-                  ))}
-                </ScrollView>
-              )}
-              <Text style={styles.reviewAuthor}>
-                — {maskGuestName(review.reviewer?.fullName || review.author?.fullName || review.author || "Anonymous")}
-              </Text>
-            </View>
-          ))}
+            ))}
         </View>
       </View>
     );
@@ -955,7 +1045,15 @@ const FullDetailsScreen = () => {
   return (
     <View style={[styles.container, { paddingBottom: insets.bottom }]}>
       {/* Header Area */}
-      <View style={[styles.header, { paddingTop: Platform.OS === 'android' ? insets.top + 10 : insets.top }]}>
+      <View
+        style={[
+          styles.header,
+          {
+            paddingTop:
+              Platform.OS === "android" ? insets.top + 10 : insets.top,
+          },
+        ]}
+      >
         <Pressable style={styles.backButton} onPress={handleGoBack}>
           <ArrowLeftIcon width={24} height={24} color="#000" />
         </Pressable>
@@ -988,6 +1086,29 @@ const FullDetailsScreen = () => {
                       {propertyData.priceType}
                     </Text>
                   </Text>
+
+                  {(listing.securityDeposit > 0 ||
+                    listing.serviceCharge > 0) && (
+                    <View style={styles.additionalFeesContainer}>
+                      {listing.securityDeposit > 0 && (
+                        <View style={styles.feeBadge}>
+                          <Text style={styles.feeLabel}>Caution Fee: </Text>
+                          <Text style={styles.feeValue}>
+                            {formatPrice(listing.securityDeposit)}
+                          </Text>
+                        </View>
+                      )}
+                      {listing.serviceCharge > 0 && (
+                        <View style={styles.feeBadge}>
+                          <Text style={styles.feeLabel}>Service Charge: </Text>
+                          <Text style={styles.feeValue}>
+                            {formatPrice(listing.serviceCharge)}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  )}
+
                   <View style={styles.priceNoteContainer}>
                     <Text style={styles.priceNoteIcon}>ℹ️</Text>
                     <Text style={styles.priceNote}>
@@ -1001,7 +1122,10 @@ const FullDetailsScreen = () => {
                   {["details", "reviews"].map((tab) => (
                     <Pressable
                       key={tab}
-                      style={[styles.tab, activeTab === tab && styles.activeTab]}
+                      style={[
+                        styles.tab,
+                        activeTab === tab && styles.activeTab,
+                      ]}
                       onPress={() => setActiveTab(tab)}
                     >
                       <Text
@@ -1054,7 +1178,10 @@ const FullDetailsScreen = () => {
                   {["details", "reviews"].map((tab) => (
                     <Pressable
                       key={tab}
-                      style={[styles.tab, activeTab === tab && styles.activeTab]}
+                      style={[
+                        styles.tab,
+                        activeTab === tab && styles.activeTab,
+                      ]}
                       onPress={() => setActiveTab(tab)}
                     >
                       <Text
@@ -1071,7 +1198,9 @@ const FullDetailsScreen = () => {
 
                 {/* Reviews Tab Content */}
                 <View style={styles.reviewsContent}>
-                  <Text style={styles.sectionTitle}>Guest Reviews ({propertyData.reviews?.length || 0})</Text>
+                  <Text style={styles.sectionTitle}>
+                    Guest Reviews ({propertyData.reviews?.length || 0})
+                  </Text>
                   <View style={styles.reviewsList}>
                     {propertyData.reviews && propertyData.reviews.length > 0 ? (
                       propertyData.reviews.map((review, index) => (
@@ -1084,21 +1213,33 @@ const FullDetailsScreen = () => {
                               {formatReviewDate(review.reviewedAt)}
                             </Text>
                           </View>
-                          <View style={{ marginBottom: 6 }}>{renderStars(review.rating)}</View>
+                          <View style={{ marginBottom: 6 }}>
+                            {renderStars(review.rating)}
+                          </View>
                           <Text style={styles.reviewTextTab}>
-                            {review.feedback || review.text || "No feedback provided"}
+                            {review.feedback ||
+                              review.text ||
+                              "No feedback provided"}
                           </Text>
                           {review.images && review.images.length > 0 && (
-                            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
+                            <ScrollView
+                              horizontal
+                              showsHorizontalScrollIndicator={false}
+                              style={{ marginTop: 8 }}
+                            >
                               {review.images.map((img, imgIdx) => (
-                                <Image 
-                                  key={imgIdx} 
-                                  source={{ uri: convertImageUrl(img) }} 
-                                  style={{ width: 70, height: 70, borderRadius: 8, marginRight: 8 }} 
+                                <Image
+                                  key={imgIdx}
+                                  source={{ uri: convertImageUrl(img) }}
+                                  style={{
+                                    width: 70,
+                                    height: 70,
+                                    borderRadius: 8,
+                                    marginRight: 8,
+                                  }}
                                   contentFit="cover"
                                   cachePolicy="disk"
                                   transition={200}
-                                  placeholder={require("../../assets/images/prop_image.png")}
                                 />
                               ))}
                             </ScrollView>
@@ -1114,13 +1255,20 @@ const FullDetailsScreen = () => {
 
                   {userHasBooked && (
                     <View style={styles.postReviewSection}>
-                      <Text style={styles.sectionTitle}>Your Experience Matters</Text>
-                      <Text style={styles.reviewHelpText}>Help other guests by sharing your experience at this property.</Text>
+                      <Text style={styles.sectionTitle}>
+                        Your Experience Matters
+                      </Text>
+                      <Text style={styles.reviewHelpText}>
+                        Help other guests by sharing your experience at this
+                        property.
+                      </Text>
                       <Pressable
                         style={styles.postReviewButtonLarge}
                         onPress={() => setShowReviewModal(true)}
                       >
-                        <Text style={styles.postButtonText}>Leave a Review</Text>
+                        <Text style={styles.postButtonText}>
+                          Leave a Review
+                        </Text>
                       </Pressable>
                     </View>
                   )}
@@ -1132,13 +1280,26 @@ const FullDetailsScreen = () => {
           </ScrollView>
 
           {/* Book Button */}
-          <View style={[styles.bookButtonContainer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
-            <Pressable 
-              style={[styles.bookButton, propertyData.isBooked && styles.bookButtonDisabled]} 
+          <View
+            style={[
+              styles.bookButtonContainer,
+              { paddingBottom: Math.max(insets.bottom, 16) },
+            ]}
+          >
+            <Pressable
+              style={[
+                styles.bookButton,
+                propertyData.isBooked && styles.bookButtonDisabled,
+              ]}
               onPress={handleBooking}
               disabled={propertyData.isBooked}
             >
-              <Text style={[styles.bookButtonText, propertyData.isBooked && styles.bookButtonTextDisabled]}>
+              <Text
+                style={[
+                  styles.bookButtonText,
+                  propertyData.isBooked && styles.bookButtonTextDisabled,
+                ]}
+              >
                 {propertyData.isBooked ? "Currently Booked" : "Book in style"}
               </Text>
             </Pressable>
@@ -1176,6 +1337,57 @@ const FullDetailsScreen = () => {
         onClose={() => setShowVerifiedInfo(false)}
       />
     </View>
+  );
+};
+
+// Video player component for the slider - defined outside to prevent infinite loops
+const VideoPlayer = ({ uri, isActive }) => {
+  const player = useVideoPlayer(uri, (player) => {
+    player.loop = true;
+    player.pause();
+  });
+  const [showPlayButton, setShowPlayButton] = useState(true);
+
+  const togglePlayPause = () => {
+    if (player.playing) {
+      player.pause();
+      setShowPlayButton(true);
+    } else {
+      player.play();
+      setShowPlayButton(false);
+    }
+  };
+
+  // Pause video when not active in view
+  useEffect(() => {
+    if (!isActive) {
+      player.pause();
+      setShowPlayButton(true);
+    }
+  }, [isActive, player]);
+
+  return (
+    <Pressable onPress={togglePlayPause} style={styles.mediaItemContainer}>
+      <VideoView
+        player={player}
+        style={styles.videoPlayer}
+        contentFit="cover"
+        nativeControls={true}
+        fullscreenOptions={{ autoEnterFullscreen: false }}
+      />
+      {showPlayButton && (
+        <View style={styles.playButtonOverlay}>
+          <Ionicons
+            name="play-circle"
+            size={64}
+            color="rgba(255,255,255,0.9)"
+          />
+        </View>
+      )}
+      <View style={styles.videoIndicator}>
+        <Ionicons name="videocam" size={16} color="#FFF" />
+      </View>
+    </Pressable>
   );
 };
 
@@ -1270,6 +1482,35 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "500",
     color: "#7C7C7C",
+  },
+  totalPrice: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#192DFF",
+  },
+  additionalFeesContainer: {
+    marginTop: 8,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  feeBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F0F2FF",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6,
+  },
+  feeLabel: {
+    fontSize: 12,
+    color: "#666",
+    fontWeight: "500",
+  },
+  feeValue: {
+    fontSize: 12,
+    color: "#010135",
+    fontWeight: "700",
   },
   priceNoteContainer: {
     flexDirection: "row",
@@ -1770,8 +2011,8 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   reviewRatingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 4,
     marginTop: 4,
   },

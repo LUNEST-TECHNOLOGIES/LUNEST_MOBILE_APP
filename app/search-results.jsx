@@ -138,6 +138,11 @@ const SearchResultsScreen = () => {
         apiFilters.guests = { $gte: activeFilters.guests };
       }
 
+      // Furnished filter
+      if (activeFilters.furnished) {
+        apiFilters.furnishingStatus = { $regex: 'furnished', $options: 'i' };
+      }
+
       const result = await listingService.fetchListingsByStatus(apiFilters);
 
       if (result && result.success && result.listings) {
@@ -157,6 +162,15 @@ const SearchResultsScreen = () => {
         if (activeFilters.verifiedOnly) {
           filteredListings = filteredListings.filter(
             (listing) => listing.host && listing.host.active === true,
+          );
+        }
+
+        // Furnished filter (client-side)
+        if (activeFilters.furnished) {
+          filteredListings = filteredListings.filter(
+            (listing) => 
+              listing.furnishingStatus && 
+              listing.furnishingStatus.toLowerCase().includes('furnished'),
           );
         }
 

@@ -2,18 +2,18 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as React from "react";
 import {
-  Alert,
-  Image,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  useWindowDimensions,
-  View,
+    Alert,
+    Image,
+    KeyboardAvoidingView,
+    Modal,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    useWindowDimensions,
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import ArrowLeftIcon from "../../assets/icons/bookings/arrow-left.svg";
@@ -66,31 +66,31 @@ const SelectBookingDetailsScreen = () => {
 
     const baseAmount =
       pricingPeriod.toLowerCase() === "night" ? priceNum * nights : priceNum;
-    
+
     // Guest Subtotal = Rent + Service Charge + Security Deposit
     const guestSubtotal = baseAmount + serviceChargeNum + depositNum;
-    
-    // Guest Fee is 5% of (Rent + Service Charge) only, excluding Caution Fee
-    const guestFee = +((baseAmount + serviceChargeNum) * 0.05).toFixed(2);
-    
+
+    // Guest Fee is 5% of full guest base (Rent + Service Charge + Caution Fee)
+    const guestFee = +(guestSubtotal * 0.05).toFixed(2);
+
     // VAT is 7.5% of the Guest Fee
     const vat = +(guestFee * 0.075).toFixed(2);
-    
+
     // Total App Charge = guestFee + vat
     const appCharge = +(guestFee + vat).toFixed(2);
-    
+
     // Final Total = guestSubtotal + appCharge
     const total = +(guestSubtotal + appCharge).toFixed(2);
 
-    return { 
-      nights, 
-      baseAmount, 
-      serviceCharge: serviceChargeNum, 
+    return {
+      nights,
+      baseAmount,
+      serviceCharge: serviceChargeNum,
       guestFee,
       vat,
-      appCharge, 
-      deposit: depositNum, 
-      total 
+      appCharge,
+      deposit: depositNum,
+      total,
     };
   };
 
@@ -155,7 +155,7 @@ const SelectBookingDetailsScreen = () => {
     try {
       const profileData = await profileService.getProfileData();
       const userPhone = profileData?.phone || profileData?.phoneNumber;
-      
+
       if (!userPhone || String(userPhone).trim().length < 7) {
         setShowPhoneModal(true);
         return;
@@ -196,8 +196,22 @@ const SelectBookingDetailsScreen = () => {
 
   const formatDate = (date) => {
     if (!date) return "";
-    const d = new Date(date);
-    return `${d.getDate()}-${d.getMonth() + 1}-${d.getFullYear()}`;
+    
+    // Ensure we have a valid Date object
+    const d = date instanceof Date ? date : new Date(date);
+    if (isNaN(d.getTime())) {
+      console.warn("[SelectBookingDetails] Invalid date:", date);
+      return "";
+    }
+    
+    // Return YYYY-MM-DD format (unambiguous)
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    
+    const formatted = `${year}-${month}-${day}`;
+    console.log("[SelectBookingDetails] formatDate result:", formatted);
+    return formatted;
   };
 
   const monthsBetween = (start, end) => {
@@ -325,15 +339,24 @@ const SelectBookingDetailsScreen = () => {
               {/* Property Preview Section */}
               <View style={styles.propertyPreviewSection}>
                 {propertyCoverImage ? (
-                  <Image source={{ uri: propertyCoverImage }} style={styles.propertyThumbnail} />
+                  <Image
+                    source={{ uri: propertyCoverImage }}
+                    style={styles.propertyThumbnail}
+                  />
                 ) : (
-                  <View style={[styles.propertyThumbnail, styles.propertyThumbnailPlaceholder]}>
+                  <View
+                    style={[
+                      styles.propertyThumbnail,
+                      styles.propertyThumbnailPlaceholder,
+                    ]}
+                  >
                     <Text style={styles.placeholderIcon}>🏠</Text>
                   </View>
                 )}
                 <View style={styles.propertyPreviewText}>
-                  <Text style={styles.previewPropertyName} numberOfLines={1}>{propertyName}</Text>
-                  <Text style={styles.previewLocation} numberOfLines={1}>{propertyLocation}</Text>
+                  <Text style={styles.previewPropertyName} numberOfLines={1}>
+                    {propertyName}
+                  </Text>
                 </View>
               </View>
               {/* Number of Guests Section */}
@@ -437,18 +460,20 @@ const SelectBookingDetailsScreen = () => {
                 </Pressable>
                 {pricingPeriod.toLowerCase() === "year" && (
                   <Text style={[styles.placeholderText, { marginTop: 8 }]}>
-                    This listing is charged annually; bookings are billed per year.
+                    This listing is charged annually; bookings are billed per
+                    year.
                   </Text>
                 )}
                 {pricingPeriod.toLowerCase() === "month" && (
                   <Text style={[styles.placeholderText, { marginTop: 8 }]}>
-                    This listing is charged monthly; bookings are billed per month.
+                    This listing is charged monthly; bookings are billed per
+                    month.
                   </Text>
                 )}
                 {pricingPeriod.toLowerCase() === "night" && (
                   <Text style={[styles.placeholderText, { marginTop: 8 }]}>
-                    This listing is charged per night; select check-in and check-out
-                    dates.
+                    This listing is charged per night; select check-in and
+                    check-out dates.
                   </Text>
                 )}
               </View>
@@ -468,7 +493,9 @@ const SelectBookingDetailsScreen = () => {
                 {pricingPeriod.toLowerCase() === "night" && (
                   <View style={styles.breakdownRow}>
                     <Text style={styles.breakdownLabel}>Nights</Text>
-                    <Text style={styles.breakdownValue}>{breakdown.nights}</Text>
+                    <Text style={styles.breakdownValue}>
+                      {breakdown.nights}
+                    </Text>
                   </View>
                 )}
                 <View style={styles.breakdownRow}>
@@ -482,15 +509,21 @@ const SelectBookingDetailsScreen = () => {
                 <View style={styles.breakdownRow}>
                   <Text style={styles.breakdownLabel}>Service Charge</Text>
                   <Text style={styles.breakdownValue}>
-                    {breakdown.serviceCharge > 0 ? formatCurrency(breakdown.serviceCharge) : "Nil"}
+                    {breakdown.serviceCharge > 0
+                      ? formatCurrency(breakdown.serviceCharge)
+                      : "Nil"}
                   </Text>
                 </View>
 
                 {/* Caution Fee (Refundable) */}
                 <View style={styles.breakdownRow}>
-                  <Text style={styles.breakdownLabel}>Caution fee (Refundable)</Text>
+                  <Text style={styles.breakdownLabel}>
+                    Caution fee (Refundable)
+                  </Text>
                   <Text style={styles.breakdownValue}>
-                    {breakdown.deposit > 0 ? formatCurrency(breakdown.deposit) : "Nil"}
+                    {breakdown.deposit > 0
+                      ? formatCurrency(breakdown.deposit)
+                      : "Nil"}
                   </Text>
                 </View>
 
@@ -509,7 +542,7 @@ const SelectBookingDetailsScreen = () => {
                     {formatCurrency(breakdown.vat)}
                   </Text>
                 </View>
-                
+
                 <View style={[styles.breakdownRow, styles.breakdownTotalRow]}>
                   <Text style={styles.breakdownTotalLabel}>Total</Text>
                   <Text style={styles.breakdownTotalValue}>
@@ -650,8 +683,8 @@ const SelectBookingDetailsScreen = () => {
                   <Text style={styles.cancelButton}>Cancel</Text>
                 </Pressable>
                 <Text style={styles.datePickerTitle}>
-                  Select {showDatePicker === "checkin" ? "Check-in" : "Check-out"}{" "}
-                  Date
+                  Select{" "}
+                  {showDatePicker === "checkin" ? "Check-in" : "Check-out"} Date
                 </Text>
                 <Pressable onPress={handleDatePickerClose}>
                   <Text style={styles.doneButton}>Done</Text>

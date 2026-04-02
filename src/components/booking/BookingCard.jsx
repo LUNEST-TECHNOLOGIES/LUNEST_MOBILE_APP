@@ -13,6 +13,8 @@ import StatusBadge from "./StatusBadge";
 import CalendarIcon from "../../assets/icons/bookings/calendar.svg";
 import ChatIcon from "../../assets/icons/bookings/chat.svg";
 import TrashIcon from "../../assets/icons/bookings/trash-delete.svg";
+import configService from "../../services/configService";
+import { resolveImageUrlSync } from "../../utils/imageUtils";
 
 const BookingCard = ({
   booking,
@@ -66,12 +68,11 @@ const BookingCard = ({
   // Handle image source - support both local require() and remote URLs
   const getImageSource = () => {
     if (imageError || !booking.image) {
-      return require("../../assets/images/prop_image.png");
+      return null; // Removed fallback
     }
-    if (typeof booking.image === "string") {
-      return { uri: booking.image };
-    }
-    return booking.image;
+    const baseUrl = configService.getBaseURLSync();
+    const resolvedUrl = resolveImageUrlSync(booking.image, baseUrl);
+    return resolvedUrl ? { uri: resolvedUrl } : null;
   };
 
   const handleImageError = () => {
@@ -93,7 +94,6 @@ const BookingCard = ({
           imageStyle={styles.propertyImageStyle}
           resizeMode="cover"
           onError={handleImageError}
-          defaultSource={require("../../assets/images/prop_image.png")}
         >
           {/* Status Badge Overlay */}
           {showStatusBadge && <StatusBadge status={booking.status} />}

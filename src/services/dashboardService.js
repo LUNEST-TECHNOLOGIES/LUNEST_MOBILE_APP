@@ -4,6 +4,7 @@
  * Ensures data isolation - each host only sees their own statistics
  */
 
+import apiClient from "./apiClient";
 import authService from "./authService";
 import bookingService from "./bookingService";
 import configService from "./configService";
@@ -29,70 +30,41 @@ class DashboardService {
       }
 
       // Fetch all host-specific data in parallel for performance
-      const [listingsResult, bookingsResult, userProfileResult] = await Promise.all([
+      // Now including the single optimized dashboard stats endpoint
+      const [statsResult, listingsResult, bookingsResult, userProfileResult] = await Promise.allSettled([
+        apiClient.get("/v1/notifications/notification/host/dashboard-stats"),
         listingService.fetchUserListings(), // Uses /my-listings - only host's listings
         bookingService.fetchHostBookings(), // Uses /my-bookings - only host's property bookings
         authService.fetchProfile(),
       ]);
 
-      // Calculate stats from host's data only
-      const listings = listingsResult.listings || [];
-      const bookings = bookingsResult.bookings || [];
+      // Handle results gracefully
+      const stats = statsResult.status === 'fulfilled' ? statsResult.value.body : { totalListings: 0, totalBookings: 0, totalEarnings: 0, walletBalance: 0 };
+      const listings = listingsResult.status === 'fulfilled' ? listingsResult.value.listings || [] : [];
+      const bookings = bookingsResult.status === 'fulfilled' ? bookingsResult.value.bookings || [] : [];
+      const userProfile = userProfileResult.status === 'fulfilled' ? (userProfileResult.value?.data || userProfileResult.value || {}) : {};
 
-      // Host-specific stats
-      // Exclude REJECTED and SUSPENDED listings from the total count
-      const activeListings = listings.filter((l) => {
-        const status = l.status ? l.status.toUpperCase() : "";
-        return status !== "REJECTED" && status !== "SUSPENDED";
-      });
-      const totalListings = activeListings.length;
-      const totalBookings = bookings.length;
+      // Host-specific stats from backend
+      const totalListings = stats.totalListings;
+      const totalBookings = stats.totalBookings;
+      const totalBusinessEarnings = stats.totalEarnings;
+      const walletBalance = stats.walletBalance;
+
+      // Filter bookings for UI displays
       const confirmedBookings = bookings.filter((b) => {
         const status = b.status ? b.status.toUpperCase() : "";
         return ["CONFIRMED", "ONGOING"].includes(status);
       });
-      const upcomingBookings = confirmedBookings.filter((b) => {
-        const checkIn = new Date(b.checkIn);
-        return checkIn > new Date();
-      }).length;
+      
       const completedBookings = bookings.filter((b) => {
         const status = b.status ? b.status.toUpperCase() : "";
         return status === "COMPLETED";
       });
 
-      // Also include confirmed bookings for earnings tracking
-      const earningsBookings = bookings.filter((b) => {
-        const status = b.status ? b.status.toUpperCase() : "";
-        return ["COMPLETED", "CONFIRMED", "ONGOING"].includes(status);
-      });
-
-      // Calculate total earnings (from host's completed/confirmed bookings)
-      // Deduct 3% app charge from each booking amount
-      const APP_CHARGE_PERCENTAGE = 0.03;
-      const totalEarnings = earningsBookings.reduce((sum, b) => {
-        const bookingAmount =
-          (b.totalAmount && b.totalAmount.price) ||
-          b.totalPrice ||
-          b.price ||
-          0;
-        // Host receives booking amount minus 3% app charge
-        const hostEarnings = b.pricingBreakdown?.hostEarnings || (bookingAmount * (1 - APP_CHARGE_PERCENTAGE));
-        return sum + hostEarnings;
-      }, 0);
-
-      // Calculate gross earnings (before app charge deduction)
-      const grossEarnings = earningsBookings.reduce((sum, b) => {
-        return (
-          sum +
-          ((b.totalAmount && b.totalAmount.price) ||
-            b.totalPrice ||
-            b.price ||
-            0)
-        );
-      }, 0);
-
-      // Total app charges collected
-      const totalAppCharges = grossEarnings * APP_CHARGE_PERCENTAGE;
+      const upcomingBookings = confirmedBookings.filter((b) => {
+        const checkIn = new Date(b.checkIn);
+        return checkIn > new Date();
+      }).length;
 
       // Get base URL for image conversion
       const baseURL = await configService.getBaseURL();
@@ -209,7 +181,6 @@ class DashboardService {
         this.calculateWeeklyEarnings(completedBookings);
 
       // Get user info - use safe property access
-      const userProfile = userProfileResult?.data || userProfileResult || {};
       const userName =
         userProfile.fullName ||
         userProfile.firstName ||
@@ -224,7 +195,7 @@ class DashboardService {
           : "Basic Plan";
 
       console.log(
-        `✅ [DashboardService] Dashboard loaded - ${totalListings} listings, ${totalBookings} bookings, ₦${totalEarnings} earnings`,
+        `✅ [DashboardService] Dashboard loaded - ${totalListings} listings, ${totalBookings} bookings, ₦${totalBusinessEarnings} business earnings, ₦${walletBalance} wallet balance`,
       );
 
       // Calculate yearly data for combined chart
@@ -236,7 +207,8 @@ class DashboardService {
           userName,
           location: `${location}`,
           plan,
-          totalEarnings,
+          totalEarnings: totalBusinessEarnings, // Business earnings from bookings
+          walletBalance, // Actual wallet balance
           totalBookings,
           totalListings,
           upcomingBookings,
@@ -299,7 +271,7 @@ class DashboardService {
           const bookingDate = new Date(b.checkOut || b.updatedAt);
           return bookingDate.toDateString() === date.toDateString();
         })
-        .reduce((sum, b) => sum + (b.totalPrice || 0), 0);
+        .reduce((sum, b) => sum + (b.pricingBreakdown?.hostEarnings || b.pricingBreakdown?.hostTotal || b.hostEarnings || 0), 0);
 
       weekData.push(dailyEarnings);
     }
@@ -335,7 +307,7 @@ class DashboardService {
           const bookingDate = new Date(b.checkOut || b.updatedAt);
           return bookingDate.getFullYear() === year;
         })
-        .reduce((sum, b) => sum + (b.totalPrice || 0), 0);
+        .reduce((sum, b) => sum + (b.pricingBreakdown?.hostEarnings || b.pricingBreakdown?.hostTotal || b.hostEarnings || 0), 0);
       yearlyEarnings.push(earningsThisYear);
     }
 

@@ -5,7 +5,11 @@ export default function Signup() {
   const router = useRouter();
 
   const handleBack = () => {
-    router.back();
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)');
+    }
   };
 
   const handleLogin = () => {
@@ -14,7 +18,7 @@ export default function Signup() {
 
   const handleSignupSuccess = () => {
     // After successful signup, redirect to home
-    router.replace('/(tabs)/home');
+    router.replace('/(tabs)');
   };
 
   return (

@@ -93,8 +93,11 @@ const PaymentMethodModal = ({
   }, [selectedMethod, reserveAndPayLater, totalAmount, onSelect, onWalletSelect]);
 
   const formatAmount = (amt) => {
-    if (!amt) return "₦0";
-    return `₦${amt.toLocaleString()}`;
+    if (!amt) return "₦0.00";
+    return `₦${Number(amt).toLocaleString("en-NG", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
   };
 
   return (

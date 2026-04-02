@@ -37,11 +37,10 @@ export const AccountStatusProvider = ({ children }) => {
         nextAppState === "active"
       ) {
         console.log(
-          "[AccountStatus] App came to foreground, checking status...",
+          "[AccountStatus] App came to foreground, refreshing status...",
         );
         checkAccountStatus();
-        // Also refresh profile data globally
-        authService.fetchProfile().catch(err => console.log('Background profile refresh failed', err));
+        // Removed global fetchProfile() here as it triggers redundant request storms
       }
       appState.current = nextAppState;
     });
@@ -51,41 +50,35 @@ export const AccountStatusProvider = ({ children }) => {
     };
   }, []);
 
+  const isChecking = useRef(false);
   const checkAccountStatus = useCallback(async () => {
+    if (isChecking.current) return;
     try {
+      isChecking.current = true;
       const token = await authService.getToken();
       if (!token) {
         setIsLoading(false);
         return;
       }
 
-      const baseURL = await configService.getBaseURL();
       console.log("[AccountStatus] Checking account status...");
-      const response = await fetch(`${baseURL}/v1/users/account-status`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await authService._secureRequest(
+        `${await configService.getBaseURL()}/v1/users/account-status`,
+        { method: "GET" },
+      );
 
-      const data = await response.json();
-      console.log("[AccountStatus] Response:", data);
+      console.log("[AccountStatus] Response:", response);
 
-      if (response.ok) {
-        const isActive = data.body?.active !== false;
+      if (response && response.success !== false) {
+        const data = response.data || response.body; 
+        const isActive = data?.active !== false;
         setIsAccountActive(isActive);
 
         if (!isActive) {
-          const reason = data.body?.deactivationReason || "USER_REQUEST";
+          const reason = data?.deactivationReason || "USER_REQUEST";
           setDeactivationReason(reason);
-          setAdminDeactivationReason(
-            data.body?.adminDeactivationReason || null,
-          );
-          console.log(
-            "[AccountStatus] Account is DEACTIVATED. Reason:",
-            reason,
-          );
+          setAdminDeactivationReason(data?.adminDeactivationReason || null);
+          console.log("[AccountStatus] Account is DEACTIVATED. Reason:", reason);
         } else {
           setDeactivationReason(null);
           setAdminDeactivationReason(null);
@@ -96,6 +89,7 @@ export const AccountStatusProvider = ({ children }) => {
       console.error("Error checking account status:", error);
     } finally {
       setIsLoading(false);
+      isChecking.current = false;
     }
   }, []);
 

@@ -4,8 +4,10 @@
  * Ensures data isolation - hosts only see their bookings, guests only see theirs
  */
 
+import { Platform } from "react-native";
 import apiClient from "./apiClient";
 import authService from "./authService";
+import configService from "./configService";
 import NetworkErrorHandler from "./networkErrorHandler";
 
 class BookingService {
@@ -76,7 +78,7 @@ class BookingService {
       }
 
       const response = await apiClient.post(
-        "/v1/bookings/booking/create",
+        "/v1/bookings/create",
         payload,
         {
           headers: {
@@ -117,7 +119,7 @@ class BookingService {
       "📋 [BookingService] Fetching HOST bookings (host-specific)...",
     );
     console.log("[BookingService] Filters:", JSON.stringify(filters));
-    
+
     try {
       const token = await authService.getToken();
       if (!token) {
@@ -128,34 +130,42 @@ class BookingService {
           message: "Not authenticated",
         };
       }
-      console.log("[BookingService] Auth token found:", token.substring(0, 20) + "...");
-
-      // Use the host-specific endpoint that filters by host's listings
-      const endpoint = "/v1/bookings/booking/my-bookings";
-      console.log("[BookingService] Calling endpoint:", endpoint);
-      console.log("[BookingService] Request payload:", JSON.stringify(filters));
-      
-      const response = await apiClient.post(
-        endpoint,
-        filters,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
+      console.log(
+        "[BookingService] Auth token found:",
+        token.substring(0, 20) + "...",
       );
 
-      console.log("[BookingService] Raw response received:", JSON.stringify(response, null, 2));
+      // Use the host-specific endpoint that filters by host's listings
+      const endpoint = "/v1/bookings/my-bookings";
+      console.log("[BookingService] Calling endpoint:", endpoint);
+      console.log("[BookingService] Request payload:", JSON.stringify(filters));
+
+      const response = await apiClient.post(endpoint, filters, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      console.log(
+        "[BookingService] Raw response received:",
+        JSON.stringify(response, null, 2),
+      );
       console.log("✅ [BookingService] Host bookings fetched successfully");
-      
+
       // Extract bookings from response
-      const bookings = (response && response.body) || (response && response.data) || [];
-      console.log(`[BookingService] Extracted ${Array.isArray(bookings) ? bookings.length : 0} bookings`);
-      
+      const bookings =
+        (response && response.body) || (response && response.data) || [];
+      console.log(
+        `[BookingService] Extracted ${Array.isArray(bookings) ? bookings.length : 0} bookings`,
+      );
+
       if (Array.isArray(bookings) && bookings.length > 0) {
-        console.log("[BookingService] First booking sample:", JSON.stringify(bookings[0], null, 2));
+        console.log(
+          "[BookingService] First booking sample:",
+          JSON.stringify(bookings[0], null, 2),
+        );
       }
-      
+
       return {
         success: true,
         bookings: bookings,
@@ -186,7 +196,7 @@ class BookingService {
       "📋 [BookingService] Fetching GUEST bookings (guest-specific)...",
     );
     console.log("[BookingService] Filters:", JSON.stringify(filters));
-    
+
     try {
       const token = await authService.getToken();
       if (!token) {
@@ -197,34 +207,42 @@ class BookingService {
           message: "Not authenticated",
         };
       }
-      console.log("[BookingService] Auth token found:", token.substring(0, 20) + "...");
-
-      // Use the guest-specific endpoint that filters by guest ID
-      const endpoint = "/v1/bookings/booking/guest-bookings";
-      console.log("[BookingService] Calling endpoint:", endpoint);
-      console.log("[BookingService] Request payload:", JSON.stringify(filters));
-      
-      const response = await apiClient.post(
-        endpoint,
-        filters,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
+      console.log(
+        "[BookingService] Auth token found:",
+        token.substring(0, 20) + "...",
       );
 
-      console.log("[BookingService] Raw response received:", JSON.stringify(response, null, 2));
+      // Use the guest-specific endpoint that filters by guest ID
+      const endpoint = "/v1/bookings/guest-bookings";
+      console.log("[BookingService] Calling endpoint:", endpoint);
+      console.log("[BookingService] Request payload:", JSON.stringify(filters));
+
+      const response = await apiClient.post(endpoint, filters, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      console.log(
+        "[BookingService] Raw response received:",
+        JSON.stringify(response, null, 2),
+      );
       console.log("✅ [BookingService] Guest bookings fetched successfully");
-      
+
       // Extract bookings from response
-      const bookings = (response && response.body) || (response && response.data) || [];
-      console.log(`[BookingService] Extracted ${Array.isArray(bookings) ? bookings.length : 0} bookings`);
-      
+      const bookings =
+        (response && response.body) || (response && response.data) || [];
+      console.log(
+        `[BookingService] Extracted ${Array.isArray(bookings) ? bookings.length : 0} bookings`,
+      );
+
       if (Array.isArray(bookings) && bookings.length > 0) {
-        console.log("[BookingService] First booking sample:", JSON.stringify(bookings[0], null, 2));
+        console.log(
+          "[BookingService] First booking sample:",
+          JSON.stringify(bookings[0], null, 2),
+        );
       }
-      
+
       return {
         success: true,
         bookings: bookings,
@@ -260,7 +278,7 @@ class BookingService {
 
   async fetchBookingById(bookingId) {
     console.log("🔍 [BookingService] Fetching booking:", bookingId);
-    
+
     // Defensive: check for valid MongoDB ObjectId
     if (!this.isValidObjectId(bookingId)) {
       console.error(
@@ -273,26 +291,37 @@ class BookingService {
         message: "Invalid booking ID. Please contact support or try again.",
       };
     }
-    
+
     try {
       const token = await authService.getToken();
-      
+
       // CRITICAL FIX: Backend expects { _id: "..." } in the request body
       const payload = { _id: bookingId };
-      
-      console.log("[BookingService] Token:", token ? "✅ Present" : "❌ Missing");
-      console.log("[BookingService] Payload being sent:", JSON.stringify(payload));
-      console.log("[BookingService] Calling endpoint: /v1/bookings/booking/single");
-      
+
+      console.log(
+        "[BookingService] Token:",
+        token ? "✅ Present" : "❌ Missing",
+      );
+      console.log(
+        "[BookingService] Payload being sent:",
+        JSON.stringify(payload),
+      );
+      console.log(
+        "[BookingService] Calling endpoint: /v1/bookings/single",
+      );
+
       const response = await apiClient.post(
-        "/v1/bookings/booking/single",
-        payload,  // Send the payload as the body
+        "/v1/bookings/single",
+        payload, // Send the payload as the body
         {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         },
       );
-      
-      console.log("[BookingService] Raw backend response:", JSON.stringify(response, null, 2));
+
+      console.log(
+        "[BookingService] Raw backend response:",
+        JSON.stringify(response, null, 2),
+      );
 
       // Defensive: extract booking object from possible response shapes
       let booking =
@@ -436,11 +465,12 @@ class BookingService {
       if (extra.cancelNote) payload.cancelNote = extra.cancelNote;
 
       const response = await apiClient.patch(
-        `/v1/bookings/booking/${bookingId}`,
+        `/v1/bookings/${bookingId}`,
         payload,
         {
           headers: {
             Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
           },
         },
       );
@@ -489,24 +519,129 @@ class BookingService {
   }
 
   /**
+   * Upload review images to the server
+   * Any authenticated user (guest or host) can upload review images
+   * @param {string[]} imageUris - Array of local image URIs
+   * @returns {Promise<Object>} Result with uploaded image URLs
+   */
+  async uploadReviewImages(imageUris) {
+    console.log(
+      "[BookingService] Uploading review images...",
+      imageUris?.length,
+    );
+    if (!imageUris || imageUris.length === 0) {
+      return { success: true, images: [] };
+    }
+
+    try {
+      const token = await authService.getToken();
+      if (!token) return { success: false, message: "Authentication required" };
+
+      const formData = new FormData();
+      for (let i = 0; i < imageUris.length; i++) {
+        const uri = imageUris[i];
+        if (!uri) continue;
+
+        if (Platform.OS === "web") {
+          try {
+            let blob;
+            if (uri.startsWith("data:")) {
+              const parts = uri.split(",");
+              const mimeMatch = parts[0].match(/:(.*?);/);
+              const mimeType = mimeMatch ? mimeMatch[1] : "image/jpeg";
+              const byteChars = atob(parts[1]);
+              const byteNums = new Array(byteChars.length);
+              for (let j = 0; j < byteChars.length; j++)
+                byteNums[j] = byteChars.charCodeAt(j);
+              blob = new Blob([new Uint8Array(byteNums)], { type: mimeType });
+            } else {
+              const res = await fetch(uri);
+              blob = await res.blob();
+            }
+            formData.append("images", blob, `review_${i}.jpg`);
+          } catch (e) {
+            console.warn("[BookingService] Skipping web image", i, e);
+          }
+        } else {
+          const filename = uri.split("/").pop() || `review_${i}.jpg`;
+          const ext = filename.split(".").pop() || "jpg";
+          formData.append("images", {
+            uri,
+            type: ext === "png" ? "image/png" : "image/jpeg",
+            name: filename,
+          });
+        }
+      }
+
+      const baseURL = await configService.getBaseURL();
+      const response = await fetch(
+        `${baseURL}/v1/bookings/upload-review-images`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+          body: formData,
+        },
+      );
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.message || `Upload failed: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const images = data?.body?.images || data?.images || [];
+      return { success: true, images };
+    } catch (error) {
+      console.error("[BookingService] uploadReviewImages error:", error);
+      return {
+        success: false,
+        message: error.message || "Failed to upload review images",
+      };
+    }
+  }
+
+  /**
    * Submit a host review for a guest on a completed booking
    * @param {string} bookingId - The booking ID
    * @param {number} rating - Rating 1-5
    * @param {string} feedback - Optional feedback text
    * @param {string[]} images - Optional image URLs
+   * @param {Object} categories - Optional rating categories
    * @returns {Promise<Object>} Result
    */
-  async submitReview(bookingId, rating, feedback = "", images = [], categories = null) {
+  async submitReview(
+    bookingId,
+    rating,
+    feedback = "",
+    images = [],
+    categories = {},
+    role = null,
+  ) {
+    let normalizedBookingId;
+    if (typeof bookingId === 'string') {
+      const match = bookingId.match(/[a-fA-F0-9]{24}/);
+      normalizedBookingId = match ? match[0] : bookingId;
+    } else if (bookingId && typeof bookingId === 'object') {
+      // Handle potential SchemaObjectId or other objects
+      const idStr = bookingId.path || bookingId._id || bookingId.id || (bookingId.toObject ? bookingId.toObject()._id : null);
+      if (typeof idStr === 'string') {
+        const match = idStr.match(/[a-fA-F0-9]{24}/);
+        normalizedBookingId = match ? match[0] : idStr;
+      } else {
+        normalizedBookingId = idStr; // Might be null or original object
+      }
+    } else {
+      normalizedBookingId = bookingId;
+    }
+
     console.log(
       "⭐ [BookingService] Submitting review for booking:",
-      bookingId,
+      normalizedBookingId,
       "rating:",
       rating,
-      "categories:",
-      categories ? "present" : "none"
     );
 
-    if (!bookingId || !rating) {
+    if (!normalizedBookingId || !rating) {
       return {
         success: false,
         message: "Booking ID and rating are required",
@@ -522,9 +657,17 @@ class BookingService {
         };
       }
 
+      console.log(`📤 [BookingService] Sending review payload:`, {
+        bookingId: normalizedBookingId,
+        rating,
+        feedbackLength: feedback.length,
+        imagesCount: images.length,
+        hasCategories: Object.keys(categories).length > 0,
+      });
+
       const response = await apiClient.post(
-        "/v1/bookings/booking/review",
-        { bookingId, rating, feedback, images, categories },
+        "/v1/bookings/review",
+        { bookingId: normalizedBookingId, rating, feedback, images, categories, role },
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -554,7 +697,10 @@ class BookingService {
    * @returns {Promise<Object>} { success, url }
    */
   async fetchRentalAgreement(bookingId) {
-    console.log("📄 [BookingService] Fetching rental agreement for:", bookingId);
+    console.log(
+      "📄 [BookingService] Fetching rental agreement for:",
+      bookingId,
+    );
     if (!bookingId) return { success: false, message: "Booking ID required" };
 
     try {
@@ -562,55 +708,63 @@ class BookingService {
       if (!token) return { success: false, message: "Authentication required" };
 
       const response = await apiClient.get(
-        `/v1/bookings/booking/${bookingId}/agreement`,
+        `/v1/bookings/${bookingId}/agreement`,
         {
           headers: { Authorization: `Bearer ${token}` },
-        }
+        },
       );
 
-      const data = (response && response.body) || (response && response.data) || response;
-      
+      const data =
+        (response && response.body) || (response && response.data) || response;
+
       if (data && data.url) {
         // Prepend base URL if relative path
-        const fullUrl = data.url.startsWith("http") 
-            ? data.url 
-            : `${apiClient.baseURL}/${data.url}`;
-            
+        const fullUrl = data.url.startsWith("http")
+          ? data.url
+          : `${apiClient.baseURL}/${data.url}`;
+
         return { success: true, url: fullUrl };
       }
       return { success: false, message: "Agreement not available" };
     } catch (error) {
       console.error("❌ [BookingService] Error fetching agreement:", error);
-      return { 
-          success: false, 
-          message: error.message || "Failed to fetch agreement" 
+      return {
+        success: false,
+        message: error.message || "Failed to fetch agreement",
       };
     }
   }
 
   /**
    * Check if the current user has a completed booking for a listing
-   * @param {string} listingId 
+   * @param {string} listingId
    * @returns {Promise<boolean>}
    */
   async hasUserBookedListing(listingId) {
     if (!listingId) return false;
     try {
-        // Fetch guest's bookings for this listing
-        // We assume the backend filters by listingId if provided in payload
-        const result = await this.fetchGuestBookings({ listing: listingId });
-        
-        if (result.success && Array.isArray(result.bookings)) {
-            // Check if any booking is properly status'd
-            // We accept COMPLETED, CHECKED_OUT, or even CONFIRMED if they stayed already
-            // For now, let's assume 'COMPLETED' or 'CHECKED_OUT' implies a past stay
-            return result.bookings.some(booking => {
-                 const status = booking.status;
-                 return status === 'COMPLETED' || status === 'CHECKED_OUT' || status === 'PAST';
-            });
-        }
+      // Fetch guest's bookings for this listing
+      // We assume the backend filters by listingId if provided in payload
+      const result = await this.fetchGuestBookings({ listing: listingId });
+
+      if (result.success && Array.isArray(result.bookings)) {
+        // Check if any booking is properly status'd
+        // We accept COMPLETED, CHECKED_OUT, or even CONFIRMED if they stayed already
+        // For now, let's assume 'COMPLETED' or 'CHECKED_OUT' implies a past stay
+        return result.bookings.some((booking) => {
+          const status = booking.status;
+          return (
+            status === "COMPLETED" ||
+            status === "CHECKED_OUT" ||
+            status === "PAST"
+          );
+        });
+      }
     } catch (error) {
-        console.error("[BookingService] Error checking user booking history:", error);
+      console.error(
+        "[BookingService] Error checking user booking history:",
+        error,
+      );
     }
     return false;
   }
@@ -627,14 +781,15 @@ class BookingService {
     try {
       const token = await authService.getToken();
       const response = await apiClient.get(
-        `/v1/bookings/booking/reviews/${userId}/${role}`,
+        `/v1/bookings/reviews/${userId}/${role}`,
         {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
-        }
+        },
       );
 
-      const data = (response && response.body) || (response && response.data) || [];
-      const reviewsArray = Array.isArray(data) ? data : (data.reviews || []);
+      const data =
+        (response && response.body) || (response && response.data) || [];
+      const reviewsArray = Array.isArray(data) ? data : data.reviews || [];
       return {
         success: true,
         reviews: reviewsArray,
@@ -652,24 +807,32 @@ class BookingService {
 
   /**
    * Fetch reviews for a specific listing
-   * @param {string} listingId 
+   * @param {string} listingId
    * @returns {Promise<Object>}
    */
   async fetchListingReviews(listingId) {
     console.log("⭐ [BookingService] Fetching reviews for listing:", listingId);
     try {
       // Validate listingId before making API call
-      if (!listingId || typeof listingId !== 'string' || !/^[0-9a-fA-F]{24}$/.test(listingId)) {
-        console.warn("[BookingService] Invalid listing ID for reviews:", listingId);
+      if (
+        !listingId ||
+        typeof listingId !== "string" ||
+        !/^[0-9a-fA-F]{24}$/.test(listingId)
+      ) {
+        console.warn(
+          "[BookingService] Invalid listing ID for reviews:",
+          listingId,
+        );
         return { success: false, reviews: [], message: "Invalid listing ID" };
       }
 
       const response = await apiClient.get(
-        `/v1/bookings/booking/listing-reviews/${listingId}`
+        `/v1/bookings/listing-reviews/${listingId}`,
       );
 
-      const data = (response && response.body) || (response && response.data) || [];
-      const reviewsArray = Array.isArray(data) ? data : (data.reviews || []);
+      const data =
+        (response && response.body) || (response && response.data) || [];
+      const reviewsArray = Array.isArray(data) ? data : data.reviews || [];
       return {
         success: true,
         reviews: reviewsArray,
@@ -685,8 +848,83 @@ class BookingService {
       };
     }
   }
+
+  /**
+   * Confirm guest checkout and mark booking as COMPLETED
+   * This is the proper endpoint for guest checkout - it does NOT process payment
+   * @param {string} bookingId - The booking ID
+   * @returns {Promise<Object>}
+   */
+  async confirmCheckout(bookingId) {
+    console.log(
+      `[BookingService] Confirming checkout for booking ${bookingId}`,
+    );
+    try {
+      const token = await authService.getToken();
+      if (!token) return { success: false, message: "Authentication required" };
+
+      const response = await apiClient.post(
+        `/v1/bookings/${bookingId}/confirm-checkout`,
+        {},
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+
+      return {
+        success: true,
+        message: response?.message || "Checkout confirmed successfully",
+        booking: (response && response.body) || (response && response.data),
+      };
+    } catch (error) {
+      console.error("❌ [BookingService] Error confirming checkout:", error);
+      const categorized = NetworkErrorHandler.categorizeError(error);
+      return {
+        success: false,
+        message: categorized.userMessage || "Failed to confirm checkout",
+      };
+    }
+  }
+
+  /**
+   * Resolve caution fee (Release to guest, release to host, or dispute)
+   * Handles disputes separately using booking reference code as the joining key for both guest and host sides
+   * @param {string} bookingRef - Booking reference code (e.g., 'LNS-XXXXXX')
+   * @param {string} action - 'RELEASE_TO_GUEST', 'RELEASE_TO_HOST', 'DISPUTE'
+   * @param {string} reason - Optional reason for dispute/release
+   * @returns {Promise<Object>}
+   */
+  async resolveCautionFee(bookingRef, action, reason = "") {
+    console.log(
+      `🛡️ [BookingService] Resolving caution fee for ${bookingRef}: ${action}`,
+    );
+    try {
+      const token = await authService.getToken();
+      if (!token) return { success: false, message: "Authentication required" };
+
+      const response = await apiClient.post(
+        `/v1/bookings/reference/${bookingRef}/resolve-caution`,
+        { action, reason },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+
+      return {
+        success: true,
+        message: response?.message || "Caution fee resolution submitted",
+        booking: (response && response.body) || (response && response.data),
+      };
+    } catch (error) {
+      console.error("❌ [BookingService] Error resolving caution fee:", error);
+      const categorized = NetworkErrorHandler.categorizeError(error);
+      return {
+        success: false,
+        message: categorized.userMessage || "Failed to resolve caution fee",
+      };
+    }
+  }
 }
 
 const bookingService = new BookingService();
 export default bookingService;
-

@@ -1,5 +1,4 @@
-import * as React from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const MessagesScreen = () => {
@@ -8,8 +7,8 @@ const MessagesScreen = () => {
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         <View style={styles.content}>
           <View style={styles.center}>
-            <Text style={styles.title}>Messages</Text>
-            <Text style={styles.subtitle}>Your messages will appear here.</Text>
+            <Text style={styles.title}>Coming Soon!</Text>
+            <Text style={styles.subtitle}>Messaging feature is under development.</Text>
           </View>
         </View>
       </SafeAreaView>

@@ -1,13 +1,15 @@
 import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { FlashList } from "@shopify/flash-list";
 import {
-    FlatList,
-    RefreshControl,
-    StyleSheet,
-    Text,
-    useWindowDimensions,
-    View,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+  Animated, // Added Animated
+  Platform,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Toast from "../../components/common/Toast";
@@ -21,6 +23,7 @@ import FilterModal from "../../components/modals/FilterModal";
 import { CategorySlider } from "../../components/shared";
 import PropertyListingCard from "../../components/shared/PropertyListingCard";
 import useCachedFetch from "../../hooks/useCachedFetch";
+import { useProgressiveLoading } from "../../hooks/useDelayedLoading";
 import authService from "../../services/authService";
 import bookmarkService from "../../services/bookmarkService";
 import configService from "../../services/configService";
@@ -28,6 +31,8 @@ import listingService from "../../services/listingService";
 import locationService from "../../services/locationService";
 import profileService from "../../services/profileService";
 import storageService from "../../services/storageService";
+import * as ImageUtils from "../../utils/imageUtils";
+import { buildAPIFilters, formatParsedFilters, parseSearchQuery } from "../../utils/smartSearchParser";
 
 /**
  * HomeScreen - Main dashboard with Fixed Header, Search, Category & Scrollable Content
@@ -52,6 +57,7 @@ const HomeScreen = () => {
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [toastType, setToastType] = useState("success");
+  const fadeAnim = useRef(new Animated.Value(0)).current; // For smooth entry
   const { height: screenHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -65,11 +71,34 @@ const HomeScreen = () => {
   } = useCachedFetch(
     "home:exploreListings",
     fetchExploreListingsRaw, // raw fetcher defined below
-    { revalidateOnFocus: true, staleTTL: 60_000 },
+    { revalidateOnFocus: false, staleTTL: 5 * 60_000 }, // 5 minutes, no focus revalidation
   );
 
   // Ensure exploreListings is always an array
   const safeExploreListings = exploreListings || [];
+
+  // Progressive loading: delay skeleton on first load ONLY, never during refresh
+  const { showSkeleton, isRefreshing } = useProgressiveLoading(
+    safeExploreListings,
+    loadingExplore,
+    { skeletonDelay: 300 }
+  );
+  
+  // Never show skeleton if we already have data (prevents flicker during refresh)
+  const shouldShowSkeleton = showSkeleton && safeExploreListings.length === 0;
+
+  // Handle fade animation when loading finishes
+  useEffect(() => {
+    if (!shouldShowSkeleton && safeExploreListings.length > 0) {
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }).start();
+    } else if (shouldShowSkeleton) {
+      fadeAnim.setValue(0);
+    }
+  }, [shouldShowSkeleton, safeExploreListings.length]);
 
   // Filter listings by active category
   const filteredListings = useMemo(() => {
@@ -99,35 +128,25 @@ const HomeScreen = () => {
     fetchNotificationCount();
   }, []);
 
-  // Lightweight focus effect — only refreshes bookmarks + location staleness
-  // Does NOT re-fetch listings (the hook handles that)
+  // Load bookmark statuses when listings change
+  useEffect(() => {
+    if (safeExploreListings.length > 0 || topPicksListings.length > 0) {
+      const allListings = [...(safeExploreListings), ...topPicksListings];
+      if (allListings.length > 0) {
+        loadBookmarkStatuses(allListings);
+      }
+    }
+  }, [safeExploreListings, topPicksListings]);
+
+  // Simplified focus effect - minimal refreshes to prevent glitching
   useFocusEffect(
     useCallback(() => {
-      console.log("[HomeScreen] Screen focused (lightweight)");
+      console.log("[HomeScreen] Screen focused");
       setSearchQuery("");
 
-      // Refresh location and top picks if stale (>10 min)
-      const shouldRefreshLocation =
-        !locationFetched ||
-        Date.now() - (window.lastLocationFetch || 0) > 10 * 60 * 1000;
-
-      if (shouldRefreshLocation) {
-        fetchUserLocation(true);
-        window.lastLocationFetch = Date.now();
-      }
-
-      // Only refresh bookmarks after first focus (data already loaded)
-      if (!isFirstFocus.current) {
-        const allListings = [...(safeExploreListings), ...topPicksListings];
-        if (allListings.length > 0) {
-          loadBookmarkStatuses(allListings);
-        }
-      }
-      isFirstFocus.current = false;
-
-      // Refresh notification count silently
+      // Only refresh notification count silently
       fetchNotificationCount();
-    }, [safeExploreListings, topPicksListings]),
+    }, []),
   );
 
   // Fetch notification count
@@ -145,6 +164,7 @@ const HomeScreen = () => {
   };
 
   // Fetch user's current location - only fetches if not already cached or forced
+  // Cross-platform compatible with iOS, Android, and Web
   const fetchUserLocation = async (forceRefresh = false) => {
     // Skip if already fetched and not forcing refresh
     if (locationFetched && !forceRefresh) {
@@ -153,7 +173,7 @@ const HomeScreen = () => {
     }
 
     try {
-      console.log("📍 [HomeScreen] Fetching user location...");
+      console.log("📍 [HomeScreen] Fetching user location (cross-platform)...");
       const locationData =
         await locationService.getCurrentLocationWithAddress();
 
@@ -170,26 +190,55 @@ const HomeScreen = () => {
 
         setUserLocation(displayLocation || "Nigeria");
         setLocationFetched(true);
+        console.log("📍 [HomeScreen] Location display:", displayLocation);
 
-        // Store coordinates for top picks filtering
-        if (locationData.coords) {
+        // Store coordinates for top picks filtering (distance calculation)
+        if (locationData.coords && locationData.coords.latitude && locationData.coords.longitude) {
           setUserCoordinates({
             latitude: locationData.coords.latitude,
             longitude: locationData.coords.longitude,
           });
-          // Only refetch top picks if location actually changed
-          if (locationChanged || !locationFetched) {
-            // Use state first for broader filtering, then fallback to city
-            const locationQuery = newState || newCity;
-            console.log(
-              "[HomeScreen] Using location for top picks:",
-              locationQuery,
-            );
-            fetchTopPicksListings(locationQuery);
+          console.log(
+            "📍 [HomeScreen] Coordinates set:",
+            `${locationData.coords.latitude.toFixed(4)}, ${locationData.coords.longitude.toFixed(4)}`,
+          );
+        } else {
+          console.warn("⚠️ [HomeScreen] No device coordinates available, using city fallback...");
+          // Fallback: Geocode the locationQuery to get representative coordinates
+          const locationQuery = newState || newCity;
+          
+          // Only attempt if we don't have coordinates already OR if location actually changed
+          if (locationQuery && (!userCoordinates || locationChanged)) {
+            try {
+              const fallbackCoords = await locationService.getCoordinatesFromAddress(locationQuery);
+              if (fallbackCoords) {
+                setUserCoordinates(fallbackCoords);
+                console.log("✅ [HomeScreen] City fallback coordinates obtained:", locationQuery);
+              }
+            } catch (e) {
+              console.error("❌ [HomeScreen] City fallback geocoding failed:", e);
+            }
+          } else if (userCoordinates) {
+             console.log("📍 [HomeScreen] Using existing coordinates for fallback");
           }
         }
-        console.log("✅ [HomeScreen] Location set:", displayLocation);
+
+        // Only refetch top picks if location actually changed or first time
+        if (locationChanged || !locationFetched) {
+          // Use state first for broader filtering, then fallback to city
+          const locationQuery = newState || newCity;
+          console.log(
+            "🔍 [HomeScreen] Filtering top picks by location:",
+            locationQuery,
+          );
+          fetchTopPicksListings(locationQuery);
+        } else {
+          console.log("[HomeScreen] Location unchanged, skipping top picks refresh");
+        }
       } else {
+        console.warn(
+          "⚠️ [HomeScreen] No address data found, using fallback location",
+        );
         setUserLocation("Nigeria");
         setLocationFetched(true);
         if (!locationFetched) {
@@ -197,19 +246,47 @@ const HomeScreen = () => {
         }
       }
     } catch (error) {
-      console.log("❌ [HomeScreen] Error fetching location:", error);
+      console.error(
+        "❌ [HomeScreen] Error fetching location (may be permission denied or service unavailable):",
+        error.message,
+      );
+      // Fallback to default location
       setUserLocation("Nigeria");
       setLocationFetched(true);
+      console.log(
+        "ℹ️ [HomeScreen] Using fallback location. Top picks will show all AVAILABLE/BOOKED listings.",
+      );
+      // Fetch top picks without location filter
       if (!locationFetched) {
         fetchTopPicksListings(null);
       }
     }
   };
 
+  // Helper: Calculate distance between two coordinates using Haversine formula
+  const calculateDistance = (lat1, lon1, lat2, lon2) => {
+    const R = 6371; // Earth's radius in kilometers
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLon = ((lon2 - lon1) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return Math.round(R * c * 10) / 10; // Distance in km, rounded to 1 decimal
+  };
+
   // Fetch top picks near user location
+  // Includes distance calculation if coordinates available
+  // Falls back to all AVAILABLE/BOOKED listings if location filter returns no results
   const fetchTopPicksListings = async (cityOrRegion) => {
     try {
-      console.log("[HomeScreen] Fetching top picks near:", cityOrRegion);
+      console.log(
+        "🔍 [HomeScreen] Fetching top picks near:",
+        cityOrRegion || "No location (all listings)",
+      );
       const baseURL = await configService.getBaseURL();
 
       // Build filter for location-based listings with improved location matching
@@ -231,9 +308,16 @@ const HomeScreen = () => {
           { "address.city": { $regex: cityOrRegion, $options: "i" } },
           { "address.state": { $regex: cityOrRegion, $options: "i" } },
         ];
+        console.log(
+          "📍 [HomeScreen] Location filter applied:",
+          cityOrRegion,
+        );
+      } else {
+        console.log(
+          "📍 [HomeScreen] No location filter - showing all AVAILABLE/BOOKED listings",
+        );
       }
 
-      console.log("[HomeScreen] Top picks filter:", JSON.stringify(filters));
       const result = await listingService.fetchListingsByStatus(filters);
 
       if (
@@ -242,61 +326,122 @@ const HomeScreen = () => {
         result.listings &&
         result.listings.length > 0
       ) {
+        console.log(
+          "✅ [HomeScreen] Found",
+          result.listings.length,
+          "listings matching filter",
+        );
+
+        // Calculate distances for proximity-based sorting if user coordinates available
+        let listingsWithDistance = result.listings.map((listing) => {
+          let distance = null;
+          if (
+            userCoordinates &&
+            userCoordinates.latitude &&
+            userCoordinates.longitude
+          ) {
+            const listingLat =
+              listing.propertyLocation?.latitude || listing.latitude;
+            const listingLon =
+              listing.propertyLocation?.longitude || listing.longitude;
+            if (listingLat != null && listingLon != null) {
+              distance = calculateDistance(
+                userCoordinates.latitude,
+                userCoordinates.longitude,
+                listingLat,
+                listingLon,
+              );
+            }
+          }
+          return { ...listing, distance };
+        });
+
+        // Sort by distance if available, otherwise keep original order
+        if (userCoordinates && userCoordinates.latitude) {
+          listingsWithDistance = listingsWithDistance.sort(
+            (a, b) =>
+              (a.distance ?? Infinity) - (b.distance ?? Infinity),
+          );
+          console.log(
+            "📏 [HomeScreen] Sorted by distance. Nearest:",
+            listingsWithDistance[0]?.distance,
+            "km",
+          );
+        } else {
+          console.log(
+            "⚠️ [HomeScreen] User coordinates unavailable - showing unordered listings",
+          );
+        }
+
         // Limit to 5 listings for top picks
-        const topPicks = result.listings.slice(0, 5).map((listing) => {
+        const topPicks = listingsWithDistance.slice(0, 5).map((listing) => {
           // Get the first image URL from propertyImages
           let imageUrl = null;
           if (listing.propertyImages && listing.propertyImages.length > 0) {
-            const firstImg = listing.propertyImages[0];
-            if (typeof firstImg === "object" && firstImg.url) {
-              imageUrl = firstImg.url.startsWith("http")
-                ? firstImg.url
-                : `${baseURL}${firstImg.url}`;
-            } else if (typeof firstImg === "string") {
-              imageUrl = firstImg.startsWith("http")
-                ? firstImg
-                : `${baseURL}${firstImg}`;
-            }
+            imageUrl = ImageUtils.resolveImageUrlSync(
+              listing.propertyImages[0],
+              baseURL,
+            );
           }
 
           return {
             id: listing._id || listing.id,
             title: listing.propertyName || "Property",
             location: (() => {
-              // Build a comprehensive location string
-              const locationParts = [
-                listing.city,
-                listing.state,
-                listing.propertyLocation?.city,
-                listing.propertyLocation?.state,
-                listing.address?.city,
-                listing.address?.state,
-              ].filter(Boolean);
+              // Get city and state from various possible locations
+              const city = listing.city || listing.propertyLocation?.city;
+              const state = listing.state || listing.propertyLocation?.state;
+              
+              // Build location string prioritizing city and state
+              if (city && state) {
+                return `${city}, ${state}`;
+              } else if (city) {
+                return city;
+              } else if (state) {
+                return state;
+              } else {
+                // Fallback to other location fields
+                const locationParts = [
+                  listing.address?.city,
+                  listing.address?.state,
+                  listing.propertyLocation?.fullAddress,
+                  listing.address,
+                ].filter(Boolean);
 
-              // Remove duplicates and join
-              const uniqueParts = [...new Set(locationParts)];
-              return uniqueParts.slice(0, 2).join(", ") || "Nigeria";
+                const uniqueParts = [...new Set(locationParts)];
+                return uniqueParts.slice(0, 2).join(", ") || "Nigeria";
+              }
             })(),
             price: listing.price || listing.propertyPrice?.price || 0,
             image: imageUrl, // Single image URL for PropertyCard
-            rating: listing.rating || 4.5,
+            rating: listing.averageRating || listing.rating || null,
             bedrooms: listing.bedrooms,
             bathrooms: listing.bathrooms,
+            amenities: listing.amenities || [],
             status: listing.status, // Pass the status for "Booked" badge
             bookedUntil: listing.bookedUntil || null, // When the current booking ends
+            distance: listing.distance, // Include distance for debugging
           };
         });
         setTopPicksListings(topPicks);
-        console.log("[HomeScreen] Top picks loaded:", topPicks.length);
+        console.log(
+          "🎯 [HomeScreen] Top picks ready:",
+          topPicks.length,
+          "properties",
+        );
       } else if (cityOrRegion) {
         // If no location-specific listings found, try again without location filter
-        console.log(
-          "[HomeScreen] No location-specific listings found, fetching general top picks",
+        console.warn(
+          "⚠️ [HomeScreen] No listings found for location:",
+          cityOrRegion,
+          "- Trying with all listings...",
         );
         await fetchTopPicksListings(null);
       } else {
         setTopPicksListings([]);
-        console.log("[HomeScreen] No listings available at all");
+        console.log(
+          "ℹ️ [HomeScreen] No listings available (status: AVAILABLE or BOOKED)",
+        );
       }
     } catch (error) {
       console.error("[HomeScreen] Error fetching top picks:", error);
@@ -428,6 +573,26 @@ const HomeScreen = () => {
   };
 
   // Responsive bottom padding for nav bar
+  // Debounce navigation to prevent double-taps
+  const navigationTimeoutRef = useRef(null);
+  
+  const navigateToPropertyDetails = useCallback((listingId) => {
+    if (navigationTimeoutRef.current) {
+      console.log("[HomeScreen] Navigation debounced, ignoring tap");
+      return;
+    }
+    
+    navigationTimeoutRef.current = setTimeout(() => {
+      navigationTimeoutRef.current = null;
+    }, 300);
+    
+    console.log("[HomeScreen] Navigating to property details:", listingId);
+    router.push({
+      pathname: "/property-details",
+      params: { listingId },
+    });
+  }, [router]);
+
   const bottomNavHeight = screenHeight < 700 ? 70 : 85;
   const bottomPadding = bottomNavHeight + Math.max(insets.bottom, 10);
 
@@ -447,31 +612,7 @@ const HomeScreen = () => {
     const baseURL = await configService.getBaseURL();
 
     const convertImageUrl = (image) => {
-      if (!image) return null;
-      
-      let urlString = "";
-      if (typeof image === "object" && image.url) {
-        urlString = image.url;
-      } else if (typeof image === "string") {
-        urlString = image;
-      } else {
-        return null;
-      }
-
-      // If URL contains /uploads/ (standard backend attachment path)
-      // Strip the host prefix to ensure dynamic IP resolution across devices
-      if (urlString.startsWith("http") && urlString.includes("/uploads/")) {
-        const uploadIndex = urlString.indexOf("/uploads/");
-        urlString = urlString.substring(uploadIndex); // Becomes "/uploads/..."
-      }
-
-      if (urlString.startsWith("http") || urlString.startsWith("file://")) {
-        return urlString;
-      }
-
-      const safeBaseURL = baseURL ? baseURL.replace(/\/$/, "") : "";
-      const safePath = urlString.startsWith("/") ? urlString : `/${urlString}`;
-      return `${safeBaseURL}${safePath}`;
+      return ImageUtils.resolveImageUrlSync(image, baseURL);
     };
 
     const result = await listingService.fetchAllListings({});
@@ -501,18 +642,33 @@ const HomeScreen = () => {
         const combinedMedia = [...processedImages, ...processedVideos];
 
         const buildLocationString = () => {
-          if (listing.propertyLocation) {
-            if (listing.propertyLocation.fullAddress) return listing.propertyLocation.fullAddress;
-            const parts = [listing.propertyLocation.city, listing.propertyLocation.state].filter(Boolean);
-            if (parts.length > 0) return parts.join(", ");
+          const city = listing.city || listing.propertyLocation?.city;
+          const state = listing.state || listing.propertyLocation?.state;
+          
+          if (city && state) {
+            return `${city}, ${state}`;
+          } else if (city) {
+            return city;
+          } else if (state) {
+            return state;
+          } else {
+            // Try to extract from address field
+            const address = listing.address || listing.propertyLocation?.fullAddress;
+            if (address && typeof address === 'string') {
+              // Look for common patterns like "City, State" or "City State"
+              const parts = address.split(',').map(p => p.trim()).filter(p => p);
+              if (parts.length >= 2) {
+                return `${parts[0]}, ${parts[1]}`;
+              } else if (parts.length === 1) {
+                // Try to split by space for patterns like "Lagos Nigeria"
+                const spaceParts = parts[0].split(' ').filter(p => p.length > 2);
+                if (spaceParts.length >= 2) {
+                  return `${spaceParts[0]}, ${spaceParts[1]}`;
+                }
+              }
+            }
+            return address || "Nigeria";
           }
-          if (listing.address && typeof listing.address === "object") {
-            const parts = [listing.address.city, listing.address.state].filter(Boolean);
-            if (parts.length > 0) return parts.join(", ");
-          }
-          const directParts = [listing.city, listing.state].filter(Boolean);
-          if (directParts.length > 0) return directParts.join(", ");
-          return listing.address || "Unknown Location";
         };
 
         return {
@@ -535,7 +691,7 @@ const HomeScreen = () => {
           pricingPeriod: listing.pricingPeriod || listing.propertyPrice?.pricingPeriod || "night",
           securityDeposit: listing.securityDeposit || listing.propertyPrice?.securityDeposit || 0,
           cleaningFee: listing.cleaningFee || listing.propertyPrice?.cleaningFee || 0,
-          rating: listing.rating || 4.5,
+          rating: listing.averageRating || listing.rating || null,
           isVerified: listing.host?.active === true,
           isAvailable: listing.status === "AVAILABLE",
           isFavorite: false,
@@ -569,33 +725,30 @@ const HomeScreen = () => {
     });
   };
 
-  // Load bookmark statuses for all listings
+  // Load bookmark statuses for all listings (Optimized Batch Version)
   const loadBookmarkStatuses = async (listings) => {
     try {
+      if (!listings || listings.length === 0) return;
+
       console.log(
-        "[HomeScreen] Loading bookmark statuses for",
+        "[HomeScreen] Loading bookmark statuses (Batch) for",
         listings.length,
         "listings",
       );
-      const newBookmarkMap = {};
+      
+      const listingIds = listings.map(l => l.id || l._id).filter(Boolean);
+      if (listingIds.length === 0) return;
 
-      // Check each listing to see if it's bookmarked
-      for (const listing of listings) {
-        const bookmarkStatus = await bookmarkService.isListingBookmarked(
-          listing.id,
-        );
-        newBookmarkMap[listing.id] = bookmarkStatus;
-        console.log(
-          "[HomeScreen] Listing",
-          listing.id,
-          "bookmarked:",
-          bookmarkStatus.isBookmarked,
-        );
+      const result = await bookmarkService.checkBatchBookmarks(listingIds);
+      
+      if (result.success) {
+        setBookmarkMap((prevMap) => ({
+          ...prevMap,
+          ...result.statuses
+        }));
       }
-
-      setBookmarkMap(newBookmarkMap);
     } catch (error) {
-      console.error("[HomeScreen] Error loading bookmark statuses:", error);
+      console.error("[HomeScreen] Error loading batch bookmark statuses:", error);
     }
   };
 
@@ -613,11 +766,41 @@ const HomeScreen = () => {
   const handleSearchSubmit = () => {
     if (searchQuery.trim()) {
       console.log("[HomeScreen] Search submitted:", searchQuery);
+      
+      // Parse search query for smart filters
+      const parsed = parseSearchQuery(searchQuery.trim());
+      console.log("[HomeScreen] Parsed search:", parsed);
+      
+      // Build combined filters from parsed query + active filters
+      const smartFilters = buildAPIFilters(parsed);
+      const combinedFilters = {
+        ...activeFilters,
+        ...smartFilters,
+        // Override with explicit filters if they exist
+        bedrooms: smartFilters.bedrooms || activeFilters.bedrooms,
+        bathrooms: smartFilters.bathrooms || activeFilters.bathrooms,
+        location: smartFilters.location || activeFilters.location,
+        minPrice: smartFilters.minPrice || activeFilters.minPrice,
+        maxPrice: smartFilters.maxPrice || activeFilters.maxPrice,
+        categories: smartFilters.categories?.length > 0 
+          ? smartFilters.categories 
+          : activeFilters.categories || [],
+        amenities: smartFilters.amenities?.length > 0
+          ? [...new Set([...(activeFilters.amenities || []), ...smartFilters.amenities])]
+          : activeFilters.amenities || [],
+        furnished: smartFilters.furnished || activeFilters.furnished || false,
+        verifiedOnly: smartFilters.verifiedOnly || activeFilters.verifiedOnly || false,
+      };
+      
+      console.log("[HomeScreen] Combined filters:", combinedFilters);
+      
       router.push({
         pathname: "/search-results",
         params: {
-          query: searchQuery.trim(),
-          filters: JSON.stringify(activeFilters),
+          query: parsed.cleanQuery || searchQuery.trim(),
+          filters: JSON.stringify(combinedFilters),
+          smartFilters: JSON.stringify(smartFilters),
+          parsedFilterSummary: formatParsedFilters(smartFilters),
         },
       });
     }
@@ -650,6 +833,66 @@ const HomeScreen = () => {
   // Remove old EXPLORE_PROPERTIES constant
   // Now using exploreListings from state fetched from API
 
+  const bookmarkMapRef = useRef(bookmarkMap);
+  useEffect(() => {
+    bookmarkMapRef.current = bookmarkMap;
+  }, [bookmarkMap]);
+
+  const handleItemPress = useCallback((id) => {
+    console.log("[HomeScreen] Card pressed, navigating to property:", id);
+    try {
+      navigateToPropertyDetails(id);
+    } catch (err) {
+      console.error("[HomeScreen] Navigation error:", err);
+    }
+  }, [navigateToPropertyDetails]);
+
+  const handleFavoritePress = useCallback(async (id, isFavorite) => {
+    console.log("[HomeScreen] Favorite pressed:", id, "new state:", isFavorite);
+    try {
+      const currentMap = bookmarkMapRef.current;
+      const currentBookmarkStatus = currentMap[id] || { isBookmarked: false, bookmarkId: null };
+
+      const result = await bookmarkService.toggleBookmark(
+        id,
+        currentBookmarkStatus.isBookmarked,
+        currentBookmarkStatus.bookmarkId
+      );
+
+      if (result.success) {
+        const updatedStatus = await bookmarkService.isListingBookmarked(id);
+        setBookmarkMap((prev) => ({
+          ...prev,
+          [id]: updatedStatus,
+        }));
+        setToastMessage(result.action === "added" ? "Property saved to favorites" : "Property removed from favorites");
+        setToastType(result.action === "added" ? "success" : "info");
+        setShowToast(true);
+      } else {
+        setToastMessage(result.message || "Failed to update bookmark");
+        setToastType("error");
+        setShowToast(true);
+      }
+    } catch (error) {
+      console.error("[HomeScreen] Error toggling favorite:", error);
+      setToastMessage("Failed to update bookmark");
+      setToastType("error");
+      setShowToast(true);
+    }
+  }, []);
+
+  const renderItem = useCallback(({ item }) => {
+    const currentBookmarkStatus = bookmarkMap[item.id] || { isBookmarked: false, bookmarkId: null };
+    return (
+      <PropertyListingCard
+        {...item}
+        isFavorite={currentBookmarkStatus.isBookmarked}
+        onPress={handleItemPress}
+        onFavoritePress={handleFavoritePress}
+      />
+    );
+  }, [bookmarkMap, handleItemPress, handleFavoritePress]);
+
   // Scrollable content below fixed header
   const renderScrollableContent = () => (
     <>
@@ -659,85 +902,89 @@ const HomeScreen = () => {
         onPress={handleProfileSetupPress}
       />
 
-      {/* Top Picks Near You Section */}
-      <TopPicksSection
-        externalListings={topPicksListings}
-        bookmarkMap={bookmarkMap}
-        onPropertyPress={(property) => {
-          console.log("View property:", property.id);
-          // Navigate to property details from Top Picks
-          router.push({
-            pathname: "/property-details",
-            params: {
-              listingId: property.id,
-            },
-          });
-        }}
-        onFavoritePress={async (id, isFavorite) => {
-          console.log(
-            "[HomeScreen] Top Picks favorite pressed:",
-            id,
-            "new state:",
-            isFavorite,
-          );
-          try {
-            // Get current bookmark status for this listing
-            const currentStatus = bookmarkMap[id] || {
-              isBookmarked: false,
-              bookmarkId: null,
-            };
-
+      {/* Top Picks Near You Section - ONLY show when category is 'all' */}
+      {(activeCategory === "all" || !activeCategory) && (
+        <TopPicksSection
+          externalListings={topPicksListings}
+          bookmarkMap={bookmarkMap}
+          onPropertyPress={(property) => {
+            console.log("View property:", property.id);
+            console.log("[HomeScreen] Property data structure:", {
+              id: property.id,
+              _id: property._id,
+              latitude: property.latitude,
+              longitude: property.longitude,
+              propertyLocation: property.propertyLocation,
+            });
+            // Navigate to property details from Top Picks
+            navigateToPropertyDetails(property.id);
+          }}
+          onFavoritePress={async (id, isFavorite) => {
             console.log(
-              "[HomeScreen] Current bookmark status:",
-              currentStatus.isBookmarked,
-            );
-
-            // Toggle bookmark via service - pass CURRENT state, not the new state
-            const result = await bookmarkService.toggleBookmark(
+              "[HomeScreen] Top Picks favorite pressed:",
               id,
-              currentStatus.isBookmarked,
-              currentStatus.bookmarkId,
+              "new state:",
+              isFavorite,
             );
+            try {
+              // Get current bookmark status for this listing
+              const currentStatus = bookmarkMap[id] || {
+                isBookmarked: false,
+                bookmarkId: null,
+              };
 
-            if (result.success) {
-              // Update bookmark map
-              const updatedStatus =
-                await bookmarkService.isListingBookmarked(id);
-              setBookmarkMap((prev) => ({
-                ...prev,
-                [id]: updatedStatus,
-              }));
               console.log(
-                "[HomeScreen] Top Picks bookmark toggled successfully",
-                result.action,
+                "[HomeScreen] Current bookmark status:",
+                currentStatus.isBookmarked,
               );
-              // Show success toast
-              if (result.action === "added") {
-                setToastMessage("Property saved to favorites");
-                setToastType("success");
+
+              // Toggle bookmark via service - pass CURRENT state, not the new state
+              const result = await bookmarkService.toggleBookmark(
+                id,
+                currentStatus.isBookmarked,
+                currentStatus.bookmarkId,
+              );
+
+              if (result.success) {
+                // Update bookmark map
+                const updatedStatus =
+                  await bookmarkService.isListingBookmarked(id);
+                setBookmarkMap((prev) => ({
+                  ...prev,
+                  [id]: updatedStatus,
+                }));
+                console.log(
+                  "[HomeScreen] Top Picks bookmark toggled successfully",
+                  result.action,
+                );
+                // Show success toast
+                if (result.action === "added") {
+                  setToastMessage("Property saved to favorites");
+                  setToastType("success");
+                } else {
+                  setToastMessage("Property removed from favorites");
+                  setToastType("info");
+                }
+                setShowToast(true);
               } else {
-                setToastMessage("Property removed from favorites");
-                setToastType("info");
+                console.error("[HomeScreen] Failed to toggle top picks bookmark");
+                setToastMessage(result.message || "Failed to update bookmark");
+                setToastType("error");
+                setShowToast(true);
               }
-              setShowToast(true);
-            } else {
-              console.error("[HomeScreen] Failed to toggle top picks bookmark");
-              setToastMessage(result.message || "Failed to update bookmark");
+            } catch (error) {
+              console.error(
+                "[HomeScreen] Error toggling top picks favorite:",
+                error,
+              );
+              setToastMessage("Failed to update bookmark");
               setToastType("error");
               setShowToast(true);
             }
-          } catch (error) {
-            console.error(
-              "[HomeScreen] Error toggling top picks favorite:",
-              error,
-            );
-            setToastMessage("Failed to update bookmark");
-            setToastType("error");
-            setShowToast(true);
-          }
-        }}
-        onSeeAllPress={() => console.log("See all top picks")}
-      />
+          }}
+          onSeeAllPress={() => console.log("See all top picks")}
+        />
+      )}
 
       {/* Explore Now Section Header */}
       <SectionHeader title="Explore now" icon="compass" showSeeAll={false} />
@@ -800,114 +1047,46 @@ const HomeScreen = () => {
                   : true),
             ).length
           }
+          activeFilters={activeFilters}
+          onClearFilter={(filterKey) => {
+            if (filterKey === 'all') {
+              setActiveFilters({});
+            } else {
+              setActiveFilters(prev => {
+                const newFilters = { ...prev };
+                delete newFilters[filterKey];
+                return newFilters;
+              });
+            }
+          }}
         />
 
         {/* Category Slider */}
         <CategorySlider
           activeCategory={activeCategory}
           onCategoryPress={handleCategoryPress}
+          availableListings={safeExploreListings}
         />
       </View>
 
-      {/* SCROLLABLE CONTENT */}
-      <FlatList
+      {/* SCROLLABLE CONTENT WITH SMOOTH FADE-IN */}
+      <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
+        <FlashList
         data={filteredListings}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => {
-          const bookmarkStatus = bookmarkMap[item.id] || {
-            isBookmarked: false,
-            bookmarkId: null,
-          };
-
-          return (
-            <PropertyListingCard
-              {...item}
-              isFavorite={bookmarkStatus.isBookmarked}
-              onPress={() => {
-                console.log(
-                  "[HomeScreen] Card pressed, navigating to property:",
-                  item.id,
-                );
-                try {
-                  router.push({
-                    pathname: "/property-details",
-                    params: {
-                      listingId: item.id,
-                    },
-                  });
-                } catch (err) {
-                  console.error("[HomeScreen] Navigation error:", err);
-                }
-              }}
-              onFavoritePress={async (id, isFavorite) => {
-                console.log(
-                  "[HomeScreen] Favorite pressed:",
-                  id,
-                  "new state:",
-                  isFavorite,
-                );
-                try {
-                  // Get current bookmark status for this listing
-                  const currentBookmarkStatus = bookmarkMap[id] || {
-                    isBookmarked: false,
-                    bookmarkId: null,
-                  };
-
-                  console.log(
-                    "[HomeScreen] Current bookmark status:",
-                    currentBookmarkStatus.isBookmarked,
-                  );
-
-                  // Toggle bookmark via service - pass CURRENT state, not the new state
-                  const result = await bookmarkService.toggleBookmark(
-                    id,
-                    currentBookmarkStatus.isBookmarked,
-                    currentBookmarkStatus.bookmarkId,
-                  );
-
-                  if (result.success) {
-                    // Update bookmark map
-                    const updatedStatus =
-                      await bookmarkService.isListingBookmarked(id);
-                    setBookmarkMap((prev) => ({
-                      ...prev,
-                      [id]: updatedStatus,
-                    }));
-                    console.log(
-                      "[HomeScreen] Bookmark toggled successfully",
-                      result.action,
-                    );
-                    // Show success toast
-                    if (result.action === "added") {
-                      setToastMessage("Property saved to favorites");
-                      setToastType("success");
-                    } else {
-                      setToastMessage("Property removed from favorites");
-                      setToastType("info");
-                    }
-                    setShowToast(true);
-                  } else {
-                    console.error("[HomeScreen] Failed to toggle bookmark");
-                    setToastMessage(
-                      result.message || "Failed to update bookmark",
-                    );
-                    setToastType("error");
-                    setShowToast(true);
-                  }
-                } catch (error) {
-                  console.error("[HomeScreen] Error toggling favorite:", error);
-                  setToastMessage("Failed to update bookmark");
-                  setToastType("error");
-                  setShowToast(true);
-                }
-              }}
-            />
-          );
-        }}
+        extraData={bookmarkMap} // Re-render when bookmarks change
+        estimatedItemSize={320}
+        renderItem={renderItem}
         ListHeaderComponent={renderScrollableContent}
         ListEmptyComponent={
-          loadingExplore ? null : filteredListings.length === 0 &&
-            exploreListings.length > 0 ? (
+          shouldShowSkeleton ? (
+            // Show improved skeleton loading on first load only (delayed 300ms)
+            <>
+              <PropertyListingCardSkeleton />
+              <PropertyListingCardSkeleton />
+              <PropertyListingCardSkeleton />
+            </>
+          ) : filteredListings.length === 0 && safeExploreListings.length > 0 ? (
             // No listings for this category
             <View style={styles.emptyState}>
               <Text style={styles.emptyStateTitle}>
@@ -939,6 +1118,7 @@ const HomeScreen = () => {
           />
         }
       />
+    </Animated.View>
 
       {/* Toast notification */}
       <Toast

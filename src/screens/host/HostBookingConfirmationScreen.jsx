@@ -1,11 +1,11 @@
 import { useNavigation, useRoute } from "@react-navigation/native";
 import {
-  Image,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
+    Image,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -155,31 +155,66 @@ const HostBookingConfirmationScreen = () => {
                   styles.component62ParentShadowBox,
                 ]}
               >
-                <View
-                  style={[styles.component622, styles.componentParentFlexBox]}
-                >
+                <View style={[styles.component622, styles.componentParentFlexBox]}>
                   <Text style={[styles.bookingRefCode, styles.checkInTypo]}>
                     Payment Summary
                   </Text>
                 </View>
                 <View style={styles.frameView}>
                   <View style={styles.frameParent2}>
-                    <View
-                      style={[
-                        styles.checkInParent,
-                        styles.componentParentFlexBox,
-                      ]}
-                    >
-                      <Text style={[styles.checkIn, styles.checkInTypo]}>
-                        Booking Fee:
-                      </Text>
-                      <Text style={[styles.june152025, styles.checkInTypo]}>
-                        ₦{booking.price?.toLocaleString() || "0"}
-                      </Text>
-                    </View>
-                    {/* Add more payment details as needed */}
+                    {/* Render breakdown if available */}
+                    {booking.pricingBreakdown ? (
+                      <>
+                        <View style={[styles.checkInParent, styles.componentParentFlexBox]}>
+                          <Text style={[styles.checkIn, styles.checkInTypo]}>Rent Fee:</Text>
+                          <Text style={[styles.june152025, styles.checkInTypo]}>
+                            ₦{booking.pricingBreakdown.rentFee?.toLocaleString() || "0"}
+                          </Text>
+                        </View>
+                        {booking.pricingBreakdown.serviceCharge > 0 && (
+                          <View style={[styles.checkInParent, styles.componentParentFlexBox]}>
+                            <Text style={[styles.checkIn, styles.checkInTypo]}>Service Charge:</Text>
+                            <Text style={[styles.june152025, styles.checkInTypo]}>
+                              ₦{booking.pricingBreakdown.serviceCharge?.toLocaleString() || "0"}
+                            </Text>
+                          </View>
+                        )}
+                        <View style={[styles.checkInParent, styles.componentParentFlexBox]}>
+                          <Text style={[styles.checkIn, styles.checkInTypo]}>App Fee (3%):</Text>
+                          <Text style={[styles.june152025, styles.checkInTypo, { color: '#b70808' }]}>
+                            - ₦{booking.pricingBreakdown.hostFee?.toLocaleString() || "0"}
+                          </Text>
+                        </View>
+                        <View style={[styles.checkInParent, styles.componentParentFlexBox]}>
+                          <Text style={[styles.checkIn, styles.checkInTypo]}>VAT on App Fee (7.5%):</Text>
+                          <Text style={[styles.june152025, styles.checkInTypo, { color: '#b70808' }]}>
+                            - ₦{booking.pricingBreakdown.hostVat?.toLocaleString() || "0"}
+                          </Text>
+                        </View>
+                        <View style={[styles.checkInParent, styles.componentParentFlexBox]}>
+                          <Text style={[styles.checkIn, styles.checkInTypo]}>Caution Fee (Held):</Text>
+                          <Text style={[styles.june152025, styles.checkInTypo]}>
+                            ₦{booking.pricingBreakdown.securityDeposit?.toLocaleString() || "0"}
+                          </Text>
+                        </View>
+                        <View style={[styles.totalPaidParent, styles.componentParentFlexBox]}>
+                          <Text style={[styles.checkIn, styles.checkInTypo, { fontWeight: '700', color: '#000' }]}>Your Total Earnings:</Text>
+                          <Text style={[styles.june152025, styles.checkInTypo, { fontWeight: '700', fontSize: 16 }]}>
+                            ₦{booking.pricingBreakdown.hostEarnings?.toLocaleString() || "0"}
+                          </Text>
+                        </View>
+                      </>
+                    ) : (
+                      <View style={[styles.checkInParent, styles.componentParentFlexBox]}>
+                        <Text style={[styles.checkIn, styles.checkInTypo]}>
+                          Estimated Earning:
+                        </Text>
+                        <Text style={[styles.june152025, styles.checkInTypo]}>
+                          ₦{booking.price?.toLocaleString() || "0"}
+                        </Text>
+                      </View>
+                    )}
                   </View>
-                  {/* Add total paid, payment method, etc. if available */}
                 </View>
               </View>
               <View

@@ -400,6 +400,11 @@ class AuthService {
         ...options.headers,
       };
 
+      const token = await this.getToken();
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+
       // Automaticaly handle Content-Type for FormData
       if (options.body instanceof FormData) {
         // Fetch will automatically set the correct boundary when body is FormData
@@ -409,20 +414,24 @@ class AuthService {
         headers["Content-Type"] = "application/json";
       }
 
+      let timeoutId;
+      const timeoutPromise = new Promise((_, reject) => {
+        timeoutId = setTimeout(() => {
+          const duration = Date.now() - startTime;
+          console.log("⏱️ Request timeout after", duration, "ms");
+          reject(new Error("AbortError")); // Simulate AbortError for consistency
+        }, this.timeout);
+      });
+
       // Use Promise.race for timeout - more compatible with React Native
       const response = await Promise.race([
         fetch(endpoint, {
           ...options,
           headers,
         }),
-        new Promise((_, reject) =>
-          setTimeout(() => {
-            const duration = Date.now() - startTime;
-            console.log("⏱️ Request timeout after", duration, "ms");
-            reject(new Error("AbortError")); // Simulate AbortError for consistency
-          }, this.timeout),
-        ),
+        timeoutPromise,
       ]);
+      clearTimeout(timeoutId);
 
       const duration = Date.now() - startTime;
       console.log("✅ Response received in:", duration, "ms");
@@ -1351,15 +1360,51 @@ class AuthService {
 
       // Create form data
       const formData = new FormData();
-      const filename = imageUri.split("/").pop();
-      const match = /\.(\w+)$/.exec(filename);
-      const type = match ? `image/${match[1]}` : "image/jpeg";
 
-      formData.append("avatar", {
-        uri: imageUri,
-        name: filename,
-        type,
-      });
+      if (Platform.OS === "web") {
+        // For web, we need to handle both data URLs and blob URLs correctly
+        try {
+          console.log("[AuthService] Handling web image upload...");
+          let blob;
+          let filename = "avatar.jpg";
+          let type = "image/jpeg";
+
+          if (imageUri.startsWith("data:")) {
+            // Data URL (base64) - convert to blob
+            const parts = imageUri.split(",");
+            const mimeMatch = parts[0].match(/:(.*?);/);
+            if (mimeMatch) type = mimeMatch[1];
+            const base64Data = parts[1];
+            const byteCharacters = atob(base64Data);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+              byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            blob = new Blob([new Uint8Array(byteNumbers)], { type });
+          } else {
+            // Blob URL or regular URL - fetch and convert
+            const res = await fetch(imageUri);
+            blob = await res.blob();
+            type = blob.type || "image/jpeg";
+          }
+          
+          formData.append("avatar", blob, filename);
+        } catch (error) {
+          console.error("[AuthService] Web blob conversion failed:", error);
+          throw new Error("Failed to process image for upload");
+        }
+      } else {
+        // Native (iOS/Android) behavior
+        const filename = imageUri.split("/").pop();
+        const match = /\.(\w+)$/.exec(filename);
+        const type = match ? `image/${match[1]}` : "image/jpeg";
+
+        formData.append("avatar", {
+          uri: imageUri,
+          name: filename,
+          type,
+        });
+      }
 
       // Get token (manually since we need custom headers for multipart)
       const token = await secureStorageService.getSecureItem(
@@ -1579,6 +1624,113 @@ class AuthService {
       return {
         success: false,
         message: error.message || "Failed to fetch user profile",
+      };
+    }
+  }
+
+  /**
+   * Send OTP to phone number
+   * @param {string} phone - Phone number to send OTP to
+   */
+  async sendPhoneOTP(phone) {
+    try {
+      const token = await this.getToken();
+      if (!token) {
+        return {
+          success: false,
+          message: "Authentication required. Please log in.",
+        };
+      }
+
+      console.log("[AuthService] Sending OTP to phone:", phone);
+
+      const response = await fetch(`${this.baseURL}/v1/kyc/verify-phone/send-otp`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ phone }),
+      });
+
+      const data = await response.json();
+      console.log("[AuthService] Send OTP response:", data);
+
+      if (response.ok && data.status === "success") {
+        return {
+          success: true,
+          data: data.data,
+          message: data.message || "OTP sent successfully",
+        };
+      }
+
+      // Handle specific error cases
+      if (response.status === 409) {
+        return {
+          success: false,
+          message: "This phone number is already verified by another account",
+        };
+      }
+
+      return {
+        success: false,
+        message: data.message || "Failed to send OTP",
+      };
+    } catch (error) {
+      console.error("[AuthService] sendPhoneOTP error:", error);
+      return {
+        success: false,
+        message: error.message || "Failed to send OTP",
+      };
+    }
+  }
+
+  /**
+   * Verify OTP code for phone number
+   * @param {string} phone - Phone number
+   * @param {string} otp - OTP code to verify
+   */
+  async verifyPhoneOTP(phone, otp) {
+    try {
+      const token = await this.getToken();
+      if (!token) {
+        return {
+          success: false,
+          message: "Authentication required. Please log in.",
+        };
+      }
+
+      console.log("[AuthService] Verifying OTP for phone:", phone);
+
+      const response = await fetch(`${this.baseURL}/v1/kyc/verify-phone/verify-otp`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ phone, otp }),
+      });
+
+      const data = await response.json();
+      console.log("[AuthService] Verify OTP response:", data);
+
+      if (response.ok && data.status === "success") {
+        return {
+          success: true,
+          data: data.data,
+          message: data.message || "Phone verified successfully",
+        };
+      }
+
+      return {
+        success: false,
+        message: data.message || "Invalid OTP. Please try again.",
+      };
+    } catch (error) {
+      console.error("[AuthService] verifyPhoneOTP error:", error);
+      return {
+        success: false,
+        message: error.message || "Failed to verify OTP",
       };
     }
   }

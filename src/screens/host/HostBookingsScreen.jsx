@@ -9,28 +9,29 @@
 
 import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import {
-    ActivityIndicator,
-    RefreshControl,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    useWindowDimensions,
-    View,
+  ActivityIndicator,
+  RefreshControl,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  useWindowDimensions,
+  View,
 } from "react-native";
 import Svg, { Circle, Path, Rect } from "react-native-svg";
 import ToastNotification, {
-    TOAST_TYPE,
+  TOAST_TYPE,
 } from "../../components/common/ToastNotification";
 import BookingCard from "../../components/host/BookingCard";
 import BookingActionModal, {
-    BOOKING_ACTION,
+  BOOKING_ACTION,
 } from "../../components/modals/BookingActionModal";
 import BookingTipsOverlay from "../../components/modals/BookingTipsOverlay";
 import GuestProfileModal from "../../components/modals/GuestProfileModal";
+import authService from "../../services/authService";
 import bookingService from "../../services/bookingService";
 import configService from "../../services/configService";
 import { resolveImageUrlSync } from "../../utils/imageUtils";
@@ -253,6 +254,7 @@ const HostBookingsScreen = () => {
   // Modal state for guest profile
   const [showGuestModal, setShowGuestModal] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState(null);
+  const [guestModalData, setGuestModalData] = useState({});
 
   // Modal state for booking tips
   const [showTipsModal, setShowTipsModal] = useState(false);
@@ -313,18 +315,7 @@ const HostBookingsScreen = () => {
             booking.listing?.coverImage ||
             null;
 
-          let propertyImage = null;
-          if (rawImage) {
-            if (typeof rawImage === "string") {
-              propertyImage = rawImage.startsWith("http")
-                ? rawImage
-                : `${baseURL}${rawImage}`;
-            } else if (rawImage.url) {
-              propertyImage = rawImage.url.startsWith("http")
-                ? rawImage.url
-                : `${baseURL}${rawImage.url}`;
-            }
-          }
+          let propertyImage = resolveImageUrlSync(rawImage, baseURL);
 
           return {
             id: booking._id,
@@ -366,6 +357,9 @@ const HostBookingsScreen = () => {
             createdAt: booking.createdAt || "",
             // Preserve the full bookedBy object for modal use
             bookedBy: booking.bookedBy || null,
+            // Preserve original unmasked phone/email for modal display
+            originalGuestPhone: booking.bookedBy?.phoneNumber || booking.bookedBy?.phone || "",
+            originalGuestEmail: booking.bookedBy?.emailAddress || booking.bookedBy?.email || "",
           };
         });
 
@@ -489,37 +483,6 @@ const HostBookingsScreen = () => {
         return true;
     }
   });
-  // Memoize the guest data object for GuestProfileModal to prevent infinite re-renders
-  const guestModalData = useMemo(() => {
-    const bookedBy = selectedBooking?.bookedBy;
-    let name = selectedBooking?.guestName || "Guest Name";
-    if (bookedBy) {
-      if (bookedBy.fullName) {
-        name = bookedBy.fullName;
-      } else if (bookedBy.firstName || bookedBy.lastName) {
-        name =
-          `${bookedBy.firstName || ""} ${bookedBy.lastName || ""}`.trim();
-      }
-    }
-    return {
-      name,
-      email:
-        bookedBy?.emailAddress ||
-        bookedBy?.email ||
-        selectedBooking?.guestEmail ||
-        "guest@email.com",
-      phone:
-        bookedBy?.phoneNumber ||
-        bookedBy?.phone ||
-        selectedBooking?.guestPhone ||
-        "+2348110000004",
-      rating: selectedBooking?.guestRating || 5.0,
-      isVerified: true,
-      avatar:
-        bookedBy?.profilePicture || selectedBooking?.guestAvatar || null,
-      status: selectedBooking?.status || "PENDING",
-    };
-  }, [selectedBooking]);
 
   const handleViewDetails = (booking) => {
     // Get unredacted guest info from the preserved bookedBy object
@@ -636,10 +599,47 @@ const HostBookingsScreen = () => {
     }
   };
 
-  const handleMessage = (booking) => {
+  const handleMessage = async (guestData) => {
     // Show guest profile modal when clicking message
-    setSelectedBooking(booking);
+    if (__DEV__) {
+      console.log("[HostBookingsScreen] handleMessage - guestData:", guestData);
+      console.log("[HostBookingsScreen] guestId:", guestData?.guestId);
+    }
+    
+    setGuestModalData(guestData);
     setShowGuestModal(true);
+    
+    // Always fetch complete guest profile to ensure we have the latest rating
+    if (guestData?.guestId) {
+      try {
+        if (__DEV__) {
+          console.log("[HostBookingsScreen] Fetching profile for guestId:", guestData.guestId);
+        }
+        
+        const profileResult = await authService.fetchUserById(guestData.guestId);
+        
+        if (__DEV__) {
+          console.log("[HostBookingsScreen] Profile result:", profileResult);
+          console.log("[HostBookingsScreen] Guest rating from DB:", profileResult?.user?.guestRating);
+        }
+        
+        if (profileResult.success && profileResult.user) {
+          // Update with latest guest profile data including rating
+          const latestRating = profileResult.user.guestRating || 0;
+          setGuestModalData((prev) => ({
+            ...prev,
+            rating: latestRating,
+            isVerified: profileResult.user.isVerified ?? prev.isVerified,
+          }));
+          
+          if (__DEV__) {
+            console.log("[HostBookingsScreen] Updated guestModalData with rating:", latestRating);
+          }
+        }
+      } catch (error) {
+        console.log("Error fetching guest profile for modal:", error);
+      }
+    }
   };
 
   const handleMessageGuest = () => {
@@ -732,7 +732,7 @@ const HostBookingsScreen = () => {
                   onViewDetails={() => handleViewDetails(booking)}
                   onMarkConfirmed={() => handleMarkConfirmed(booking)}
                   onCancel={() => handleCancelBooking(booking)}
-                  onMessage={() => handleMessage(booking)}
+                  onMessage={handleMessage}
                 />
               ))}
             </View>
@@ -744,9 +744,13 @@ const HostBookingsScreen = () => {
       {/* Guest Profile Modal */}
       <GuestProfileModal
         visible={showGuestModal}
-        onClose={() => setShowGuestModal(false)}
+        onClose={() => {
+          setShowGuestModal(false);
+          setGuestModalData({});
+        }}
         onMessageGuest={handleMessageGuest}
         guest={guestModalData}
+        guestId={guestModalData?.guestId}
       />
 
       {/* Booking Tips Modal */}

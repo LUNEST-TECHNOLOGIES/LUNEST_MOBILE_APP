@@ -16,7 +16,7 @@ import {
     Text,
     TouchableOpacity,
     useWindowDimensions,
-    View
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
@@ -53,21 +53,63 @@ const BackIcon = ({ size = 24, color = "black" }) => (
 
 // Transaction category display configs
 const CATEGORY_CONFIG = {
-  HOST_EARNING: { icon: "home-outline", label: "Rent Income (Net)", color: "#2E7D32" },
+  HOST_EARNING: {
+    icon: "home-outline",
+    label: "Host Earning (Net)",
+    color: "#2E7D32",
+  },
   RENT: { icon: "home-outline", label: "Rent Income", color: "#2E7D32" },
-  SERVICE_CHARGE: { icon: "construct-outline", label: "Service Charge", color: "#2E7D32" },
-  SECURITY_DEPOSIT: { icon: "lock-closed-outline", label: "Caution Fee", color: "#192DFF" },
-  PLATFORM_FEE: { icon: "card-outline", label: "App Charge", color: "#B70808" },
-  CANCELLATION_PENALTY: { icon: "alert-circle-outline", label: "Cancellation Penalty", color: "#B70808" },
-  CANCELLATION_REFUND: { icon: "refresh-circle-outline", label: "Cancellation Refund", color: "#0308AC" },
-  WITHDRAWAL: { icon: "arrow-up-circle-outline", label: "Withdrawal", color: "#B70808" },
-  BOOKING: { icon: "calendar-outline", label: "Booking Payment", color: "#192DFF" },
-  TOP_UP: { icon: "add-circle-outline", label: "Wallet Funding", color: "#0308AC" },
+  VAT: { icon: "receipt-outline", label: "VAT on app fee", color: "#B70808" },
+  SERVICE_CHARGE: {
+    icon: "construct-outline",
+    label: "Service Charge",
+    color: "#2E7D32",
+  },
+  SECURITY_DEPOSIT: {
+    icon: "lock-closed-outline",
+    label: "Caution Fee",
+    color: "#192DFF",
+  },
+  PLATFORM_FEE: { icon: "card-outline", label: "App fee (deduction)", color: "#B70808" },
+  CANCELLATION_PENALTY: {
+    icon: "alert-circle-outline",
+    label: "Cancellation Penalty",
+    color: "#B70808",
+  },
+  CANCELLATION_REFUND: {
+    icon: "refresh-circle-outline",
+    label: "Cancellation Refund",
+    color: "#0308AC",
+  },
+  WITHDRAWAL: {
+    icon: "arrow-up-circle-outline",
+    label: "Withdrawal",
+    color: "#B70808",
+  },
+  BOOKING: {
+    icon: "calendar-outline",
+    label: "Booking Payment",
+    color: "#192DFF",
+  },
+  TOP_UP: {
+    icon: "add-circle-outline",
+    label: "Wallet Funding",
+    color: "#0308AC",
+  },
   REFUND: { icon: "refresh-circle-outline", label: "Refund", color: "#0308AC" },
+  COUPON_PAYMENT: {
+    icon: "pricetag-outline",
+    label: "Coupon Payment",
+    color: "#2E7D32",
+  },
 };
 
 const STATUS_BADGE = {
-  COMPLETED: { bg: "rgba(49, 235, 61, 0.2)", text: "#2E7D32", label: "Completed" },
+  COMPLETED: {
+    bg: "rgba(49, 235, 61, 0.2)",
+    text: "#2E7D32",
+    label: "Completed",
+  },
   ON_HOLD: { bg: "rgba(25, 45, 255, 0.15)", text: "#192DFF", label: "On Hold" },
   PENDING: { bg: "rgba(253, 174, 49, 0.2)", text: "#EF6C00", label: "Pending" },
   FAILED: { bg: "rgba(241, 99, 99, 0.2)", text: "#FD3131", label: "Failed" },
@@ -118,12 +160,18 @@ const HostEarningsScreen = () => {
       const [walletRes, txnRes] = await Promise.all([
         fetch(`${baseURL}/v1/wallet`, {
           method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
           body: JSON.stringify({}),
         }),
         fetch(`${baseURL}/v1/my-transactions?limit=50`, {
           method: "GET",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
         }),
       ]);
 
@@ -143,13 +191,14 @@ const HostEarningsScreen = () => {
       // Process transaction data
       if (txnRes.ok) {
         const txnJson = await txnRes.json();
-        const txnList = txnJson.body?.transactions || txnJson.body || txnJson.data || [];
+        const txnList =
+          txnJson.body?.transactions || txnJson.body || txnJson.data || [];
         console.log("[HostEarnings] Transactions:", txnList);
 
         if (Array.isArray(txnList)) {
           // Map to display format
           const mapped = txnList
-            .filter(t => t && typeof t === "object")
+            .filter((t) => t && typeof t === "object")
             .map((txn) => ({
               ...txn,
               displayType: txn.category || txn.type,
@@ -166,13 +215,31 @@ const HostEarningsScreen = () => {
           let paidOut = 0;
 
           mapped.forEach((txn) => {
-            if (txn.type === "CREDIT" || ["HOST_EARNING", "RENT", "SERVICE_CHARGE"].includes(txn.displayType)) {
+            // Sum all earning-related categories, accounting for credits and debits
+            const isFinancialValue = [
+              "HOST_EARNING",
+              "RENT",
+              "SERVICE_CHARGE",
+              "SECURITY_DEPOSIT",
+              "CANCELLATION_PENALTY"
+            ].includes(txn.displayType) || txn.type === "CREDIT" || txn.type === "DEBIT";
+
+            if (isFinancialValue) {
+              // Exclude non-earning categories like withdrawals, funding, and platform costs
+              if (["WITHDRAWAL", "TOP_UP", "REFUND", "VAT", "PLATFORM_FEE"].includes(txn.displayType)) return;
+
+              const val = txn.type === "DEBIT" ? -txn.amount : txn.amount;
+
               if (txn.status === "ON_HOLD" || txn.status === "PENDING") {
-                pendingEarnings += txn.amount;
+                // SECURITY_DEPOSIT (Caution Fee) is held in escrow and is NOT an earning yet
+                if (txn.displayType === "SECURITY_DEPOSIT") return;
+                
+                pendingEarnings += val;
+                totalEarnings += val;
               } else if (txn.status === "COMPLETED") {
-                paidOut += txn.amount;
+                paidOut += val;
+                totalEarnings += val;
               }
-              totalEarnings += txn.amount;
             }
           });
 
@@ -191,7 +258,7 @@ const HostEarningsScreen = () => {
   useFocusEffect(
     useCallback(() => {
       fetchEarningsData();
-    }, [])
+    }, []),
   );
 
   const onRefresh = () => {
@@ -204,18 +271,31 @@ const HostEarningsScreen = () => {
   const formatDate = (dateStr) => {
     if (!dateStr) return "";
     const date = new Date(dateStr);
-    return date.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
+    const day = date.getDate();
+    const month = date.toLocaleString("en-US", { month: "short" });
+    const year = date.getFullYear();
+    const time = date.toLocaleString("en-US", {
       hour: "2-digit",
       minute: "2-digit",
+      hour12: true,
     });
+    return `${day} ${month} ${year}, ${time.toLowerCase()}`;
   };
 
   const renderTransactionItem = ({ item }) => {
-    const config = CATEGORY_CONFIG[item.displayType] || CATEGORY_CONFIG.HOST_EARNING;
+    const config =
+      CATEGORY_CONFIG[item.displayType] || CATEGORY_CONFIG.HOST_EARNING;
     const statusConfig = STATUS_BADGE[item.status] || STATUS_BADGE.COMPLETED;
-    const isCredit = item.type === "CREDIT" || ["HOST_EARNING", "RENT", "SERVICE_CHARGE", "REFUND", "CANCELLATION_REFUND"].includes(item.displayType);
+    const isCredit =
+      item.type === "CREDIT" ||
+      [
+        "HOST_EARNING",
+        "RENT",
+        "SERVICE_CHARGE",
+        "SECURITY_DEPOSIT",
+        "REFUND",
+        "CANCELLATION_REFUND",
+      ].includes(item.displayType);
 
     return (
       <TouchableOpacity
@@ -236,19 +316,32 @@ const HostEarningsScreen = () => {
         }
       >
         <View style={styles.txnLeft}>
-          <View style={[styles.txnIcon, { backgroundColor: config.color + "15" }]}>
+          <View
+            style={[styles.txnIcon, { backgroundColor: config.color + "15" }]}
+          >
             <Ionicons name={config.icon} size={20} color={config.color} />
           </View>
           <View style={styles.txnInfo}>
-            <Text style={styles.txnLabel} numberOfLines={1}>{config.label}</Text>
+            <Text style={styles.txnLabel} numberOfLines={1}>
+              {item.displayType === 'RENT' && item.description ? item.description : config.label}
+            </Text>
             <Text style={styles.txnDate}>{formatDate(item.timestamp)}</Text>
           </View>
         </View>
         <View style={styles.txnRight}>
-          <View style={[styles.statusBadge, { backgroundColor: statusConfig.bg }]}>
-            <Text style={[styles.statusText, { color: statusConfig.text }]}>{statusConfig.label}</Text>
+          <View
+            style={[styles.statusBadge, { backgroundColor: statusConfig.bg }]}
+          >
+            <Text style={[styles.statusText, { color: statusConfig.text }]}>
+              {statusConfig.label}
+            </Text>
           </View>
-          <Text style={[styles.txnAmount, { color: isCredit ? "#2E7D32" : "#B70808" }]}>
+          <Text
+            style={[
+              styles.txnAmount,
+              { color: isCredit ? "#2E7D32" : "#B70808" },
+            ]}
+          >
             {isCredit ? "+" : "-"} {formatAmount(item.amount)}
           </Text>
         </View>
@@ -282,7 +375,11 @@ const HostEarningsScreen = () => {
         contentContainerStyle={[styles.scrollContent, { alignItems: "center" }]}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={["#4F46E5"]} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={["#4F46E5"]}
+          />
         }
       >
         {/* Total Earnings Card */}
@@ -326,7 +423,9 @@ const HostEarningsScreen = () => {
           <View style={styles.breakdownCard}>
             <Text style={styles.breakdownLabel}>Pending</Text>
             <Text style={styles.breakdownAmount}>
-              {formatAmount(summary.pendingEarnings || walletData.pendingBalance)}
+              {formatAmount(
+                summary.pendingEarnings || walletData.pendingBalance,
+              )}
             </Text>
           </View>
           <View style={styles.breakdownCard}>
@@ -342,21 +441,35 @@ const HostEarningsScreen = () => {
           <View style={styles.walletRow}>
             <View style={styles.walletItem}>
               <Text style={styles.walletLabel}>Available Balance</Text>
-              <Text style={styles.walletValue}>{formatAmount(walletData.availableBalance)}</Text>
+              <Text style={styles.walletValue}>
+                {formatAmount(walletData.availableBalance)}
+              </Text>
             </View>
             <View style={styles.walletDivider} />
             <View style={styles.walletItem}>
               <Text style={styles.walletLabel}>Pending Balance</Text>
-              <Text style={styles.walletValue}>{formatAmount(walletData.pendingBalance)}</Text>
+              <Text style={styles.walletValue}>
+                {formatAmount(walletData.pendingBalance)}
+              </Text>
             </View>
           </View>
+        </View>
+
+        {/* Fund Release Info */}
+        <View style={[styles.infoCard, { width: containerWidth }]}>
+          <Ionicons name="information-circle-outline" size={16} color="#666" />
+          <Text style={styles.infoText}>
+            Funds are released to available balance 24 hours after booking confirmation
+          </Text>
         </View>
 
         {/* Transactions List */}
         <View style={[styles.transactionsContainer, { width: containerWidth }]}>
           <View style={styles.txnHeader}>
             <Text style={styles.sectionTitle}>Recent Transactions</Text>
-            <TouchableOpacity onPress={() => router.push("/transaction-history")}>
+            <TouchableOpacity
+              onPress={() => router.push("/transaction-history")}
+            >
               <Text style={styles.viewAllText}>View All</Text>
             </TouchableOpacity>
           </View>
@@ -365,7 +478,10 @@ const HostEarningsScreen = () => {
             <View style={styles.emptyState}>
               <Ionicons name="alert-circle-outline" size={32} color="#B70808" />
               <Text style={styles.emptyText}>{error}</Text>
-              <TouchableOpacity style={styles.retryBtn} onPress={() => fetchEarningsData()}>
+              <TouchableOpacity
+                style={styles.retryBtn}
+                onPress={() => fetchEarningsData()}
+              >
                 <Text style={styles.retryBtnText}>Retry</Text>
               </TouchableOpacity>
             </View>
@@ -543,8 +659,23 @@ const styles = StyleSheet.create({
   },
   walletValue: {
     fontSize: 16,
-    fontWeight: "700",
+    fontWeight: "600",
     color: "#192DFF",
+  },
+  infoCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFF9E6",
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 20,
+    gap: 8,
+  },
+  infoText: {
+    fontSize: 12,
+    color: "#666",
+    flex: 1,
+    lineHeight: 16,
   },
   transactionsContainer: {
     marginBottom: 24,

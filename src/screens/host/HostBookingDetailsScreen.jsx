@@ -6,11 +6,12 @@
  */
 
 import { Ionicons } from "@expo/vector-icons";
+import { Asset } from "expo-asset";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Print from "expo-print";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Sharing from "expo-sharing";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
@@ -23,9 +24,12 @@ import {
     StyleSheet,
     Text,
     TouchableOpacity,
-    View,
+    View
 } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+    SafeAreaView,
+    useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { captureRef } from "react-native-view-shot";
 import ArrowLeftIcon from "../../assets/icons/bookings/arrow-left.svg";
 import DownloadIcon from "../../assets/icons/bookings/download.svg";
@@ -37,9 +41,11 @@ import BookingActionModal, {
     BOOKING_ACTION,
 } from "../../components/modals/BookingActionModal";
 import CancelBookingModal from "../../components/modals/CancelBookingModal";
+import CautionDisputeModal from "../../components/modals/CautionDisputeModal";
 import ReviewFeedbackModal from "../../components/modals/ReviewFeedbackModal";
 import bookingService from "../../services/bookingService";
 import configService from "../../services/configService";
+import { resolveImageUrlSync } from "../../utils/imageUtils";
 
 const logoImage = require("../../assets/images/LUNEST PNG 1 1.png"); // New Import
 
@@ -55,8 +61,8 @@ const STATUS_COLORS = {
   EXPIRED: { bg: "rgba(158, 158, 158, 0.2)", text: "#616161" },
 };
 
-// Fallback property image
-const FALLBACK_PROPERTY_IMAGE = require("../../assets/images/prop_image.png");
+// Fallback property image removed as per requirement for strict data display
+// const FALLBACK_PROPERTY_IMAGE = require("../../assets/images/prop_image.png");
 
 const HostBookingDetailsScreen = () => {
   const router = useRouter();
@@ -95,6 +101,10 @@ const HostBookingDetailsScreen = () => {
   const [reviewRating, setReviewRating] = useState(0);
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+  const [isResolvingCaution, setIsResolvingCaution] = useState(false);
+  const [showCautionDisputeModal, setShowCautionDisputeModal] = useState(false);
+  const [cautionDisputeReason, setCautionDisputeReason] = useState("");
+  const [showGuestProfileModal, setShowGuestProfileModal] = useState(false);
   const [hasReviewed, setHasReviewed] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -146,23 +156,16 @@ const HostBookingDetailsScreen = () => {
                 found.listing?.coverImage ||
                 found.propertyImages?.[0] ||
                 found.propertyImage ||
-                found.listing?.host?.avatar || 
+                found.listing?.host?.avatar ||
                 null;
-              
-              if (rawImg && typeof rawImg === "string" && rawImg !== "YES") {
-                let finalUrl = rawImg;
-                if (!finalUrl.startsWith("http")) {
-                  const baseUrl = await configService.getBaseURL();
-                  finalUrl = `${baseUrl}${finalUrl.startsWith("/") ? "" : "/"}${finalUrl}`;
+
+              if (rawImg) {
+                const baseUrl = configService.getBaseURLSync();
+                // Use the standardized utility to resolve and strip stale IPs
+                const finalUrl = resolveImageUrlSync(rawImg, baseUrl);
+                if (finalUrl) {
+                  setResolvedImageUri(finalUrl);
                 }
-                setResolvedImageUri(finalUrl);
-              } else if (rawImg && typeof rawImg === "object" && rawImg.url) {
-                let finalUrl = rawImg.url;
-                if (!finalUrl.startsWith("http")) {
-                  const baseUrl = await configService.getBaseURL();
-                  finalUrl = `${baseUrl}${finalUrl.startsWith("/") ? "" : "/"}${finalUrl}`;
-                }
-                setResolvedImageUri(finalUrl);
               }
             } catch (imgErr) {
               console.warn("[HostBookingDetails] Image resolve error:", imgErr);
@@ -187,11 +190,13 @@ const HostBookingDetailsScreen = () => {
     };
   }, [bookingId]);
 
-  const onRefresh = async () => {
+  const onRefresh = useCallback(async () => {
+    let cancelled = false;
     setRefreshing(true);
     // Re-fetch booking details
     try {
       const result = await bookingService.fetchHostBookings();
+      if (cancelled) return;
       if (result.success && Array.isArray(result.bookings)) {
         const found = result.bookings.find((b) => String(b._id) === bookingId);
         if (found) {
@@ -201,9 +206,10 @@ const HostBookingDetailsScreen = () => {
     } catch (err) {
       console.warn("[HostBookingDetails] Refresh error:", err);
     } finally {
-      setRefreshing(false);
+      if (!cancelled) setRefreshing(false);
     }
-  };
+    return () => { cancelled = true; };
+  }, [bookingId]);
 
   // ───── Derive display values (route params first, then API data) ─────
 
@@ -237,13 +243,21 @@ const HostBookingDetailsScreen = () => {
 
   // Property image with stability for RCTImageView
   const propertyImageSource = useMemo(() => {
-    if (resolvedImageUri && typeof resolvedImageUri === "string" && resolvedImageUri.startsWith("http")) {
+    if (
+      resolvedImageUri &&
+      typeof resolvedImageUri === "string" &&
+      resolvedImageUri.startsWith("http")
+    ) {
       return { uri: resolvedImageUri };
     }
-    if (params.propertyImage && typeof params.propertyImage === "string" && params.propertyImage.startsWith("http")) {
+    if (
+      params.propertyImage &&
+      typeof params.propertyImage === "string" &&
+      params.propertyImage.startsWith("http")
+    ) {
       return { uri: params.propertyImage };
     }
-    return FALLBACK_PROPERTY_IMAGE;
+    return null; // Strict: no fallback image
   }, [resolvedImageUri, params.propertyImage]);
 
   // Dates
@@ -311,22 +325,35 @@ const HostBookingDetailsScreen = () => {
   const breakdown = booking?.pricingBreakdown;
   const totalPrice =
     booking?.totalAmount?.price ?? parseFloat(params.price) ?? 0;
-  
+
   // Host-centric pricing derived from breakdown or calculation
   const rentFee = breakdown?.rentFee ?? Math.round(totalPrice * 0.7);
   const serviceFee = breakdown?.serviceCharge ?? Math.round(totalPrice * 0.05);
-  const securityDeposit = breakdown?.securityDeposit ?? Math.round(totalPrice * 0.025);
-  
+
+  // Use listing's security deposit as fallback to ensure consistency across the app
+  const securityDeposit =
+    breakdown?.securityDeposit ??
+    breakdown?.cautionFee ??
+    booking?.listing?.securityDeposit ??
+    booking?.listing?.cautionFee ??
+    Math.round(totalPrice * 0.025);
+
   // Taxable amount is typically Rent + Service Charge
   const hostSubtotal = rentFee + serviceFee;
-  
+
   // Host service fee (commission) and its VAT
   const hostFee = breakdown?.hostFee ?? Math.round(hostSubtotal * 0.03);
   const hostVat = breakdown?.hostVat ?? Math.round(hostFee * 0.075);
   const totalHostDeduction = hostFee + hostVat;
-  
-  const hostEarnings = breakdown?.hostEarnings ?? (hostSubtotal - totalHostDeduction);
+
+  const hostEarnings =
+    breakdown?.hostEarnings ?? hostSubtotal - totalHostDeduction;
   const guestTotal = breakdown?.guestTotal ?? totalPrice;
+
+  // App charge and VAT as defined in the pricing model for receipt generation
+  const appCharge = breakdown?.appCharge || breakdown?.guestFee || 0;
+  const vat = breakdown?.vat || breakdown?.guestVat || 0;
+
   const paymentMethod =
     booking?.paymentMethod || params.paymentMethod || "Card";
 
@@ -344,9 +371,16 @@ const HostBookingDetailsScreen = () => {
     const raw =
       bookedBy?.phoneNumber || bookedBy?.phone || params.guestPhone || "";
     if (!raw || raw === "-") return "-";
-    // For confirmed bookings, show the full number
-    if (status === "CONFIRMED") return raw;
-    // Format: show first 4 and last 3 chars, mask the rest
+    // For confirmed and ongoing bookings, show the full number
+    if (status === "CONFIRMED" || status === "ONGOING") return raw;
+    // For completed bookings, mask the phone
+    if (status === "COMPLETED") {
+      if (raw.length > 7) {
+        return `${raw.slice(0, 4)}${"•".repeat(raw.length - 7)}${raw.slice(-3)}`;
+      }
+      return raw;
+    }
+    // For other statuses, mask by default
     if (raw.length > 7) {
       return `${raw.slice(0, 4)}${"•".repeat(raw.length - 7)}${raw.slice(-3)}`;
     }
@@ -391,7 +425,10 @@ const HostBookingDetailsScreen = () => {
   };
 
   const handleContactGuest = () => {
-    if ((status === "CONFIRMED" || status === "ONGOING") && guestPhone !== "-") {
+    if (
+      (status === "CONFIRMED" || status === "ONGOING") &&
+      guestPhone !== "-"
+    ) {
       Linking.openURL(`tel:${guestPhone.replace(/\s/g, "")}`);
     } else {
       Alert.alert(
@@ -493,7 +530,7 @@ const HostBookingDetailsScreen = () => {
           <div class="row"><span class="label">Status</span><span class="value">${status}</span></div>
         </div>
         <div class="section">
-          <div class="section-title">Host Payment Breakdown</div>
+          <div class="section-title">Host/Landlord Payment Breakdown</div>
           <div class="row"><span class="label">Rent Fee</span><span class="value">₦${rentFee.toLocaleString()}</span></div>
           <div class="row"><span class="label">Service Charge</span><span class="value">₦${serviceFee.toLocaleString()}</span></div>
           <div class="row"><span class="label">Subtotal (Earnings)</span><span class="value">₦${(rentFee + serviceFee).toLocaleString()}</span></div>
@@ -503,7 +540,7 @@ const HostBookingDetailsScreen = () => {
         </div>
         <div class="section">
           <div class="section-title">Escrow & Total Tracking</div>
-          <div class="row"><span class="label">Caution Fee (Refundable Deposit)</span><span class="value">₦${securityDeposit.toLocaleString()}</span></div>
+          <div class="row"><span class="label">Caution Fee </span><span class="value">₦${securityDeposit.toLocaleString()} (${(booking?.securityDepositResolution?.status || "HELD").replace(/_/g, " ")})</span></div>
           <div class="row"><span class="label">Guest Total Paid</span><span class="value">₦${guestTotal.toLocaleString()}</span></div>
           <div class="row"><span class="label">Payment Method</span><span class="value">${paymentMethod}</span></div>
         </div>
@@ -548,6 +585,15 @@ const HostBookingDetailsScreen = () => {
   };
 
   const handleDownloadAgreement = async () => {
+    const allowedStatuses = ["CONFIRMED", "ONGOING", "COMPLETED"];
+    if (!allowedStatuses.includes(status)) {
+      Alert.alert(
+        "Download Restricted",
+        "Rental agreements are only available for confirmed, ongoing, or completed bookings.",
+      );
+      return;
+    }
+
     setIsDownloading(true);
     try {
       const result = await bookingService.fetchRentalAgreement(bookingId);
@@ -639,12 +685,33 @@ const HostBookingDetailsScreen = () => {
     setIsSubmittingReview(true);
     try {
       const finalRating = reviewData.rating || reviewRating;
+      let uploadedImageUrls = reviewData.images || [];
+
+      // 1. Upload images if any
+      if (reviewData.images && reviewData.images.length > 0) {
+        console.log("[HostBookingDetails] Uploading review images...");
+        const uploadResult = await bookingService.uploadReviewImages(
+          reviewData.images,
+        );
+        if (uploadResult.success && uploadResult.images) {
+          uploadedImageUrls = uploadResult.images;
+        } else {
+          Alert.alert(
+            "Upload Failed",
+            "Could not upload review images. Proceeding without them?",
+          );
+          uploadedImageUrls = [];
+        }
+      }
+
+      // 2. Submit review with uploaded URLs
       const result = await bookingService.submitReview(
         bookingId,
         finalRating,
         reviewData.feedback,
-        reviewData.images,
-        reviewData.categories
+        uploadedImageUrls,
+        reviewData.categories,
+        "HOST",
       );
       if (result.success) {
         setShowReviewModal(false);
@@ -666,13 +733,93 @@ const HostBookingDetailsScreen = () => {
           setReviewRating(finalRating);
         }
       } else {
-        showToastMessage(result.message || "Failed to submit review.", TOAST_TYPE.ERROR);
+        showToastMessage(
+          result.message || "Failed to submit review.",
+          TOAST_TYPE.ERROR,
+        );
       }
     } catch (error) {
       console.error("[HostBookingDetails] Submit review error:", error);
-      showToastMessage("An error occurred. Please try again.", TOAST_TYPE.ERROR);
+      showToastMessage(
+        "An error occurred. Please try again.",
+        TOAST_TYPE.ERROR,
+      );
     } finally {
       setIsSubmittingReview(false);
+    }
+  };
+
+  const handleResolveCautionFee = async (action, reason = "") => {
+    if (!bookingRefCode) return;
+
+    if (action === "RELEASE_TO_GUEST") {
+      Alert.alert(
+        "Release Caution Fee",
+        "Are you sure you want to release the caution fee to the guest? This action cannot be undone.",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Confirm Release",
+            onPress: () => executeResolveCautionFee(action, reason),
+            style: "default",
+          },
+        ],
+      );
+    } else {
+      executeResolveCautionFee(action, reason);
+    }
+  };
+
+  const executeResolveCautionFee = async (action, reason = "") => {
+    setIsResolvingCaution(true);
+    try {
+      const result = await bookingService.resolveCautionFee(
+        bookingRefCode,
+        action,
+        reason,
+      );
+
+      if (result.success) {
+        showToastMessage(
+          `Caution fee ${action === "DISPUTE" ? "dispute submitted" : "released"} successfully!`,
+          TOAST_TYPE.SUCCESS,
+        );
+        // Update local booking state with the mapped status matching backend
+        if (booking) {
+          const statusMap = {
+            RELEASE_TO_GUEST: "RELEASED_TO_GUEST",
+            RELEASE_TO_HOST: "RELEASED_TO_HOST",
+            DISPUTE: "DISPUTED",
+          };
+          setBooking({
+            ...booking,
+            securityDepositResolution: {
+              status: statusMap[action] || action,
+              reason: reason,
+              resolvedAt: new Date(),
+              resolvedBy: "HOST",
+            },
+          });
+        }
+        setShowCautionDisputeModal(false);
+        setCautionDisputeReason("");
+      } else {
+        showToastMessage(
+          result.message || "Failed to resolve caution fee.",
+          TOAST_TYPE.ERROR,
+        );
+      }
+    } catch (error) {
+      console.error(
+        "[HostBookingDetails] Caution fee resolution error:",
+        error,
+      );
+      showToastMessage(
+        "An error occurred. Please try again.",
+        TOAST_TYPE.ERROR,
+      );
+    } finally {
+      setIsResolvingCaution(false);
     }
   };
 
@@ -802,10 +949,12 @@ const HostBookingDetailsScreen = () => {
                 label="Rent Fee:"
                 value={`₦${rentFee.toLocaleString()}`}
               />
-              <InfoRow
-                label="Service Charge:"
-                value={`₦${serviceFee.toLocaleString()}`}
-              />
+              {serviceFee > 0 && (
+                <InfoRow
+                  label="Service Charge:"
+                  value={`₦${serviceFee.toLocaleString()}`}
+                />
+              )}
               <View
                 style={[
                   styles.totalRow,
@@ -824,12 +973,12 @@ const HostBookingDetailsScreen = () => {
                 </Text>
               </View>
               <InfoRow
-                label="LUNEST Service Fee (3%):"
+                label="App Fee DEDUCTION (3%):"
                 value={`-₦${hostFee.toLocaleString()}`}
                 valueStyle={{ color: "#EF4444" }}
               />
               <InfoRow
-                label="VAT on Service Fee (7.5%):"
+                label="VAT on App Fee (7.5%):"
                 value={`-₦${hostVat.toLocaleString()}`}
                 valueStyle={{ color: "#EF4444" }}
               />
@@ -858,10 +1007,10 @@ const HostBookingDetailsScreen = () => {
                 ₦{hostEarnings.toLocaleString()}
               </Text>
             </View>
-            
+
             <View style={[styles.infoRows, { marginTop: 12 }]}>
               <InfoRow
-                label="Caution Fee (Escrowed):"
+                label="Caution Fee (On Hold):"
                 value={`₦${securityDeposit.toLocaleString()}`}
                 valueStyle={{ color: "#6B7280" }}
               />
@@ -872,140 +1021,271 @@ const HostBookingDetailsScreen = () => {
           <InfoRow label="Payment Method:" value={paymentMethod} />
         </View>
 
-          {/* ── Guest Information Card ── */}
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Guest Information</Text>
-            <View style={styles.infoRows}>
-              <InfoRow label="Name:" value={guestName} />
-              <InfoRow label="Phone:" value={guestPhone} />
-              <InfoRow label="Email Address:" value={guestEmail} />
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>KYC Status:</Text>
-                <View style={styles.kycBadge}>
-                  <Ionicons
-                    name="shield-checkmark"
-                    size={16}
-                    color={isVerified ? "#31EB3D" : "#bdbdbd"}
-                  />
-                  <Text
-                    style={[
-                      styles.kycText,
-                      { color: isVerified ? "#31EB3D" : "#bdbdbd" },
-                    ]}
-                  >
-                    {isVerified ? "VERIFIED" : "UNVERIFIED"}
-                  </Text>
-                </View>
+        {/* ── Guest Information Card ── */}
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Guest Information</Text>
+          <View style={styles.infoRows}>
+            <InfoRow label="Name:" value={guestName} />
+            <InfoRow label="Phone:" value={guestPhone} />
+            <InfoRow label="Email Address:" value={guestEmail} />
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>KYC Status:</Text>
+              <View style={styles.kycBadge}>
+                <Ionicons
+                  name="shield-checkmark"
+                  size={16}
+                  color={isVerified ? "#31EB3D" : "#bdbdbd"}
+                />
+                <Text
+                  style={[
+                    styles.kycText,
+                    { color: isVerified ? "#31EB3D" : "#bdbdbd" },
+                  ]}
+                >
+                  {isVerified ? "VERIFIED" : "UNVERIFIED"}
+                </Text>
               </View>
             </View>
-            <Pressable 
-              style={styles.viewProfileBtn}
-              onPress={() => router.push({
+          </View>
+          <Pressable
+            style={styles.viewProfileBtn}
+            onPress={() =>
+              router.push({
                 pathname: "/guest-information",
                 params: {
                   guestId: booking?.bookedBy?._id || params.bookedBy,
                   guestName: guestName,
                   guestAvatar: guestAvatar,
-                  isVerified: isVerified ? "true" : "false"
-                }
-              })}
-            >
-              <Ionicons name="person-outline" size={16} color="#fff" />
-              <Text style={styles.viewProfileText}>View Profile</Text>
-            </Pressable>
+                  isVerified: isVerified ? "true" : "false",
+                },
+              })
+            }
+          >
+            <Ionicons name="person-outline" size={16} color="#fff" />
+            <Text style={styles.viewProfileText}>View Profile</Text>
+          </Pressable>
+        </View>
+
+        {/* ── Additional Notes Card ── */}
+        {additionalNotes ? (
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Additional Notes</Text>
+            <Text style={styles.notesText} numberOfLines={3}>
+              {additionalNotes}
+            </Text>
           </View>
+        ) : null}
 
-          {/* ── Additional Notes Card ── */}
-          {additionalNotes ? (
-            <View style={styles.card}>
-              <Text style={styles.sectionTitle}>Additional Notes</Text>
-              <Text style={styles.notesText} numberOfLines={3}>
-                {additionalNotes}
-              </Text>
-            </View>
-          ) : null}
-
-          {/* ── Rate the Guest Section (COMPLETED bookings only) ── */}
-          {isCompleted && (
-            <View style={styles.reviewCard}>
-              <View style={styles.reviewHeader}>
-                <Ionicons name="star" size={24} color="#FFB800" />
-                <Text style={styles.reviewTitle}>Rate your experience</Text>
-              </View>
-              
-              <Text style={styles.rateSubtitle}>
-                {alreadyReviewed
-                  ? "Thank you for sharing your feedback on this stay!"
-                  : `How was your experience hosting ${guestName}? Your rating helps other hosts.`}
-              </Text>
-
-              {/* 5-star rating stars */}
-              <View style={styles.starsRow}>
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <TouchableOpacity
-                    key={star}
-                    onPress={() => handleStarPress(star)}
-                    disabled={alreadyReviewed}
-                    activeOpacity={0.7}
-                    style={styles.starWrapper}
-                  >
-                    <Ionicons
-                      name={
-                        star <=
-                        (alreadyReviewed
-                          ? booking?.hostReview?.rating || reviewRating
-                          : reviewRating)
-                          ? "star"
-                          : "star-outline"
-                      }
-                      size={36}
-                      color={
-                        star <=
-                        (alreadyReviewed
-                          ? booking?.hostReview?.rating || reviewRating
-                          : reviewRating)
-                          ? "#FFB800"
-                          : "#D1D1D6"
-                      }
-                    />
-                  </TouchableOpacity>
-                ))}
+        {/* ── Caution Fee Management (COMPLETED bookings only) ── */}
+        {isCompleted &&
+          securityDeposit > 0 &&
+          (booking?.securityDepositResolution?.status === "PENDING" ||
+            !booking?.securityDepositResolution) && (
+            <View style={styles.cautionFeeCard}>
+              <View style={styles.cautionFeeHeader}>
+                <Ionicons name="shield-checkmark" size={24} color="#6371F1" />
+                <Text style={styles.cautionFeeTitle}>
+                  Caution Fee Management
+                </Text>
               </View>
 
-              {/* Leave a Review button */}
-              {!alreadyReviewed && (
+              <Text style={styles.cautionFeeSubtitle}>
+                The caution fee of ₦{securityDeposit.toLocaleString()} is
+                currently on hold. Please inspect the property and decide
+                whether to release it to the guest or raise a dispute if there
+                are damages.
+              </Text>
+
+              <View style={styles.cautionFeeActionRow}>
                 <TouchableOpacity
-                  style={[
-                    styles.reviewBtn,
-                    reviewRating === 0 && { opacity: 0.5 },
-                  ]}
-                  onPress={() => {
-                    if (reviewRating === 0) {
-                      Alert.alert("Rate Guest", "Please select a star rating first.");
-                      return;
-                    }
-                    setShowReviewModal(true);
-                  }}
-                  activeOpacity={0.8}
+                  style={styles.releaseBtn}
+                  onPress={() => handleResolveCautionFee("RELEASE_TO_GUEST")}
+                  disabled={isResolvingCaution}
                 >
-                  <Ionicons name="create-outline" size={18} color="#fff" />
-                  <Text style={styles.reviewBtnText}>Write a Review</Text>
+                  <Text style={styles.releaseBtnText}>Release to Guest</Text>
                 </TouchableOpacity>
-              )}
 
-              {alreadyReviewed && booking?.hostReview?.feedback ? (
-                <View style={styles.feedbackQuoteContainer}>
-                  <Ionicons name="quote" size={14} color="#6371F1" style={{ opacity: 0.3 }} />
-                  <Text style={styles.reviewFeedbackText}>
-                    {booking.hostReview.feedback}
-                  </Text>
-                </View>
-              ) : null}
+                <TouchableOpacity
+                  style={styles.disputeBtnHost}
+                  onPress={() => setShowCautionDisputeModal(true)}
+                  disabled={isResolvingCaution}
+                >
+                  <Text style={styles.disputeBtnText}>Raise Dispute</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           )}
 
-          {/* Bottom spacer */}
-          <View style={{ height: 20 }} />
+        {/* Show resolution status if not pending */}
+        {isCompleted &&
+          securityDeposit > 0 &&
+          booking?.securityDepositResolution?.status &&
+          booking?.securityDepositResolution?.status !== "PENDING" && (
+            <View style={styles.cautionFeeCard}>
+              <View style={styles.cautionFeeHeader}>
+                <Ionicons
+                  name={
+                    booking.securityDepositResolution.status ===
+                      "RELEASE_TO_GUEST" ||
+                    booking.securityDepositResolution.status ===
+                      "RELEASED_TO_GUEST" ||
+                    booking.securityDepositResolution.status ===
+                      "RELEASE_TO_HOST" ||
+                    booking.securityDepositResolution.status ===
+                      "RELEASED_TO_HOST" ||
+                    booking.securityDepositResolution.status ===
+                      "RELEASE_TO_LANDLORD" ||
+                    booking.securityDepositResolution.status ===
+                      "RELEASED_TO_LANDLORD"
+                      ? "checkmark-circle"
+                      : "alert-circle"
+                  }
+                  size={24}
+                  color={
+                    booking.securityDepositResolution.status ===
+                      "RELEASE_TO_GUEST" ||
+                    booking.securityDepositResolution.status ===
+                      "RELEASED_TO_GUEST" ||
+                    booking.securityDepositResolution.status ===
+                      "RELEASE_TO_HOST" ||
+                    booking.securityDepositResolution.status ===
+                      "RELEASED_TO_HOST" ||
+                    booking.securityDepositResolution.status ===
+                      "RELEASE_TO_LANDLORD" ||
+                    booking.securityDepositResolution.status ===
+                      "RELEASED_TO_LANDLORD"
+                      ? "#22C55E"
+                      : "#EF4444"
+                  }
+                />
+                <Text style={styles.cautionFeeTitle}>Caution Fee Status</Text>
+              </View>
+              <Text style={styles.cautionStatusText}>
+                Status:{" "}
+                {booking.securityDepositResolution.status.replace(/_/g, " ")}
+              </Text>
+              <Text style={styles.cautionFeeSubtitle}>
+                {(booking.securityDepositResolution.status ===
+                  "RELEASE_TO_GUEST" ||
+                  booking.securityDepositResolution.status ===
+                    "RELEASED_TO_GUEST") &&
+                  `The caution fee of ₦${securityDeposit.toLocaleString()} has been released to the guest.`}
+                {(booking.securityDepositResolution.status ===
+                  "RELEASE_TO_HOST" ||
+                  booking.securityDepositResolution.status ===
+                    "RELEASED_TO_HOST" ||
+                  booking.securityDepositResolution.status ===
+                    "RELEASE_TO_LANDLORD" ||
+                  booking.securityDepositResolution.status ===
+                    "RELEASED_TO_LANDLORD") &&
+                  `The caution fee of ₦${securityDeposit.toLocaleString()} was credited to you due to reported damages or issues.`}
+                {(booking.securityDepositResolution.status === "DISPUTED" ||
+                  booking.securityDepositResolution.status === "DISPUTE") &&
+                  `The caution fee of ₦${securityDeposit.toLocaleString()} is currently under investigation by our admin team and will be credited or adjusted based on their decision.`}
+              </Text>
+              {booking.securityDepositResolution.reason && (
+                <Text style={styles.cautionReasonText}>
+                  Reason: {booking.securityDepositResolution.reason}
+                </Text>
+              )}
+              {booking.securityDepositResolution.status === "DISPUTED" && (
+                <Text style={styles.cautionNoteText}>
+                  Note: An administrator will review this dispute and decide on
+                  the final credit/adjustment.
+                </Text>
+              )}
+            </View>
+          )}
+
+        {/* ── Rate the Guest Section (COMPLETED bookings only) ── */}
+        {isCompleted && (
+          <View style={styles.reviewCard}>
+            <View style={styles.reviewHeader}>
+              <Ionicons name="star" size={24} color="#FFB800" />
+              <Text style={styles.reviewTitle}>Rate your experience</Text>
+            </View>
+
+            <Text style={styles.rateSubtitle}>
+              {alreadyReviewed
+                ? "Thank you for sharing your feedback on this stay!"
+                : `How was your experience hosting ${guestName}? Your rating helps other hosts.`}
+            </Text>
+
+            {/* 5-star rating stars */}
+            <View style={styles.starsRow}>
+              {[1, 2, 3, 4, 5].map((star) => (
+                <TouchableOpacity
+                  key={star}
+                  onPress={() => handleStarPress(star)}
+                  disabled={alreadyReviewed}
+                  activeOpacity={0.7}
+                  style={styles.starWrapper}
+                >
+                  <Ionicons
+                    name={
+                      star <=
+                      (alreadyReviewed
+                        ? booking?.hostReview?.rating || reviewRating
+                        : reviewRating)
+                        ? "star"
+                        : "star-outline"
+                    }
+                    size={36}
+                    color={
+                      star <=
+                      (alreadyReviewed
+                        ? booking?.hostReview?.rating || reviewRating
+                        : reviewRating)
+                        ? "#FFB800"
+                        : "#D1D1D6"
+                    }
+                  />
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Leave a Review button */}
+            {!alreadyReviewed && (
+              <TouchableOpacity
+                style={[
+                  styles.reviewBtn,
+                  reviewRating === 0 && { opacity: 0.5 },
+                ]}
+                onPress={() => {
+                  if (reviewRating === 0) {
+                    Alert.alert(
+                      "Rate Guest",
+                      "Please select a star rating first.",
+                    );
+                    return;
+                  }
+                  setShowReviewModal(true);
+                }}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="create-outline" size={18} color="#fff" />
+                <Text style={styles.reviewBtnText}>Write a Review</Text>
+              </TouchableOpacity>
+            )}
+
+            {alreadyReviewed && booking?.hostReview?.feedback ? (
+              <View style={styles.feedbackQuoteContainer}>
+                <Ionicons
+                  name="quote"
+                  size={14}
+                  color="#6371F1"
+                  style={{ opacity: 0.3 }}
+                />
+                <Text style={styles.reviewFeedbackText}>
+                  {booking.hostReview.feedback}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+        )}
+
+        {/* Bottom spacer */}
+        <View style={{ height: 20 }} />
       </ScrollView>
 
       {/* ── Fixed Bottom Buttons ── */}
@@ -1079,6 +1359,9 @@ const HostBookingDetailsScreen = () => {
         guestName={guestName}
         rating={reviewRating}
         isHost={true}
+        toastVisible={toastVisible}
+        toastConfig={toastConfig}
+        onToastHide={() => setToastVisible(false)}
       />
 
       {/* Download Options Modal */}
@@ -1091,11 +1374,27 @@ const HostBookingDetailsScreen = () => {
         loading={isDownloading}
       />
       {/* Toast Notification */}
-      <ToastNotification
-        visible={toastVisible}
-        type={toastConfig.type}
-        message={toastConfig.message}
-        onHide={() => setToastVisible(false)}
+      {!showReviewModal && (
+        <ToastNotification
+          visible={toastVisible}
+          type={toastConfig.type}
+          message={toastConfig.message}
+          onHide={() => setToastVisible(false)}
+        />
+      )}
+
+      {/* ── Caution Fee Dispute Modal ── */}
+      <CautionDisputeModal
+        visible={showCautionDisputeModal}
+        onClose={() => setShowCautionDisputeModal(false)}
+        onSubmit={(reason) => handleResolveCautionFee("DISPUTE", reason)}
+        isLoading={isResolvingCaution}
+        reason={cautionDisputeReason}
+        onReasonChange={setCautionDisputeReason}
+        title="Raise Caution Fee Dispute"
+        subtitle="Provide clear details about the damages or issues. This will be reviewed by our compliance team within 24-48 hours."
+        placeholder="Describe damage (e.g., Broken TV screen, stained rug...)"
+        submitLabel="Raise Dispute"
       />
     </SafeAreaView>
   );
@@ -1470,6 +1769,220 @@ const styles = StyleSheet.create({
     color: "#374151",
     flex: 1,
     lineHeight: 20,
+  },
+  // Caution Fee Styles
+  cautionFeeCard: {
+    backgroundColor: "#F8FAFF",
+    borderRadius: 12,
+    padding: 16,
+    marginHorizontal: 16,
+    marginVertical: 12,
+    borderWidth: 1,
+    borderColor: "#E0E7FF",
+  },
+  cautionFeeHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+    gap: 8,
+  },
+  cautionFeeTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#010135",
+  },
+  cautionFeeSubtitle: {
+    fontSize: 13,
+    color: "#4B5563",
+    lineHeight: 18,
+    marginBottom: 16,
+  },
+  cautionFeeActionRow: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  releaseBtn: {
+    flex: 1,
+    backgroundColor: "#6371F1",
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  releaseBtnText: {
+    color: "#fff",
+    fontWeight: "600",
+    fontSize: 14,
+  },
+  disputeBtnHost: {
+    flex: 1,
+    backgroundColor: "#fff",
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#EF4444",
+  },
+  disputeBtnText: {
+    color: "#EF4444",
+    fontWeight: "600",
+    fontSize: 14,
+  },
+  cautionStatusText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#010135",
+    marginTop: 4,
+  },
+  cautionReasonText: {
+    fontSize: 13,
+    color: "#4B5563",
+    marginTop: 4,
+    fontStyle: "italic",
+  },
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "flex-end", // Slide up from bottom feel
+  },
+  modalKeyboardAvoiding: {
+    width: "100%",
+    justifyContent: "flex-end",
+  },
+  disputeModalContent: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    padding: 32,
+    width: "100%",
+    alignItems: "center",
+    position: "relative",
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: -10 },
+        shadowOpacity: 0.1,
+        shadowRadius: 20,
+      },
+      android: {
+        elevation: 20,
+      },
+    }),
+  },
+  modalHandle: {
+    width: 40,
+    height: 5,
+    backgroundColor: "#E5E7EB",
+    borderRadius: 3,
+    marginBottom: 24,
+    marginTop: -8,
+  },
+  modalCloseIcon: {
+    position: "absolute",
+    right: 20,
+    top: 20,
+    zIndex: 10,
+  },
+  modalHeaderIcon: {
+    marginBottom: 16,
+  },
+  warningIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: "#FEF2F2",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#111827",
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: "#6B7280",
+    marginBottom: 24,
+    lineHeight: 20,
+    textAlign: "center",
+    paddingHorizontal: 8,
+  },
+  inputLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#6B7280",
+    marginBottom: 8,
+    letterSpacing: 1,
+  },
+  inputWrapper: {
+    width: "100%",
+    marginBottom: 32,
+  },
+  disputeInput: {
+    borderWidth: 1.5,
+    borderColor: "#F3F4F6",
+    backgroundColor: "#F9FAFB",
+    borderRadius: 12,
+    padding: 16,
+    height: 120,
+    textAlignVertical: "top",
+    color: "#111827",
+    fontSize: 15,
+  },
+  charCount: {
+    fontSize: 12,
+    color: "#9CA3AF",
+    textAlign: "right",
+    marginTop: 6,
+    fontWeight: "500",
+  },
+  modalActionRow: {
+    flexDirection: "row",
+    gap: 12,
+    width: "100%",
+  },
+  modalCancelBtn: {
+    flex: 1,
+    height: 52,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 12,
+    backgroundColor: "#F3F4F6",
+  },
+  modalCancelBtnText: {
+    color: "#4B5563",
+    fontWeight: "700",
+    fontSize: 15,
+  },
+  modalConfirmBtn: {
+    flex: 1.6,
+    height: 52,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 12,
+    backgroundColor: "#EF4444",
+    ...Platform.select({
+      ios: {
+        shadowColor: "#EF4444",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  modalConfirmBtnText: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 15,
+  },
+  disabledBtn: {
+    opacity: 0.5,
   },
 });
 

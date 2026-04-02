@@ -4,19 +4,21 @@
  */
 
 import { Ionicons } from "@expo/vector-icons";
-import React, { useRef, useState } from "react";
+import { Image } from "expo-image";
+import { useVideoPlayer, VideoView } from "expo-video";
+import React, { useEffect, useRef, useState } from "react";
 import {
     ActivityIndicator,
     Dimensions,
     FlatList,
-    Image,
     Modal,
     PanResponder,
+    Platform,
     Pressable,
     StatusBar,
     StyleSheet,
     Text,
-    View,
+    View
 } from "react-native";
 import {
     useSafeAreaInsets
@@ -35,17 +37,19 @@ const ImageViewerModal = ({
   const flatListRef = useRef(null);
   const insets = useSafeAreaInsets();
 
-  // Pan responder for swipe down to close
   const panResponder = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
+      onStartShouldSetPanResponder: () => false,
       onMoveShouldSetPanResponder: (_, gestureState) => {
-        // Only respond to vertical swipes
-        return Math.abs(gestureState.dy) > Math.abs(gestureState.dx);
+        // Only respond to vertical swipes that are significantly vertical
+        return Math.abs(gestureState.dy) > 30 && Math.abs(gestureState.dy) > Math.abs(gestureState.dx);
+      },
+      onPanResponderMove: (_, gestureState) => {
+        // Optional: Could add visual offset here if desired
       },
       onPanResponderRelease: (_, gestureState) => {
-        // Close modal if swiped down more than 100 pixels
-        if (gestureState.dy > 100) {
+        // Close modal if swiped down more than 100 pixels with some velocity
+        if (gestureState.dy > 100 || gestureState.vy > 0.5) {
           onClose();
         }
       },
@@ -96,9 +100,23 @@ const ImageViewerModal = ({
     return image;
   };
 
-  const renderImage = ({ item, index }) => {
+  const renderMedia = ({ item, index }) => {
+    const isVideo = item.type === "video" || (typeof item === "string" && (item.endsWith(".mp4") || item.endsWith(".mov")));
     const source = getImageSource(item);
     const isLoading = imageLoadingStates[index];
+    const isActive = currentIndex === index;
+
+    if (isVideo) {
+      return (
+        <View style={styles.imageContainer}>
+          <VideoPlayerOverlay 
+            uri={source.uri} 
+            isActive={isActive && visible} 
+            onClose={onClose}
+          />
+        </View>
+      );
+    }
 
     return (
       <View style={styles.imageContainer}>
@@ -110,7 +128,7 @@ const ImageViewerModal = ({
         <Image
           source={source}
           style={styles.fullImage}
-          resizeMode="contain"
+          contentFit="contain"
           onLoadStart={() => handleImageLoadStart(index)}
           onLoadEnd={() => handleImageLoadEnd(index)}
           onError={() => handleImageLoadEnd(index)}
@@ -136,9 +154,39 @@ const ImageViewerModal = ({
       statusBarTranslucent
       hardwareAccelerated
     >
-      <StatusBar barStyle="light-content" backgroundColor="#000000" />
+      <StatusBar hidden={visible} barStyle="light-content" translucent />
       <View style={styles.container} {...panResponder.panHandlers}>
-        {/* Header with safe area */}
+        <FlatList
+          ref={flatListRef}
+          data={images}
+          renderItem={renderMedia}
+          keyExtractor={(_, index) => `image-${index}`}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
+          getItemLayout={getItemLayout}
+          snapToInterval={SCREEN_WIDTH}
+          snapToAlignment="center"
+          decelerationRate="fast"
+          initialScrollIndex={initialIndex}
+          initialNumToRender={1}
+          maxToRenderPerBatch={2}
+          windowSize={3}
+          removeClippedSubviews={Platform.OS === 'android'}
+          onScrollToIndexFailed={(info) => {
+            const wait = new Promise((resolve) => setTimeout(resolve, 500));
+            wait.then(() => {
+              flatListRef.current?.scrollToIndex({
+                index: info.index,
+                animated: false,
+              });
+            });
+          }}
+        />
+
+        {/* Header Overlay - Positioned Absolutely to avoid pushing media */}
         <View style={[styles.header, { paddingTop: Math.max(insets.top, 12) }]}>
           <Pressable
             style={styles.closeButton}
@@ -152,30 +200,6 @@ const ImageViewerModal = ({
           </Text>
           <View style={styles.placeholder} />
         </View>
-
-        {/* Image Gallery */}
-        <FlatList
-          ref={flatListRef}
-          data={images}
-          renderItem={renderImage}
-          keyExtractor={(_, index) => `image-${index}`}
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          onScroll={handleScroll}
-          scrollEventThrottle={16}
-          getItemLayout={getItemLayout}
-          initialScrollIndex={initialIndex}
-          onScrollToIndexFailed={(info) => {
-            const wait = new Promise((resolve) => setTimeout(resolve, 500));
-            wait.then(() => {
-              flatListRef.current?.scrollToIndex({
-                index: info.index,
-                animated: false,
-              });
-            });
-          }}
-        />
 
         {/* Pagination Dots */}
         {images.length > 1 && (
@@ -207,12 +231,17 @@ const styles = StyleSheet.create({
     backgroundColor: "#000000",
   },
   header: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: "rgba(0, 0, 0, 0.8)",
+    backgroundColor: "rgba(0, 0, 0, 0.4)", // Translucent to show content behind
+    zIndex: 100,
   },
   closeButton: {
     width: 44,
@@ -232,9 +261,10 @@ const styles = StyleSheet.create({
   },
   imageContainer: {
     width: SCREEN_WIDTH,
-    height: SCREEN_HEIGHT - 150,
+    height: SCREEN_HEIGHT,
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: "#000",
   },
   fullImage: {
     width: SCREEN_WIDTH,
@@ -251,11 +281,16 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   pagination: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
     paddingVertical: 16,
     gap: 8,
+    zIndex: 100,
   },
   paginationDot: {
     width: 8,
@@ -268,5 +303,36 @@ const styles = StyleSheet.create({
     width: 24,
   },
 });
+
+// Internal Video Player for the Modal
+const VideoPlayerOverlay = ({ uri, isActive }) => {
+  const player = useVideoPlayer(uri, (player) => {
+    player.loop = true;
+    if (isActive) {
+      player.play();
+    } else {
+      player.pause();
+    }
+  });
+
+  useEffect(() => {
+    if (isActive) {
+      player.play();
+    } else {
+      player.pause();
+      player.seekBy(0); // Reset
+    }
+  }, [isActive, player]);
+
+  return (
+    <VideoView
+      player={player}
+      style={styles.fullImage}
+      contentFit="contain"
+      nativeControls={true}
+      fullscreenOptions={{ enabled: false }} // Already in fullscreen modal
+    />
+  );
+};
 
 export default ImageViewerModal;

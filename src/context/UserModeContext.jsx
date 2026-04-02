@@ -50,8 +50,11 @@ export const UserModeProvider = ({ children }) => {
     loadUserMode();
   }, []);
 
+  const isInitialLoad = useRef(false);
   const loadUserMode = async () => {
+    if (isInitialLoad.current) return;
     try {
+      isInitialLoad.current = true;
       // Check if user has host privileges from locally stored data
       const userData = await authService.getUserData();
       const currentUserId = userData?.id || userData?.email;
@@ -99,6 +102,11 @@ export const UserModeProvider = ({ children }) => {
           } else {
             setMode(savedMode);
           }
+        } else if (userIsHost) {
+          // If no preference yet and user is a host, default to HOST mode 
+          // to ensure they see their dashboard/listings immediately
+          console.log("🔄 [UserMode] New session detected for host, defaulting to HOST mode");
+          setMode(USER_MODES.HOST);
         }
       }
     } catch (error) {

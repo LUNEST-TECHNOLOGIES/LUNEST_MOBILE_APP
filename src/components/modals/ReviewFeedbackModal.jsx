@@ -22,6 +22,7 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
+import ToastNotification from "../common/ToastNotification";
 
 const ReviewFeedbackModal = ({
   visible = false,
@@ -29,31 +30,22 @@ const ReviewFeedbackModal = ({
   onSubmit = () => {},
   isLoading = false,
   guestName = "Guest",
-  rating = 0,
+  rating = 5.0,
   isHost = false,
+  toastVisible = false,
+  toastConfig = { type: 'SUCCESS', message: '' },
+  onToastHide = () => {},
 }) => {
   const [feedback, setFeedback] = useState("");
   const [images, setImages] = useState([]);
+  const [currentRating, setCurrentRating] = useState(rating || 5.0);
   
-  const categories = isHost ? [
-    { id: 'cleanliness', label: 'Cleanliness' },
-    { id: 'communication', label: 'Communication' },
-    { id: 'ruleCompliance', label: 'Rule Compliance' },
-  ] : [
-    { id: 'accuracy', label: 'Accuracy' },
-    { id: 'cleanliness', label: 'Cleanliness' },
-    { id: 'communication', label: 'Communication' },
-    { id: 'location', label: 'Location' },
-    { id: 'value', label: 'Value' },
-  ];
-
-  const [categoryRatings, setCategoryRatings] = useState(
-    categories.reduce((acc, cat) => ({ ...acc, [cat.id]: rating }), {})
-  );
-
-  const handleCategoryRate = (id, value) => {
-    setCategoryRatings(prev => ({ ...prev, [id]: value }));
-  };
+  // Host review categories
+  const [categories, setCategories] = useState({
+    cleanliness: rating || 5.0,
+    communication: rating || 5.0,
+    ruleCompliance: rating || 5.0,
+  });
 
   const pickImage = async () => {
     // Request permission if needed
@@ -81,31 +73,56 @@ const ReviewFeedbackModal = ({
   };
 
   const handleSubmit = () => {
-    // Check if all categories are rated
-    const allRated = Object.values(categoryRatings).every(val => val > 0);
-    if (!allRated) {
-      Alert.alert("Rating Required", "Please provide a rating for all categories.");
+    if (currentRating === 0) {
+      Alert.alert("Rating Required", "Please provide an overall rating before submitting.");
       return;
     }
-
-    // Calculate overall rating as average of categories
-    const values = Object.values(categoryRatings);
-    const avgRating = values.length > 0 ? Math.round(values.reduce((a, b) => a + b, 0) / values.length) : rating;
 
     onSubmit({ 
       feedback: feedback.trim(),
       images: images,
-      rating: avgRating,
-      categories: categoryRatings
+      rating: currentRating,
+      categories: isHost ? categories : undefined
     });
   };
 
   const handleClose = () => {
     setFeedback("");
     setImages([]);
-    setCategoryRatings(categories.reduce((acc, cat) => ({ ...acc, [cat.id]: rating }), {}));
+    setCurrentRating(rating || 5.0);
+    setCategories({
+      cleanliness: rating || 5.0,
+      communication: rating || 5.0,
+      ruleCompliance: rating || 5.0,
+    });
     onClose();
   };
+
+  const updateCategory = (key, val) => {
+    setCategories(prev => ({ ...prev, [key]: val }));
+  };
+
+  const CategoryRating = ({ label, value, onRate }) => (
+    <View style={styles.categoryRow}>
+      <Text style={styles.categoryLabel}>{label}</Text>
+      <View style={styles.starsRowSmall}>
+        {[1, 2, 3, 4, 5].map((star) => (
+          <TouchableOpacity 
+            key={star} 
+            onPress={() => onRate(star)}
+            activeOpacity={0.6}
+            style={{ padding: 4 }}
+          >
+            <Ionicons 
+              name={star <= value ? "star" : "star-outline"} 
+              size={24} 
+              color={star <= value ? "#FFB800" : "#D1D1D6"} 
+            />
+          </TouchableOpacity>
+        ))}
+      </View>
+    </View>
+  );
 
   return (
     <Modal
@@ -150,29 +167,55 @@ const ReviewFeedbackModal = ({
               {isHost ? `How was your experience hosting ${guestName}?` : `How was your experience with ${guestName}?`}
             </Text>
 
-            {/* Categorical Ratings */}
-            <View style={styles.categoriesContainer}>
-              {categories.map((cat) => (
-                <View key={cat.id} style={styles.categoryRow}>
-                  <Text style={styles.categoryLabel}>{cat.label}</Text>
-                  <View style={styles.categoryStars}>
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <TouchableOpacity 
-                        key={star} 
-                        onPress={() => handleCategoryRate(cat.id, star)}
-                        activeOpacity={0.6}
-                      >
-                        <Ionicons 
-                          name={star <= categoryRatings[cat.id] ? "star" : "star-outline"} 
-                          size={24} 
-                          color={star <= categoryRatings[cat.id] ? "#FFB800" : "#D1D1D6"} 
-                        />
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
-              ))}
+            {/* Overall Rating */}
+            <View style={styles.starsContainer}>
+              <Text style={[styles.inputLabel, { marginBottom: 10 }]}>Overall Rating</Text>
+              <View style={styles.starsRow}>
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <TouchableOpacity 
+                    key={star} 
+                    onPress={() => {
+                        setCurrentRating(star);
+                        if (isHost) {
+                            setCategories({
+                                cleanliness: star,
+                                communication: star,
+                                ruleCompliance: star
+                            });
+                        }
+                    }}
+                    activeOpacity={0.6}
+                  >
+                    <Ionicons 
+                      name={star <= currentRating ? "star" : "star-outline"} 
+                      size={40} 
+                      color={star <= currentRating ? "#FFB800" : "#D1D1D6"} 
+                    />
+                  </TouchableOpacity>
+                ))}
+              </View>
             </View>
+
+            {/* Category Ratings (Host only) */}
+            {isHost && (
+              <View style={styles.categoriesContainer}>
+                <CategoryRating 
+                  label="Cleanliness" 
+                  value={categories.cleanliness} 
+                  onRate={(v) => updateCategory('cleanliness', v)} 
+                />
+                <CategoryRating 
+                  label="Communication" 
+                  value={categories.communication} 
+                  onRate={(v) => updateCategory('communication', v)} 
+                />
+                <CategoryRating 
+                  label="Rule Compliance" 
+                  value={categories.ruleCompliance} 
+                  onRate={(v) => updateCategory('ruleCompliance', v)} 
+                />
+              </View>
+            )}
 
             {/* Feedback input */}
             <View style={styles.inputContainer}>
@@ -220,10 +263,10 @@ const ReviewFeedbackModal = ({
             <TouchableOpacity
               style={[
                 styles.submitBtn,
-                (isLoading || !Object.values(categoryRatings).every(val => val > 0)) && styles.submitBtnDisabled,
+                (isLoading || currentRating === 0) && styles.submitBtnDisabled,
               ]}
               onPress={handleSubmit}
-              disabled={isLoading || !Object.values(categoryRatings).every(val => val > 0)}
+              disabled={isLoading || currentRating === 0}
               activeOpacity={0.8}
             >
               {isLoading ? (
@@ -233,6 +276,14 @@ const ReviewFeedbackModal = ({
               )}
             </TouchableOpacity>
           </ScrollView>
+
+          {/* Toast Notification - MUST be inside Modal to be visible above it */}
+          <ToastNotification
+            visible={toastVisible}
+            type={toastConfig.type}
+            message={toastConfig.message}
+            onHide={onToastHide}
+          />
         </View>
       </KeyboardAvoidingView>
     </Modal>
@@ -301,11 +352,27 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginBottom: 8,
   },
+  starsContainer: {
+    backgroundColor: "#F9F9FB",
+    borderRadius: 16,
+    padding: 24,
+    marginVertical: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  starsRow: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  starsRowSmall: {
+    flexDirection: "row",
+    gap: 4,
+  },
   categoriesContainer: {
     backgroundColor: "#F9F9FB",
     borderRadius: 16,
     padding: 16,
-    marginVertical: 8,
+    marginBottom: 8,
     gap: 12,
   },
   categoryRow: {
@@ -314,13 +381,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   categoryLabel: {
-    fontSize: 14,
-    color: "#444",
-    fontWeight: "500",
-  },
-  categoryStars: {
-    flexDirection: "row",
-    gap: 4,
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#525252",
+    flex: 1,
   },
   inputContainer: {
     gap: 6,

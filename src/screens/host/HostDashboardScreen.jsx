@@ -55,6 +55,8 @@ const HostDashboardScreen = () => {
     userName: "Host",
     plan: "Basic Plan",
     totalEarnings: 0,
+    walletBalance: 0,
+    pendingBalance: 0,
     totalBookings: 0,
     totalListings: 0,
     upcomingBookings: 0,
@@ -164,6 +166,18 @@ const HostDashboardScreen = () => {
 
     checkAuth();
   }, []);
+
+  // Periodic refresh for wallet balance and earnings
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const refreshInterval = setInterval(() => {
+      console.log("💰 [HostDashboard] Refreshing wallet balance...");
+      fetchDashboardData(false); // Refresh without showing loader
+    }, 30000); // Refresh every 30 seconds
+
+    return () => clearInterval(refreshInterval);
+  }, [isAuthenticated]);
 
   // Fetch data on mount and when screen comes into focus (only if authenticated)
   useFocusEffect(
@@ -326,6 +340,8 @@ const HostDashboardScreen = () => {
         {/* Stats Cards */}
         <DashboardStatsCards
           totalEarnings={dashboardData.totalEarnings}
+          walletBalance={dashboardData.walletBalance}
+          pendingBalance={dashboardData.pendingBalance}
           totalBookings={dashboardData.totalBookings}
           totalListings={dashboardData.totalListings}
         />

@@ -1,398 +1,498 @@
-# Lunest Mobile App - Development Guide
+# Lunest Mobile App — Development Guide
 
-## Quick Start
+**Version:** 1.3.0 | **Last Updated:** April 2026  
+**Stack:** Expo SDK 54 · React Native 0.81.5 · Expo Router v4 · NativeWind v4
+
+---
+
+## Table of Contents
+
+1. [Quick Start](#1-quick-start)
+2. [Running the App](#2-running-the-app)
+3. [Network & Environment Configuration](#3-network--environment-configuration)
+4. [Project Structure](#4-project-structure)
+5. [Key Features](#5-key-features)
+6. [Services Overview](#6-services-overview)
+7. [Backend Integration](#7-backend-integration)
+8. [Common Issues & Solutions](#8-common-issues--solutions)
+9. [Testing & Debugging](#9-testing--debugging)
+10. [Building for Production](#10-building-for-production)
+11. [Git Workflow](#11-git-workflow)
+12. [Useful Commands](#12-useful-commands)
+13. [Resources](#13-resources)
+
+---
+
+## 1. Quick Start
 
 ### Prerequisites
 
-- Node.js 18+
-- npm or yarn
-- Expo CLI
-- iOS Simulator or physical iOS device
-- Android Emulator or physical Android device
+- **Node.js** 18+
+- **npm** or yarn
+- **Expo Go** app on physical device (iOS App Store / Google Play)
+- Backend server running on port 3000
 
 ### Installation
 
 ```bash
+# Navigate to the project
+cd "c:\Users\AkintayoPC\Documents\Lunest_app\lunest-mobile"
+
 # Install dependencies
 npm install
 
-# Install required packages
-npm install react-native-css-interop
+# Copy environment file
+cp .env.example .env
+# Edit .env with your local backend IP (see Section 3)
 
-# Clear cache if needed
-npx expo start -c
+# Start the dev server
+npx expo start --clear
 ```
 
 ---
 
-## Running the App
+## 2. Running the App
 
-### Development Server
+### Start Dev Server
 
 ```bash
-# Start Expo dev server
-cd "c:\Users\AkintayoPC\Documents\Lunest_app\lunest-mobile"
-npx expo start
-
-# Available commands while running:
-# 'a' - Open Android
-# 'i' - Open iOS Simulator
-# 'w' - Open web version
-# 'r' - Reload app
-# 'c' - Clear cache and restart
-# 'j' - Open debugger
-# 'm' - Toggle menu
-# 'o' - Open in code editor
-# '?' - Show all commands
+npx expo start --clear       # Recommended — clears Metro cache first
 ```
 
-### Testing on Devices
+### Platform-Specific Launch
 
-#### iOS Simulator
+```bash
+npm run android              # Android emulator
+npm run ios                  # iOS simulator (macOS only)
+npm run web                  # Web browser (localhost:8081)
+```
 
-- Requires macOS with Xcode installed
-- Press `i` when dev server is running
+### Interactive Commands (while server is running)
 
-#### Physical iOS Device
+| Key | Action |
+|-----|--------|
+| `a` | Open Android emulator |
+| `i` | Open iOS simulator |
+| `w` | Open web browser |
+| `r` | Reload app |
+| `c` | Clear cache and restart |
+| `j` | Open JS debugger |
+| `?` | Show all commands |
 
-1. Install Expo Go app from App Store
+### Testing on Physical Devices
+
+1. Install **Expo Go** from App Store or Google Play
 2. Run `npx expo start`
-3. Scan QR code with Camera app
-4. Opens in Expo Go
-
-#### Android Emulator
-
-- Requires Android SDK
-- Press `a` when dev server is running
-
-#### Physical Android Device
-
-1. Install Expo Go from Google Play
-2. Run `npx expo start`
-3. Scan QR code with Expo Go app
+3. **iOS**: Scan QR code with the Camera app
+4. **Android**: Scan QR code inside the Expo Go app
+5. Ensure your device and computer are on the **same WiFi network**
 
 ---
 
-## Network Configuration
+## 3. Network & Environment Configuration
 
-### Backend URL Setup
+### `.env` File Setup
 
-The app auto-detects backend URL based on environment:
+```env
+# Backend URL — set this to your machine's local IP for physical device testing
+EXPO_PUBLIC_API_URL=http://<YOUR_IP>:3000
 
-#### iOS Simulator
+# Request timeout in milliseconds
+EXPO_PUBLIC_API_TIMEOUT=60000
 
-- Default: `http://127.0.0.1:3000`
-- Custom: Settings → Backend Configuration → Enter IP
+# Debug mode
+EXPO_PUBLIC_ENABLE_DEBUG_MODE=true
+EXPO_PUBLIC_APP_ENV=development
+EXPO_PUBLIC_APP_VERSION=1.3.0
+```
 
-#### Physical iOS Device
+### Platform-Specific URL Reference
 
-- Requires: Computer IP (same WiFi)
-- Enter via: Settings → Backend Configuration
+| Platform             | `.env` value                               | Notes                          |
+| -------------------- | ------------------------------------------ | ------------------------------ |
+| Web browser          | Not required                               | Auto-detects `localhost:3000`  |
+| iOS Simulator        | `EXPO_PUBLIC_API_URL=http://localhost:3000`| Same as web                    |
+| Android Emulator     | `EXPO_PUBLIC_API_URL=http://10.0.2.2:3000` | Android's localhost alias      |
+| Physical device (any)| `EXPO_PUBLIC_API_URL=http://<YOUR_IP>:3000`| Must be on same WiFi           |
 
-#### Android Emulator
-
-- Automatic: `http://10.0.2.2:3000`
-
-#### Android Physical Device
-
-- Requires: Computer IP (same WiFi)
-- Enter via: Settings → Backend Configuration
-
-### Get Your Computer IP
+### Find Your Machine's IP
 
 ```bash
 # Windows
-ipconfig | findstr IPv4
+ipconfig | findstr "IPv4"
 
 # macOS/Linux
 ifconfig | grep "inet "
 ```
 
----
+### Runtime URL Override (In-App)
 
-## Key Features
-
-### Authentication
-
-- Email/password login
-- OTP verification
-- Password reset flow
-- Session persistence (AsyncStorage)
-
-### Listings
-
-- Browse available listings
-- View listing details with images
-- Host information display
-- Status indicators (AVAILABLE, BOOKED)
-- Create new listings (hosts)
-
-### Bookings
-
-- Search and filter listings
-- Select dates and details
-- Make bookings
-- View booking history
-- Track booking status
-
-### User Profiles
-
-- Edit personal information
-- Manage host applications
-- View transaction history
-- Manage payment methods
+Navigate to **Settings → Backend Configuration** to manually set or override the backend URL at runtime. This is powered by `configService.js`.
 
 ---
 
-## Project Structure
+## 4. Project Structure
 
 ```
 lunest-mobile/
-├── app/                    # Expo Router screens
-│   ├── (tabs)/            # Tabbed navigation screens
-│   ├── (host-tabs)/       # Host-specific screens
-│   ├── create-listing/    # Listing creation flow
-│   ├── login.jsx          # Login screen
-│   ├── signup.jsx         # Sign up screen
-│   ├── index.jsx          # Home screen
-│   └── ...
-├── src/                   # Custom code
-│   ├── api/              # API client setup
-│   ├── services/         # Service layers
-│   ├── hooks/            # Custom hooks
-│   ├── constants/        # App constants
-│   └── utils/            # Utility functions
-├── components/            # Reusable components
-│   └── ui/               # UI component library
-├── assets/               # Images, fonts, etc.
-│   ├── images/
-│   └── fonts/
-├── package.json          # Dependencies
-├── app.json              # Expo configuration
-├── tailwind.config.js    # Tailwind CSS config
-└── metro.config.js       # Metro bundler config
+├── app/                              # Expo Router — file-based routing
+│   ├── _layout.jsx                   # Root layout: auth guard + session check
+│   ├── index.jsx                     # Entry: redirects to tabs or auth
+│   ├── (tabs)/                       # Guest tab navigator (authenticated)
+│   ├── (host-tabs)/                  # Host tab navigator (host role required)
+│   ├── create-listing/               # 10-step listing creation wizard
+│   └── [40+ route files]             # Individual screen wrappers
+├── src/
+│   ├── screens/                      # Screen implementations
+│   │   ├── auth/                     # Login, signup, OTP, password
+│   │   ├── host/                     # Host dashboard, earnings, listings, bookings
+│   │   ├── guest/                    # Guest home, explore
+│   │   ├── booking/                  # Booking details
+│   │   ├── payment/                  # Payment screens
+│   │   ├── profile/                  # Profile management
+│   │   ├── properties/               # Property detail views
+│   │   ├── messages/                 # Messaging
+│   │   ├── notifications/            # Notification history
+│   │   └── account/                  # Account settings
+│   ├── services/                     # 22 services (API, auth, storage, etc.)
+│   ├── context/                      # UserModeContext (Guest ↔ Host switching)
+│   └── hooks/                        # Custom React hooks
+├── components/                       # Shared/global UI components
+├── hooks/                            # Global hooks
+├── constants/                        # App-wide constants
+├── assets/                           # Images, fonts, icons
+├── .env                              # Local environment variables (not in git)
+├── .env.example                      # Template — copy to .env
+├── app.json                          # Expo app configuration
+├── package.json                      # Dependencies & scripts
+├── babel.config.js                   # Babel config (NativeWind + Expo preset)
+├── metro.config.js                   # Metro bundler config (SVG support)
+├── tailwind.config.js                # NativeWind/Tailwind config
+├── reset-cache.ps1                   # Windows: full cache reset + validation
+└── reset-cache.sh                    # macOS/Linux: full cache reset + validation
 ```
 
 ---
 
-## Environment Variables
+## 5. Key Features
 
-Create `.env` file with:
+### Guest Features
+- Browse and search property listings
+- View full property details (images, video, amenities, rules)
+- Select booking dates and guest count
+- Pay via wallet (Paystack top-up) or card
+- Track bookings and statuses
+- Save/bookmark favourite listings
+- Coupon code redemption
+- Loyalty points tracking
+- Referral programme
 
-```env
-# API Configuration
-EXPO_PUBLIC_API_URL=http://127.0.0.1:3000
-EXPO_PUBLIC_API_TIMEOUT=30000
+### Host Features
+- 10-step listing creation with auto-save drafts
+- Listing preview before publishing
+- Manage listings (edit, pause, delete)
+- View and respond to booking requests
+- Host earnings dashboard (wallet + transaction history)
+- Availability calendar management
+- Caution fee dispute resolution
+- KYC verification for host onboarding
 
-# App Configuration
-EXPO_PUBLIC_APP_ENV=development
-EXPO_PUBLIC_APP_VERSION=1.0.0
-
-# Debug Options
-EXPO_PUBLIC_ENABLE_DEBUG_MODE=true
-EXPO_PUBLIC_ENABLE_ANALYTICS=false
-```
+### Platform Features
+- Guest ↔ Host mode switching (single account)
+- Support chat (live)
+- Push notification history
+- Inactivity session timeout
+- Device session management
+- Wallet: top-up, withdraw, transaction history
 
 ---
 
-## Backend Service
+## 6. Services Overview
 
-Backend must be running for full functionality.
+All services live in `src/services/`. There are **22 services** in total.
 
-### Start Backend
+| Service | Purpose |
+|---------|---------|
+| `apiClient.js` | HTTP client — GET/POST/PUT/PATCH/DELETE with auth headers |
+| `authService.js` | Full auth lifecycle: login, register, logout, token refresh |
+| `configService.js` | Dynamic platform URL detection + runtime override |
+| `storageService.js` | AsyncStorage abstraction |
+| `secureStorageService.js` | Expo SecureStore for tokens and credentials |
+| `listingService.js` | Listing CRUD, image/video upload |
+| `bookingService.js` | Booking creation and management |
+| `dashboardService.js` | Host dashboard stats aggregation |
+| `draftListingService.js` | Auto-save for 10-step listing creation |
+| `paymentService.js` | Paystack payment init, wallet top-up, withdrawal |
+| `bookmarkService.js` | Saved listings management |
+| `profileService.js` | User profile read/update |
+| `imageCompressionService.js` | Client-side image compression before upload |
+| `locationService.js` | Google Places Autocomplete + geocoding |
+| `notificationService.js` | Push notification registration and handling |
+| `deviceSessionService.js` | Active session tracking (single-session enforcement) |
+| `inactivityTimeoutService.js` | Auto-logout after idle period |
+| `referralService.js` | Referral code generation and rewards |
+| `kycService.js` | KYC flow for host onboarding |
+| `hostService.js` | Host profile + listings summary |
+| `networkErrorHandler.js` | Centralized network error translation |
+| `userDataService.js` | Quick user data access helper |
+
+---
+
+## 7. Backend Integration
+
+### Start the Backend
 
 ```bash
 cd "c:\Users\AkintayoPC\Documents\ReactApp\lunest back\lunest_backend"
 npm start
+# or
+npm run dev   # if nodemon is configured
 ```
 
-### Backend Endpoints (Key)
+Backend runs on **port 3000** by default.
 
-- `POST /auth/login` - User login
-- `POST /auth/signup` - User registration
-- `GET /listings` - Fetch listings
-- `POST /listings` - Create listing
-- `GET /listings/:id` - Get listing details
-- `POST /bookings` - Create booking
-- `GET /users/:id` - Get user profile
+### Key API Endpoints
 
-### Test Credentials
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/v1/users/login` | Login |
+| POST | `/v1/users/register` | Register |
+| POST | `/v1/users/refresh` | Token refresh |
+| GET | `/v1/users/profile` | Get profile |
+| GET | `/v1/listings` | Browse listings |
+| POST | `/v1/listings` | Create listing |
+| POST | `/v1/bookings` | Create booking |
+| POST | `/v1/wallet` | Wallet balance |
+| GET | `/v1/my-transactions` | Transaction history |
+| POST | `/v1/wallet/fund` | Fund wallet |
+| POST | `/v1/wallet/withdraw` | Withdraw |
 
-- **Email:** `tayobabafemi@gmail.com`
-- **Password:** See backend `.env`
+### Response Format
+
+All endpoints return:
+```json
+{
+  "body": { /* data */ },
+  "message": "Human-readable status message"
+}
+```
 
 ---
 
-## Common Issues & Solutions
+## 8. Common Issues & Solutions
 
-### Metro Cache Issues
+### Metro Cache / Stale Code
 
 ```bash
-npx expo start -c
-# or
 npx expo start --clear
+# or run the full reset:
+.\reset-cache.ps1      # Windows (PowerShell)
+./reset-cache.sh       # macOS/Linux
 ```
 
-### Port Already in Use
+The reset scripts also validate that key files (`authService.js`, `listingService.js`, `review.jsx`) are correctly exporting.
+
+### "Network request failed"
+
+1. Confirm backend is running on port 3000
+2. Check `.env` has the correct `EXPO_PUBLIC_API_URL`
+3. Physical device? Must be on the same WiFi as your machine
+4. Windows? Check Firewall allows port 3000 through
+
+### "Request timeout"
+
+- Increase `EXPO_PUBLIC_API_TIMEOUT` in `.env` (default: 60000ms)
+- Check backend server logs for slow queries
+
+### Port 8081 Already in Use
 
 ```bash
-# If port 8081 is in use, Expo will ask to use another port
-# Type 'y' to proceed with alternate port
+# Windows: kill the process using port 8081
+netstat -ano | findstr :8081
+taskkill /PID <PID> /F
 ```
 
-### Network Connection Failed
-
-1. Verify backend is running: `http://localhost:3000`
-2. Check your computer IP: `ipconfig | findstr IPv4`
-3. Use Settings → Backend Configuration to manually set URL
-4. Ensure device and computer on same WiFi
-
-### Dependencies Issues
+### Reinstall Dependencies
 
 ```bash
-# Reinstall all dependencies
-rm -r node_modules package-lock.json
+# Windows
+rd /s /q node_modules
+del package-lock.json
+npm install
+
+# macOS/Linux
+rm -rf node_modules package-lock.json
 npm install
 ```
 
-### React Native CSS Interop Error
+### NativeWind / Emoji Crash
 
-```bash
-npm install react-native-css-interop
-```
+Avoid using emoji characters directly inside `<Text>` components when using NativeWind. This causes a `TypeError: Cannot call a class as a function` crash in `react-native-css-interop`.
 
 ---
 
-## Testing & Debugging
-
-### Debug Menu
-
-- Press `j` while app is running to open debugger
-- Use browser DevTools for web version
+## 9. Testing & Debugging
 
 ### Console Logs
 
-- Mobile: Check terminal running dev server
-- Web: Browser console (F12)
+- **Mobile**: Terminal running the dev server
+- **Web**: Browser DevTools → Console (F12)
 
-### Network Logs
+### Key Log Prefixes
 
-- Check ConfigService logs in console
-- Look for `📱 iOS` or `🤖 Android` platform detection
-- Verify `[APIClient] initialized with: http://...` message
+| Prefix | Source |
+|--------|--------|
+| `[APIClient]` | HTTP requests and URL initialization |
+| `[AuthService]` | Login, logout, token events |
+| `[ConfigService]` | URL detection |
+| `[HostEarnings]` | Earnings screen data |
+| `[BookingPayment]` | Payment processing |
+| `[DraftListing]` | Auto-save events |
+
+### Expo Dev Tools
+
+```bash
+npx expo start
+# Press 'j' to open the JavaScript debugger
+# Press 'm' to toggle the Expo DevTools menu
+```
+
+### Check Project Health
+
+```bash
+npx expo doctor      # Checks for known issues with your setup
+npm audit            # Security scan on dependencies
+```
 
 ---
 
-## Building for Production
+## 10. Building for Production
 
-### iOS
+### EAS Build (Recommended)
 
 ```bash
+# Setup (first time only)
+npm install -g eas-cli
+eas login
+eas init
+
+# Build
 eas build --platform ios
-```
-
-### Android
-
-```bash
 eas build --platform android
+eas build --platform all
+
+# Submit to stores
+eas submit --platform ios
+eas submit --platform android
 ```
 
-### Web
+### Web Export
 
 ```bash
 npx expo export --platform web
 ```
 
----
+### Pre-Build Checklist
 
-## Deployment
-
-### EAS (Expo Application Services)
-
-1. Setup account at expo.dev
-2. Link project: `eas init`
-3. Build: `eas build`
-4. Submit: `eas submit`
+- [ ] `.env` has production API URL
+- [ ] `EXPO_PUBLIC_ENABLE_DEBUG_MODE=false`
+- [ ] `app.json` version is bumped
+- [ ] All console.log statements reviewed
+- [ ] `npx expo doctor` passes cleanly
 
 ---
 
-## Git Workflow
+## 11. Git Workflow
 
-### Ignored Files
+### `.gitignore` Highlights
 
-- `/node_modules` - Dependencies
-- `/.expo` - Expo cache
-- `/ios` - Native iOS build
-- `/android` - Native Android build
-- `.env.local` - Local environment overrides
-- Documentation files (added to .gitignore)
+```
+node_modules/
+.expo/
+.env
+*.local
+android/
+ios/
+dist/
+web-build/
+```
 
-### Commit Changes
+### Branching Convention
+
+```
+main          → production-ready code
+develop       → integration branch
+feature/xxx   → new feature
+fix/xxx       → bug fix
+```
+
+### Commit Messages
 
 ```bash
-git add .
-git commit -m "Feature: Description of changes"
-git push origin branch-name
+git commit -m "feat: add caution fee earnings filter"
+git commit -m "fix: exclude ON_HOLD security deposits from total earnings"
+git commit -m "docs: update development guide to v1.3.0"
 ```
 
 ---
 
-## Performance Tips
-
-1. **Image Optimization** - Compress images before upload
-2. **Lazy Loading** - Use dynamic imports for heavy components
-3. **Memoization** - Use React.memo for expensive components
-4. **Cache Strategy** - AsyncStorage for persistent data
-
----
-
-## Useful Commands
+## 12. Useful Commands
 
 ```bash
-# Clear all caches
-npx expo start -c
+# Start with clean cache
+npx expo start --clear
 
-# Clean build
-rm -r .expo dist web-build
+# Full cache + process reset (Windows)
+.\reset-cache.ps1
 
-# Check dependencies
-npm list
+# Full cache + process reset (macOS/Linux)
+./reset-cache.sh
 
-# Update dependencies
-npm update
-
-# Audit security
-npm audit
-
-# Check project status
+# Check Expo project health
 npx expo doctor
+
+# Lint the codebase
+npm run lint
+
+# List installed packages (top-level)
+npm list --depth=0
+
+# Check for outdated packages
+npm outdated
+
+# Security audit
+npm audit
 ```
 
 ---
 
-## Support & Resources
+## 13. Resources
 
-### Official Docs
+### Official Documentation
 
-- [Expo Documentation](https://docs.expo.dev)
-- [React Native Docs](https://reactnative.dev)
+- [Expo Docs](https://docs.expo.dev)
 - [Expo Router](https://docs.expo.dev/routing/introduction/)
+- [React Native Docs](https://reactnative.dev)
+- [NativeWind Docs](https://www.nativewind.dev)
+- [Expo Secure Store](https://docs.expo.dev/versions/latest/sdk/securestore/)
 
-### Community
+### Useful Tools
 
-- GitHub Issues
-- Expo Forums
-- Stack Overflow
+- [Expo Go App](https://expo.dev/client) — for physical device testing
+- [EAS Build](https://docs.expo.dev/build/introduction/) — for production builds
+- [React Native Debugger](https://github.com/jhen0409/react-native-debugger)
 
 ---
 
 ## Version History
 
-| Version | Date     | Changes         |
-| ------- | -------- | --------------- |
-| 1.0.0   | Jan 2026 | Initial release |
+| Version | Date       | Summary |
+|---------|------------|---------|
+| 1.3.0   | April 2026 | Financial accuracy patches, documentation rewrite, 11 files cleaned up |
+| 1.2.0   | March 2026 | Listing creation flow, draft auto-save, payment integration, 22 services |
+| 1.1.0   | July 2025  | Comprehensive audit — fonts, hardcoded IPs, emoji crash fix |
+| 1.0.0   | Jan 2026   | Initial release |
 
 ---
 
-**Last Updated:** January 29, 2026  
-**Maintained By:** Development Team
+**Maintained by:** Lunest Development Team

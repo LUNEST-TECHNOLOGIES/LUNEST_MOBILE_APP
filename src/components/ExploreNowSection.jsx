@@ -9,7 +9,7 @@ const SAMPLE_PROPERTIES = [
     id: "1",
     images: [require("../assets/images/prop_image.png")],
     title: "Spacious 3-Bedroom Duplex",
-    location: "Ikeja, GRA.",
+    location: "Ikeja, Lagos",
     price: 1200000,
     rating: 5.0,
     isVerified: true,
@@ -35,7 +35,7 @@ const SAMPLE_PROPERTIES = [
     title: "Luxury Villa",
     location: "Maitama, Abuja",
     price: 2500000,
-    rating: 4.9,
+    rating: null, // Unrated property
     isVerified: true,
     isAvailable: false,
     isFavorite: false,

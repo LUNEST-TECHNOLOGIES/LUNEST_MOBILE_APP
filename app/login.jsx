@@ -5,7 +5,11 @@ export default function Login() {
   const router = useRouter();
 
   const handleBack = () => {
-    router.back();
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)');
+    }
   };
 
   const handleSignup = () => {

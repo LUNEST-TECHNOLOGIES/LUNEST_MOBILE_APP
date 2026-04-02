@@ -3,22 +3,22 @@
  * Choose the type of property to list
  */
 
-import React, { useState, useEffect } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
 import {
-  View,
-  Text,
-  Pressable,
-  StyleSheet,
-  ScrollView,
   Dimensions,
   Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import Svg, { Path, Rect, Circle } from 'react-native-svg';
+import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import CancelConfirmationModal from '../../src/components/create-listing/CancelConfirmationModal';
-import draftListingService from '../../src/services/draftListingService';
 import useDraftListing from '../../src/hooks/useDraftListing';
+import draftListingService from '../../src/services/draftListingService';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -35,8 +35,7 @@ const CloseIcon = ({ size = 24, color = '#000000' }) => (
   </Svg>
 );
 
-// Property Category Icons
-const ApartmentIcon = ({ size = 28, color = '#292929' }) => (
+const ShortletIcon = ({ size = 28, color = '#292929' }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M3 21H21M5 21V7L13 3V21M13 21V7L19 10V21M9 9V9.01M9 13V13.01M9 17V17.01"
@@ -48,10 +47,10 @@ const ApartmentIcon = ({ size = 28, color = '#292929' }) => (
   </Svg>
 );
 
-const ServicedApartmentIcon = ({ size = 28, color = '#292929' }) => (
+const StandardFlatIcon = ({ size = 28, color = '#292929' }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
-      d="M19 21V5C19 3.89543 18.1046 3 17 3H7C5.89543 3 5 3.89543 5 5V21M19 21H21M19 21H14M5 21H3M5 21H10M10 21V17C10 15.8954 10.8954 15 12 15C13.1046 15 14 15.8954 14 17V21M10 21H14M9 7H10M14 7H15M9 11H10M14 11H15"
+      d="M3 21H21M5 21V7L13 3V21M13 21V7L19 10V21M9 9V9.01M9 13V13.01M9 17V17.01"
       stroke={color}
       strokeWidth={1.5}
       strokeLinecap="round"
@@ -60,28 +59,15 @@ const ServicedApartmentIcon = ({ size = 28, color = '#292929' }) => (
   </Svg>
 );
 
-const ShortletIcon = ({ size = 28, color = '#292929' }) => (
+const ApartmentIcon = ({ size = 28, color = '#292929' }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
-      d="M8 4H6C4.89543 4 4 4.89543 4 6V8M8 4V2M8 4H16M16 4H18C19.1046 4 20 4.89543 20 6V8M16 4V2M4 8V18C4 19.1046 4.89543 20 5 20H19C19.1046 20 20 19.1046 20 18V8M4 8H20M8 12H10M14 12H16M8 16H10"
+      d="M3 21H21M5 21V7L13 3V21M13 21V7L19 10V21M9 9V9.01M9 13V13.01M9 17V17.01"
       stroke={color}
       strokeWidth={1.5}
       strokeLinecap="round"
       strokeLinejoin="round"
     />
-  </Svg>
-);
-
-const GuestHouseIcon = ({ size = 28, color = '#292929' }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Path
-      d="M3 21H21M4 21V11L12 4L20 11V21M9 21V15C9 14.4477 9.44772 14 10 14H14C14.5523 14 15 14.4477 15 15V21"
-      stroke={color}
-      strokeWidth={1.5}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-    <Circle cx="12" cy="10" r="1" fill={color} />
   </Svg>
 );
 
@@ -97,22 +83,6 @@ const DuplexIcon = ({ size = 28, color = '#292929' }) => (
   </Svg>
 );
 
-const HostelIcon = ({ size = 28, color = '#292929' }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Path
-      d="M3 21H21M4 21V5C4 3.89543 4.89543 3 6 3H18C19.1046 3 20 3.89543 20 5V21"
-      stroke={color}
-      strokeWidth={1.5}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-    <Rect x="7" y="7" width="4" height="3" rx="0.5" stroke={color} strokeWidth={1.2} />
-    <Rect x="13" y="7" width="4" height="3" rx="0.5" stroke={color} strokeWidth={1.2} />
-    <Rect x="7" y="12" width="4" height="3" rx="0.5" stroke={color} strokeWidth={1.2} />
-    <Rect x="13" y="12" width="4" height="3" rx="0.5" stroke={color} strokeWidth={1.2} />
-  </Svg>
-);
-
 const BungalowIcon = ({ size = 28, color = '#292929' }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
@@ -125,35 +95,10 @@ const BungalowIcon = ({ size = 28, color = '#292929' }) => (
   </Svg>
 );
 
-const CoLivingIcon = ({ size = 28, color = '#292929' }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Circle cx="9" cy="7" r="2.5" stroke={color} strokeWidth={1.5} />
-    <Circle cx="15" cy="7" r="2.5" stroke={color} strokeWidth={1.5} />
-    <Path
-      d="M5 21V19C5 16.7909 6.79086 15 9 15H15C17.2091 15 19 16.7909 19 19V21"
-      stroke={color}
-      strokeWidth={1.5}
-      strokeLinecap="round"
-    />
-  </Svg>
-);
-
 const MiniFlatIcon = ({ size = 28, color = '#292929' }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Rect x="3" y="6" width="18" height="14" rx="2" stroke={color} strokeWidth={1.5} />
     <Path d="M3 10H21M12 10V20" stroke={color} strokeWidth={1.5} />
-  </Svg>
-);
-
-const SharedRoomIcon = ({ size = 28, color = '#292929' }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Path
-      d="M3 21H21M3 21V14M21 21V14M3 14H21M3 14V10C3 8.89543 3.89543 8 5 8H7M21 14V10C21 8.89543 20.1046 8 19 8H17M7 8V5C7 3.89543 7.89543 3 9 3H15C16.1046 3 17 3.89543 17 5V8M7 8H17"
-      stroke={color}
-      strokeWidth={1.5}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
   </Svg>
 );
 
@@ -197,6 +142,99 @@ const LandIcon = ({ size = 28, color = '#292929' }) => (
   </Svg>
 );
 
+const PenthouseIcon = ({ size = 28, color = '#292929' }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M3 21H21M5 21V7L12 3L19 7V21M9 7V9M15 7V9M9 12V14M15 12V14M12 21V17"
+      stroke={color}
+      strokeWidth={1.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+const MansionIcon = ({ size = 28, color = '#292929' }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M2 21H22M4 21V9L12 3L20 9V21M8 21V16H16V21M7 12H9M15 17H17M15 12H17"
+      stroke={color}
+      strokeWidth={1.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+const WarehouseIcon = ({ size = 28, color = '#292929' }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M3 21H21M4 21V10L12 5L20 10V21M9 21V15H15V21M12 5V21"
+      stroke={color}
+      strokeWidth={1.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+const ShopIcon = ({ size = 28, color = '#292929' }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M3 21H21M4 21V12H20V21M4 12L6 8H18L20 12M10 21V17H14V21M8 8V4H16V8"
+      stroke={color}
+      strokeWidth={1.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+const StudioIcon = ({ size = 28, color = '#292929' }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth={1.5} />
+    <Path d="M12 8V16M8 12H16" stroke={color} strokeWidth={1.5} strokeLinecap="round" />
+  </Svg>
+);
+
+const PurchaseIcon = ({ size = 28, color = '#292929' }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M12 2L3 7V17L12 22L21 17V7L12 2Z"
+      stroke={color}
+      strokeWidth={1.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <Circle cx="12" cy="12" r="3" stroke={color} strokeWidth={1.5} />
+  </Svg>
+);
+
+const LuxuryIcon = ({ size = 28, color = '#292929' }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M12 3L4 9L12 15L20 9L12 3Z"
+      stroke={color}
+      strokeWidth={1.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <Path d="M4 15L12 21L20 15" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+  </Svg>
+);
+
+const PrivateHomesIcon = ({ size = 28, color = '#292929' }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M3 12L12 3L21 12M5 12V20C5 20.5523 5.44772 21 6 21H18C18.5523 21 19 20.5523 19 20V12"
+      stroke={color}
+      strokeWidth={1.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
 const OtherIcon = ({ size = 28, color = '#292929' }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth={1.5} />
@@ -228,20 +266,26 @@ const ProgressBar = ({ currentStep, totalSteps }) => {
 
 // Property categories data
 const PROPERTY_CATEGORIES = [
-  { id: 'apartment', label: 'Apartment / Flat', icon: ApartmentIcon },
-  { id: 'serviced', label: 'Serviced Apartment', icon: ServicedApartmentIcon },
-  { id: 'shortlet', label: 'Shortlet Apartment', icon: ShortletIcon },
-  { id: 'guesthouse', label: 'Guest House', icon: GuestHouseIcon },
-  { id: 'duplex', label: 'Duplex', icon: DuplexIcon },
-  { id: 'hostel', label: 'Hostel', icon: HostelIcon },
-  { id: 'bungalow', label: 'Bungalow', icon: BungalowIcon },
-  { id: 'coliving', label: 'Co-living Space', icon: CoLivingIcon },
-  { id: 'miniflat', label: 'Self-Contained (Mini Flat)', icon: MiniFlatIcon },
-  { id: 'shared', label: "Shared Room / Boys' Quarters", icon: SharedRoomIcon },
-  { id: 'hotel', label: 'Hotel Room / Suite', icon: HotelIcon },
-  { id: 'commercial', label: 'Commercial Space', icon: CommercialIcon },
+  { id: 'shortlet', label: 'Shortlet', icon: ShortletIcon },
+  { id: 'standard-flat', label: 'Standard Flat', icon: StandardFlatIcon },
+  { id: 'apartment', label: 'Apartment', icon: ApartmentIcon },
+  { id: 'studio', label: 'Studio', icon: StudioIcon },
+  { id: 'mini-flat', label: 'Mini Flat', icon: MiniFlatIcon },
+  { id: 'room-parlour', label: 'Room & Parlour', icon: MiniFlatIcon },
+  { id: 'self-contain', label: 'Self-Contain', icon: MiniFlatIcon },
+  { id: 'purchase', label: 'Purchase', icon: PurchaseIcon },
+  { id: 'luxury', label: 'Luxury', icon: LuxuryIcon },
+  { id: 'penthouse', label: 'Penthouse', icon: PenthouseIcon },
+  { id: 'mansion', label: 'Mansion', icon: MansionIcon },
+  { id: 'private-homes', label: 'Private Homes', icon: PrivateHomesIcon },
+  { id: 'hotel', label: 'Hotel', icon: HotelIcon },
+  { id: 'office', label: 'Office', icon: CommercialIcon },
+  { id: 'warehouse', label: 'Warehouse', icon: WarehouseIcon },
   { id: 'land', label: 'Land', icon: LandIcon },
-  { id: 'other', label: 'Others', icon: OtherIcon },
+  { id: 'shop', label: 'Shop', icon: ShopIcon },
+  { id: 'duplex', label: 'Duplex', icon: DuplexIcon },
+  { id: 'bungalow', label: 'Bungalow', icon: BungalowIcon },
+  { id: 'others', label: 'Others', icon: OtherIcon },
 ];
 
 // Category Option Component

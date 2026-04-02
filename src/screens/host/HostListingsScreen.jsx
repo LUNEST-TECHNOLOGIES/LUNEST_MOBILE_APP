@@ -25,6 +25,7 @@ import Toast from "../../components/common/Toast";
 import configService from "../../services/configService";
 import draftListingService from "../../services/draftListingService";
 import listingService from "../../services/listingService";
+import * as ImageUtils from "../../utils/imageUtils";
 
 // Icons
 // Icons
@@ -55,6 +56,7 @@ const PromotionIcon = ({ size = 24, color = "#FFFFFF" }) => (
 // Filter tab options for Host Listings
 const FILTER_TABS = [
   { id: "all", label: "All" },
+  { id: "booked", label: "Booked" },
   { id: "for_rent", label: "For Rent" },
   { id: "for_sale", label: "For Sale" },
   { id: "pending", label: "Pending" },
@@ -158,8 +160,8 @@ const PlusIcon = ({ size = 24, color = "#FFFFFF" }) => (
   </Svg>
 );
 
-// Demo property image
-const DEMO_PROPERTY_IMAGE = require("../../assets/images/prop_image.png");
+// Demo property image removed as per requirement for strict data display
+// const DEMO_PROPERTY_IMAGE = require("../../assets/images/prop_image.png");
 
 /**
  * Status Badge Component
@@ -279,12 +281,12 @@ const ListingCard = ({
     return periodMap[period] || capitalizeFirst(period);
   };
 
-  // Use local image or fallback to demo
+  // Use local image or nothing (Strict: no fallback image)
   const imageSource = listing.image
     ? typeof listing.image === "string"
       ? { uri: listing.image }
       : listing.image
-    : DEMO_PROPERTY_IMAGE;
+    : null;
 
   const handleCardPress = () => {
     if (onCardPress) {
@@ -387,10 +389,33 @@ const ListingCard = ({
             <Text style={styles.propertyType}>
               {capitalizeFirst(listing.propertyType)} •
             </Text>
-            <Text style={styles.propertyLocation}>
+            <Text style={styles.propertyLocation} numberOfLines={2}>
               {capitalizeWords(listing.location)}
             </Text>
           </View>
+        </View>
+
+        {/* Property Details - Bedroom, Bathroom, Amenities */}
+        <View style={styles.propertyDetailsRow}>
+          {listing.bedrooms > 0 && (
+            <View style={styles.detailItem}>
+              <Text style={styles.detailText}>{listing.bedrooms} Bed</Text>
+            </View>
+          )}
+          {listing.bathrooms > 0 && (
+            <View style={styles.detailItem}>
+              <Text style={styles.detailText}>{listing.bathrooms} Bath</Text>
+            </View>
+          )}
+          {Array.isArray(listing.amenities) && listing.amenities.length > 0 && (
+            <View style={styles.detailItem}>
+              <Text style={styles.detailText}>
+                {listing.amenities.slice(0, 1).map((amenity, index) => (
+                  <Text key={index}>{amenity}</Text>
+                ))}
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Price */}
@@ -701,6 +726,9 @@ const HostListingsScreen = () => {
   const [showEditConfirmModal, setShowEditConfirmModal] = useState(false);
   const [listingToEdit, setListingToEdit] = useState(null);
   const [editDraftLoading, setEditDraftLoading] = useState(false);
+  const [showPauseModal, setShowPauseModal] = useState(false);
+  const [listingToPause, setListingToPause] = useState(null);
+  const [pauseLoading, setPauseLoading] = useState(false);
 
   // API state for listings
   const [listings, setListings] = useState([]);
@@ -710,18 +738,9 @@ const HostListingsScreen = () => {
 
   // Helper function to convert image URLs to full URLs
   const convertImageUrl = (image, baseURL) => {
-    if (!image) return null;
-    // Handle object format: { url: '/uploads/listings/...', filename: '...' }
-    if (typeof image === "object" && image.url) {
-      if (image.url.startsWith("http")) return image.url;
-      return `${baseURL}${image.url}`;
-    }
-    // Handle string format
-    if (typeof image === "string") {
-      if (image.startsWith("http")) return image;
-      return `${baseURL}${image}`;
-    }
-    return null;
+    // Handle both string URLs and object URLs (e.g., { url: '/uploads/...' })
+    const imagePath = typeof image === 'string' ? image : image?.url;
+    return ImageUtils.resolveImageUrlSync(imagePath, baseURL);
   };
 
   // Fetch listings with proper async/await usage
@@ -731,9 +750,24 @@ const HostListingsScreen = () => {
       try {
         const baseURL = await configService.getBaseURL();
         const result = await listingService.fetchUserListings();
-        console.log("📋 [HostListings] API Response:", result);
+        console.log("📋 [HostListings] API Result success:", result.success);
 
         if (result.success) {
+          const fetchedListings = result.listings || [];
+          console.log(
+            `📋 [HostListings] Received ${fetchedListings.length} raw listings`,
+          );
+
+          // Log specific IDs and statuses for troubleshooting
+          if (fetchedListings.length > 0) {
+            const statusSummary = fetchedListings
+              .map((l) => `${l._id?.slice(-4)}:${l.status}`)
+              .join(", ");
+            console.log(
+              `📋 [HostListings] Status Map (last 4 chars of ID):`,
+              statusSummary,
+            );
+          }
           // Transform API data to match component format
           const formattedListings = (result.listings || []).map((listing) => {
             // Convert property images to full URLs
@@ -762,19 +796,72 @@ const HostListingsScreen = () => {
             const fullAddress =
               listing.propertyLocation && listing.propertyLocation.fullAddress
                 ? listing.propertyLocation.fullAddress
-                : null;
+                : (listing.address && typeof listing.address === 'string' ? listing.address : null);
 
-            // Build location string
+            // Build location string with improved formatting
             let displayLocation = "No location";
-            if (fullAddress) {
-              displayLocation = fullAddress;
-            } else if (locationCity && locationState) {
+            
+            // Debug: Log address data for troubleshooting
+            console.log('📍 [HostListings] Address data for listing:', {
+              listingId: listing.id,
+              city: locationCity,
+              state: locationState,
+              fullAddress: fullAddress,
+              address: listing.address,
+              location: listing.location,
+              propertyLocation: listing.propertyLocation
+            });
+            
+            // Priority 1: Use full address if available and not too long
+            if (fullAddress && fullAddress.length > 0) {
+              // If full address is very long, truncate it smartly
+              if (fullAddress.length > 50) {
+                // Try to extract city, state from full address
+                const parts = fullAddress.split(',').map(p => p.trim()).filter(p => p);
+                if (parts.length >= 2) {
+                  displayLocation = `${parts[0]}, ${parts[1]}`;
+                } else {
+                  displayLocation = fullAddress.substring(0, 45) + "...";
+                }
+              } else {
+                displayLocation = fullAddress;
+              }
+            }
+            // Priority 2: Use city and state combination
+            else if (locationCity && locationState) {
               displayLocation = `${locationCity}, ${locationState}`;
             } else if (locationCity) {
               displayLocation = locationCity;
+            } else if (locationState) {
+              displayLocation = locationState;
             } else if (listing.location) {
               displayLocation = listing.location;
+            } else {
+              // Try to extract from address field
+              const address = listing.address;
+              if (address && typeof address === 'string') {
+                // Look for common patterns like "City, State" or "City State"
+                const parts = address.split(',').map(p => p.trim()).filter(p => p);
+                if (parts.length >= 2) {
+                  displayLocation = `${parts[0]}, ${parts[1]}`;
+                } else if (parts.length === 1) {
+                  // Try to split by space for patterns like "Lagos Nigeria"
+                  const spaceParts = parts[0].split(' ').filter(p => p.length > 2);
+                  if (spaceParts.length >= 2) {
+                    displayLocation = `${spaceParts[0]}, ${spaceParts[1]}`;
+                  } else {
+                    displayLocation = parts[0];
+                  }
+                } else {
+                  displayLocation = address;
+                }
+              } else {
+                displayLocation = "Nigeria";
+              }
             }
+
+            // Debug: Log final display location
+            console.log('📍 [HostListings] Final display location:', displayLocation);
 
             return {
               id: listing._id,
@@ -791,7 +878,7 @@ const HostListingsScreen = () => {
               priceUnit: listing.pricingPeriod || "Night",
               pricingPeriod: listing.pricingPeriod || "night",
               status: listing.status ? listing.status.toUpperCase() : "PENDING",
-              isDraft: listing.status === 'DRAFT' || listing.isDraft === true,
+              isDraft: listing.status === "DRAFT" || listing.isDraft === true,
               image: processedImages[0] || null,
               images: processedImages,
               description: listing.description || "",
@@ -904,8 +991,24 @@ const HostListingsScreen = () => {
         setDraftListings([]);
         return;
       }
+      // Filter out incomplete drafts (those with no meaningful data)
+      const validDrafts = drafts.filter((draft) => {
+        // Must have a draftId
+        if (!draft.draftId) return false;
+        
+        // Must have at least some meaningful data
+        const hasTitle = draft.propertyTitle && draft.propertyTitle !== "Untitled Draft";
+        const hasLocation = draft.city || draft.state || draft.address;
+        const hasPhotos = draft.photos && (Array.isArray(draft.photos) ? draft.photos.length > 0 : JSON.parse(draft.photos || "[]").length > 0);
+        const hasType = draft.propertyType && draft.propertyType !== "Unknown";
+        
+        return hasTitle || hasLocation || hasPhotos || hasType;
+      });
+      
+      console.log(`📋 [HostListingsScreen] Filtered ${drafts.length - validDrafts.length} incomplete drafts`);
+      
       // Convert drafts to listing format
-      const formattedDrafts = drafts.map((draft) => {
+      const formattedDrafts = validDrafts.map((draft) => {
         // Parse photos and get first one, handling edge cases
         let coverImage = null;
         let imagesList = [];
@@ -930,14 +1033,36 @@ const HostListingsScreen = () => {
           draft.draftId ||
           `draft_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
+        // Enhanced location handling for drafts
+          let draftLocation = "No location";
+          if (draft.city && draft.state) {
+            draftLocation = `${draft.city}, ${draft.state}`;
+          } else if (draft.city) {
+            draftLocation = draft.city;
+          } else if (draft.state) {
+            draftLocation = draft.state;
+          } else if (draft.address && typeof draft.address === 'string') {
+            // Handle full address for drafts
+            const address = draft.address;
+            if (address.length > 50) {
+              const parts = address.split(',').map(p => p.trim()).filter(p => p);
+              if (parts.length >= 2) {
+                draftLocation = `${parts[0]}, ${parts[1]}`;
+              } else {
+                draftLocation = address.substring(0, 45) + "...";
+              }
+            } else {
+              draftLocation = address;
+            }
+          } else if (draft.location) {
+            draftLocation = draft.location;
+          }
+
         return {
           id: draftId,
           propertyName: draft.propertyTitle || "Untitled Draft",
           propertyType: draft.propertyType || "Unknown",
-          location:
-            draft.city && draft.state
-              ? `${draft.city}, ${draft.state}`
-              : "No location",
+          location: draftLocation,
           listingType: draft.intent === "sale" ? "For Sale" : "For Rent",
           rentalType: draft.pricingPeriod || "Daily",
           price: draft.price
@@ -945,10 +1070,10 @@ const HostListingsScreen = () => {
             : 0,
           priceUnit: draft.pricingPeriod || "Night",
           status: "DRAFT",
-          image: coverImage,
+          image: coverImage || null,
           images: imagesList,
           isDraft: true,
-          draftData: { ...draft, draftId }, // Ensure draftId is in draftData
+          draftData: Object.keys(draft).length > 0 ? { ...draft, draftId } : null, // Only set draftData if draft is not empty
           createdAt: draft.createdAt || draft.timestamp || Date.now(), // Add timestamp for sorting
           updatedAt:
             draft.updatedAt ||
@@ -998,26 +1123,43 @@ const HostListingsScreen = () => {
 
   // Deduplicate before merging to prevent identical React keys
   const allListingsMap = new Map();
-  
+  const seenIds = new Set(); // Track all IDs we've already added
+
   // We first populate with server-fetched listings (which include server drafts)
   safeListings.forEach((l) => {
-    allListingsMap.set(l.id, l);
+    const id = l.id || l._id;
+    if (id && !seenIds.has(id)) {
+      allListingsMap.set(id, l);
+      seenIds.add(id);
+    }
   });
-  
+
   // Then overlay our detailed local drafts, keyed by either Mongo ID or Draft ID
   safeDraftListings.forEach((d) => {
     const mongoId = d.draftData?._id || d._id;
-    // If the server listing array already includes this draft by its mongoId, we replace it
-    // with our rich local draft object so the UI shows the "Draft" card format properly
-    if (mongoId && allListingsMap.has(mongoId)) {
+    const draftId = d.id;
+    
+    // Skip if we've already seen this draft by any of its IDs
+    if (draftId && seenIds.has(draftId)) return;
+    if (mongoId && seenIds.has(mongoId)) {
+      // Update existing entry with local draft data but keep same key
       allListingsMap.set(mongoId, d);
-    } else {
-      // Otherwise, we use the mongoId if available, or fallback to the local draft id
-      const key = mongoId || d.id;
+      seenIds.add(draftId);
+      return;
+    }
+    
+    // Otherwise, add as new entry
+    const key = mongoId || draftId;
+    if (key) {
       allListingsMap.set(key, d);
+      seenIds.add(key);
+      if (mongoId && draftId && mongoId !== draftId) {
+        seenIds.add(mongoId);
+        seenIds.add(draftId);
+      }
     }
   });
-  
+
   const allListings = Array.from(allListingsMap.values());
 
   // Filter listings based on selected tab - defensive check for allListings
@@ -1031,6 +1173,8 @@ const HostListingsScreen = () => {
     switch (selectedFilter) {
       case "all":
         return true;
+      case "booked":
+        return listing.status === "BOOKED";
       case "for_rent":
         return listing.listingType === "For Rent";
       case "for_sale":
@@ -1102,7 +1246,7 @@ const HostListingsScreen = () => {
         !!listing.draftData,
       );
 
-      if (listing.isDraft && listing.draftData) {
+      if (listing.isDraft && listing.draftData && Object.keys(listing.draftData).length > 0) {
         const draft = listing.draftData;
         const currentStep = parseInt(draft.currentStep) || 1;
         const draftId = draft.draftId || listing.id;
@@ -1120,7 +1264,7 @@ const HostListingsScreen = () => {
         if (currentStep >= 6) pathname = "/create-listing/photos";
         if (currentStep >= 7) pathname = "/create-listing/pricing";
         if (currentStep >= 8) pathname = "/create-listing/availability";
-        if (currentStep >= 9) pathname = "/create-listing/house-rules";
+        if (currentStep >= 9) pathname = "/create-listing/terms-agreement";
         if (currentStep >= 10) pathname = "/create-listing/review";
 
         console.log("🔗 [HostListingsScreen] Navigation pathname:", pathname);
@@ -1141,7 +1285,7 @@ const HostListingsScreen = () => {
           setToastMessage("Error navigating to draft: " + navError.message);
           setShowToast(true);
         }
-      } else if (listing.isDraft && !listing.draftData) {
+      } else if (listing.isDraft && (!listing.draftData || Object.keys(listing.draftData).length === 0)) {
         console.error(
           "❌ [HostListingsScreen] Draft data is missing for listing:",
           listing.id,
@@ -1245,7 +1389,7 @@ const HostListingsScreen = () => {
         draftId: editDraftId,
         editingListingId: listing.id,
         isEditing: true,
-        currentStep: 10,
+        currentStep: 1,
         // Property basic info
         propertyTitle:
           fullListing.propertyName ||
@@ -1461,7 +1605,7 @@ const HostListingsScreen = () => {
         draftId: editDraftId,
         editingListingId: listing.id,
         isEditing: true,
-        currentStep: 10, // Start at review step since all data is present
+        currentStep: 1, // Start at first step since navigating to /create-listing
         // Property basic info
         propertyTitle:
           fullListing.propertyName ||
@@ -1646,7 +1790,58 @@ const HostListingsScreen = () => {
   };
 
   const handlePauseListing = (listing) => {
-    console.log("Pause/Resume listing:", listing.id);
+    setListingToPause(listing);
+    setShowPauseModal(true);
+  };
+
+  const confirmPauseListing = async () => {
+    if (!listingToPause || pauseLoading) return;
+    setPauseLoading(true);
+
+    const isPaused =
+      listingToPause.status === "PAUSED" ||
+      listingToPause.status === "SUSPENDED";
+    const shouldPause = !isPaused;
+
+    try {
+      const result = await listingService.toggleListingAvailability(
+        listingToPause.id,
+        shouldPause,
+      );
+
+      if (result.success) {
+        // Optimistically update local state
+        setListings((prev) =>
+          prev.map((l) =>
+            l.id === listingToPause.id
+              ? { ...l, status: shouldPause ? "PAUSED" : "AVAILABLE" }
+              : l,
+          ),
+        );
+        setToastMessage(
+          shouldPause
+            ? "Listing paused — property is now unavailable"
+            : "Listing resumed — property is now available",
+        );
+        setShowToast(true);
+      } else {
+        setToastMessage(result.message || "Failed to update listing");
+        setShowToast(true);
+      }
+    } catch (error) {
+      console.error("Error toggling listing availability:", error);
+      setToastMessage("Something went wrong. Please try again.");
+      setShowToast(true);
+    } finally {
+      setPauseLoading(false);
+      setShowPauseModal(false);
+      setListingToPause(null);
+    }
+  };
+
+  const cancelPauseListing = () => {
+    setShowPauseModal(false);
+    setListingToPause(null);
   };
 
   const handleViewStats = (listing) => {
@@ -1763,7 +1958,7 @@ const HostListingsScreen = () => {
           <View style={styles.listingsGrid}>
             {filteredListings.map((listing) => (
               <ListingCard
-                key={listing.id}
+                key={`${listing.status}_${listing.id}`}
                 listing={listing}
                 cardWidth={cardWidth}
                 onEdit={() => handleEditListing(listing)}
@@ -1882,6 +2077,71 @@ const HostListingsScreen = () => {
                 >
                   <Text style={styles.deleteModalConfirmText}>
                     {editDraftLoading ? "Processing..." : "Edit as Draft"}
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Pause/Resume Confirmation Modal */}
+      <Modal
+        visible={showPauseModal}
+        transparent
+        animationType="fade"
+        onRequestClose={cancelPauseListing}
+      >
+        <Pressable
+          style={styles.deleteModalOverlay}
+          onPress={cancelPauseListing}
+        >
+          <Pressable
+            style={styles.deleteModalContainer}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={styles.deleteModalContent}>
+              <Text style={styles.deleteModalTitle}>
+                {listingToPause?.status === "PAUSED" ||
+                listingToPause?.status === "SUSPENDED"
+                  ? "Resume Listing?"
+                  : "Pause Listing?"}
+              </Text>
+              <Text style={styles.deleteModalMessage}>
+                {listingToPause?.status === "PAUSED" ||
+                listingToPause?.status === "SUSPENDED"
+                  ? "This will make your property available again. Guests will be able to find and book it."
+                  : "This will make your property unavailable to guests. No one will be able to find or book this property while it is paused."}
+              </Text>
+              <View style={styles.deleteModalButtons}>
+                <Pressable
+                  style={styles.deleteModalCancelButton}
+                  onPress={cancelPauseListing}
+                >
+                  <Text style={styles.deleteModalCancelText}>Cancel</Text>
+                </Pressable>
+                <Pressable
+                  style={[
+                    styles.deleteModalConfirmButton,
+                    {
+                      backgroundColor: pauseLoading
+                        ? "#A0A0A0"
+                        : listingToPause?.status === "PAUSED" ||
+                            listingToPause?.status === "SUSPENDED"
+                          ? "#10B981"
+                          : "#FD3131",
+                    },
+                  ]}
+                  onPress={pauseLoading ? undefined : confirmPauseListing}
+                  disabled={pauseLoading}
+                >
+                  <Text style={styles.deleteModalConfirmText}>
+                    {pauseLoading
+                      ? "Processing..."
+                      : listingToPause?.status === "PAUSED" ||
+                          listingToPause?.status === "SUSPENDED"
+                        ? "Resume"
+                        : "Pause"}
                   </Text>
                 </Pressable>
               </View>
@@ -2089,6 +2349,8 @@ const styles = StyleSheet.create({
   propertyMeta: {
     flexDirection: "row",
     gap: 3,
+    flexWrap: 'wrap',
+    alignItems: 'center',
   },
   propertyType: {
     fontSize: 10,
@@ -2098,8 +2360,24 @@ const styles = StyleSheet.create({
   },
   propertyLocation: {
     fontSize: 10,
-
     color: "#000000",
+    flex: 1,
+    flexWrap: 'wrap',
+  },
+  propertyDetailsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 2,
+    marginBottom: 4,
+  },
+  detailItem: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  detailText: {
+    fontSize: 9,
+    color: "#666666",
   },
   priceRow: {
     flexDirection: "row",

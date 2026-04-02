@@ -23,7 +23,6 @@ export default function CreateListingLayout() {
       <Stack.Screen name="photos" />
       <Stack.Screen name="pricing" />
       <Stack.Screen name="availability" />
-      <Stack.Screen name="house-rules" />
       <Stack.Screen name="terms-agreement" />
       <Stack.Screen name="review" />
       <Stack.Screen name="+not-found" />

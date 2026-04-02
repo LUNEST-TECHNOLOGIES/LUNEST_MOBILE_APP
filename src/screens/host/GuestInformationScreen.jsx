@@ -2,14 +2,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Image,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Image,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 // Import services
@@ -25,6 +25,7 @@ const GuestInformationScreen = () => {
   const [guestAvatar, setGuestAvatar] = useState(initialAvatar);
   const [loading, setLoading] = useState(false);
   const [guestReviews, setGuestReviews] = useState([]);
+  const [resolvedReviewImages, setResolvedReviewImages] = useState({});
   const [guestStats, setGuestStats] = useState({
     totalBookings: 0,
     averageRating: 0,
@@ -33,7 +34,7 @@ const GuestInformationScreen = () => {
 
   useEffect(() => {
     const resolveParamsAvatar = async () => {
-      if (initialAvatar && initialAvatar !== 'null' && initialAvatar !== 'undefined') {
+      if (initialAvatar && initialAvatar !== 'null' && initialAvatar !== 'undefined' && !initialAvatar.startsWith('blob:')) {
         const resolved = await resolveImageUrl(initialAvatar);
         setGuestAvatar(resolved);
       }
@@ -65,8 +66,37 @@ const GuestInformationScreen = () => {
 
         // Fetch reviews
         const reviewsResult = await bookingService.fetchUserReviews(guestId, "GUEST");
-        if (reviewsResult.success) {
+        if (reviewsResult.success && reviewsResult.reviews) {
           setGuestReviews(reviewsResult.reviews);
+          
+          // Resolve all review image URLs
+          const imageMap = {};
+          for (const review of reviewsResult.reviews) {
+            if (review.images && review.images.length > 0) {
+              const resolvedImagesForReview = [];
+              for (const img of review.images) {
+                try {
+                  // Check if image URL is valid
+                  if (img && typeof img === 'string' && (img.startsWith('http') || img.startsWith('file'))) {
+                    resolvedImagesForReview.push(img);
+                  } else if (img) {
+                    // Try to resolve relative paths
+                    const resolved = await resolveImageUrl(img);
+                    if (resolved) {
+                      resolvedImagesForReview.push(resolved);
+                    }
+                  }
+                } catch (imgError) {
+                  console.warn("Error resolving review image:", img, imgError);
+                  // Skip invalid images
+                }
+              }
+              if (resolvedImagesForReview.length > 0) {
+                imageMap[review._id || review.id] = resolvedImagesForReview;
+              }
+            }
+          }
+          setResolvedReviewImages(imageMap);
         }
       } catch (error) {
         console.error("Error fetching guest data:", error);
@@ -172,10 +202,61 @@ const GuestInformationScreen = () => {
                   <Text style={styles.reviewDate}>{new Date(review.reviewedAt).toLocaleDateString()}</Text>
                 </View>
                 <Text style={styles.reviewText}>{review.feedback}</Text>
-                {review.images && review.images.length > 0 && (
+                
+                {review.categories && (
+                  <View style={styles.categoriesContainer}>
+                    <View style={styles.categoryItem}>
+                      <Text style={styles.categoryLabel}>Cleanliness</Text>
+                      <View style={styles.categoryStars}>
+                        {[1, 2, 3, 4, 5].map((s) => (
+                          <Ionicons 
+                            key={s} 
+                            name={s <= (review.categories.cleanliness || 0) ? "star" : "star-outline"} 
+                            size={10} 
+                            color={s <= (review.categories.cleanliness || 0) ? "#FFB800" : "#D1D1D6"} 
+                          />
+                        ))}
+                      </View>
+                    </View>
+                    <View style={styles.categoryItem}>
+                      <Text style={styles.categoryLabel}>Communication</Text>
+                      <View style={styles.categoryStars}>
+                        {[1, 2, 3, 4, 5].map((s) => (
+                          <Ionicons 
+                            key={s} 
+                            name={s <= (review.categories.communication || 0) ? "star" : "star-outline"} 
+                            size={10} 
+                            color={s <= (review.categories.communication || 0) ? "#FFB800" : "#D1D1D6"} 
+                          />
+                        ))}
+                      </View>
+                    </View>
+                    <View style={styles.categoryItem}>
+                      <Text style={styles.categoryLabel}>Rule Compliance</Text>
+                      <View style={styles.categoryStars}>
+                        {[1, 2, 3, 4, 5].map((s) => (
+                          <Ionicons 
+                            key={s} 
+                            name={s <= (review.categories.ruleCompliance || 0) ? "star" : "star-outline"} 
+                            size={10} 
+                            color={s <= (review.categories.ruleCompliance || 0) ? "#FFB800" : "#D1D1D6"} 
+                          />
+                        ))}
+                      </View>
+                    </View>
+                  </View>
+                )}
+
+                {resolvedReviewImages[review._id || review.id] && resolvedReviewImages[review._id || review.id].length > 0 && (
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.reviewImagesContainer}>
-                    {review.images.map((img, imgIndex) => (
-                      <Image key={imgIndex} source={{ uri: img }} style={styles.reviewImage} />
+                    {resolvedReviewImages[review._id || review.id].map((img, imgIndex) => (
+                      <View key={imgIndex} style={{ marginRight: 8 }}>
+                        <Image 
+                          source={{ uri: img }} 
+                          style={styles.reviewImage}
+                          onError={(e) => console.warn(`Failed to load review image: ${img}`, e.nativeEvent.error)}
+                        />
+                      </View>
                     ))}
                   </ScrollView>
                 )}
@@ -348,9 +429,28 @@ const styles = StyleSheet.create({
     paddingVertical: 40,
   },
   emptyText: {
-    marginTop: 12,
-    color: '#9CA3AF',
     fontSize: 14,
+  },
+  categoriesContainer: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+    gap: 8,
+  },
+  categoryItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  categoryLabel: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  categoryStars: {
+    flexDirection: 'row',
+    gap: 2,
   },
 });
 

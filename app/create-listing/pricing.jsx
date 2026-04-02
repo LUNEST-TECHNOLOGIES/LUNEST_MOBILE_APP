@@ -4,16 +4,16 @@
  */
 
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
-    Alert,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
+  Alert,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
@@ -67,7 +67,6 @@ const ProgressBar = ({ currentStep, totalSteps }) => {
 // Pricing Period Options
 const PRICING_PERIODS = [
   { id: "night", label: "Per Night" },
-  { id: "week", label: "Per Week" },
   { id: "month", label: "Per Month" },
   { id: "year", label: "Per Year" },
 ];
@@ -86,32 +85,31 @@ const Pricing = () => {
   const [serviceCharge, setServiceCharge] = useState("");
   const [salePrice, setSalePrice] = useState("");
   const [showCancelModal, setShowCancelModal] = useState(false);
+  const hasInitialized = useRef(false);
 
-  // Load draft data on mount
+  // Load draft data on mount and when draftData changes
   useEffect(() => {
-    if (draftData) {
-      // Ensure price is always a string (could be number from API)
-      const priceValue =
-        draftData.price !== undefined && draftData.price !== null
-          ? String(draftData.price)
-          : "";
-      const securityValue =
-        draftData.securityDeposit !== undefined &&
-        draftData.securityDeposit !== null
-          ? String(draftData.securityDeposit)
-          : "";
-      const serviceValue =
-        (draftData.serviceCharge || draftData.cleaningFee) !== undefined
-          ? String(draftData.serviceCharge || draftData.cleaningFee || "")
-          : "";
+    if (draftData && !hasInitialized.current) {
+      console.log('✅ [Pricing] Initializing/Restoring from draft:', draftData.draftId);
+      
+      const priceValue = draftData.price !== undefined && draftData.price !== null ? String(draftData.price) : "";
+      const securityValue = draftData.securityDeposit !== undefined && draftData.securityDeposit !== null ? String(draftData.securityDeposit) : "";
+      const serviceValue = (draftData.serviceCharge || draftData.cleaningFee) !== undefined ? String(draftData.serviceCharge || draftData.cleaningFee || "") : "";
+      const periodValue = draftData.pricingPeriod || "";
 
-      setPrice(priceValue);
-      setSelectedPeriod(draftData.pricingPeriod || ""); // Keep empty to force user selection
-      setSecurityDeposit(securityValue);
-      setServiceCharge(serviceValue);
-      setSalePrice(intent === "sale" ? priceValue : "");
+      if (priceValue) {
+        if (intent === "sale") setSalePrice(formatPrice(priceValue));
+        else setPrice(formatPrice(priceValue));
+      }
+      
+      if (periodValue) setSelectedPeriod(periodValue);
+      if (securityValue) setSecurityDeposit(formatPrice(securityValue));
+      if (serviceValue) setServiceCharge(formatPrice(serviceValue));
+      
+      hasInitialized.current = true;
     }
   }, [draftData, intent]);
+
 
   // Auto-save function
   const updatePricing = (updates) => {
@@ -162,6 +160,7 @@ const Pricing = () => {
         draftListingService.generateDraftId();
 
       await saveDraftData({
+        ...draftData,
         price: intent === "sale" ? salePrice : price,
         pricingPeriod: selectedPeriod,
         securityDeposit,
@@ -174,7 +173,7 @@ const Pricing = () => {
       if (router.canDismiss()) router.dismissAll();
       router.replace("/(host-tabs)/listings?filter=drafts&showDraftSaved=true");
     } catch (error) {
-      console.error("Error saving draft:", error);
+      console.error("Error saving draft on close:", error);
       setShowCancelModal(false);
       if (router.canDismiss()) router.dismissAll();
       router.replace("/(host-tabs)/listings?filter=drafts&showDraftSaved=true");
@@ -193,6 +192,7 @@ const Pricing = () => {
       draftListingService.generateDraftId();
 
     saveDraftData({
+      ...draftData,
       price: intent === "sale" ? salePrice : price,
       pricingPeriod: selectedPeriod,
       securityDeposit,
@@ -200,13 +200,7 @@ const Pricing = () => {
       currentStep: 7,
       draftId: finalDraftId,
     })
-      .then(() => {
-        router.replace({
-          pathname: "/create-listing/photos",
-          params: { draftId: finalDraftId },
-        });
-      })
-      .catch(() => {
+      .finally(() => {
         router.replace({
           pathname: "/create-listing/photos",
           params: { draftId: finalDraftId },
@@ -226,7 +220,7 @@ const Pricing = () => {
     if (intent !== "sale" && !selectedPeriod) {
       Alert.alert(
         "Pricing Period Required",
-        "Please select a pricing period (per night, week, month, or year).",
+        "Please select a pricing period (per night, month, or year).",
       );
       return;
     }
@@ -328,7 +322,7 @@ const Pricing = () => {
                   placeholder="0"
                   placeholderTextColor="#999999"
                   value={price}
-                  onChangeText={(v) => handlePriceChange(v, setPrice)}
+                  onChangeText={(v) => handlePriceChange(v, false)}
                   keyboardType="number-pad"
                 />
               </View>
@@ -364,7 +358,7 @@ const Pricing = () => {
 
             {/* Security Deposit */}
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Security Deposit (Optional)</Text>
+              <Text style={styles.inputLabel}>Security Deposit/Caution Fee (Refundable)</Text>
               <View style={styles.priceInputContainer}>
                 <Text style={styles.currencySymbol}>₦</Text>
                 <TextInput
@@ -377,6 +371,12 @@ const Pricing = () => {
                   }
                   keyboardType="number-pad"
                 />
+              </View>
+              {/* Refundability Notice */}
+              <View style={styles.noticeContainer}>
+                <Text style={styles.noticeText}>
+                  💡 This deposit is fully refundable if no damages occur. It will be returned within 1-5 business days after checkout, subject to property inspection.
+                </Text>
               </View>
             </View>
 
@@ -413,7 +413,7 @@ const Pricing = () => {
           </View>
           {intent !== "sale" && securityDeposit && (
             <View style={styles.previewRow}>
-              <Text style={styles.previewLabel}>Security Deposit</Text>
+              <Text style={styles.previewLabel}>Security Deposit/Caution Fee</Text>
               <Text style={styles.previewValue}>₦{securityDeposit}</Text>
             </View>
           )}
@@ -544,8 +544,9 @@ const Pricing = () => {
       {/* Cancel Confirmation Modal */}
       <CancelConfirmationModal
         visible={showCancelModal}
-        onConfirm={handleCancelConfirm}
-        onDismiss={handleCancelDismiss}
+        onCancel={handleCancelConfirm}
+        onContinue={handleCancelDismiss}
+        onClose={handleCancelDismiss}
       />
     </SafeAreaView>
   );
@@ -762,6 +763,20 @@ const styles = StyleSheet.create({
   },
   nextButtonTextDisabled: {
     color: "#999999",
+  },
+  noticeContainer: {
+    backgroundColor: "#F0F9FF",
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: "#192DFF",
+  },
+  noticeText: {
+    fontSize: 12,
+    color: "#4A5568",
+    lineHeight: 16,
+    flexWrap: 'wrap',
   },
 });
 

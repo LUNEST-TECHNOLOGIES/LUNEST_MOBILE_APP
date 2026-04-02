@@ -39,20 +39,33 @@ class ConfigService {
   }
 
   /**
+   * Synchronous version of getBaseURL
+   * Returns cached value if exists, otherwise fallback
+   * @returns {string}
+   */
+  getBaseURLSync() {
+    return this.cachedBaseURL || process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000";
+  }
+
+  /**
    * Detect the correct URL based on platform and environment
    * @returns {Promise<string>}
    */
   async detectEnvironmentURL() {
-    // Web platform always uses localhost
-    if (Platform.OS === "web") {
-      console.log(
-        "🌐 [ConfigService] Web platform detected - using localhost:3000",
-      );
-      return "http://localhost:3000";
+    // For native platforms (iOS/Android) AND web, ALWAYS prioritize the .env variable
+    const envURL = process.env.EXPO_PUBLIC_API_URL;
+    
+    // Feature: On web, if envURL is a LAN IP but we are on localhost, 
+    // we might prefer localhost:3000 to avoid PNA preflight issues 
+    // IF the user hasn't explicitly set a custom URL.
+    if (Platform.OS === "web" && envURL && envURL.includes("192.168.")) {
+       const isCurrentHostLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+       if (isCurrentHostLocal) {
+         console.log("🌐 [ConfigService] Web on localhost detected. Using localhost:3000 instead of LAN IP to avoid PNA issues.");
+         return "http://localhost:3000";
+       }
     }
 
-    // For native platforms (iOS/Android), ALWAYS prioritize the .env variable
-    const envURL = process.env.EXPO_PUBLIC_API_URL;
     if (envURL) {
       console.log(
         "📝 [ConfigService] Using env URL for",
@@ -61,6 +74,14 @@ class ConfigService {
         envURL,
       );
       return envURL;
+    }
+
+    // Web platform fallback if no env URL
+    if (Platform.OS === "web") {
+      console.log(
+        "🌐 [ConfigService] Web platform detected - using localhost:3000 fallback",
+      );
+      return "http://localhost:3000";
     }
     if (Platform.OS === "android") {
       return await this.detectAndroidURL();
@@ -313,6 +334,8 @@ class ConfigService {
 }
 
 // Export singleton instance
-export default new ConfigService();
+const configService = new ConfigService();
+export { configService };
+export default configService;
 
 

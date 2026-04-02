@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Modal, Platform, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const DownloadOptionsModal = ({ 
   visible, 
@@ -9,14 +9,10 @@ const DownloadOptionsModal = ({
   onDownloadAgreement,
   loading = false
 }) => {
+  if (!visible) return null;
+
   return (
-    <Modal
-      transparent
-      visible={visible}
-      animationType="slide"
-      onRequestClose={onClose}
-      statusBarTranslucent
-    >
+    <View style={styles.fullscreenOverlay}>
       <Pressable style={styles.overlay} onPress={onClose}>
         <View style={styles.container}>
           <View style={styles.header}>
@@ -73,11 +69,20 @@ const DownloadOptionsModal = ({
           </View>
         </View>
       </Pressable>
-    </Modal>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
+  fullscreenOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'transparent',
+    zIndex: 2000,
+  },
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',

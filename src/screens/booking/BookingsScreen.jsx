@@ -562,11 +562,12 @@ const BookingsScreen = () => {
         onMessageHost={handleMessageHost}
         hostId={selectedBooking?.hostId}
         isConfirmed={selectedBooking?.status === 'confirmed'}
+        status={selectedBooking?.status}
         host={{
           name: selectedBooking?.hostName || "Host",
           email: selectedBooking?.hostEmail || "",
           phone: selectedBooking?.hostPhone || "",
-          rating: selectedBooking?.hostRating || 5.0,
+          rating: selectedBooking?.hostRating || null,
           isVerified: true,
           avatar: selectedBooking?.hostAvatar || null,
         }}

@@ -8,6 +8,7 @@ import {
     Text,
     View,
 } from "react-native";
+import PropertyRating from "./ui/PropertyRating";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 // Calculate card width to fit 2 cards with 16px padding on sides and 12px gap between
@@ -40,23 +41,31 @@ const PropertyCard = ({
   location = "Abuja, Nigeria",
   price = 45000,
   currency = "₦",
-  rating = 4.8,
+  rating = null, // Default to null for unrated properties
   isFavorite = false,
   status = "AVAILABLE", // Add status prop
   bookedUntil = null, // When the current booking ends
+  bedrooms = 0,
+  bathrooms = 0,
+  amenities = [],
   onPress,
   onFavoritePress,
 }) => {
   const [favorite, setFavorite] = useState(isFavorite);
+  const [imageError, setImageError] = useState(false);
 
   // Sync internal state with prop when it changes (e.g., from bookmarkMap updates)
   useEffect(() => {
     setFavorite(isFavorite);
   }, [isFavorite]);
 
+  useEffect(() => {
+    setImageError(false);
+  }, [image]);
+
   // Get image source - handles string URLs, require(), and null
   const getImageSource = () => {
-    if (!image) return DEFAULT_PROPERTY_IMAGE;
+    if (imageError || !image) return null;
     if (typeof image === "string") return { uri: image };
     return image; // Already a require() or { uri: ... } object
   };
@@ -92,6 +101,7 @@ const PropertyCard = ({
         style={styles.imageBackground}
         imageStyle={styles.image}
         resizeMode="cover"
+        onError={() => setImageError(true)}
       >
         {/* Booked Status Badge overlaying the image */}
         {status === "BOOKED" && (
@@ -132,6 +142,32 @@ const PropertyCard = ({
           </Text>
         </View>
 
+        {/* Property Details - Bedroom, Bathroom, Amenities */}
+        <View style={styles.propertyDetailsRow}>
+          {bedrooms > 0 && (
+            <View style={styles.detailItem}>
+              <Ionicons name="bed-outline" size={10} color="#7C7C7C" />
+              <Text style={styles.detailText}>{bedrooms} Bed</Text>
+            </View>
+          )}
+          {bathrooms > 0 && (
+            <View style={styles.detailItem}>
+              <Ionicons name="water-outline" size={10} color="#7C7C7C" />
+              <Text style={styles.detailText}>{bathrooms} Bath</Text>
+            </View>
+          )}
+          {amenities && amenities.length > 0 && (
+            <View style={styles.detailItem}>
+              <Ionicons name="home-outline" size={10} color="#7C7C7C" />
+              <Text style={styles.detailText}>
+                {amenities.slice(0, 1).map((amenity, index) => (
+                  <Text key={index}>{amenity}</Text>
+                ))}
+              </Text>
+            </View>
+          )}
+        </View>
+
         <View style={styles.bottomRow}>
           <Text style={styles.price}>
             {currency}
@@ -139,10 +175,11 @@ const PropertyCard = ({
             <Text style={styles.perNight}>/night</Text>
           </Text>
 
-          <View style={styles.ratingContainer}>
-            <Ionicons name="star" size={12} color="#FFB800" />
-            <Text style={styles.rating}>{rating}</Text>
-          </View>
+          <PropertyRating
+            rating={rating}
+            variant="compact"
+            size={12}
+          />
         </View>
       </View>
     </Pressable>
@@ -164,6 +201,9 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     // Android shadow
     elevation: 3,
+    // Subtle border for better differentiation (iOS & Android)
+    borderWidth: 1,
+    borderColor: "rgba(0, 0, 0, 0.06)",
   },
   pressed: {
     opacity: 0.9,
@@ -238,6 +278,22 @@ const styles = StyleSheet.create({
     color: "#7C7C7C",
     flex: 1,
   },
+  propertyDetailsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 2,
+    marginBottom: 4,
+  },
+  detailItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+  },
+  detailText: {
+    fontSize: 10,
+    color: "#7C7C7C",
+  },
   bottomRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -253,16 +309,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "400",
     color: "#7C7C7C",
-  },
-  ratingContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 3,
-  },
-  rating: {
-    fontSize: 12,
-    fontWeight: "500",
-    color: "#292929",
   },
 });
 

@@ -5,10 +5,10 @@
  */
 
 import { Ionicons } from "@expo/vector-icons";
+import { Image } from "expo-image";
 import { useRef, useState } from "react";
 import {
     Dimensions,
-    ImageBackground,
     Pressable,
     ScrollView,
     StyleSheet,
@@ -16,13 +16,12 @@ import {
     View,
 } from "react-native";
 import ShieldTickIcon from "../../assets/icons/shield-tick.svg";
+import configService from "../../services/configService";
+import { resolveImageUrlSync } from "../../utils/imageUtils";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const CARD_WIDTH = SCREEN_WIDTH * 0.65; // Reduced from 75% to 65%
 const IMAGE_HEIGHT = 160; // Reduced from 200
-
-// Demo image fallback
-const DEMO_PROPERTY_IMAGE = require("../../assets/images/prop_image.png");
 
 // Single listing card - styled like PropertyListingCard
 const ListingCard = ({ listing, onPress, cardWidth }) => {
@@ -30,13 +29,14 @@ const ListingCard = ({ listing, onPress, cardWidth }) => {
   const [actualCardWidth, setActualCardWidth] = useState(cardWidth);
   const scrollViewRef = useRef(null);
 
-  // Get images array or use demo
-  const displayImages =
+  // Get images array - no fallback, show placeholder if empty
+  const displayImages = (
     listing.images && listing.images.length > 0
       ? listing.images
       : listing.image
         ? [listing.image]
-        : [DEMO_PROPERTY_IMAGE];
+        : []
+  ).filter(Boolean);
 
   // Handle container layout to get actual width
   const handleContainerLayout = (event) => {
@@ -68,7 +68,38 @@ const ListingCard = ({ listing, onPress, cardWidth }) => {
 
   // Safe string conversion for all values
   const safeTitle = String(listing.propertyName || listing.title || "Untitled");
-  const safeLocation = String(listing.location || "Location not provided");
+  
+  // Proper location mapping
+  const safeLocation = (() => {
+    const city = listing.propertyLocation?.city || listing.city;
+    const state = listing.propertyLocation?.state || listing.state;
+    
+    if (city && state) {
+      return `${city}, ${state}`;
+    } else if (city) {
+      return city;
+    } else if (state) {
+      return state;
+    } else {
+      // Try to extract from address field
+      const address = listing.propertyLocation?.fullAddress || listing.address;
+      if (address && typeof address === 'string') {
+        // Look for common patterns like "City, State" or "City State"
+        const parts = address.split(',').map(p => p.trim()).filter(p => p);
+        if (parts.length >= 2) {
+          return `${parts[0]}, ${parts[1]}`;
+        } else if (parts.length === 1) {
+          // Try to split by space for patterns like "Lagos Nigeria"
+          const spaceParts = parts[0].split(' ').filter(p => p.length > 2);
+          if (spaceParts.length >= 2) {
+            return `${spaceParts[0]}, ${spaceParts[1]}`;
+          }
+        }
+      }
+      return address || "Location not provided";
+    }
+  })();
+  
   const safePrice = listing.price ? String(listing.price) : "0";
 
   // Format pricing period for display
@@ -94,7 +125,7 @@ const ListingCard = ({ listing, onPress, cardWidth }) => {
       ? listing.rating
       : parseFloat(listing.rating);
   const hasValidRating = !isNaN(numericRating);
-  const safeRating = hasValidRating ? numericRating.toFixed(1) : "0.0";
+  const safeRating = hasValidRating ? numericRating.toFixed(1) : null;
   const hasNoReviews = numericRating === 0;
 
   // Determine status display - only show Available/Unavailable for approved listings
@@ -130,29 +161,55 @@ const ListingCard = ({ listing, onPress, cardWidth }) => {
         style={[styles.imageSliderContainer, { width: cardWidth }]}
         onLayout={handleContainerLayout}
       >
-        <ScrollView
-          ref={scrollViewRef}
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          onScroll={handleScroll}
-          scrollEventThrottle={16}
-          decelerationRate="fast"
-          style={{ width: actualCardWidth }}
-          contentContainerStyle={{
-            width: actualCardWidth * displayImages.length,
-          }}
-        >
-          {displayImages.map((image, index) => (
-            <ImageBackground
-              key={index}
-              source={typeof image === "string" ? { uri: image } : image}
-              style={[styles.slideImage, { width: actualCardWidth }]}
-              imageStyle={styles.slideImageStyle}
-              resizeMode="cover"
-            />
-          ))}
-        </ScrollView>
+        {displayImages.length > 0 ? (
+          <ScrollView
+            ref={scrollViewRef}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onScroll={handleScroll}
+            scrollEventThrottle={16}
+            decelerationRate="fast"
+            style={{ width: actualCardWidth }}
+            contentContainerStyle={{
+              width: actualCardWidth * displayImages.length,
+            }}
+          >
+            {displayImages.map((image, index) => {
+              const baseUrl = configService.getBaseURLSync();
+              const resolvedPath =
+                typeof image === "string"
+                  ? image
+                  : image.uri || image.url || null;
+              const imageSource = resolvedPath
+                ? { uri: resolveImageUrlSync(resolvedPath, baseUrl) }
+                : null;
+
+              if (!imageSource) return null;
+
+              return (
+                <Image
+                  key={index}
+                  source={imageSource}
+                  style={[styles.slideImage, { width: actualCardWidth }]}
+                  contentFit="cover"
+                  transition={200}
+                />
+              );
+            })}
+          </ScrollView>
+        ) : (
+          <View
+            style={[
+              styles.slideImage,
+              styles.noImagePlaceholder,
+              { width: actualCardWidth },
+            ]}
+          >
+            <Ionicons name="image-outline" size={32} color="#CCC" />
+            <Text style={styles.noImageText}>No image</Text>
+          </View>
+        )}
 
         {/* Pagination Dots */}
         {displayImages.length > 1 && (
@@ -202,14 +259,40 @@ const ListingCard = ({ listing, onPress, cardWidth }) => {
             <Text
               style={[styles.ratingText, hasNoReviews && styles.noReviewsText]}
             >
-              {hasNoReviews ? "New" : safeRating}
+              {hasNoReviews ? "N/A" : safeRating}
             </Text>
             <Ionicons
               name={hasNoReviews ? "star-outline" : "star"}
               size={10}
-              color={hasNoReviews ? "#999" : "#FFB800"}
+              color={hasNoReviews ? "#999" : "#FFD700"}
             />
           </View>
+        </View>
+
+        {/* Property Details - Bedroom, Bathroom, Amenities */}
+        <View style={styles.propertyDetailsRow}>
+          {listing.bedrooms > 0 && (
+            <View style={styles.detailItem}>
+              <Ionicons name="bed-outline" size={8} color="#7C7C7C" />
+              <Text style={styles.detailText}>{listing.bedrooms} Bed</Text>
+            </View>
+          )}
+          {listing.bathrooms > 0 && (
+            <View style={styles.detailItem}>
+              <Ionicons name="water-outline" size={8} color="#7C7C7C" />
+              <Text style={styles.detailText}>{listing.bathrooms} Bath</Text>
+            </View>
+          )}
+          {listing.amenities && listing.amenities.length > 0 && (
+            <View style={styles.detailItem}>
+              <Ionicons name="home-outline" size={8} color="#7C7C7C" />
+              <Text style={styles.detailText}>
+                {listing.amenities.slice(0, 1).map((amenity, index) => (
+                  <Text key={index}>{amenity}</Text>
+                ))}
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Price and Availability Row */}
@@ -433,10 +516,18 @@ const styles = StyleSheet.create({
   },
   slideImage: {
     height: IMAGE_HEIGHT,
-  },
-  slideImageStyle: {
     borderTopLeftRadius: 8,
     borderTopRightRadius: 8,
+  },
+  noImagePlaceholder: {
+    backgroundColor: "#F0F0F0",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  noImageText: {
+    fontSize: 12,
+    color: "#999",
+    marginTop: 4,
   },
   paginationContainer: {
     position: "absolute",
@@ -509,8 +600,23 @@ const styles = StyleSheet.create({
   },
   location: {
     fontSize: 12,
-
     color: "#656565",
+  },
+  propertyDetailsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 2,
+    marginBottom: 4,
+  },
+  detailItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+  },
+  detailText: {
+    fontSize: 9,
+    color: "#7C7C7C",
   },
   ratingContainer: {
     flexDirection: "row",

@@ -8,15 +8,15 @@ import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    Image,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View,
+  ActivityIndicator,
+  Alert,
+  Image,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
@@ -26,6 +26,7 @@ import configService from "../../src/services/configService";
 import draftListingService from "../../src/services/draftListingService";
 import imageCompressionService from "../../src/services/imageCompressionService";
 import listingService from "../../src/services/listingService";
+import * as ImageUtils from "../../src/utils/imageUtils";
 
 // Fallback for ActivityIndicator if needed (React 19 / RN 0.81 compatibility)
 const RNActivityIndicator = ActivityIndicator;
@@ -160,54 +161,64 @@ const Photos = () => {
 
   // Flag to ensure we only load from draft/params once on mount
   const [initialLoadDone, setInitialLoadDone] = useState(false);
+  // Stable reference to params.photos
+  const paramsPhotos = params?.photos;
 
   useEffect(() => {
     // If we have a draftId but draftData isn't loaded yet, wait for it
     if (draftId && !draftData) return;
-    
+
     // Once load is done, don't re-run this logic
     if (initialLoadDone) return;
 
-    let loadedPhotos = [];
-    if (draftData?.photos) {
-      loadedPhotos = Array.isArray(draftData.photos)
-        ? draftData.photos
-        : safeParseArray(draftData.photos);
-    } else if (params.photos) {
-      loadedPhotos = safeParseArray(params.photos);
-    }
+    const resolveAllImages = async () => {
+      console.log('📂 [Photos] Loading photos for draft:', draftId);
+      console.log('📊 [Photos] Draft data available:', !!draftData);
+      
+      let loadedPhotos = [];
+      if (draftData?.photos) {
+        loadedPhotos = Array.isArray(draftData.photos)
+          ? draftData.photos
+          : safeParseArray(draftData.photos);
+        console.log('📸 [Photos] Found photos in draft:', loadedPhotos.length);
+      } else if (paramsPhotos) {
+        loadedPhotos = safeParseArray(paramsPhotos);
+        console.log('📸 [Photos] Found photos in params:', loadedPhotos.length);
+      } else {
+        console.log('📸 [Photos] No photos found in draft or params');
+      }
 
-    const normalizedPhotos = (loadedPhotos || []).map(p => {
-        if (typeof p === 'string') return p;
-        if (typeof p === 'object' && p !== null) return p.url || p.uri || null;
-        return null;
-    }).filter(Boolean);
-    
-    if (normalizedPhotos.length > 0) {
-      setPhotos(normalizedPhotos);
-    }
+      const resolvedPhotos = await Promise.all(
+        (loadedPhotos || []).map(async (p) => {
+          let uri = null;
+          if (typeof p === "string") uri = p;
+          else if (typeof p === "object" && p !== null) uri = p.url || p.uri;
 
-    let loadedVideos = [];
-    if (draftData?.propertyVideos || draftData?.video) {
-      const vids = draftData.propertyVideos || draftData.video;
-      loadedVideos = Array.isArray(vids) ? vids : safeParseArray(vids);
-    } else if (params.video || params.propertyVideos) {
-      loadedVideos = safeParseArray(params.propertyVideos || params.video);
-    }
+          if (uri) {
+            return await ImageUtils.resolveImageUrl(uri);
+          }
+          return null;
+        })
+      );
+      
+      const finalPhotos = resolvedPhotos.filter(Boolean);
+      console.log('📝 [Photos] Setting photos state:', finalPhotos.length);
+      setPhotos(finalPhotos);
 
-    const normalizedVideos = (loadedVideos || []).map(v => {
-      if (typeof v === 'string') return v;
-      if (typeof v === 'object' && v !== null) return v.url || v.uri || null;
-      return null;
-    }).filter(Boolean);
-    
-    if (normalizedVideos.length > 0) {
-      setVideos(normalizedVideos);
-    }
+      let loadedVideos = [];
+      if (draftData?.propertyVideos || draftData?.video) {
+        const vids = draftData.propertyVideos || draftData.video;
+        loadedVideos = Array.isArray(vids) ? vids : safeParseArray(vids);
+        console.log('🎬 [Photos] Found videos in draft:', loadedVideos.length);
+      }
+      console.log('📝 [Photos] Setting videos state:', loadedVideos.length);
+      setVideos(loadedVideos);
 
-    // Mark as done so user changes aren't overwritten by draftData updates later
-    setInitialLoadDone(true);
-  }, [draftData, params, draftId, initialLoadDone]);
+      setInitialLoadDone(true);
+    };
+
+    resolveAllImages();
+  }, [draftData, draftId, initialLoadDone, paramsPhotos]);
 
   // Auto-save when photos change
   const updatePhotos = (newPhotos) => {
@@ -274,11 +285,26 @@ const Photos = () => {
   };
 
   const handleBack = () => {
-    // Navigate back with draftId
-    const finalDraftId = (draftData && draftData.draftId) || draftId;
-    router.replace({
-      pathname: "/create-listing/amenities",
-      params: finalDraftId ? { draftId: finalDraftId } : {},
+    // Save current photos before navigating back
+    const finalDraftId = (draftData && draftData.draftId) || draftId || draftListingService.generateDraftId();
+    
+    saveDraftData({
+      photos: Array.isArray(photos) ? photos : safeParseArray(photos),
+      video: videos,
+      propertyVideos: videos,
+      currentStep: 6,
+      draftId: finalDraftId,
+    }).then(() => {
+      router.replace({
+        pathname: "/create-listing/amenities",
+        params: { draftId: finalDraftId },
+      });
+    }).catch((err) => {
+      console.error("Error saving photos before back navigation:", err);
+      router.replace({
+        pathname: "/create-listing/amenities",
+        params: { draftId: finalDraftId },
+      });
     });
   };
 
@@ -301,7 +327,7 @@ const Photos = () => {
       mediaTypes: ["images"],
       allowsMultipleSelection: true,
       quality: 0.8,
-      selectionLimit: 10 - (photos ? photos.length : 0),
+      selectionLimit: Math.min(10, 20 - (photos ? photos.length : 0)),
       // For web, use base64 to ensure we can access the image data
       base64: Platform.OS === "web",
     });
@@ -327,7 +353,7 @@ const Photos = () => {
         // Process and save each image immediately for fast saving
         for (const asset of result.assets) {
           // Yield to UI thread to prevent freezing
-          await new Promise(resolve => setTimeout(resolve, 10));
+          await new Promise((resolve) => setTimeout(resolve, 10));
           try {
             let finalUri;
 
@@ -357,22 +383,36 @@ const Photos = () => {
 
             // Inline backend upload for immediate URL persistence
             try {
-              console.log("📸 [Photos] Automatically uploading image to server...");
-              const uploadImgRes = await listingService.uploadImages([finalUri]);
-              if (uploadImgRes.success && uploadImgRes.images && uploadImgRes.images.length > 0) {
-                 const uploadedImg = uploadImgRes.images[0];
-                 let serverUrl = uploadedImg.url || uploadedImg;
-                 if (typeof serverUrl === 'string') {
-                     if (serverUrl.startsWith('/')) {
-                         const baseURL = await configService.getBaseURL();
-                         serverUrl = `${baseURL}${serverUrl}`;
-                     }
-                     finalUri = serverUrl;
-                     console.log("✅ [Photos] Image uploaded successfully:", finalUri);
-                 }
+              console.log(
+                "📸 [Photos] Automatically uploading image to server...",
+              );
+              const uploadImgRes = await listingService.uploadImages([
+                finalUri,
+              ]);
+              if (
+                uploadImgRes.success &&
+                uploadImgRes.images &&
+                uploadImgRes.images.length > 0
+              ) {
+                const uploadedImg = uploadImgRes.images[0];
+                let serverUrl = uploadedImg.url || uploadedImg;
+                if (typeof serverUrl === "string") {
+                  if (serverUrl.startsWith("/")) {
+                    const baseURL = await configService.getBaseURL();
+                    serverUrl = `${baseURL}${serverUrl}`;
+                  }
+                  finalUri = serverUrl;
+                  console.log(
+                    "✅ [Photos] Image uploaded successfully:",
+                    finalUri,
+                  );
+                }
               }
             } catch (upErr) {
-              console.warn("⚠️ [Photos] Instant image upload failed, will retry on review screen:", upErr);
+              console.warn(
+                "⚠️ [Photos] Instant image upload failed, will retry on review screen:",
+                upErr,
+              );
             }
 
             // Add to photos array
@@ -393,7 +433,11 @@ const Photos = () => {
               );
             }
             // Update progress for each processed image
-            const currentImgProgress = Math.round(((currentPhotos.length - photos.length + 1) / result.assets.length) * 100);
+            const currentImgProgress = Math.round(
+              ((currentPhotos.length - photos.length + 1) /
+                result.assets.length) *
+                100,
+            );
             setImageProgress(currentImgProgress);
           } catch (error) {
             console.error("Error compressing/saving image:", error);
@@ -489,67 +533,91 @@ const Photos = () => {
       setIsCompressingVideo(true);
       setVideoProgress(0); // Reset progress
       const currentVideos = videos || [];
-      
+
       try {
         const newDocVideos = [...currentVideos];
         for (const asset of result.assets) {
           // Yield to UI thread to prevent freezing
-          await new Promise(resolve => setTimeout(resolve, 10));
+          await new Promise((resolve) => setTimeout(resolve, 10));
           try {
             console.log("🎬 [Photos] Checking video size and compressing...");
-            const originalSize = await imageCompressionService.getFileSize(asset.uri);
+            const originalSize = await imageCompressionService.getFileSize(
+              asset.uri,
+            );
             const MAX_VIDEO_SIZE = 50 * 1024 * 1024; // 50MB
 
             if (originalSize > MAX_VIDEO_SIZE) {
-               console.log(`⚠️ [Photos] Video exceeds 50MB (${(originalSize / 1024 / 1024).toFixed(1)}MB). Attempting compression...`);
+              console.log(
+                `⚠️ [Photos] Video exceeds 50MB (${(originalSize / 1024 / 1024).toFixed(1)}MB). Attempting compression...`,
+              );
             }
 
             // Use the imageCompressionService to compress the video before pushing it
-            const compressionResult = await imageCompressionService.compressVideo(
-                asset.uri, 
+            const compressionResult =
+              await imageCompressionService.compressVideo(
+                asset.uri,
                 (progress) => setVideoProgress(Math.round(progress * 100)),
-                50 // 50MB limit
-            );
+                50, // 50MB limit
+              );
 
             // Double check if result is still too large
             if (compressionResult && compressionResult.size > MAX_VIDEO_SIZE) {
-               Alert.alert(
-                 "Video Too Large",
-                 "The video is still over 50MB after compression. Please choose a shorter or lower resolution video."
-               );
-               throw new Error("Video too large after compression");
+              Alert.alert(
+                "Video Too Large",
+                "The video is still over 50MB after compression. Please choose a shorter or lower resolution video.",
+              );
+              throw new Error("Video too large after compression");
             }
-            let compressedUri = compressionResult ? compressionResult.uri : asset.uri;
+            let compressedUri = compressionResult
+              ? compressionResult.uri
+              : asset.uri;
             console.log("✅ [Photos] Video compressed successfully");
-            
+
             // Inline backend video upload for immediate URL persistence
             try {
-              console.log("🎬 [Photos] Automatically uploading video to server...");
-              const uploadVidRes = await listingService.uploadVideos([compressedUri]);
-              if (uploadVidRes.success && uploadVidRes.videos && uploadVidRes.videos.length > 0) {
-                 const uploadedVid = uploadVidRes.videos[0];
-                 let serverUrl = uploadedVid.url || uploadedVid;
-                 if (typeof serverUrl === 'string') {
-                     if (serverUrl.startsWith('/')) {
-                         const baseURL = await configService.getBaseURL();
-                         serverUrl = `${baseURL}${serverUrl}`;
-                     }
-                     compressedUri = serverUrl;
-                     console.log("✅ [Photos] Video uploaded successfully:", compressedUri);
-                 }
+              console.log(
+                "🎬 [Photos] Automatically uploading video to server...",
+              );
+              const uploadVidRes = await listingService.uploadVideos([
+                compressedUri,
+              ]);
+              if (
+                uploadVidRes.success &&
+                uploadVidRes.videos &&
+                uploadVidRes.videos.length > 0
+              ) {
+                const uploadedVid = uploadVidRes.videos[0];
+                let serverUrl = uploadedVid.url || uploadedVid;
+                if (typeof serverUrl === "string") {
+                  if (serverUrl.startsWith("/")) {
+                    const baseURL = await configService.getBaseURL();
+                    serverUrl = `${baseURL}${serverUrl}`;
+                  }
+                  compressedUri = serverUrl;
+                  console.log(
+                    "✅ [Photos] Video uploaded successfully:",
+                    compressedUri,
+                  );
+                }
               }
             } catch (upErr) {
-              console.warn("⚠️ [Photos] Instant video upload failed, will retry on review screen:", upErr);
+              console.warn(
+                "⚠️ [Photos] Instant video upload failed, will retry on review screen:",
+                upErr,
+              );
             }
 
             newDocVideos.push(compressedUri);
           } catch (compressError) {
-             console.error("❌ [Photos] Video compression failed:", compressError);
-             // Fallback to original uri
-             newDocVideos.push(asset.uri);
+            console.error(
+              "❌ [Photos] Video compression failed:",
+              compressError,
+            );
+            // Fallback to original uri
+            newDocVideos.push(asset.uri);
           }
         }
-        
+
         const finalVideos = newDocVideos.slice(0, 3);
         updateVideos(finalVideos);
         console.log(`✅ ${result.assets.length} Video(s) added successfully`);
@@ -595,13 +663,30 @@ const Photos = () => {
 
         {/* Photo Upload Area */}
         {isCompressing ? (
-            <View style={[styles.uploadArea, { gap: 10 }]}>
-              <RNActivityIndicator size="large" color="#192DFF" />
-              <Text style={styles.uploadTitle}>Processing and Uploading Photos... {imageProgress}%</Text>
-              <View style={{ width: '80%', height: 6, backgroundColor: '#E0E0E0', borderRadius: 3, marginTop: 10 }}>
-                 <View style={{ width: `${imageProgress}%`, height: '100%', backgroundColor: '#192DFF', borderRadius: 3 }} />
-              </View>
+          <View style={[styles.uploadArea, { gap: 10 }]}>
+            <RNActivityIndicator size="large" color="#192DFF" />
+            <Text style={styles.uploadTitle}>
+              Processing and Uploading Photos... {imageProgress}%
+            </Text>
+            <View
+              style={{
+                width: "80%",
+                height: 6,
+                backgroundColor: "#E0E0E0",
+                borderRadius: 3,
+                marginTop: 10,
+              }}
+            >
+              <View
+                style={{
+                  width: `${imageProgress}%`,
+                  height: "100%",
+                  backgroundColor: "#192DFF",
+                  borderRadius: 3,
+                }}
+              />
             </View>
+          </View>
         ) : photos.length === 0 ? (
           <Pressable style={styles.uploadArea} onPress={pickImage}>
             <CameraIcon size={50} color="#192DFF" />
@@ -649,10 +734,27 @@ const Photos = () => {
           {isCompressingVideo ? (
             <View style={[styles.videoUploadArea, { gap: 10 }]}>
               <RNActivityIndicator size="large" color="#192DFF" />
-              <Text style={styles.uploadTitle}>Processing videos... {videoProgress}%</Text>
-              
-              <View style={{ width: '80%', height: 6, backgroundColor: '#E0E0E0', borderRadius: 3, marginTop: 10 }}>
-                 <View style={{ width: `${videoProgress}%`, height: '100%', backgroundColor: '#192DFF', borderRadius: 3 }} />
+              <Text style={styles.uploadTitle}>
+                Processing videos... {videoProgress}%
+              </Text>
+
+              <View
+                style={{
+                  width: "80%",
+                  height: 6,
+                  backgroundColor: "#E0E0E0",
+                  borderRadius: 3,
+                  marginTop: 10,
+                }}
+              >
+                <View
+                  style={{
+                    width: `${videoProgress}%`,
+                    height: "100%",
+                    backgroundColor: "#192DFF",
+                    borderRadius: 3,
+                  }}
+                />
               </View>
             </View>
           ) : videos.length === 0 ? (
@@ -671,14 +773,22 @@ const Photos = () => {
                       Video {index + 1}
                     </Text>
                   </View>
-                  <Pressable style={styles.removeVideoButton} onPress={() => removeVideo(index)}>
+                  <Pressable
+                    style={styles.removeVideoButton}
+                    onPress={() => removeVideo(index)}
+                  >
                     <CloseIcon size={14} color="#FFFFFF" />
                   </Pressable>
                 </View>
               ))}
               {videos.length < 3 && (
-                <Pressable style={[styles.videoUploadArea, { height: 80, marginTop: 5 }]} onPress={pickVideo}>
-                  <Text style={[styles.uploadTitle, { fontSize: 14 }]}>+ Add another video</Text>
+                <Pressable
+                  style={[styles.videoUploadArea, { height: 80, marginTop: 5 }]}
+                  onPress={pickVideo}
+                >
+                  <Text style={[styles.uploadTitle, { fontSize: 14 }]}>
+                    + Add another video
+                  </Text>
                 </Pressable>
               )}
             </View>
@@ -694,7 +804,8 @@ const Photos = () => {
         <Pressable
           style={[
             styles.nextButton,
-            (photos.length < 3 || isCompressing || isCompressingVideo) && styles.nextButtonDisabled,
+            (photos.length < 3 || isCompressing || isCompressingVideo) &&
+              styles.nextButtonDisabled,
           ]}
           onPress={handleNext}
           disabled={photos.length < 3 || isCompressing || isCompressingVideo}
@@ -702,7 +813,8 @@ const Photos = () => {
           <Text
             style={[
               styles.nextButtonText,
-              (photos.length < 3 || isCompressing || isCompressingVideo) && styles.nextButtonTextDisabled,
+              (photos.length < 3 || isCompressing || isCompressingVideo) &&
+                styles.nextButtonTextDisabled,
             ]}
           >
             {isCompressing || isCompressingVideo ? "Uploading..." : "Next"}

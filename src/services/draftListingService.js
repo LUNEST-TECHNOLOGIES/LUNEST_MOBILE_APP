@@ -11,6 +11,9 @@ import storageService from "./storageService";
 
 const DRAFTS_KEY_PREFIX = "listingDrafts_";
 
+// Track which drafts are currently being synced to prevent duplicates
+const syncingDrafts = new Set();
+
 class DraftListingService {
   /**
    * Get the user-specific drafts storage key
@@ -41,46 +44,59 @@ class DraftListingService {
    * @returns {Promise<string>} The draft ID
    */
   async saveDraft(listingData) {
-    try {
-      const draftsKey = await this.getDraftsKey();
-      const drafts = await this.getAllDrafts();
-      // If editing a published listing, use a stable edit_{listingId} draftId so wen      // don't create multiple edit-drafts for the same listing when the user
-      // navigates back-and-forth.
-      const draftId =
-        listingData.draftId ||
-        (listingData.editingListingId
-          ? `edit_${listingData.editingListingId}`
-          : `draft_${Date.now()}`);
+    // Stage 1: Absolute defensive entry
+    if (!listingData || typeof listingData !== 'object') {
+      console.error("❌ [DraftListingService] Invalid listingData provided:", listingData);
+      throw new Error("Invalid draft data: data is null or not an object");
+    }
 
-      const draft = {
+    try {
+      // Stage 2: Capture all values immediately to local variables to avoid closure issues
+      const inputDraftId = listingData?.draftId;
+      const editingId = listingData?.editingListingId;
+      const timestamp = new Date().toISOString();
+      
+      const resolvedDraftId =
+        inputDraftId ||
+        (editingId ? `edit_${editingId}` : `draft_${Date.now()}`);
+
+      if (!resolvedDraftId) {
+        console.error("❌ [DraftListingService] Could not resolve a draftId from:", listingData);
+        throw new Error("Draft ID resolution failed");
+      }
+
+      // Stage 3: Prepare the final draft object safely
+      const draftToSave = {
         ...listingData,
-        draftId,
-        lastModified: new Date().toISOString(),
+        draftId: resolvedDraftId,
+        lastModified: timestamp,
         status: "draft",
       };
 
-      // Update existing draft or add new one
-      const existingIndex = drafts.findIndex((d) => d.draftId === draftId);
+      // Stage 4: Local Storage Operations
+      const draftsKey = await this.getDraftsKey();
+      const existingDrafts = (await this.getAllDrafts()) || [];
+      const updatedDraftsList = [...existingDrafts];
+      
+      const existingIndex = updatedDraftsList.findIndex((d) => d?.draftId === resolvedDraftId);
       if (existingIndex >= 0) {
-        drafts[existingIndex] = draft;
+        updatedDraftsList[existingIndex] = draftToSave;
       } else {
-        drafts.unshift(draft); // Add to beginning
+        updatedDraftsList.unshift(draftToSave);
       }
 
-      // Save locally first (fast) - use user-specific key
-      await storageService.setItem(draftsKey, drafts);
-      console.log("💾 Draft saved locally:", draftId);
+      await storageService.setItem(draftsKey, updatedDraftsList);
+      console.log("💾 [DraftListingService] Local save complete:", resolvedDraftId);
 
-      // Sync to database (await to get _id back and prevent duplicate creation)
-      try {
-        await this.syncToDatabase(draft);
-      } catch (err) {
-        console.log("⚠️ Database sync failed (will retry later):", err.message);
-      }
+      // Stage 5: Background Database Sync (Heavily Guarded)
+      // We don't await this to keep the UI snappy, but we catch all errors
+      this.syncToDatabase(draftToSave).catch(err => {
+        console.warn("⚠️ [DraftListingService] Background sync failed:", err.message);
+      });
 
-      return draftId;
+      return resolvedDraftId;
     } catch (error) {
-      console.error("Error saving draft:", error);
+      console.error("❌ [DraftListingService] CRITICAL save error:", error);
       throw error;
     }
   }
@@ -91,6 +107,15 @@ class DraftListingService {
    * @returns {Promise<void>}
    */
   async syncToDatabase(draftData) {
+    // Skip if already syncing this draft
+    if (syncingDrafts.has(draftData.draftId)) {
+      console.log("⏳ [DraftListingService] Sync already in progress for:", draftData.draftId);
+      return;
+    }
+
+    // Add to syncing set
+    syncingDrafts.add(draftData.draftId);
+
     try {
       const result = await listingService.saveDraftToDatabase(draftData);
       if (result.success) {
@@ -125,6 +150,9 @@ class DraftListingService {
       }
     } catch (error) {
       console.log("⚠️ Could not sync draft to database:", error.message);
+    } finally {
+      // Always remove from syncing set when done
+      syncingDrafts.delete(draftData.draftId);
     }
   }
 
@@ -291,17 +319,23 @@ class DraftListingService {
       const drafts = await this.getAllDrafts();
 
       const targetDraft = drafts.find((d) => d.draftId === draftId);
-      const backendIdToDelete =
-        targetDraft && targetDraft._id ? targetDraft._id : draftId;
+      
+      // Only delete from backend if draft has been synced (has _id)
+      // Local-only drafts (without _id) don't exist on backend
+      const backendIdToDelete = targetDraft?._id;
 
       const filteredDrafts = drafts.filter((d) => d.draftId !== draftId);
       await storageService.setItem(draftsKey, filteredDrafts);
       console.log("💾 Draft deleted locally:", draftId);
 
-      // Delete from database in background using the explicit Mongo ID if observed
-      listingService.deleteDraftFromDatabase(backendIdToDelete).catch((err) => {
-        console.log("⚠️ Could not delete draft from database:", err.message);
-      });
+      // Delete from database only if it was synced (has _id)
+      if (backendIdToDelete) {
+        listingService.deleteDraftFromDatabase(backendIdToDelete).catch((err) => {
+          console.log("⚠️ Could not delete draft from database:", err.message);
+        });
+      } else {
+        console.log("📝 Draft was local-only, no backend deletion needed");
+      }
     } catch (error) {
       console.error("Error deleting draft:", error);
       throw error;
@@ -405,11 +439,17 @@ class DraftListingService {
       country: params.country || "Nigeria",
       postalCode: params.postalCode || "",
       landmarks: params.landmarks || "[]",
+      propertyLocation: params.propertyLocation || {
+        coordinates: [0, 0],
+        fullAddress: "",
+      },
       // Step 5
-      amenities: params.amenities || "[]",
+      amenities: params.amenities || params.selectedAmenities || "[]",
+      selectedAmenities: params.selectedAmenities || params.amenities || "[]",
       customAmenities: params.customAmenities || "[]",
       // Step 6
-      photos: params.photos || "[]",
+      photos: params.photos || params.images || "[]",
+      images: params.images || params.photos || "[]",
       propertyVideos: params.propertyVideos || params.video || "[]",
       video: params.video || params.propertyVideos || "[]",
       // Step 7
@@ -424,8 +464,9 @@ class DraftListingService {
       maxStay: params.maxStay || "30",
       advanceNotice: params.advanceNotice || "1",
       availableNow: params.availableNow || "true",
+      availabilityStatus: params.availabilityStatus || "available",
       // Step 9
-      houseRules: params.houseRules || "{}",
+      houseRules: params.houseRules || "[]", // Standardize as array from UI
       checkInTime: params.checkInTime || "14:00",
       checkOutTime: params.checkOutTime || "11:00",
       additionalRules: params.additionalRules || "",
@@ -433,4 +474,13 @@ class DraftListingService {
   }
 }
 
-export default new DraftListingService();
+// Prevent redeclaration errors during Fast Refresh
+if (globalThis.__draftListingServiceInstance) {
+  module.exports = globalThis.__draftListingServiceInstance;
+} else {
+  const instance = new DraftListingService();
+  globalThis.__draftListingServiceInstance = instance;
+  module.exports = instance;
+}
+
+export default globalThis.__draftListingServiceInstance || new DraftListingService();

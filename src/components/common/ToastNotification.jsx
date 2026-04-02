@@ -3,15 +3,15 @@
  * Shows temporary success/error messages
  */
 
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  Animated,
-  Platform,
+    Animated,
+    Platform,
+    StyleSheet,
+    Text,
+    View,
 } from 'react-native';
-import Svg, { Path, Circle } from 'react-native-svg';
+import Svg, { Circle, Path } from 'react-native-svg';
 
 // Toast types
 export const TOAST_TYPE = {
@@ -195,12 +195,12 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 12,
     borderWidth: 1,
-    zIndex: 9999,
+    zIndex: 99999,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 8,
-    elevation: 5,
+    elevation: 50, // High elevation to overlay modals
   },
   iconContainer: {
     marginRight: 12,

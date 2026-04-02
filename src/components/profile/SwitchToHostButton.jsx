@@ -53,7 +53,7 @@ export const HOST_APPLICATION_STATUS = {
 /**
  * Switch to Host Button Component
  * Shows different states based on host application status:
- * - APPROVED: Active "Switch to Host" button
+ * - APPROVED: Active "Switch to Host/Landlord" button
  * - PENDING: Disabled "Host Application in Review" button
  * - REJECTED: "Reapply for Host" button
  * - NONE: Hidden (show BecomeHostCard instead)
@@ -73,7 +73,7 @@ const SwitchToHostButton = ({ onPress, status = HOST_APPLICATION_STATUS.APPROVED
       <View style={[styles.container, styles.pendingContainer, { width: containerWidth }]}>
         <View style={styles.content}>
           <ClockIcon size={16} color="#F59E0B" />
-          <Text style={[styles.buttonText, styles.pendingText]}>Host Application in Review</Text>
+          <Text style={[styles.buttonText, styles.pendingText]}>Host/Landlord Application in Review</Text>
         </View>
       </View>
     );
@@ -103,7 +103,7 @@ const SwitchToHostButton = ({ onPress, status = HOST_APPLICATION_STATUS.APPROVED
       activeOpacity={0.8}
     >
       <View style={styles.content}>
-        <Text style={styles.buttonText}>Switch to Host</Text>
+        <Text style={styles.buttonText}>Switch to Host/Landlord</Text>
         <ArrowRightIcon size={14} color="#FFFFFF" />
       </View>
     </TouchableOpacity>

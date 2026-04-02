@@ -12,6 +12,7 @@ class LocationService {
     constructor() {
         this.lastLocation = null;
         this.lastAddress = null;
+        this.geocodeCache = new Map(); // Simple in-memory cache for geocoding results
     }
 
     /**
@@ -257,8 +258,16 @@ class LocationService {
      */
     async getCoordinatesFromAddress(address) {
         try {
-            console.log('🗺️ [LocationService] Forward geocoding:', address);
+            if (!address) return null;
 
+            // Check cache first to avoid rate limits
+            const normalizedAddress = address.trim().toLowerCase();
+            if (this.geocodeCache.has(normalizedAddress)) {
+                console.log('🗺️ [LocationService] Using cached coordinates for:', address);
+                return this.geocodeCache.get(normalizedAddress);
+            }
+
+            console.log('🗺️ [LocationService] Forward geocoding:', address);
             const results = await Location.geocodeAsync(address);
 
             if (results && results.length > 0) {
@@ -266,13 +275,22 @@ class LocationService {
                     latitude: results[0].latitude,
                     longitude: results[0].longitude,
                 };
-                console.log('✅ [LocationService] Coordinates obtained:', coords);
+                
+                // Store in cache
+                this.geocodeCache.set(normalizedAddress, coords);
+                
+                console.log('✅ [LocationService] Coordinates obtained and cached:', coords);
                 return coords;
             }
 
             return null;
         } catch (error) {
-            console.error('❌ [LocationService] Error geocoding address:', error);
+            // Check for rate limit error specifically
+            if (error.message && error.message.includes('rate limit')) {
+                console.warn('⚠️ [LocationService] Geocoding rate limit exceeded. Using last known or null.');
+            } else {
+                console.error('❌ [LocationService] Error geocoding address:', error);
+            }
             return null;
         }
     }

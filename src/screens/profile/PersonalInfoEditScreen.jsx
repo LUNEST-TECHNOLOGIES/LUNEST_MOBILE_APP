@@ -17,6 +17,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Circle, Path } from "react-native-svg";
+import PhoneVerificationModal from "../../components/modals/PhoneVerificationModal";
 import authService from "../../services/authService";
 import profileService from "../../services/profileService";
 
@@ -139,7 +140,7 @@ const PersonalInfoEditScreen = () => {
     location: "",
     nin: "", // NIN value - once provided, considered verified
     avatarUri: null,
-    isVerified: true, // If true, name cannot be changed
+    isVerified: false, // If true, name and NIN cannot be changed
     employment: {
       employerName: "",
       employerAddress: "",
@@ -185,6 +186,8 @@ const PersonalInfoEditScreen = () => {
   const [editError, setEditError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [showPhoneVerificationModal, setShowPhoneVerificationModal] = useState(false);
+  const [pendingPhoneUpdate, setPendingPhoneUpdate] = useState(null);
 
   // Load saved profile data on mount
   useEffect(() => {
@@ -267,8 +270,14 @@ const PersonalInfoEditScreen = () => {
                }
                return serverAvatar;
             }
-            return savedProfile.avatarUri || prev.avatarUri;
+            // Filter out blob URIs from savedProfile as they are temporary and invalid across sessions
+            const savedAvatar = savedProfile.avatarUri;
+            if (savedAvatar && (savedAvatar.startsWith("blob:") || savedAvatar.startsWith("data:"))) {
+              return prev.avatarUri;
+            }
+            return savedAvatar || prev.avatarUri;
           })(),
+          isVerified: serverProfileResult?.data?.kycStatus === 'VERIFIED' || !!serverProfileResult?.data?.verified || false,
         }));
       } else if (
         authData ||
@@ -292,6 +301,7 @@ const PersonalInfoEditScreen = () => {
              }
              return prev.avatarUri;
           })(),
+          isVerified: serverProfileResult?.data?.kycStatus === 'VERIFIED' || !!serverProfileResult?.data?.verified || false,
         }));
       }
     } catch (error) {
@@ -361,44 +371,29 @@ const PersonalInfoEditScreen = () => {
         const uploadResult = await authService.uploadAvatar(tempUri);
 
         if (uploadResult.success) {
-          // Construct full avatar URL
-          // The backend returns a relative path like /uploads/avatars/filename.jpg
-          // We need to prepend the base URL
-          const relativePath = uploadResult.data.avatarUrl;
-          
-          // Get base URL to construct full path
-          // We can use a helper or just rely on what authService uses
-          // Ideally, we should store just the relative path and have a component handle the base URL,
-          // but for now, let's try to construct a full URL if we can, or just save what the server gave us.
-          // Note: ProfileHeader handles display.
-          
-          // Let's rely on saving what the server gave us.
-          // But to display immediately, we might need the full URL.
-          
-          // Actually, let's fetch the profile again to ensure we have the correct server-side URL
-          const profileResult = await authService.fetchProfile();
-          let serverAvatarUri = profileResult.data?.avatar; // The field is 'avatar' in user model
+          // Construct full avatar URL if necessary
+          // Check multiple possible response fields (avatar, avatarUrl, image, etc.)
+          const responseData = uploadResult.data;
+          let serverAvatarUri = responseData?.avatar || responseData?.avatarUrl || responseData?.image;
 
-          if (serverAvatarUri && serverAvatarUri.startsWith('/')) {
-              serverAvatarUri = `${authService.baseURL.replace(/\/$/, "")}${serverAvatarUri}`;
+          if (serverAvatarUri && serverAvatarUri.startsWith("/")) {
+            serverAvatarUri = `${authService.baseURL.replace(/\/$/, "")}${serverAvatarUri}`;
           }
 
-          // Update local state with the new URI
-          // If server returned a relative path, we might need to handle it in display components
-          // But for now, let's just use what we have.
-           
-          const newUserData = {
-            ...userData,
-            avatarUri: serverAvatarUri || tempUri, // Fallback to temp if server fails to return it
-          };
-          
-          setUserData(newUserData);
+          // If we got a real URL from server, use it. Otherwise, if we must fallback, 
+          // we'll use the tempUri but mark it as something we need to refresh.
+          const finalAvatarUri = serverAvatarUri || tempUri;
 
-          // Save to persistent storage
-          await saveProfileData(newUserData);
+          setUserData((prev) => ({
+            ...prev,
+            avatarUri: finalAvatarUri,
+          }));
 
+          // Force a full profile reload from server to ensure we have the absolute state
+          await loadProfileData();
           setIsLoading(false);
-          showSuccess("Profile photo updated");
+
+          Alert.alert("Success", "Profile picture updated successfully.");
         } else {
           setIsLoading(false);
           Alert.alert("Upload Failed", uploadResult.message);
@@ -458,10 +453,10 @@ const PersonalInfoEditScreen = () => {
 
   // Open edit modal
   const handleUpdate = (field, isEmployment = false) => {
-    if (field === "name" && userData.isVerified) {
+    if ((field === "name" || field === "nin") && userData.isVerified) {
       Alert.alert(
-        "Cannot Edit Name",
-        "Your name cannot be changed because your account is verified. Please contact support if you need to update it.",
+        `Cannot Edit ${fieldLabels[field] || field}`,
+        `Your ${fieldLabels[field] || field} cannot be changed because your account is verified. Please contact support if you need to update it.`,
         [{ text: "OK" }],
       );
       return;
@@ -524,12 +519,40 @@ const PersonalInfoEditScreen = () => {
         };
       }
 
-      // For phone and NIN, also save to server
-      if (editField.key === "phone" || editField.key === "nin") {
-        const serverFieldName =
-          editField.key === "phone" ? "phoneNumber" : "nin";
+      // For phone, trigger verification modal after saving to server
+      if (editField.key === "phone") {
+        const serverFieldName = "phoneNumber";
         const serverResult = await authService.updateProfile({
           [serverFieldName]: editValue.trim(),
+        });
+
+        if (!serverResult.success) {
+          setIsLoading(false);
+          Alert.alert(
+            "Error",
+            serverResult.message ||
+              "Failed to save to server. Please try again.",
+          );
+          return;
+        }
+
+        // Update local state
+        setUserData(newUserData);
+        await saveProfileData(newUserData);
+        setIsLoading(false);
+        setShowEditModal(false);
+        
+        // Show phone verification modal
+        setPendingPhoneUpdate(editValue.trim());
+        setShowPhoneVerificationModal(true);
+        showSuccess("Phone updated - verification required");
+        return;
+      }
+
+      // For NIN, also save to server
+      if (editField.key === "nin") {
+        const serverResult = await authService.updateProfile({
+          nin: editValue.trim(),
         });
 
         if (!serverResult.success) {
@@ -675,7 +698,7 @@ const PersonalInfoEditScreen = () => {
             onPress={handlePhotoUpload}
             activeOpacity={0.8}
           >
-            {userData.avatarUri ? (
+            {userData.avatarUri && !(typeof userData.avatarUri === 'string' && userData.avatarUri.startsWith("blob:") && Platform.OS !== "web") ? (
               <Image
                 source={{ uri: userData.avatarUri }}
                 style={styles.avatar}
@@ -742,14 +765,15 @@ const PersonalInfoEditScreen = () => {
           <InfoRow
             label={
               userData.nin
-                ? `NIN: ${userData.nin.slice(0, 4)}****${userData.nin.slice(-3)}`
+                ? `NIN: ${userData.nin.replace(/(\d{4})\d+(\d{3})/, "$1****$2")}`
                 : "NIN"
             }
-            actionText={!userData.nin ? "Add NIN" : null}
+            actionText={userData.isVerified ? "Verified" : (!userData.nin ? "Add NIN" : "Update")}
             onAction={() => handleUpdate("nin")}
             isEmpty={!userData.nin}
             showVerification={!!userData.nin}
-            isVerified={!!userData.nin}
+            isVerified={userData.isVerified}
+            disabled={userData.isVerified}
           />
         </SectionCard>
 
@@ -883,6 +907,27 @@ const PersonalInfoEditScreen = () => {
           </View>
         </View>
       </Modal>
+
+      {/* Phone Verification Modal */}
+      <PhoneVerificationModal
+        visible={showPhoneVerificationModal}
+        phone={pendingPhoneUpdate}
+        onClose={() => {
+          setShowPhoneVerificationModal(false);
+          setPendingPhoneUpdate(null);
+        }}
+        onVerified={(verifiedData) => {
+          console.log("[PersonalInfoEdit] Phone verified:", verifiedData);
+          // Update local state with verified phone data
+          setUserData((prev) => ({
+            ...prev,
+            phone: verifiedData.phone,
+            phoneVerified: true,
+          }));
+          // Refresh profile data to get latest from server
+          loadProfileData();
+        }}
+      />
     </SafeAreaView>
   );
 };

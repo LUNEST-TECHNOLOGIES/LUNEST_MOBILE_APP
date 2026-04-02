@@ -166,16 +166,111 @@ const referralService = {
   /**
    * Validate a coupon code
    * @param {string} code
+   * @param {number} bookingAmount - Amount to validate coupon against
    */
-  async validateCoupon(code) {
+  async validateCoupon(code, bookingAmount = null) {
     try {
-      const response = await apiClient.post("/v1/coupons/validate", { code });
+      const payload = { code };
+      if (bookingAmount) payload.amount = bookingAmount;
+      
+      const response = await apiClient.post("/v1/coupons/validate", payload);
       if (response.success || response.data?.status === "SUCCESS") {
-        return { success: true, data: response.body || response.data?.data };
+        const coupon = response.body || response.data?.data || {};
+        
+        // Check if this coupon has already been used by the current user
+        if (coupon.hasBeenUsedByUser || coupon.userHasUsed || coupon.alreadyUsed) {
+          return {
+            success: false,
+            message: "This coupon has already been used by you. You can only use each coupon once.",
+            code: "COUPON_ALREADY_USED"
+          };
+        }
+        
+        return { 
+          success: true, 
+          data: {
+            ...coupon,
+            discount: coupon.discount || { type: "FIXED", value: 0 },
+            maxUses: coupon.maxUses,
+            usedCount: coupon.usedCount || 0,
+            expiryDate: coupon.expiryDate,
+            hasBeenUsedByUser: coupon.hasBeenUsedByUser || false,
+          }
+        };
       }
       return { success: false, message: response.message || response.data?.message || "Invalid coupon" };
     } catch (error) {
       console.error("[ReferralService] validateCoupon error:", error);
+      return { success: false, message: error.message };
+    }
+  },
+
+  /**
+   * Get coupon usage history for current user
+   * @returns {Promise<Object>}
+   */
+  async getCouponHistory() {
+    try {
+      const response = await apiClient.get("/v1/coupons/history");
+      if (response.success || response.data?.status === "SUCCESS") {
+        return { 
+          success: true, 
+          history: response.body || response.data?.data || []
+        };
+      }
+      return { success: false, message: response.message || response.data?.message || "Failed to fetch history" };
+    } catch (error) {
+      console.error("[ReferralService] getCouponHistory error:", error);
+      return { success: false, message: error.message };
+    }
+  },
+
+  /**
+   * Track coupon usage when booking is confirmed
+   * @param {string} couponCode
+   * @param {string} bookingId
+   * @param {number} discountAmount
+   */
+  async trackCouponUsage(couponCode, bookingId, discountAmount) {
+    try {
+      const response = await apiClient.post("/v1/coupons/track-usage", {
+        code: couponCode,
+        bookingId: bookingId,
+        discountAmount: discountAmount
+      });
+      if (response.success || response.data?.status === "SUCCESS") {
+        return { success: true, data: response.body || response.data?.data };
+      }
+      return { success: false, message: response.message || response.data?.message };
+    } catch (error) {
+      // Silently handle 404 since endpoint may not be implemented yet
+      // Tracking is non-critical - booking was already created successfully
+      if (error?.response?.status === 404) {
+        console.debug("[ReferralService] trackCouponUsage endpoint not available (404) - skipping");
+        return { success: true, data: null }; // Return success to prevent error propagation
+      }
+      
+      console.error("[ReferralService] trackCouponUsage error:", error);
+      return { success: false, message: error.message };
+    }
+  },
+
+  /**
+   * Get available coupons for the current user
+   * @returns {Promise<Object>}
+   */
+  async getAvailableCoupons() {
+    try {
+      const response = await apiClient.get("/v1/coupons/available");
+      if (response.success || response.data?.status === "SUCCESS") {
+        return { 
+          success: true, 
+          coupons: response.body || response.data?.data || []
+        };
+      }
+      return { success: false, message: response.message || response.data?.message };
+    } catch (error) {
+      console.error("[ReferralService] getAvailableCoupons error:", error);
       return { success: false, message: error.message };
     }
   },

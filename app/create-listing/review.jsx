@@ -4,7 +4,7 @@
  */
 
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -289,27 +289,42 @@ const Review = () => {
   const editingListingId =
     draftData?.editingListingId || params.editingListingId;
 
-  // Load and merge draft data with params
-  const [mergedData, setMergedData] = useState(params);
+  // Load and merge draft data with params - initialize with empty object to avoid unstable params
+  const [mergedData, setMergedData] = useState({});
+  
+  // Track if initial load is done to prevent infinite updates - use ref to avoid dependency issues
+  const initialLoadDoneRef = useRef(false);
+  
+  // Capture params once at mount to avoid unstable reference issues
+  const initialParamsRef = useRef(params);
 
-  // Load and merge draft data on mount
+  // Load and merge draft data on mount - run only once
   useEffect(() => {
-    if (draftData) {
-      // In editing mode, prioritize draft data but preserve existing photos if draft photos are empty
-      const mergedPhotos = isEditing
-        ? safeParseArray(draftData.photos).length > 0
-          ? safeParseArray(draftData.photos)
-          : safeParseArray(params.photos || params.images)
-        : safeParseArray(draftData.photos);
+    // Prevent re-running after initial load
+    if (initialLoadDoneRef.current || !draftData) return;
+    initialLoadDoneRef.current = true;
+    
+    console.log('📂 [Review] Loading draft data for review:', draftId);
+    
+    // Start with stable params as base
+    const baseData = { ...initialParamsRef.current };
+    
+    console.log('📸 [Review] Draft photos count:', safeParseArray(draftData.photos).length);
+    
+    // In editing mode, prioritize draft data but preserve existing photos if draft photos are empty
+    const mergedPhotos = isEditing
+      ? safeParseArray(draftData.photos).length > 0
+        ? safeParseArray(draftData.photos)
+        : safeParseArray(baseData.photos || baseData.images)
+      : safeParseArray(draftData.photos);
 
-      setMergedData({
-        ...params,
-        ...draftData,
-        photos: mergedPhotos,
-        images: mergedPhotos, // Ensure both photos and images are set
-      });
-    }
-  }, [draftData, isEditing]);
+    setMergedData({
+      ...baseData,
+      ...draftData,
+      photos: mergedPhotos,
+      images: mergedPhotos,
+    });
+  }, [draftData, isEditing, draftId]); // Standardizing dependency array
 
   // Parse merged data with improved photo handling for editing
   const photos = useMemo(() => {
@@ -327,40 +342,70 @@ const Review = () => {
     });
 
     return finalPhotos;
-  }, [mergedData.photos, mergedData.images, isEditing]);
+  }, [mergedData.photos, mergedData.images]); // Remove isEditing to prevent re-renders
 
   // Handle multiple videos gracefully
   const videos = useMemo(() => {
     let vids = [];
-    if (draftData?.propertyVideos || draftData?.videos || draftData?.video) {
-        const d_vids = draftData.propertyVideos || draftData.videos || draftData.video;
-        vids = Array.isArray(d_vids) ? d_vids : safeParseArray(d_vids);
-    } else if (params.propertyVideos || params.videos || params.video) {
-        vids = safeParseArray(params.propertyVideos || params.videos || params.video);
-    } else if (isEditing && (mergedData.propertyVideos || mergedData.videos || mergedData.video)) {
-        vids = safeParseArray(mergedData.propertyVideos || mergedData.videos || mergedData.video);
+    
+    // Use mergedData for videos since it contains the final merged values
+    if (mergedData?.propertyVideos || mergedData?.videos || mergedData?.video) {
+      const d_vids = mergedData.propertyVideos || mergedData.videos || mergedData.video;
+      vids = Array.isArray(d_vids) ? d_vids : safeParseArray(d_vids);
     }
 
-    return vids.map(v => {
-        if (typeof v === 'string') return v;
-        if (typeof v === 'object' && v !== null) return v.url || v.uri || null;
+    return vids
+      .map((v) => {
+        if (typeof v === "string") return v;
+        if (typeof v === "object" && v !== null) return v.url || v.uri || null;
         return null;
-    }).filter(Boolean);
-  }, [draftData, params.video, params.videos, params.propertyVideos, isEditing, mergedData.propertyVideos, mergedData.videos, mergedData.video]);
+      })
+      .filter(Boolean);
+  }, [mergedData.propertyVideos, mergedData.videos, mergedData.video]); // Only depend on mergedData
 
   // Combine media for rendering
   const media = useMemo(() => {
-      const vids = videos.map(v => ({ uri: v, type: 'video' }));
-      const imgs = photos.map(p => ({
-          uri: typeof p === 'string' ? p : (p?.uri || p?.url),
-          type: 'image'
-      })).filter(p => Boolean(p.uri));
-      return [...vids, ...imgs];
+    const vids = videos.map((v) => ({ uri: v, type: "video" }));
+    const imgs = photos
+      .map((p) => ({
+        uri: typeof p === "string" ? p : p?.uri || p?.url,
+        type: "image",
+      }))
+      .filter((p) => Boolean(p.uri));
+    
+    const allMedia = [...vids, ...imgs];
+    console.log('🎬 [Review] Media processed:', {
+      videos: vids.length,
+      images: imgs.length,
+      total: allMedia.length
+    });
+    
+    return allMedia;
   }, [photos, videos]);
 
   const selectedAmenities = safeParseArray(mergedData.selectedAmenities);
   const customAmenities = safeParseArray(mergedData.customAmenities);
   const landmarks = safeParseArray(mergedData.landmarks);
+
+  console.log('🛋️ [Review] Amenities data:', {
+    selectedCount: selectedAmenities.length,
+    customCount: customAmenities.length,
+    selected: selectedAmenities,
+    custom: customAmenities
+  });
+  
+  console.log('💰 [Review] Pricing data:', {
+    price: mergedData.price,
+    period: mergedData.pricingPeriod,
+    serviceCharge: mergedData.serviceCharge,
+    securityDeposit: mergedData.securityDeposit,
+    cleaningFee: mergedData.cleaningFee
+  });
+  
+  console.log('📋 [Review] Rules data:', {
+    houseRules: mergedData.houseRules,
+    additionalRules: mergedData.additionalRules
+  });
 
   const handleClose = () => {
     setShowCancelModal(true);
@@ -386,7 +431,7 @@ const Review = () => {
         ...mergedData,
         photos: photosToSave,
         images: photosToSave, // Ensure both are set
-        currentStep: 9,
+        currentStep: 10,
         draftId: finalDraftId,
         isEditing: isEditing,
         editingListingId: editingListingId,
@@ -452,15 +497,18 @@ const Review = () => {
         const existingVideos = videos.filter(
           (video) =>
             video &&
-            (video.startsWith("http://") || video.startsWith("https://") || video.startsWith("blob:")),
+            (video.startsWith("http://") ||
+              video.startsWith("https://") ||
+              video.startsWith("blob:")),
         );
 
         if (localVideos.length > 0) {
           console.log(
             `🎬 [Review] Uploading ${localVideos.length} local video(s)...`,
           );
-          const uploadVideosResult = await listingService.uploadVideos(localVideos);
-          
+          const uploadVideosResult =
+            await listingService.uploadVideos(localVideos);
+
           if (uploadVideosResult.success && uploadVideosResult.videos) {
             propertyVideos = [...existingVideos, ...uploadVideosResult.videos];
             console.log(
@@ -565,6 +613,14 @@ const Review = () => {
 
       // ...existing code...
 
+      // Limit images to prevent backend rejection (max 20 URLs)
+      if (propertyImages.length > 20) {
+        console.warn(
+          `[Review] Limiting images from ${propertyImages.length} to 20`,
+        );
+        propertyImages = propertyImages.slice(0, 20);
+      }
+
       // Step 2: Build listing data with image URLs
       // Convert amenity IDs to labels for backend
       // Filter out 'custom_' IDs from selectedAmenities as they are handled by customAmenities array
@@ -576,11 +632,17 @@ const Review = () => {
       const customAmenityLabels = customAmenities
         .map((amenity) => {
           if (typeof amenity === "object" && amenity !== null) {
-            return amenity.label || amenity.name || String(amenity.id || "");
+            // Priority: label -> name -> id (if no label/name)
+            return (
+              amenity.label ||
+              amenity.name ||
+              amenity.value ||
+              String(amenity.id || "")
+            );
           }
           return String(amenity || "");
         })
-        .filter((label) => label.trim() !== "");
+        .filter((label) => label.trim() !== "" && !label.startsWith("custom_"));
 
       const allAmenities = [...amenityLabels, ...customAmenityLabels];
 
@@ -630,6 +692,7 @@ const Review = () => {
         price: parsePrice(mergedData.price),
         pricingPeriod: mergedData.pricingPeriod || "night",
         securityDeposit: parsePrice(mergedData.securityDeposit),
+        serviceCharge: parsePrice(mergedData.serviceCharge),
         cleaningFee: parsePrice(mergedData.cleaningFee),
         instantBooking:
           mergedData.instantBooking === "true" ||
@@ -767,28 +830,37 @@ const Review = () => {
               style={styles.photoPreview}
             >
               {media.map((item, index) => {
-                  if (item.type === 'video') {
-                      return (
-                          <View key={`video-${index}`} style={styles.videoPreviewWrapper}>
-                              <View style={[styles.previewImage, styles.videoPlaceholder]}>
-                                  <VideoIcon size={30} color="#192DFF" />
-                                  <Text style={styles.videoPlaceholderText}>Video</Text>
-                              </View>
-                          </View>
-                      )
-                  }
-                  
+                if (item.type === "video") {
                   return (
-                    <Image
-                      key={`img-${index}`}
-                      source={{ uri: item.uri }}
-                      style={styles.previewImage}
-                      onError={(error) => {
-                        console.warn("[Review] Image failed to load:", item.uri, error);
-                      }}
-                    />
+                    <View
+                      key={`video-${index}`}
+                      style={styles.videoPreviewWrapper}
+                    >
+                      <View
+                        style={[styles.previewImage, styles.videoPlaceholder]}
+                      >
+                        <VideoIcon size={30} color="#192DFF" />
+                        <Text style={styles.videoPlaceholderText}>Video</Text>
+                      </View>
+                    </View>
                   );
-                })}
+                }
+
+                return (
+                  <Image
+                    key={`img-${index}`}
+                    source={{ uri: item.uri }}
+                    style={styles.previewImage}
+                    onError={(error) => {
+                      console.warn(
+                        "[Review] Image failed to load:",
+                        item.uri,
+                        error,
+                      );
+                    }}
+                  />
+                );
+              })}
             </ScrollView>
           </View>
         )}
@@ -925,7 +997,7 @@ const Review = () => {
           )}
           {!!mergedData.securityDeposit && (
             <SummaryRow
-              label="Security Deposit"
+              label="Security Deposit/Caution Fee"
               value={`₦${String(mergedData.securityDeposit || "0")}`}
             />
           )}
@@ -938,13 +1010,32 @@ const Review = () => {
 
           {/* Breakdown for Rentals */}
           {mergedData.intent?.toLowerCase() !== "sale" && mergedData.price && (
-            <View style={{ borderTopWidth: 1, borderTopColor: "#EEE", marginTop: 8, paddingTop: 8 }}>
+            <View
+              style={{
+                borderTopWidth: 1,
+                borderTopColor: "#EEE",
+                marginTop: 8,
+                paddingTop: 8,
+              }}
+            >
               <SummaryRow
                 label="App Charge (3%)"
                 value={`-₦${(() => {
-                  const pNum = parseFloat(String(mergedData.price || "0").replace(/,/g, "")) || 0;
-                  const sDep = parseFloat(String(mergedData.securityDeposit || "0").replace(/,/g, "")) || 0;
-                  const sCh = parseFloat(String(mergedData.serviceCharge || "0").replace(/,/g, "")) || 0;
+                  const pNum =
+                    parseFloat(
+                      String(mergedData.price || "0").replace(/,/g, ""),
+                    ) || 0;
+                  const sDep =
+                    parseFloat(
+                      String(mergedData.securityDeposit || "0").replace(
+                        /,/g,
+                        "",
+                      ),
+                    ) || 0;
+                  const sCh =
+                    parseFloat(
+                      String(mergedData.serviceCharge || "0").replace(/,/g, ""),
+                    ) || 0;
                   const total = pNum + sDep + sCh;
                   return Math.round(total * 0.03).toLocaleString("en-NG");
                 })()}`}
@@ -952,25 +1043,73 @@ const Review = () => {
               <SummaryRow
                 label="VAT (7.5% of App Charge)"
                 value={`-₦${(() => {
-                  const pNum = parseFloat(String(mergedData.price || "0").replace(/,/g, "")) || 0;
-                  const sDep = parseFloat(String(mergedData.securityDeposit || "0").replace(/,/g, "")) || 0;
-                  const sCh = parseFloat(String(mergedData.serviceCharge || "0").replace(/,/g, "")) || 0;
+                  const pNum =
+                    parseFloat(
+                      String(mergedData.price || "0").replace(/,/g, ""),
+                    ) || 0;
+                  const sDep =
+                    parseFloat(
+                      String(mergedData.securityDeposit || "0").replace(
+                        /,/g,
+                        "",
+                      ),
+                    ) || 0;
+                  const sCh =
+                    parseFloat(
+                      String(mergedData.serviceCharge || "0").replace(/,/g, ""),
+                    ) || 0;
                   const total = pNum + sDep + sCh;
                   const charge = total * 0.03;
                   return Math.round(charge * 0.075).toLocaleString("en-NG");
                 })()}`}
               />
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 }}>
-                <Text style={[styles.summaryLabel, { fontWeight: '700', color: '#000' }]}>Estimated Net Earnings</Text>
-                <Text style={[styles.summaryValue, { fontWeight: '700', color: '#22C55E' }]}>
-                  ₦{(() => {
-                    const pNum = parseFloat(String(mergedData.price || "0").replace(/,/g, "")) || 0;
-                    const sDep = parseFloat(String(mergedData.securityDeposit || "0").replace(/,/g, "")) || 0;
-                    const sCh = parseFloat(String(mergedData.serviceCharge || "0").replace(/,/g, "")) || 0;
+              <View
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  marginTop: 4,
+                }}
+              >
+                <Text
+                  style={[
+                    styles.summaryLabel,
+                    { fontWeight: "700", color: "#000" },
+                  ]}
+                >
+                  Estimated Net Earnings
+                </Text>
+                <Text
+                  style={[
+                    styles.summaryValue,
+                    { fontWeight: "700", color: "#22C55E" },
+                  ]}
+                >
+                  ₦
+                  {(() => {
+                    const pNum =
+                      parseFloat(
+                        String(mergedData.price || "0").replace(/,/g, ""),
+                      ) || 0;
+                    const sDep =
+                      parseFloat(
+                        String(mergedData.securityDeposit || "0").replace(
+                          /,/g,
+                          "",
+                        ),
+                      ) || 0;
+                    const sCh =
+                      parseFloat(
+                        String(mergedData.serviceCharge || "0").replace(
+                          /,/g,
+                          "",
+                        ),
+                      ) || 0;
                     const total = pNum + sDep + sCh;
                     const charge = total * 0.03;
                     const vat = charge * 0.075;
-                    return Math.round(total - charge - vat).toLocaleString("en-NG");
+                    return Math.round(total - charge - vat).toLocaleString(
+                      "en-NG",
+                    );
                   })()}
                 </Text>
               </View>
@@ -1467,19 +1606,19 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   videoPlaceholder: {
-    backgroundColor: '#F0F4FF',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#F0F4FF",
+    justifyContent: "center",
+    alignItems: "center",
     borderWidth: 1,
-    borderColor: '#E5E5E5',
-    borderStyle: 'dashed',
+    borderColor: "#E5E5E5",
+    borderStyle: "dashed",
     gap: 8,
   },
   videoPlaceholderText: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#192DFF',
-  }
+    fontWeight: "600",
+    color: "#192DFF",
+  },
 });
 
 export default Review;

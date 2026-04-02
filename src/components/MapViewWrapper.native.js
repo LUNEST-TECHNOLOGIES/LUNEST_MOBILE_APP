@@ -1,4 +1,6 @@
-// Native platforms: export real MapView and Marker
-import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
+// Native platforms: export real MapView and Marker from react-native-maps
+import MapViewLib, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
+
 export { Marker, PROVIDER_GOOGLE };
-export default MapView;
+export const MapView = MapViewLib;
+export default MapViewLib;

@@ -16,6 +16,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import bookmarkService from "../../services/bookmarkService";
 import configService from "../../services/configService";
+import * as ImageUtils from "../../utils/imageUtils";
 
 const SavedScreen = () => {
   const router = useRouter();
@@ -95,16 +96,7 @@ const SavedScreen = () => {
   };
 
   const convertImageUrl = (image) => {
-    if (!image) return null;
-    if (typeof image === "object" && image.url) {
-      if (image.url.startsWith("http")) return image.url;
-      return baseURL ? `${baseURL}${image.url}` : image.url;
-    }
-    if (typeof image === "string") {
-      if (image.startsWith("http")) return image;
-      return baseURL ? `${baseURL}${image}` : image;
-    }
-    return null;
+    return ImageUtils.resolveImageUrlSync(image, baseURL);
   };
 
   const getListingImage = (listing) => {

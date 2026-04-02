@@ -18,6 +18,8 @@ import bookingService from "../../services/bookingService";
 import configService from "../../services/configService";
 import { fetchHostData } from "../../services/hostService";
 import listingService from "../../services/listingService";
+import { smartFormatPrice } from "../../utils/formatters";
+import { resolveImageUrlSync } from "../../utils/imageUtils";
 
 const HostInformation = () => {
   const router = useRouter();
@@ -47,6 +49,30 @@ const HostInformation = () => {
       minute: "2-digit",
       hour12: true,
     });
+  };
+
+  // Helper for image URL resolution
+  const convertImageUrl = (image) => {
+    if (!image) return null;
+    const currentBaseURL = configService.getBaseURLSync() || baseURL;
+    let path = typeof image === "object" ? (image.url || image.uri) : image;
+    return resolveImageUrlSync(path, currentBaseURL);
+  };
+
+  // Parse review images robustly (handles JSON strings and arrays)
+  const parseImages = (imagesData) => {
+    if (!imagesData) return [];
+    if (Array.isArray(imagesData)) return imagesData.filter(img => !!img);
+    if (typeof imagesData === 'string' && imagesData.trim().startsWith('[')) {
+      try {
+        const parsed = JSON.parse(imagesData);
+        return Array.isArray(parsed) ? parsed.filter(img => !!img) : [];
+      } catch (e) {
+        return [imagesData];
+      }
+    }
+    if (typeof imagesData === 'string' && imagesData.length > 0) return [imagesData];
+    return [];
   };
 
   const [activeTab, setActiveTab] = useState("about");
@@ -193,18 +219,7 @@ const HostInformation = () => {
     loadHostData();
   }, [listingId, hostId, loadHostData]);
 
-  const convertImageUrl = (image) => {
-    if (!image) return null;
-    if (typeof image === "object" && image.url) {
-      if (image.url.startsWith("http")) return image.url;
-      return baseURL ? `${baseURL}${image.url}` : image.url;
-    }
-    if (typeof image === "string") {
-      if (image.startsWith("http")) return image;
-      return baseURL ? `${baseURL}${image}` : image;
-    }
-    return null;
-  };
+
 
   const renderStars = (rating) => {
     const stars = [];
@@ -228,7 +243,7 @@ const HostInformation = () => {
         <Pressable style={styles.backButton} onPress={handleGoBack}>
           <ArrowLeftIcon width={24} height={24} />
         </Pressable>
-        <Text style={styles.headerTitle}>Host Information</Text>
+        <Text style={styles.headerTitle}>Host/Landlord Information</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -239,59 +254,55 @@ const HostInformation = () => {
         </View>
       ) : hostData ? (
         <>
-          <View style={styles.coverSection}>
-            <Image
-              source={require("../../assets/images/prop_image.png")}
-              style={styles.coverPhoto}
-              contentFit="cover"
-            />
-            <View style={styles.profileSection}>
-              <Image
-                source={
-                  hostCurrentAvatar && convertImageUrl(hostCurrentAvatar)
-                    ? { uri: convertImageUrl(hostCurrentAvatar) }
-                    : hostData.avatar && convertImageUrl(hostData.avatar)
-                      ? { uri: convertImageUrl(hostData.avatar) }
-                      : require("../../assets/images/prop_image.png")
-                }
-                style={styles.profileImage}
-                contentFit="cover"
-              />
-            </View>
-          </View>
-
           <ScrollView
             style={styles.scrollView}
             showsVerticalScrollIndicator={false}
           >
             <View style={styles.hostDetailsSection}>
-              <View style={styles.hostDetailsRow}>
-                <Text style={styles.hostedByText}>
-                  Hosted by {hostData.fullName}
-                </Text>
-                {hostData.verified && (
-                  <Pressable style={styles.verifiedBadgeButton}>
-                    <ShieldTickIcon width={16} height={16} />
-                    <Text style={styles.verifiedButtonText}>VERIFIED</Text>
-                  </Pressable>
-                )}
-              </View>
-              <Text style={styles.totalListingsText}>
-                Total listings: {hostListings.length}
-              </Text>
-              <View style={styles.ratingRow}>
-                <View style={styles.ratingWithIcon}>
-                  <Text style={styles.ratingValue}>
-                    {hostData.hostRating 
-                      ? Number(hostData.hostRating).toFixed(1)
-                      : hostReviews.length > 0 
-                        ? (hostReviews.reduce((acc, curr) => acc + (Number(curr.rating) || 0), 0) / hostReviews.length).toFixed(1)
-                        : "5.0"}
+              {/* Profile Picture and Host Info - Side by Side */}
+              <View style={styles.hostHeaderRow}>
+                <Image
+                  source={
+                    hostCurrentAvatar && convertImageUrl(hostCurrentAvatar)
+                      ? { uri: convertImageUrl(hostCurrentAvatar) }
+                      : hostData.avatar && convertImageUrl(hostData.avatar)
+                        ? { uri: convertImageUrl(hostData.avatar) }
+                        : require("../../assets/images/prop_image.png")
+                  }
+                  style={styles.profileImage}
+                  contentFit="cover"
+                />
+                <View style={styles.hostInfoContainer}>
+                  <View style={styles.hostDetailsRow}>
+                    <Text style={styles.hostedByText}>
+                      Hosted by/Landlord {hostData.fullName}
+                    </Text>
+                    {hostData.verified && (
+                      <Pressable style={styles.verifiedBadgeButton}>
+                        <ShieldTickIcon width={16} height={16} />
+                        <Text style={styles.verifiedButtonText}>VERIFIED</Text>
+                      </Pressable>
+                    )}
+                  </View>
+                  <Text style={styles.totalListingsText}>
+                    Total listings: {hostListings.length}
                   </Text>
-                  <StarIcon width={16} height={16} />
+                  <View style={styles.ratingRow}>
+                    <View style={styles.ratingWithIcon}>
+                      <Text style={styles.ratingValue}>
+                        {hostData.hostRating 
+                          ? Number(hostData.hostRating).toFixed(1)
+                          : hostReviews.length > 0 
+                            ? (hostReviews.reduce((acc, curr) => acc + (Number(curr.rating) || 0), 0) / hostReviews.length).toFixed(1)
+                            : "N/A"}
+                      </Text>
+                      <StarIcon width={16} height={16} />
+                    </View>
+                    <Text style={styles.reviewsLink}>{hostReviews.length} Reviews</Text>
+                  </View>
                 </View>
-                <Text style={styles.reviewsLink}>{hostReviews.length} Reviews</Text>
               </View>
+
             </View>
 
             <View style={styles.tabsContainer}>
@@ -401,25 +412,32 @@ const HostInformation = () => {
                       <Text style={styles.reviewText}>
                         {review.feedback || review.guestReview?.feedback || "No feedback provided"}
                       </Text>
-                      {((review.images && review.images.length > 0) || (review.guestReview?.images && review.guestReview.images.length > 0)) && (
-                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 10 }}>
-                          {(review.images || (review.guestReview?.images && Array.isArray(review.guestReview.images) ? review.guestReview.images : [])).map((img, imgIdx) => {
-                            const imgUrl = convertImageUrl(img);
-                            if (!imgUrl) return null;
-                            return (
-                              <Image 
-                                key={imgIdx} 
-                                source={{ uri: imgUrl }} 
-                                style={styles.reviewImageThumb} 
-                                contentFit="cover"
-                                cachePolicy="disk"
-                                transition={200}
-                                placeholder={require("../../assets/images/prop_image.png")}
-                              />
-                            );
-                          })}
-                        </ScrollView>
-                      )}
+                      {(() => {
+                        const allReviewImages = [
+                          ...parseImages(review.images),
+                          ...parseImages(review.guestReview?.images)
+                        ];
+                        if (allReviewImages.length === 0) return null;
+                        
+                        return (
+                          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 10 }}>
+                            {allReviewImages.map((img, imgIdx) => {
+                              const imgUrl = convertImageUrl(img);
+                              if (!imgUrl) return null;
+                              return (
+                                <Image 
+                                  key={imgIdx} 
+                                  source={{ uri: imgUrl }} 
+                                  style={styles.reviewImageThumb} 
+                                  contentFit="cover"
+                                  cachePolicy="disk"
+                                  transition={200}
+                                />
+                              );
+                            })}
+                          </ScrollView>
+                        );
+                      })()}
                     </View>
                   ))
                 ) : (
@@ -430,16 +448,24 @@ const HostInformation = () => {
 
             {activeTab === "listings" && (
               <View style={styles.tabContent}>
-                <Text style={styles.sectionTitle}>Host Listings</Text>
+                <Text style={styles.sectionTitle}>Host/Landlord Listings</Text>
                 {hostListings.length > 0 ? (
                   hostListings.map((listing, i) => {
-                    const images = listing.propertyImages || listing.images || [];
-                    const imgUrl = images.length > 0
-                        ? convertImageUrl(images[0])
-                        : null;
-                    const listingImage = imgUrl
-                      ? { uri: imgUrl }
-                      : require("../../assets/images/prop_image.png");
+                    const getRawImages = () => {
+                      if (Array.isArray(listing.propertyImages) && listing.propertyImages.length > 0) return listing.propertyImages;
+                      if (Array.isArray(listing.images) && listing.images.length > 0) return listing.images;
+                      if (Array.isArray(listing.listingImages) && listing.listingImages.length > 0) return listing.listingImages;
+                      if (listing.coverImage) return [listing.coverImage];
+                      if (typeof listing.listingImages === 'string' && listing.listingImages) return [listing.listingImages];
+                      if (typeof listing.images === 'string' && listing.images) return [listing.images];
+                      return [];
+                    };
+                    
+                    const rawImages = getRawImages();
+                    const firstImage = rawImages[0];
+                    const imgUrl = firstImage ? convertImageUrl(firstImage) : null;
+                    
+                    const listingImage = imgUrl ? { uri: imgUrl } : require("../../assets/images/prop_image.png");
 
                     return (
                       <Pressable
@@ -462,9 +488,19 @@ const HostInformation = () => {
                             {listing.propertyName || "Untitled"}
                           </Text>
                           <Text style={styles.listingLocation}>
-                            {listing.propertyLocation?.city
-                              ? `${listing.propertyLocation.city}, ${listing.propertyLocation.state || ""}`
-                              : listing.location || listing.address || "Unknown Location"}
+                            {(() => {
+                            const city = listing.propertyLocation?.city || listing.city;
+                            const state = listing.propertyLocation?.state || listing.state;
+                            if (city && state) {
+                              return `${city}, ${state}`;
+                            } else if (city) {
+                              return city;
+                            } else if (state) {
+                              return state;
+                            } else {
+                              return listing.location || listing.address || "Unknown Location";
+                            }
+                          })()}
                           </Text>
                           <Text style={styles.listingSpecs}>
                             {listing.bedrooms || 0} Bed {listing.bathrooms || 0}{" "}
@@ -472,7 +508,7 @@ const HostInformation = () => {
                           </Text>
                           <View style={styles.priceRow}>
                             <Text style={styles.listingPrice}>
-                              ₦{listing.propertyPrice?.price || listing.price || "0"}
+                              ₦{smartFormatPrice(listing.propertyPrice?.price || listing.price || "0", true)}
                             </Text>
                             <Text style={styles.listingPeriod}>
                               per {listing.pricingPeriod || listing.rentalPeriod || "Year"}
@@ -577,22 +613,30 @@ const styles = StyleSheet.create({
     width: "100%",
     height: 200,
   },
-  profileSection: {
-    position: "absolute",
-    bottom: -40,
-    left: 16,
-  },
   profileImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: "#FFFFFF",
-    borderWidth: 3,
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: "#F5F5F5",
+    borderWidth: 2,
     borderColor: "#FFFFFF",
+    marginRight: 16,
+    alignSelf: "flex-start",
+  },
+  hostHeaderRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 20,
+  },
+  hostInfoContainer: {
+    flex: 1,
+    justifyContent: "flex-start",
+    alignItems: "flex-start",
   },
   hostDetailsSection: {
     paddingHorizontal: 20,
-    paddingVertical: 20,
+    paddingTop: 20,
+    paddingBottom: 20,
     borderBottomWidth: 1,
     borderBottomColor: "#F5F5F5",
   },

@@ -1,9 +1,9 @@
 import {
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    useWindowDimensions,
-    View,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  useWindowDimensions,
+  View,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
@@ -64,24 +64,29 @@ const GuestIcon = ({ size = 20, color = '#FFFFFF' }) => (
  * Stylish card for switching between Guest and Host modes
  * Only shown when user is approved as host
  */
-const ModeSwitchCard = ({ isHostMode, onSwitch }) => {
+const ModeSwitchCard = ({ isHostMode, onSwitch, disabled }) => {
   const { width } = useWindowDimensions();
   const containerWidth = Math.min(width - 40, 400);
 
   return (
     <View style={[styles.container, { width: containerWidth }]}>
+      {/* Premium Gradient-like Background Effect */}
+      <View style={styles.backgroundAccent} />
+      
       {/* Header with current mode indicator */}
       <View style={styles.header}>
         <View style={styles.modeIndicator}>
-          {isHostMode ? (
-            <HostIcon size={24} color="#FFFFFF" />
-          ) : (
-            <GuestIcon size={24} color="#FFFFFF" />
-          )}
+          <View style={[styles.iconContainer, isHostMode ? styles.hostIconBg : styles.guestIconBg]}>
+            {isHostMode ? (
+              <HostIcon size={24} color="#FFFFFF" />
+            ) : (
+              <GuestIcon size={24} color="#FFFFFF" />
+            )}
+          </View>
           <View style={styles.modeTextContainer}>
-            <Text style={styles.currentModeLabel}>Current Mode</Text>
+            <Text style={styles.currentModeLabel}>Account Access</Text>
             <Text style={styles.currentModeValue}>
-              {isHostMode ? 'Host Mode' : 'Guest Mode'}
+              {isHostMode ? 'Host/Landlord Dashboard' : 'Guest/Renter Profile'}
             </Text>
           </View>
         </View>
@@ -89,19 +94,27 @@ const ModeSwitchCard = ({ isHostMode, onSwitch }) => {
 
       {/* Switch Button */}
       <TouchableOpacity
-        style={[styles.switchButton, isHostMode ? styles.hostButton : styles.guestButton]}
+        style={[
+          styles.switchButton,
+          isHostMode ? styles.hostButton : styles.guestButton,
+          disabled && { opacity: 0.5 },
+        ]}
         onPress={onSwitch}
-        activeOpacity={0.9}
+        activeOpacity={0.8}
+        disabled={disabled}
       >
         <Text style={styles.switchButtonText}>
-          Switch to {isHostMode ? 'Guest' : 'Host'} Mode
+          {isHostMode ? 'Switch to Guest Mode' : 'Switch to Host Mode'}
         </Text>
-        <ArrowRightIcon size={16} color="#FFFFFF" />
+        <View style={styles.arrowContainer}>
+          <ArrowRightIcon size={16} color="#FFFFFF" />
+        </View>
       </TouchableOpacity>
 
-      {/* Decorative elements */}
+      {/* Decorative premium elements */}
       <View style={styles.decorativeCircle1} />
       <View style={styles.decorativeCircle2} />
+      <View style={styles.decorativeLine} />
     </View>
   );
 };
@@ -109,89 +122,136 @@ const ModeSwitchCard = ({ isHostMode, onSwitch }) => {
 const styles = StyleSheet.create({
   container: {
     backgroundColor: '#010135',
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: 24,
+    padding: 24,
     overflow: 'hidden',
     position: 'relative',
     shadowColor: '#010135',
     shadowOffset: {
       width: 0,
-      height: 4,
+      height: 10,
     },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-    marginBottom: 16,
+    shadowOpacity: 0.4,
+    shadowRadius: 15,
+    elevation: 12,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  backgroundAccent: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: '100%',
+    backgroundColor: 'rgba(25, 45, 255, 0.1)', // Subtle blue tint
   },
   header: {
-    marginBottom: 20,
+    marginBottom: 24,
+    zIndex: 1,
   },
   modeIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
   },
+  iconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  hostIconBg: {
+    backgroundColor: '#ee7409',
+  },
+  guestIconBg: {
+    backgroundColor: '#0277ed',
+  },
   modeTextContainer: {
     flex: 1,
   },
   currentModeLabel: {
-    fontSize: 12,
-    fontWeight: '500',
+    fontSize: 11,
+    fontWeight: '700',
     color: '#D0E1FF',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 1.2,
     marginBottom: 4,
   },
   currentModeValue: {
     fontSize: 18,
     fontWeight: '700',
     color: '#FFFFFF',
+    letterSpacing: -0.5,
   },
   switchButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    gap: 8,
-    shadowColor: 'rgba(0, 0, 0, 0.2)',
+    justifyContent: 'space-between',
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    zIndex: 1,
+    shadowColor: 'rgba(0, 0, 0, 0.3)',
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 4,
     },
     shadowOpacity: 1,
-    shadowRadius: 4,
-    elevation: 4,
+    shadowRadius: 10,
+    elevation: 8,
   },
   hostButton: {
-    backgroundColor: '#10B981', // Green for switching to guest
+    backgroundColor: '#FFFFFF', // Clean white button for host mode
   },
   guestButton: {
-    backgroundColor: '#F59E0B', // Orange for switching to host
+    backgroundColor: '#FFFFFF', // Clean white button for guest mode
   },
   switchButtonText: {
-    color: '#FFFFFF',
+    color: '#010135',
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
+  },
+  arrowContainer: {
+    backgroundColor: '#010135',
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   decorativeCircle1: {
     position: 'absolute',
-    top: -20,
-    right: -20,
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    top: -30,
+    right: -30,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
   },
   decorativeCircle2: {
     position: 'absolute',
-    bottom: -30,
-    left: -30,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    bottom: -40,
+    left: -20,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: 'rgba(25, 45, 255, 0.1)',
+  },
+  decorativeLine: {
+    position: 'absolute',
+    top: 60,
+    right: 40,
+    width: 100,
+    height: 1,
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    transform: [{ rotate: '45deg' }],
   },
 });
 

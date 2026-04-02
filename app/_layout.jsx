@@ -109,186 +109,157 @@ export default function RootLayout() {
     }
   };
 
-  // Show loading while checking onboarding status
-  if (isLoading) {
-    return (
-      <View
-        style={{
-          flex: 1,
-          justifyContent: "center",
-          alignItems: "center",
-          backgroundColor: "#FFFFFF",
-        }}
-      >
-        <ActivityIndicator size="large" color="#192DFF" />
-      </View>
-    );
-  }
-
-  // Load Aeonik fonts
-  // Note: Add your font files to assets/fonts/ directory
-  // Update the file extensions (.otf or .ttf) and names as needed
-  // const [loaded, error] = useFonts({
-  //   // Aeonik Font Family - Standard naming
-  //   'Aeonik-Regular': require('../assets/fonts/Aeonik-Regular.otf'),
-  //   'Aeonik-Medium': require('../assets/fonts/Aeonik-Medium.otf'),
-  //   'Aeonik-Bold': require('../assets/fonts/Aeonik-Bold.otf'),
-  //   // Alias for "Aeonik Pro" naming convention (if your fonts use this name)
-  //   'Aeonik Pro': require('../assets/fonts/Aeonik-Regular.otf'),
-  // });
-
-  // useEffect(() => {
-  //   if (loaded || error) {
-  //     SplashScreen.hideAsync();
-  //   }
-  //   if (error) {
-  //     console.warn('Font loading error:', error);
-  //     console.warn('Falling back to system fonts. Make sure font files are in assets/fonts/');
-  //   }
-  // }, [loaded, error]);
-
-  // if (!loaded && !error) {
-  //   return null;
-  // }
-
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <UserModeProvider>
         <AccountStatusProvider>
           <SafeAreaProvider>
-            <Stack
-              screenOptions={{
-                headerShown: false,
-              }}
-            >
-              <Stack.Screen
-                name="index"
-                options={{
+            {isLoading ? (
+              <View
+                style={{
+                  flex: 1,
+                  justifyContent: "center",
+                  alignItems: "center",
+                  backgroundColor: "#FFFFFF",
+                }}
+              >
+                <ActivityIndicator size="large" color="#192DFF" />
+              </View>
+            ) : (
+              <Stack
+                screenOptions={{
                   headerShown: false,
                 }}
-              />
-              <Stack.Screen
-                name="onboarding"
-                options={{
-                  headerShown: false,
-                }}
-              />
-              <Stack.Screen
-                name="signup"
-                options={{
-                  headerShown: false,
-                }}
-              />
-              <Stack.Screen
-                name="login"
-                options={{
-                  headerShown: false,
-                }}
-              />
-              <Stack.Screen name="(tabs)" options={{ gestureEnabled: false }} />
-              <Stack.Screen
-                name="(host-tabs)"
-                options={{ gestureEnabled: false }}
-              />
-              <Stack.Screen
-                name="+not-found"
-                options={{
-                  headerShown: false,
-                }}
-              />
-              <Stack.Screen
-                name="landlord-request"
-                options={{
-                  presentation: "card",
-                  headerShown: false,
-                }}
-              />
-              <Stack.Screen
-                name="host-request-pending"
-                options={{
-                  presentation: "card",
-                  headerShown: false,
-                }}
-              />
-              <Stack.Screen
-                name="property-details"
-                options={{
-                  presentation: "card",
-                  headerShown: false,
-                }}
-              />
-              <Stack.Screen
-                name="select-booking-details"
-                options={{
-                  presentation: "card",
-                  headerShown: false,
-                }}
-              />
-              <Stack.Screen
-                name="booking-summary"
-                options={{
-                  presentation: "card",
-                  headerShown: false,
-                }}
-              />
-              <Stack.Screen
-                name="booking-confirmation"
-                options={{
-                  presentation: "transparentModal",
-                  headerShown: false,
-                  animationEnabled: true,
-                }}
-              />
-              <Stack.Screen
-                name="pay-with-wallet"
-                options={{
-                  presentation: "card",
-                  headerShown: false,
-                }}
-              />
-              <Stack.Screen
-                name="transaction-detail"
-                options={{
-                  presentation: "card",
-                  headerShown: false,
-                }}
-              />
-              <Stack.Screen
-                name="full-details"
-                options={{
-                  presentation: "card",
-                  headerShown: false,
-                }}
-              />
-              <Stack.Screen
-                name="host-information"
-                options={{
-                  presentation: "card",
-                  headerShown: false,
-                }}
-              />
-              <Stack.Screen
-                name="personal-info-edit"
-                options={{
-                  presentation: "card",
-                  headerShown: false,
-                }}
-              />
-              <Stack.Screen
-                name="referrals"
-                options={{
-                  presentation: "card",
-                  headerShown: false,
-                }}
-              />
-              <Stack.Screen
-                name="modal"
-                options={{
-                  presentation: "modal",
-                  headerShown: false,
-                }}
-              />
-            </Stack>
+              >
+                <Stack.Screen
+                  name="index"
+                  options={{
+                    headerShown: false,
+                  }}
+                />
+                <Stack.Screen
+                  name="onboarding"
+                  options={{
+                    headerShown: false,
+                  }}
+                />
+                <Stack.Screen
+                  name="signup"
+                  options={{
+                    headerShown: false,
+                  }}
+                />
+                <Stack.Screen
+                  name="login"
+                  options={{
+                    headerShown: false,
+                  }}
+                />
+                <Stack.Screen name="(tabs)" options={{ gestureEnabled: false }} />
+                <Stack.Screen
+                  name="(host-tabs)"
+                  options={{ gestureEnabled: false }}
+                />
+                <Stack.Screen
+                  name="+not-found"
+                  options={{
+                    headerShown: false,
+                  }}
+                />
+                <Stack.Screen
+                  name="landlord-request"
+                  options={{
+                    presentation: "card",
+                    headerShown: false,
+                  }}
+                />
+                <Stack.Screen
+                  name="host-request-pending"
+                  options={{
+                    presentation: "card",
+                    headerShown: false,
+                  }}
+                />
+                <Stack.Screen
+                  name="property-details"
+                  options={{
+                    presentation: "card",
+                    headerShown: false,
+                  }}
+                />
+                <Stack.Screen
+                  name="select-booking-details"
+                  options={{
+                    presentation: "card",
+                    headerShown: false,
+                  }}
+                />
+                <Stack.Screen
+                  name="booking-summary"
+                  options={{
+                    presentation: "card",
+                    headerShown: false,
+                  }}
+                />
+                <Stack.Screen
+                  name="booking-confirmation"
+                  options={{
+                    presentation: "transparentModal",
+                    headerShown: false,
+                    animationEnabled: true,
+                  }}
+                />
+                <Stack.Screen
+                  name="pay-with-wallet"
+                  options={{
+                    presentation: "card",
+                    headerShown: false,
+                  }}
+                />
+                <Stack.Screen
+                  name="transaction-detail"
+                  options={{
+                    presentation: "card",
+                    headerShown: false,
+                  }}
+                />
+                <Stack.Screen
+                  name="full-details"
+                  options={{
+                    presentation: "card",
+                    headerShown: false,
+                  }}
+                />
+                <Stack.Screen
+                  name="host-information"
+                  options={{
+                    presentation: "card",
+                    headerShown: false,
+                  }}
+                />
+                <Stack.Screen
+                  name="personal-info-edit"
+                  options={{
+                    presentation: "card",
+                    headerShown: false,
+                  }}
+                />
+                <Stack.Screen
+                  name="referrals"
+                  options={{
+                    presentation: "card",
+                    headerShown: false,
+                  }}
+                />
+                <Stack.Screen
+                  name="modal"
+                  options={{
+                    presentation: "modal",
+                    headerShown: false,
+                  }}
+                />
+              </Stack>
+            )}
           </SafeAreaProvider>
         </AccountStatusProvider>
       </UserModeProvider>

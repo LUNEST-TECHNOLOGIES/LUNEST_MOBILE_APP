@@ -3,6 +3,7 @@ import { Stack, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Platform, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { WebView } from 'react-native-webview';
+import { getUserData } from '../src/services/userDataService';
 
 export default function SupportChatScreen() {
   const [userData, setUserData] = useState(null);
@@ -12,7 +13,21 @@ export default function SupportChatScreen() {
   const router = useRouter();
 
   useEffect(() => {
-    // ... loadUser logic remains same ...
+    const loadUser = async () => {
+      try {
+        const data = await getUserData();
+        if (data) {
+          setUserData({
+            name: data.fullName || "Lunest User",
+            email: data.email || data.emailAddress || "",
+            hash: data.tawkHash || "" // For Tawk.to Secure Mode if enabled
+          });
+        }
+      } catch (error) {
+        console.error("Error loading user for chat:", error);
+      }
+    };
+    loadUser();
   }, []);
 
   const tawkUrl = 'https://tawk.to/chat/69a81df48dec521c3784c6ee/1jisba1oc';
@@ -83,20 +98,19 @@ export default function SupportChatScreen() {
   const renderLoadingOverlay = () => (
     <View style={styles.loadingOverlay}>
       <ActivityIndicator size="large" color="#192DFF" />
-      <Text style={styles.loadingText}>Connecting to Luna...</Text>
+      <Text style={styles.loadingText}>Connecting to Support...</Text>
     </View>
   );
 
   // For Expo Web
   if (Platform.OS === 'web') {
-    // ... web logic remains same ...
     return (
       <SafeAreaView style={styles.container}>
         <Stack.Screen options={{ headerShown: false }} />
         {renderHeader()}
         <View style={{ flex: 1 }}>
           <iframe 
-            src={webUrl}
+            src={tawkUrl}
             style={{ width: '100%', height: '100%', border: 'none' }}
             title="Support Chat"
             onLoad={() => setIsLoading(false)}

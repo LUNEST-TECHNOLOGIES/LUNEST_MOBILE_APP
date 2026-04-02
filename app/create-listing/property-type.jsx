@@ -26,6 +26,18 @@ const CloseIcon = ({ size = 24, color = "#000000" }) => (
 );
 
 // Property Type Icons - Aligned with CategorySlider categories
+const ApartmentIcon = ({ size = 32, color = "#292929" }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M3 21H21M5 21V7L13 3V21M13 21V7L19 10V21M9 9V9.01M9 13V13.01M9 17V17.01"
+      stroke={color}
+      strokeWidth={1.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
 const ShortletIcon = ({ size = 32, color = "#292929" }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
@@ -51,42 +63,6 @@ const StandardFlatIcon = ({ size = 32, color = "#292929" }) => (
 );
 
 const SelfContainIcon = ({ size = 32, color = "#292929" }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Path
-      d="M3 10.25V20C3 20.5523 3.44772 21 4 21H9V15C9 14.4477 9.44772 14 10 14H14C14.5523 14 15 14.4477 15 15V21H20C20.5523 21 21 20.5523 21 20V10.25M22 12L12.707 3.39C12.3166 3.01544 11.6834 3.01544 11.293 3.39L2 12"
-      stroke={color}
-      strokeWidth={1.5}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </Svg>
-);
-
-const PurchaseIcon = ({ size = 32, color = "#292929" }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Path
-      d="M2 22H22M20 22V6L12 2L4 6V22M8 10H10M14 10H16M8 14H10M14 14H16M8 18H10M14 18H16"
-      stroke={color}
-      strokeWidth={1.5}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </Svg>
-);
-
-const LuxuryIcon = ({ size = 32, color = "#292929" }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Path
-      d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"
-      stroke={color}
-      strokeWidth={1.5}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </Svg>
-);
-
-const PrivateHomesIcon = ({ size = 32, color = "#292929" }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M3 10.25V20C3 20.5523 3.44772 21 4 21H9V15C9 14.4477 9.44772 14 10 14H14C14.5523 14 15 14.4477 15 15V21H20C20.5523 21 21 20.5523 21 20V10.25M22 12L12.707 3.39C12.3166 3.01544 11.6834 3.01544 11.293 3.39L2 12"
@@ -153,15 +129,125 @@ const BungalowIcon = ({ size = 32, color = "#292929" }) => (
   </Svg>
 );
 
-const OtherIcon = ({ size = 32, color = "#292929" }) => (
+const PenthouseIcon = ({ size = 28, color = "#292929" }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
-      d="M12 8V12M12 16H12.01M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z"
+      d="M3 21H21M5 21V7L12 3L19 7V21M9 7V9M15 7V9M9 12V14M15 12V14M12 21V17"
       stroke={color}
       strokeWidth={1.5}
       strokeLinecap="round"
       strokeLinejoin="round"
     />
+  </Svg>
+);
+
+const MansionIcon = ({ size = 28, color = "#292929" }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M2 21H22M4 21V9L12 3L20 9V21M8 21V16H16V21M7 12H9M15 17H17M15 12H17"
+      stroke={color}
+      strokeWidth={1.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+const WarehouseIcon = ({ size = 28, color = "#292929" }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M3 21H21M4 21V10L12 5L20 10V21M9 21V15H15V21M12 5V21"
+      stroke={color}
+      strokeWidth={1.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+const ShopIcon = ({ size = 28, color = "#292929" }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M3 21H21M4 21V12H20V21M4 12L6 8H18L20 12M10 21V17H14V21M8 8V4H16V8"
+      stroke={color}
+      strokeWidth={1.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+const StudioIcon = ({ size = 28, color = "#292929" }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth={1.5} />
+    <Path d="M12 8V16M8 12H16" stroke={color} strokeWidth={1.5} strokeLinecap="round" />
+  </Svg>
+);
+
+const PurchaseIcon = ({ size = 28, color = "#292929" }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M12 2L3 7V17L12 22L21 17V7L12 2Z"
+      stroke={color}
+      strokeWidth={1.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <Circle cx="12" cy="12" r="3" stroke={color} strokeWidth={1.5} />
+  </Svg>
+);
+
+const LuxuryIcon = ({ size = 28, color = "#292929" }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M12 3L4 9L12 15L20 9L12 3Z"
+      stroke={color}
+      strokeWidth={1.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <Path d="M4 15L12 21L20 15" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+  </Svg>
+);
+
+const PrivateHomesIcon = ({ size = 28, color = "#292929" }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M3 12L12 3L21 12M5 12V20C5 20.5523 5.44772 21 6 21H18C18.5523 21 19 20.5523 19 20V12"
+      stroke={color}
+      strokeWidth={1.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+const LandIcon = ({ size = 28, color = "#292929" }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M3 21L9 15L13 19L21 11M21 11V17M21 11H15"
+      stroke={color}
+      strokeWidth={1.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <Path d="M3 7L8 12L12 8L17 13" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+  </Svg>
+);
+
+const MiniFlatIcon = ({ size = 28, color = "#292929" }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Rect x="3" y="6" width="18" height="14" rx="2" stroke={color} strokeWidth={1.5} />
+    <Path d="M3 10H21M12 10V20" stroke={color} strokeWidth={1.5} />
+  </Svg>
+);
+
+const OtherIcon = ({ size = 28, color = "#292929" }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth={1.5} />
+    <Circle cx="8" cy="12" r="1" fill={color} />
+    <Circle cx="12" cy="12" r="1" fill={color} />
+    <Circle cx="16" cy="12" r="1" fill={color} />
   </Svg>
 );
 
@@ -193,12 +279,21 @@ const ProgressBar = ({ currentStep, totalSteps }) => {
 const PROPERTY_TYPES = [
   { id: "shortlet", label: "Shortlet", icon: ShortletIcon },
   { id: "standard-flat", label: "Standard Flat", icon: StandardFlatIcon },
-  { id: "self-contain", label: "Self-Contain", icon: SelfContainIcon },
+  { id: "apartment", label: "Apartment", icon: ApartmentIcon },
+  { id: "studio", label: "Studio", icon: StudioIcon },
+  { id: "mini-flat", label: "Mini Flat", icon: MiniFlatIcon },
+  { id: "room-parlour", label: "Room & Parlour", icon: MiniFlatIcon },
+  { id: "self-contain", label: "Self-Contain", icon: MiniFlatIcon },
   { id: "purchase", label: "Purchase", icon: PurchaseIcon },
   { id: "luxury", label: "Luxury", icon: LuxuryIcon },
+  { id: "penthouse", label: "Penthouse", icon: PenthouseIcon },
+  { id: "mansion", label: "Mansion", icon: MansionIcon },
   { id: "private-homes", label: "Private Homes", icon: PrivateHomesIcon },
   { id: "hotel", label: "Hotel", icon: HotelIcon },
   { id: "office", label: "Office", icon: OfficeIcon },
+  { id: "warehouse", label: "Warehouse", icon: WarehouseIcon },
+  { id: "land", label: "Land", icon: LandIcon },
+  { id: "shop", label: "Shop", icon: ShopIcon },
   { id: "duplex", label: "Duplex", icon: DuplexIcon },
   { id: "bungalow", label: "Bungalow", icon: BungalowIcon },
   { id: "others", label: "Others", icon: OtherIcon },

@@ -1,16 +1,25 @@
+import { useRouter } from "expo-router";
 import {
-    ImageBackground,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ImageBackground,
+  Pressable,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from "react-native";
 import Svg, { Circle, Path } from "react-native-svg";
 import ChatIcon from "../../assets/icons/bookings/chat.svg";
+import configService from "../../services/configService";
+import { resolveImageUrlSync } from "../../utils/imageUtils";
 
 const STATUS_CONFIG = {
   CANCELED: {
     label: "CANCELED",
+    color: "#FD3131",
+    bgColor: "rgba(253, 49, 49, 0.1)",
+  },
+  CANCELLED: {
+    label: "CANCELLED",
     color: "#FD3131",
     bgColor: "rgba(253, 49, 49, 0.1)",
   },
@@ -23,6 +32,11 @@ const STATUS_CONFIG = {
     label: "COMPLETED",
     color: "#6371F1",
     bgColor: "rgba(99, 113, 241, 0.1)",
+  },
+  EXPIRED: {
+    label: "EXPIRED",
+    color: "#6B7280",
+    bgColor: "rgba(107, 114, 128, 0.1)",
   },
   PENDING: {
     label: "RESERVED",
@@ -95,11 +109,14 @@ const StatusBadge = ({ status }) => {
   const getIcon = () => {
     switch (status) {
       case "CANCELED":
+      case "CANCELLED":
         return <CloseIcon color={config.color} />;
       case "CONFIRMED":
         return <CheckIcon color={config.color} />;
       case "COMPLETED":
         return <DoubleCheckIcon color={config.color} />;
+      case "EXPIRED":
+        return <CloseIcon color={config.color} />;
       case "PENDING":
       case "RESERVED":
         return <ClockIcon color={config.color} />;
@@ -128,24 +145,48 @@ const BookingCard = ({
   onCancel,
   onMessage,
 }) => {
+  const router = useRouter();
   const isPending =
     booking.status === "PENDING" || booking.status === "RESERVED";
   const isConfirmed = booking.status === "CONFIRMED";
   const isOngoing = booking.status === "ONGOING";
   const isCompleted = booking.status === "COMPLETED";
+  const checkInDate = new Date(booking.rawCheckIn || "");
+  const isPastCheckIn = !isNaN(checkInDate.getTime()) && checkInDate < new Date();
+  const isExpired = booking.status === "EXPIRED" || (isPending && isPastCheckIn);
+
+  // Filter out actions for expired bookings
+  const showPendingActions = isPending && !isExpired;
+
+  // Extract guest rating and verification status
+  const guestRating = booking?.bookedBy?.guestRating || 0;
+  const isVerified = booking?.bookedBy?.isVerified ?? true;
+
+  // Prepare guest data for modal
+  const guestData = {
+    name: booking.guestName || "Guest",
+    email: booking.originalGuestEmail || booking.guestEmail || "",
+    phone: booking.originalGuestPhone || booking.guestPhone || "",
+    avatar: booking.guestAvatar,
+    rating: guestRating,
+    isVerified: isVerified,
+    status: booking.status,
+    guestId: booking.guestId, // Pass guestId directly to avoid email mismatch issues
+  };
 
   // Use local image or fallback to demo
-  const imageSource = booking.propertyImage
-    ? typeof booking.propertyImage === "string"
-      ? { uri: booking.propertyImage }
-      : booking.propertyImage
-    : DEMO_PROPERTY_IMAGE;
+  const getImageSource = () => {
+    if (!booking.propertyImage) return null;
+    const baseUrl = configService.getBaseURLSync();
+    const resolvedUrl = resolveImageUrlSync(booking.propertyImage, baseUrl);
+    return resolvedUrl ? { uri: resolvedUrl } : null;
+  };
 
   return (
     <View style={styles.bookingCard}>
       {/* Property Image with Status Badge */}
       <ImageBackground
-        source={imageSource}
+        source={getImageSource()}
         style={styles.propertyImage}
         imageStyle={styles.propertyImageStyle}
       >
@@ -158,9 +199,21 @@ const BookingCard = ({
         <View style={styles.guestInfoRow}>
           <View style={styles.guestNameContainer}>
             <Text style={styles.guestName}>{booking.guestName || "Guest"}</Text>
-            <TouchableOpacity onPress={() => onMessage()}>
+            <Pressable
+              onPress={() =>
+                router.push({
+                  pathname: "/guest-information",
+                  params: {
+                    guestId: booking.guestId || booking.bookedBy?._id,
+                    guestName: booking.guestName || "Guest",
+                    guestAvatar: booking.guestAvatar,
+                    isVerified: isVerified ? "true" : "false",
+                  },
+                })
+              }
+            >
               <Text style={styles.guestProfileLink}>Guest Profile</Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
         </View>
 
@@ -202,7 +255,7 @@ const BookingCard = ({
           </TouchableOpacity>
 
           {/* Reserved/Pending - Mark as Confirmed + Cancel options */}
-          {isPending && (
+          {showPendingActions && (
             <View style={styles.pendingActions}>
               <TouchableOpacity
                 style={styles.acceptButton}
@@ -219,9 +272,9 @@ const BookingCard = ({
           {/* Confirmed - Message + Cancel options */}
           {isConfirmed && (
             <View style={styles.pendingActions}>
-              <View style={styles.messageButton}>
+              <TouchableOpacity style={styles.messageButton} onPress={() => onMessage(guestData)}>
                 <ChatIcon width={14} height={17} />
-              </View>
+              </TouchableOpacity>
               <TouchableOpacity style={styles.declineButton} onPress={onCancel}>
                 <CloseIcon size={16} color="#F16363" />
               </TouchableOpacity>
@@ -230,16 +283,16 @@ const BookingCard = ({
 
           {/* Ongoing - Message option */}
           {isOngoing && (
-            <View style={styles.messageButton}>
+            <TouchableOpacity style={styles.messageButton} onPress={() => onMessage(guestData)}>
               <ChatIcon width={14} height={17} />
-            </View>
+            </TouchableOpacity>
           )}
 
           {/* Completed - Message option */}
           {isCompleted && (
-            <View style={styles.messageButton}>
+            <TouchableOpacity style={styles.messageButton} onPress={() => onMessage(guestData)}>
               <ChatIcon width={14} height={17} />
-            </View>
+            </TouchableOpacity>
           )}
         </View>
       </View>

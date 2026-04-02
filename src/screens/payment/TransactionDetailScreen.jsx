@@ -4,24 +4,29 @@
  */
 
 import { Ionicons } from "@expo/vector-icons";
+import { Asset } from "expo-asset";
+import * as FileSystem from "expo-file-system";
 import * as Print from "expo-print";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Sharing from "expo-sharing";
 import { useRef, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
+    ActivityIndicator,
+    Alert,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import ViewShot, { captureRef } from "react-native-view-shot";
 import DownloadConfirmationModal from "../../components/common/DownloadConfirmationModal";
 import DownloadOptionsModal from "../../components/common/DownloadOptionsModal";
+import authService from "../../services/authService";
+
+const logoImage = require("../../assets/images/lunest_logo_main.png");
 
 const TransactionDetailScreen = () => {
   const router = useRouter();
@@ -44,6 +49,8 @@ const TransactionDetailScreen = () => {
     checkIn: params.checkIn,
     checkOut: params.checkOut,
     bookingId: params.bookingId,
+    couponCode: params.couponCode || "",
+    couponDiscount: params.couponDiscount || "",
   };
 
   // Dynamic status message for all transaction types
@@ -186,47 +193,83 @@ const TransactionDetailScreen = () => {
     try {
       setIsDownloading(true);
 
+      const userData = await authService.getUserData();
+      const userName = userData?.fullName || "Account Holder";
+      const userEmail = userData?.email || "";
+
+      // Load Logo
+      let logoSrc = "";
+      try {
+        const asset = Asset.fromModule(logoImage);
+        await asset.downloadAsync();
+        const logoBase64 = await FileSystem.readAsStringAsync(asset.localUri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        logoSrc = `data:image/png;base64,${logoBase64}`;
+      } catch (imgErr) {
+        console.warn("[PDF] Logo load error:", imgErr);
+      }
+
       const htmlContent = `
         <!DOCTYPE html>
         <html>
         <head>
           <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no" />
           <style>
-            body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 20px; color: #333; }
-            .header { text-align: center; margin-bottom: 30px; border-bottom: 1px solid #eee; padding-bottom: 20px; }
-            .logo { font-size: 24px; font-weight: bold; color: #010135; margin-bottom: 5px; }
-            .title { font-size: 18px; color: #666; }
-            .status-badge { 
-              display: inline-block; 
-              padding: 6px 16px; 
-              border-radius: 20px; 
-              font-weight: bold; 
-              font-size: 14px;
-              margin: 10px 0;
+            body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 25px; color: #333; line-height: 1.5; }
+            .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 30px; }
+            .header-left { flex: 1; }
+            .header-right { text-align: right; }
+            .logo { height: 45px; width: auto; }
+            h1 { color: #010135; margin: 0; font-size: 26px; letter-spacing: -0.5px; }
+            
+            .details-table { width: 100%; border-collapse: collapse; margin-top: 10px; border: 1px solid #eee; }
+            .details-table td { 
+              padding: 12px 15px; 
+              border: 1px solid #eee;
+              font-size: 13px;
+              color: #444;
             }
-            .success { background-color: rgba(49, 235, 61, 0.1); color: #2E7D32; }
-            .pending { background-color: rgba(245, 158, 11, 0.1); color: #F59E0B; }
-            .failed { background-color: rgba(239, 68, 68, 0.1); color: #EF4444; }
+            .label { font-weight: 600; color: #666; width: 35%; background-color: #fcfcfc; text-transform: uppercase; font-size: 11px; }
+            .value { text-align: left; font-weight: 700; color: #010135; }
+            .amount-row td { background-color: #f8f9ff; }
+            .amount { font-size: 18px; font-weight: 800; color: #010135; }
             
-            .details-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-            .details-table td { padding: 12px 0; border-bottom: 1px solid #f5f5f5; }
-            .label { font-weight: 500; color: #666; }
-            .value { text-align: right; font-weight: 600; color: #000; }
-            .amount { font-size: 18px; font-weight: bold; }
-            
-            .footer { margin-top: 40px; text-align: center; font-size: 12px; color: #999; }
+            .footer { margin-top: 50px; text-align: center; font-size: 11px; color: #aaa; border-top: 1px solid #f0f0f0; padding-top: 20px; }
           </style>
         </head>
         <body>
           <div class="header">
-            <div class="logo">LUNEST</div>
-            <div class="title">Transaction Receipt</div>
-            <div class="status-badge ${transactionData.status.toLowerCase()}">
-              ${transactionData.status}
+            <div class="header-left">
+              ${logoSrc ? `<img src="${logoSrc}" class="logo" />` : `<h1>LUNEST</h1>`}
+            </div>
+            <div class="header-right">
+              <h1>Digital Receipt</h1>
             </div>
           </div>
-          
+
           <table class="details-table">
+            <tr>
+              <td class="label">Account Holder</td>
+              <td class="value">${userName}</td>
+            </tr>
+            <tr>
+              <td class="label">Email Address</td>
+              <td class="value">${userEmail || "N/A"}</td>
+            </tr>
+            <tr>
+              <td class="label">Status</td>
+              <td class="value">
+                <span class="status-badge status-${transactionData.status.toLowerCase()}">
+                  ${transactionData.status}
+                </span>
+              </td>
+            </tr>
+            <tr>
+              <td class="label">Generated On</td>
+              <td class="value">${new Date().toLocaleString()}</td>
+            </tr>
+          
             <tr>
               <td class="label">Transaction ID</td>
               <td class="value">${transactionData.transactionId}</td>
@@ -254,14 +297,19 @@ const TransactionDetailScreen = () => {
                  : ""
              }
             <tr>
-              <td class="label">Amount</td>
               <td class="value amount">${transactionData.amount}</td>
             </tr>
+            ${
+              transactionData.couponCode
+                ? `<tr><td class="label">Coupon Applied (${transactionData.couponCode})</td><td class="value" style="color: #2E7D32">-₦${Number(transactionData.couponDiscount).toLocaleString()}</td></tr>`
+                : ""
+            }
           </table>
           
           <div class="footer">
-            <p>Thank you for using Lunest.</p>
-            <p>This is an electronically generated receipt.</p>
+            <p>Thank you for choosing Lunest.</p>
+            <p>This is a system-generated receipt. For any inquiries, please contact Lunest Support.</p>
+            <p>&copy; ${new Date().getFullYear()} Lunest Technologies.</p>
           </div>
         </body>
         </html>
@@ -477,6 +525,16 @@ const TransactionDetailScreen = () => {
                   {transactionData.amount}
                 </Text>
               </View>
+              
+              {/* Coupon Discount Row */}
+              {transactionData.couponCode ? (
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Coupon Applied ({transactionData.couponCode}):</Text>
+                  <Text style={[styles.detailValue, { color: "#2E7D32" }]}>
+                    -₦{Number(transactionData.couponDiscount).toLocaleString()}
+                  </Text>
+                </View>
+              ) : null}
 
               {/* Payment Method */}
               <View style={styles.detailRow}>
@@ -493,6 +551,52 @@ const TransactionDetailScreen = () => {
                   {transactionData.dateTime}
                 </Text>
               </View>
+
+              {/* Breakdown Section (Optional, from metadata) */}
+              {params.metadata && (() => {
+                try {
+                  const metadata = typeof params.metadata === 'string' ? JSON.parse(params.metadata) : params.metadata;
+                  const breakdown = metadata.breakdown;
+                  if (!breakdown) return null;
+
+                  return (
+                    <View style={styles.breakdownBox}>
+                      <Text style={styles.breakdownTitle}>Earnings Breakdown</Text>
+                      {breakdown.rent > 0 && (
+                        <View style={styles.breakdownRow}>
+                          <Text style={styles.breakdownLabel}>Base Rent</Text>
+                          <Text style={styles.breakdownValue}>₦{Number(breakdown.rent).toLocaleString()}</Text>
+                        </View>
+                      )}
+                      {breakdown.serviceCharge > 0 && (
+                        <View style={styles.breakdownRow}>
+                          <Text style={styles.breakdownLabel}>Service Charge</Text>
+                          <Text style={styles.breakdownValue}>₦{Number(breakdown.serviceCharge).toLocaleString()}</Text>
+                        </View>
+                      )}
+                      {breakdown.appFee > 0 && (
+                        <View style={styles.breakdownRow}>
+                          <Text style={styles.breakdownLabel}>App Charge ({metadata.calculation?.appFeePercent || 3}%)</Text>
+                          <Text style={[styles.breakdownValue, { color: '#B70808' }]}>-₦{Number(breakdown.appFee).toLocaleString()}</Text>
+                        </View>
+                      )}
+                      {breakdown.vat > 0 && (
+                        <View style={styles.breakdownRow}>
+                          <Text style={styles.breakdownLabel}>VAT on App Charge</Text>
+                          <Text style={[styles.breakdownValue, { color: '#B70808' }]}>-₦{Number(breakdown.vat).toLocaleString()}</Text>
+                        </View>
+                      )}
+                      <View style={styles.breakdownDivider} />
+                      <View style={styles.breakdownRow}>
+                        <Text style={styles.breakdownLabelBold}>Net Earning</Text>
+                        <Text style={styles.breakdownValueBold}>₦{Number(breakdown.net).toLocaleString()}</Text>
+                      </View>
+                    </View>
+                  );
+                } catch (e) {
+                  return null;
+                }
+              })()}
 
               {/* Check-in/Check-out if available */}
               {transactionData.checkIn && (
@@ -694,6 +798,51 @@ const styles = StyleSheet.create({
   noticeTextLink: {
     color: "#010135",
     fontWeight: "500",
+  },
+  breakdownBox: {
+    marginTop: 8,
+    padding: 12,
+    backgroundColor: "#F8F9FF",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#E5EFFF",
+  },
+  breakdownTitle: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#010135",
+    marginBottom: 10,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  breakdownRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 6,
+  },
+  breakdownLabel: {
+    fontSize: 13,
+    color: "#525252",
+  },
+  breakdownValue: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#000",
+  },
+  breakdownDivider: {
+    height: 1,
+    backgroundColor: "#E5EFFF",
+    marginVertical: 8,
+  },
+  breakdownLabelBold: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#010135",
+  },
+  breakdownValueBold: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#010135",
   },
   footer: {
     flexDirection: "row",

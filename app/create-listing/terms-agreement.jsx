@@ -3,21 +3,23 @@
  * User must agree to terms before proceeding to review
  */
 
-import React, { useState } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useState } from 'react';
 import {
-  View,
-  Text,
-  Pressable,
-  StyleSheet,
-  ScrollView,
   Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
 import Svg, { Path } from 'react-native-svg';
 import CancelConfirmationModal from '../../src/components/create-listing/CancelConfirmationModal';
-import draftListingService from '../../src/services/draftListingService';
+import TermsModal from '../../src/components/create-listing/TermsModal';
+import { DEMO_TERMS } from '../../src/constants/termsConfig';
 import { useDraftListing } from '../../src/hooks/useDraftListing';
+import draftListingService from '../../src/services/draftListingService';
 
 // Close X Icon
 const CloseIcon = ({ size = 24, color = '#000000' }) => (
@@ -73,6 +75,8 @@ const TermsAgreement = () => {
   
   const [termsAgreed, setTermsAgreed] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
+  const [selectedTerm, setSelectedTerm] = useState(null);
+  const [showTermsModal, setShowTermsModal] = useState(false);
 
   const handleClose = () => {
     setShowCancelModal(true);
@@ -85,7 +89,7 @@ const TermsAgreement = () => {
       await saveDraftData({
         ...draftData,
         termsAgreed,
-        currentStep: 8,
+        currentStep: 9,
         draftId: finalDraftId,
       });
 
@@ -108,6 +112,7 @@ const TermsAgreement = () => {
     // Save terms agreement state and navigate back to availability
     const finalDraftId = (draftData && draftData.draftId) || draftId;
     saveDraftData({
+      ...draftData,  // Preserve all existing data
       termsAgreed,
       currentStep: 8,
       draftId: finalDraftId,
@@ -129,8 +134,9 @@ const TermsAgreement = () => {
       const finalDraftId = (draftData && draftData.draftId) || draftId || draftListingService.generateDraftId();
       
       saveDraftData({
+        ...draftData,  // Preserve all existing data
         termsAgreed: true,
-        currentStep: 8,
+        currentStep: 9,
         draftId: finalDraftId,
       }).then(() => {
         router.push({
@@ -144,6 +150,19 @@ const TermsAgreement = () => {
         });
       });
     }
+  };
+
+  const handleViewTerm = (termId) => {
+    const term = DEMO_TERMS[termId];
+    if (term) {
+      setSelectedTerm(term);
+      setShowTermsModal(true);
+    }
+  };
+
+  const handleCloseTermsModal = () => {
+    setShowTermsModal(false);
+    setSelectedTerm(null);
   };
 
   return (
@@ -172,8 +191,8 @@ const TermsAgreement = () => {
           <View style={styles.tosItem}>
             <View style={styles.tosRow}>
               <Text style={styles.tosLabel}>Terms of Service</Text>
-              <Pressable style={styles.previewButton} onPress={() => {}}>
-                <Text style={styles.previewButtonText}>Preview</Text>
+              <Pressable style={styles.previewButton} onPress={() => handleViewTerm('termsOfService')}>
+                <Text style={styles.previewButtonText}>View</Text>
               </Pressable>
             </View>
           </View>
@@ -181,8 +200,8 @@ const TermsAgreement = () => {
           <View style={styles.tosItem}>
             <View style={styles.tosRow}>
               <Text style={styles.tosLabel}>Listing Agreement</Text>
-              <Pressable style={styles.previewButton} onPress={() => {}}>
-                <Text style={styles.previewButtonText}>Preview</Text>
+              <Pressable style={styles.previewButton} onPress={() => handleViewTerm('listingAgreement')}>
+                <Text style={styles.previewButtonText}>View</Text>
               </Pressable>
             </View>
           </View>
@@ -190,8 +209,8 @@ const TermsAgreement = () => {
           <View style={styles.tosItem}>
             <View style={styles.tosRow}>
               <Text style={styles.tosLabel}>Cancellation Policy</Text>
-              <Pressable style={styles.previewButton} onPress={() => {}}>
-                <Text style={styles.previewButtonText}>Preview</Text>
+              <Pressable style={styles.previewButton} onPress={() => handleViewTerm('cancellationPolicy')}>
+                <Text style={styles.previewButtonText}>View</Text>
               </Pressable>
             </View>
           </View>
@@ -245,6 +264,13 @@ const TermsAgreement = () => {
         onCancel={handleCancelConfirm}
         onContinue={handleCancelDismiss}
         onClose={handleCancelDismiss}
+      />
+
+      {/* Terms Modal */}
+      <TermsModal
+        visible={showTermsModal}
+        term={selectedTerm}
+        onClose={handleCloseTermsModal}
       />
     </SafeAreaView>
   );

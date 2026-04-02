@@ -7,21 +7,25 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import debounce from "lodash.debounce";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-    Alert,
-    Modal,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
+  Alert,
+  Keyboard,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableWithoutFeedback,
+  View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 import CancelConfirmationModal from "../../src/components/create-listing/CancelConfirmationModal";
 import { GooglePlacesAutocomplete } from "../../src/components/GooglePlacesWrapper";
 import MapView, { Marker, PROVIDER_GOOGLE } from "../../src/components/MapViewWrapper";
+import { APP_CONFIG } from "../../src/config/appConfig";
 import { useDraftListing } from "../../src/hooks/useDraftListing";
 import draftListingService from "../../src/services/draftListingService";
 
@@ -470,154 +474,223 @@ const Location = () => {
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Create a Listing</Text>
-        <Pressable style={styles.closeButton} onPress={handleClose}>
-          <View style={styles.closeButtonBg} />
-          <CloseIcon size={14} color="#000000" />
-        </Pressable>
-      </View>
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+        <View style={{ flex: 1 }}>
+          {/* Header */}
+          <View style={styles.header}>
+            <Text style={styles.headerTitle}>Create a Listing</Text>
+            <Pressable style={styles.closeButton} onPress={handleClose}>
+              <View style={styles.closeButtonBg} />
+              <CloseIcon size={14} color="#000000" />
+            </Pressable>
+          </View>
 
       {/* Progress Bar */}
       <ProgressBar currentStep={4} totalSteps={10} />
 
-      {/* Content */}
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={[styles.content, { paddingBottom: 300 }]}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="always"
-        nestedScrollEnabled={true}
+      {/* Content with KeyboardAvoidingView */}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 0}
       >
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={[styles.content, { paddingBottom: 150 }]}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+        >
         <View style={styles.titleRow}>
-          <LocationIcon size={24} color="#192DFF" />
-          <Text style={styles.sectionTitle}>
-            Where is your property located?
-          </Text>
-        </View>
+                <LocationIcon size={24} color="#192DFF" />
+                <Text style={styles.sectionTitle}>
+                  Where is your property located?
+                </Text>
+              </View>
 
-        {/* Address Input - Unified Search & Manual */}
-        <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>
-            Street Address or Location Name *
-          </Text>
-          <View style={{ zIndex: 1000 }}>
-            {GooglePlacesAutocomplete ? (
-              <GooglePlacesAutocomplete
-                ref={googlePlacesRef}
-                placeholder="Search address or enter manually..."
-                fetchDetails={true}
-                onPress={(data, details = null) => {
-                  if (details) {
-                    let mappedCity = city;
-                    let mappedState = state;
-                    let mappedCountry = country;
-                    let mappedPostalCode = postalCode;
+              {/* Address Input - Unified Search Only */}
+              <View style={{ marginBottom: 20 }}>
+                <Text style={styles.inputLabel}>Property Address *</Text>
+                <View style={styles.addressSearchContainer}>
+                  <GooglePlacesAutocomplete
+                    ref={googlePlacesRef}
+                    placeholder="Start typing your address..."
+                    fetchDetails={true}
+                    onPress={(data, details = null) => {
+                    if (details) {
+                      const { lat, lng } = details.geometry.location;
+                      setPropertyCoords({ lat: lat, lon: lng });
+                      const components = details.address_components;
+                      let streetNumber = "";
+                      let route = "";
+                      let extractedCity = "";
+                      let extractedState = "";
+                      let extractedPostalCode = "";
+                      let extractedCountry = "";
 
-                    details.address_components.forEach((component) => {
-                      const types = component.types;
-                      if (types.includes("locality") || types.includes("sublocality") || types.includes("neighborhood")) {
-                        mappedCity = component.long_name;
-                      }
-                      if (types.includes("administrative_area_level_1")) {
-                        mappedState = component.long_name;
-                      }
-                      if (types.includes("country")) {
-                        mappedCountry = component.long_name;
-                      }
-                      if (types.includes("postal_code")) {
-                        mappedPostalCode = component.long_name;
-                      }
-                    });
+                      components.forEach((comp) => {
+                        const types = comp.types;
+                        if (types.includes("street_number"))
+                          streetNumber = comp.long_name;
+                        if (types.includes("route")) route = comp.long_name;
+                        if (
+                          types.includes("locality") ||
+                          types.includes("sublocality")
+                        )
+                          extractedCity = comp.long_name;
+                        if (types.includes("administrative_area_level_1"))
+                          extractedState = comp.long_name;
+                        if (types.includes("postal_code"))
+                          extractedPostalCode = comp.long_name;
+                        if (types.includes("country"))
+                          extractedCountry = comp.long_name;
+                      });
 
-                    const newAddress = data.description || details.formatted_address;
-                    setAddress(newAddress);
-                    
-                    // Manually populate the search box for immediate UI feedback
-                    if (googlePlacesRef.current) {
-                      googlePlacesRef.current.setAddressText(newAddress);
-                    }
+                      const fullStreet = `${streetNumber} ${route}`.trim();
+                      const finalAddress = data.description || fullStreet;
 
-                    updateLocation({
-                      address: newAddress,
-                      city: mappedCity,
-                      state: mappedState,
-                      country: mappedCountry,
-                      postalCode: mappedPostalCode,
-                    });
+                      setAddress(finalAddress);
+                      setCity(extractedCity || city);
+                      setState(extractedState || state);
+                      setPostalCode(extractedPostalCode || postalCode);
+                      setCountry(extractedCountry || country);
 
-                    if (details.geometry && details.geometry.location) {
-                      const lat = details.geometry.location.lat;
-                      const lon = details.geometry.location.lng;
-                      setPropertyCoords({ lat, lon });
-                      saveDraftData({ latitude: lat, longitude: lon, currentStep: 4 });
+                      updateLocation({
+                        address: finalAddress,
+                        city: extractedCity || city,
+                        state: extractedState || state,
+                        postalCode: extractedPostalCode || postalCode,
+                        country: extractedCountry || country,
+                        latitude: lat,
+                        longitude: lng,
+                      });
 
-                      // Animate map to selected location
                       if (mapRef.current) {
-                        mapRef.current.animateToRegion({
-                          latitude: lat,
-                          longitude: lon,
-                          latitudeDelta: 0.005,
-                          longitudeDelta: 0.005,
-                        }, 1000);
+                        mapRef.current.animateToRegion(
+                          {
+                            latitude: lat,
+                            longitude: lng,
+                            latitudeDelta: 0.005,
+                            longitudeDelta: 0.005,
+                          },
+                          1000,
+                        );
                       }
+                    } else {
+                      setAddress(data.description);
+                      updateLocation({ address: data.description });
                     }
-                  } else {
-                     updateLocation({ address: data.description });
-                  }
-                }}
-                query={{
-                  key: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY,
-                  language: "en",
-                  components: country === "Nigeria" ? "country:ng" : undefined,
-                }}
-                textInputProps={{
-                  placeholderTextColor: "#999999",
-                }}
-                enablePoweredByContainer={false}
-                keyboardShouldPersistTaps="always"
-                listUnderlayColor="transparent"
-                styles={{
-                  container: { flex: 0 },
-                  textInputContainer: {
-                    backgroundColor: "#F8F9FA",
-                    borderRadius: 8,
-                    paddingHorizontal: 12,
-                    borderWidth: 1,
-                    borderColor: "#EAEAEA",
-                  },
-                  textInput: {
-                    backgroundColor: "transparent",
-                    height: 50,
-                    fontSize: 14,
-                    color: "#000",
-                  },
-                  listView: {
-                    backgroundColor: "#FFF",
-                    borderWidth: 1,
-                    borderColor: "#EAEAEA",
-                    borderRadius: 8,
-                    marginTop: 4,
-                    elevation: 10,
-                    position: "absolute",
-                    top: 55,
-                    width: "100%",
-                    zIndex: 2000,
-                  },
-                }}
-              />
-            ) : (
-              <TextInput
-                style={styles.textInput}
-                placeholder="Enter street address..."
-                placeholderTextColor="#999999"
-                value={address}
-                onChangeText={(text) => updateLocation({ address: text })}
-              />
-            )}
-          </View>
-        </View>
+                  }}
+                  query={{
+                    key: APP_CONFIG.GOOGLE_MAPS_API_KEY,
+                    language: "en",
+                    components:
+                      country === "Nigeria" ? "country:ng" : undefined,
+                  }}
+                  textInputProps={{
+                    placeholderTextColor: "#999999",
+                    value: address,
+                    onChangeText: (text) => {
+                      setAddress(text);
+                      updateLocation({ address: text });
+                    },
+                    style: styles.googlePlacesInput,
+                    selectionColor: "#192DFF",
+                    multiline: false,
+                    numberOfLines: 1,
+                    clearButtonMode: 'while-editing',
+                    returnKeyType: 'search',
+                  }}
+                  enablePoweredByContainer={false}
+                  keyboardShouldPersistTaps="always"
+                  listUnderlayColor="transparent"
+                  disableScroll={true}                 // Disable internal FlatList scrolling
+                  renderRow={(data) => (
+                    <View style={styles.suggestionRow}>
+                      <LocationIcon size={20} color="#192DFF" />
+                      <View style={styles.suggestionTextContainer}>
+                        <Text style={styles.suggestionMainText} numberOfLines={1}>
+                          {data.main_text || data.description}
+                        </Text>
+                        {data.secondary_text ? (
+                          <Text style={styles.suggestionSecondaryText} numberOfLines={1}>
+                            {data.secondary_text}
+                          </Text>
+                        ) : null}
+                      </View>
+                    </View>
+                  )}
+                  styles={{
+                    container: { 
+                      flex: 0,
+                      width: '100%',
+                      marginTop: 8,
+                      zIndex: 9000,
+                      position: 'relative'
+                    },
+                    textInputContainer: {
+                      padding: 0,
+                      height: 50,
+                      borderWidth: 0,
+                      backgroundColor: "transparent",
+                    },
+                    textInput: {
+                      height: 50,
+                      borderRadius: 12,
+                      borderWidth: 1.5,
+                      borderColor: "#E5E5E5",
+                      paddingHorizontal: 16,
+                      paddingVertical: 0,
+                      fontSize: 14,
+                      color: "#000000",
+                      backgroundColor: "#FAFAFA",
+                      margin: 0,
+                      lineHeight: 50,
+                    },
+                    listView: {
+                      backgroundColor: "#FFFFFF",
+                      borderWidth: 1,
+                      borderColor: "#E5E5E5",
+                      borderTopWidth: 0,
+                      borderRadius: 0,
+                      borderBottomLeftRadius: 12,
+                      borderBottomRightRadius: 12,
+                      marginTop: -1,
+                      elevation: 8,
+                      position: "absolute",
+                      top: 50,
+                      left: 0,
+                      right: 0,
+                      width: "100%",
+                      zIndex: 10000,
+                      maxHeight: 320,
+                      shadowColor: "#000",
+                      shadowOffset: { width: 0, height: 4 },
+                      shadowOpacity: 0.15,
+                      shadowRadius: 8,
+                      overflow: "hidden",
+                    },
+                    row: {
+                      paddingVertical: 12,
+                      paddingHorizontal: 16,
+                      height: "auto",
+                      minHeight: 56,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      borderBottomWidth: 1,
+                      borderBottomColor: "#F0F0F0",
+                    },
+                    separator: {
+                      height: 0,
+                      backgroundColor: "#F0F0F0",
+                    },
+                    predefinedPlacesDescription: {
+                      color: '#1faadb',
+                    },
+                  }}
+                />
+              </View>
+            </View>
 
         {/* City and State Row */}
         <View style={styles.inputRow}>
@@ -674,6 +747,7 @@ const Location = () => {
           <View style={styles.mapContainer}>
             {propertyCoords && MapView ? (
               <MapView
+                key={`map-${propertyCoords.lat}-${propertyCoords.lon}`}
                 ref={mapRef}
                 style={styles.map}
                 provider={PROVIDER_GOOGLE}
@@ -809,6 +883,7 @@ const Location = () => {
         </Modal>
 
       </ScrollView>
+      </KeyboardAvoidingView>
 
       {/* Footer Buttons */}
       <View style={styles.footer}>
@@ -838,6 +913,8 @@ const Location = () => {
         onContinue={handleCancelDismiss}
         onClose={handleCancelDismiss}
       />
+        </View>
+      </TouchableWithoutFeedback>
     </SafeAreaView>
   );
 };
@@ -1160,7 +1237,50 @@ const styles = StyleSheet.create({
   modeToggleTextActive: {
     color: "#010135",
     fontWeight: "700",
-  }
+  },
+  addressSearchContainer: {
+    position: 'relative',
+    zIndex: 1,
+  },
+  googlePlacesInput: {
+    height: 50,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: "#E5E5E5",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 14,
+    color: "#000000",
+    backgroundColor: "#FAFAFA",
+    width: '100%',
+  },
+  suggestionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    minHeight: 56,
+    gap: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F0F0F0",
+  },
+  suggestionTextContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    gap: 2,
+  },
+  suggestionMainText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: "#000000",
+    lineHeight: 18,
+  },
+  suggestionSecondaryText: {
+    fontSize: 12,
+    fontWeight: '400',
+    color: "#666666",
+    lineHeight: 16,
+  },
 });
 
 export default Location;

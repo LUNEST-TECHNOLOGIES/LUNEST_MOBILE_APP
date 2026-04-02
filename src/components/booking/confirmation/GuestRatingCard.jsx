@@ -3,7 +3,7 @@ import { Text, StyleSheet, View, Pressable, Image } from 'react-native';
 import FeedbackModal from './FeedbackModal';
 
 const GuestRatingCard = ({ guestName = 'Guest', onLeaveReview = () => {} }) => {
-  const [rating, setRating] = useState(0);
+  const [rating, setRating] = useState(5.0);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
 
   // Using a simple star emoji approach since icon files may not render properly
@@ -31,7 +31,7 @@ const GuestRatingCard = ({ guestName = 'Guest', onLeaveReview = () => {} }) => {
     });
     setShowFeedbackModal(false);
     // Reset rating for next time
-    setRating(0);
+    setRating(5.0);
   };
 
   return (

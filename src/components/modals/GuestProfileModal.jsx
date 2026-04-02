@@ -6,9 +6,10 @@
 
 import { Image } from "expo-image";
 import { useEffect, useState } from "react";
-import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { Linking, Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import Svg, { Circle, Path } from "react-native-svg";
 
+import authService from "../../services/authService";
 import { resolveImageUrl } from "../../utils/imageUtils";
 
 // Import icons from assets (same as host-information page)
@@ -49,24 +50,42 @@ const GuestProfileModal = ({
   onMessageGuest,
   guest = {},
   guestInfoUnavailable = false,
+  guestId = null, // Optional: pass guestId to fetch latest rating
 }) => {
   // Debug: Log the guest prop to verify what is received
   if (__DEV__) {
     console.log("[GuestProfileModal] guest prop:", guest);
+    console.log(
+      "[GuestProfileModal] extracted rating:",
+      guest?.rating,
+      "| status:",
+      guest?.status,
+      "| phone:",
+      guest?.phone
+    );
   }
 
   const {
     name = "Guest Name",
     email = "guest•••••••••@email.com",
     phone = "+234800••••••0",
-    rating = 5.0,
-    isVerified = true,
+    rating: initialRating = null,
+    isVerified: initialIsVerified = true,
     avatar: initialAvatar = null,
     status = "PENDING", // booking status passed in guest prop
   } = guest;
 
   const [avatar, setAvatar] = useState(initialAvatar);
+  const [rating, setRating] = useState(initialRating);
+  const [isVerified, setIsVerified] = useState(initialIsVerified);
 
+  // Update rating and isVerified when guest prop changes
+  useEffect(() => {
+    setRating(initialRating);
+    setIsVerified(initialIsVerified);
+  }, [initialRating, initialIsVerified]);
+
+  // Resolve avatar
   useEffect(() => {
     const resolve = async () => {
       if (initialAvatar && typeof initialAvatar === 'string' && !initialAvatar.startsWith('http') && !initialAvatar.startsWith('file')) {
@@ -79,13 +98,63 @@ const GuestProfileModal = ({
     resolve();
   }, [initialAvatar]);
 
-  // Mask email for privacy
-  const maskedEmail = email.includes("@")
-    ? `${email.substring(0, 4)}•••••••••@${email.split("@")[1]}`
-    : email;
+  // Fetch latest guest profile data when modal becomes visible
+  useEffect(() => {
+    if (__DEV__) {
+      console.log("[GuestProfileModal] useEffect triggered: visible=", visible, "guestId=", guestId);
+    }
+    
+    if (visible && guestId) {
+      const fetchLatestGuestData = async () => {
+        try {
+          if (__DEV__) {
+            console.log("[GuestProfileModal] Fetching guest data with guestId:", guestId);
+          }
+          
+          const profileResult = await authService.fetchUserById(guestId);
+          
+          if (__DEV__) {
+            console.log("[GuestProfileModal] Fetch result:", profileResult);
+            console.log("[GuestProfileModal] User guestRating:", profileResult?.user?.guestRating);
+          }
+          
+          if (profileResult.success && profileResult.user) {
+            // Update with latest rating and verification status from database
+            const latestRating = profileResult.user.guestRating || 0;
+            setRating(latestRating);
+            setIsVerified(profileResult.user.isVerified ?? initialIsVerified);
+            
+            if (__DEV__) {
+              console.log("[GuestProfileModal] Updated rating to:", latestRating);
+            }
+            
+            // Also update avatar if available
+            if (profileResult.user.avatar) {
+              const resolvedAvatar = await resolveImageUrl(profileResult.user.avatar);
+              setAvatar(resolvedAvatar);
+            }
+          }
+        } catch (error) {
+          console.log("Error fetching latest guest profile:", error);
+          // Keep using the passed-in values if fetch fails
+        }
+      };
+      fetchLatestGuestData();
+    }
+  }, [visible, guestId, initialIsVerified]);
 
-  // Only show full phone if status is CONFIRMED or COMPLETED
-  const showFullPhone = ["CONFIRMED", "COMPLETED"].includes(
+  // Mask email for privacy (always masked, shown only in full for confirmed/ongoing/completed)
+  const showFullEmail = ["CONFIRMED", "COMPLETED", "ONGOING"].includes(
+    status?.toUpperCase?.(),
+  );
+  const maskedEmail = showFullEmail
+    ? email
+    : email.includes("@")
+      ? `${email.substring(0, 4)}•••••••••@${email.split("@")[1]}`
+      : email;
+
+  // Show full phone if status is CONFIRMED, COMPLETED, or ONGOING
+  const showFullPhone = ["CONFIRMED", "COMPLETED", "ONGOING"].includes(
     status?.toUpperCase?.(),
   );
   const displayPhone = showFullPhone
@@ -93,6 +162,20 @@ const GuestProfileModal = ({
     : phone.length > 6
       ? `${phone.substring(0, 7)}••••••${phone.slice(-1)}`
       : phone;
+
+  // Handle phone click - initiate call
+  const handlePhonePress = async () => {
+    if (showFullPhone && phone) {
+      try {
+        // Format phone number for dial intent
+        const phoneNumber = phone.replace(/\D/g, ""); // Remove non-digits
+        await Linking.openURL(`tel:${phoneNumber}`);
+      } catch (error) {
+        console.log("Error initiating call:", error);
+        alert("Unable to initiate call. Please check your phone settings.");
+      }
+    }
+  };
 
   return (
     <Modal
@@ -165,7 +248,15 @@ const GuestProfileModal = ({
                     <View style={styles.contactInfo}>
                       <Text style={styles.guestName}>{name}</Text>
                       <Text style={styles.contactText}>{maskedEmail}</Text>
-                      <Text style={styles.contactText}>{displayPhone}</Text>
+                      {showFullPhone ? (
+                        <TouchableOpacity onPress={handlePhonePress}>
+                          <Text style={[styles.contactText, { color: "#6371F1", textDecorationLine: "underline" }]}>
+                            {displayPhone}
+                          </Text>
+                        </TouchableOpacity>
+                      ) : (
+                        <Text style={styles.contactText}>{displayPhone}</Text>
+                      )}
                       {showFullPhone && (
                         <Text
                           style={{
@@ -187,8 +278,7 @@ const GuestProfileModal = ({
                               fill="#888"
                             />
                           </Svg>
-                          This number is visible only to you for booking
-                          purposes.
+                          Click to call. This number is visible only to you.
                         </Text>
                       )}
                     </View>
@@ -197,7 +287,7 @@ const GuestProfileModal = ({
                     <View style={styles.ratingContainer}>
                       <View style={styles.ratingRow}>
                         <Text style={styles.ratingText}>
-                          {rating.toFixed(1)}
+                          {rating > 0 ? rating.toFixed(1) : '—'}
                         </Text>
                         <StarIcon width={15} height={15} />
                       </View>

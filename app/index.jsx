@@ -25,7 +25,7 @@ export default function Index() {
 
       if (isLoggedIn) {
         // User is authenticated - always start on guest tabs
-        // User must explicitly use "Switch to Host" button on profile to access host mode
+        // User must explicitly use "Switch to Host/Landlord" button on profile to access host mode
         // This prevents accidental swipe navigation and ensures proper mode context
         router.replace("/(tabs)");
       } else {

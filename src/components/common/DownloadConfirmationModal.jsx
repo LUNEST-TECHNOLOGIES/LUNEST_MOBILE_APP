@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Dimensions, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const { width } = Dimensions.get('window');
 
@@ -30,13 +30,7 @@ const DownloadConfirmationModal = ({
   const icon = getIcon();
 
   return (
-    <Modal
-      transparent
-      visible={visible}
-      animationType="fade"
-      onRequestClose={onClose}
-      statusBarTranslucent
-    >
+    <View style={styles.fullscreenOverlay}>
       <View style={styles.overlay}>
         <View style={styles.container}>
           <View style={styles.iconContainer}>
@@ -70,11 +64,20 @@ const DownloadConfirmationModal = ({
           </View>
         </View>
       </View>
-    </Modal>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
+  fullscreenOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'transparent',
+    zIndex: 3000,
+  },
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',

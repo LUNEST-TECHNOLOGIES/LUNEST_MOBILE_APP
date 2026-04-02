@@ -1,7 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
-import { useRouter } from "expo-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, memo } from "react";
 import {
     Dimensions,
     Pressable,
@@ -11,6 +10,9 @@ import {
     View,
 } from "react-native";
 import ShieldTickIcon from "../../assets/icons/shield-tick.svg";
+import configService from "../../services/configService";
+import { resolveImageUrlSync } from "../../utils/imageUtils";
+import PropertyRating from "../ui/PropertyRating";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const IMAGE_HEIGHT = 346;
@@ -46,7 +48,7 @@ const PropertyListingCard = ({
   pricingPeriod = "night",
   securityDeposit = 0,
   cleaningFee = 0,
-  rating = 5.0,
+  rating = null,
   isVerified = true,
   isAvailable = true,
   isFavorite = false,
@@ -57,7 +59,6 @@ const PropertyListingCard = ({
   onPress,
   onFavoritePress,
 }) => {
-  const router = useRouter();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [favorite, setFavorite] = useState(isFavorite);
   const [containerWidth, setContainerWidth] = useState(SCREEN_WIDTH - 40);
@@ -86,13 +87,7 @@ const PropertyListingCard = ({
   };
 
   // Default sample images if none provided
-  const displayImages =
-    images.length > 0
-      ? images
-      : [
-          require("../../assets/images/prop_image.png"),
-          require("../../assets/images/Frame 1618873460.png"),
-        ];
+  const displayImages = images.length > 0 ? images : [];
 
   const handleScroll = (event) => {
     const contentOffset = event.nativeEvent.contentOffset.x;
@@ -109,14 +104,9 @@ const PropertyListingCard = ({
   };
 
   const handleCardPress = () => {
-    router.replace({
-      pathname: "/property-details",
-      params: {
-        listingId: id,
-      },
-    });
+    // Only call the onPress callback - let parent handle navigation
     if (onPress) {
-      onPress();
+      onPress(id);
     }
   };
 
@@ -188,21 +178,48 @@ const PropertyListingCard = ({
         >
           {displayImages.map((image, index) => {
             const isVideo = typeof image === "object" && image.type === "video";
-            const imageSource = typeof image === "string" 
-              ? { uri: image } 
-              : (image.uri ? { uri: image.uri } : image);
+            const baseUrl = configService.getBaseURLSync();
+            const resolvedPath =
+              typeof image === "string"
+                ? image
+                : image.uri ||
+                  image.url ||
+                  (typeof image === "number" ? image : null);
+
+            const imageSource =
+              typeof resolvedPath === "number"
+                ? resolvedPath
+                : resolvedPath
+                  ? { uri: resolveImageUrlSync(resolvedPath, baseUrl) }
+                  : null;
+
+            if (!imageSource) return null;
 
             return (
-              <View key={index} style={[styles.slideImage, { width: containerWidth, height: IMAGE_HEIGHT }]}>
+              <View
+                key={index}
+                style={[
+                  styles.slideImage,
+                  { width: containerWidth, height: IMAGE_HEIGHT },
+                ]}
+              >
                 <Image
                   source={imageSource}
-                  style={[StyleSheet.absoluteFillObject, styles.slideImageStyle]}
+                  style={[
+                    StyleSheet.absoluteFillObject,
+                    styles.slideImageStyle,
+                  ]}
                   contentFit="cover"
                   transition={200}
+                  cachePolicy="memory-disk"
                 />
                 {isVideo && (
                   <View style={styles.videoIndicatorOverlay}>
-                    <Ionicons name="play-circle" size={48} color="rgba(255,255,255,0.8)" />
+                    <Ionicons
+                      name="play-circle"
+                      size={48}
+                      color="rgba(255,255,255,0.8)"
+                    />
                   </View>
                 )}
               </View>
@@ -260,10 +277,12 @@ const PropertyListingCard = ({
               </Text>
             </View>
           </View>
-          <View style={styles.ratingContainer}>
-            <Text style={styles.ratingText}>{rating.toFixed(1)}</Text>
-            <Ionicons name="star" size={10} color="#FFB800" />
-          </View>
+          <PropertyRating
+            rating={rating}
+            variant="detailed"
+            showBackground={true}
+            size={10}
+          />
         </View>
 
         {/* Price and Availability Row */}
@@ -280,10 +299,10 @@ const PropertyListingCard = ({
           <View
             style={[
               styles.availabilityBadge,
-              status === "BOOKED" 
-                ? styles.bookedBadge 
-                : isAvailable 
-                  ? styles.availableBadge 
+              status === "BOOKED"
+                ? styles.bookedBadge
+                : isAvailable
+                  ? styles.availableBadge
                   : styles.unavailableBadge,
             ]}
           >
@@ -292,12 +311,16 @@ const PropertyListingCard = ({
                 styles.availabilityText,
                 status === "BOOKED"
                   ? styles.bookedText
-                  : isAvailable 
-                    ? styles.availableText 
+                  : isAvailable
+                    ? styles.availableText
                     : styles.unavailableText,
               ]}
             >
-              {status === "BOOKED" ? "Booked" : isAvailable ? "Available" : "Unavailable"}
+              {status === "BOOKED"
+                ? "Booked"
+                : isAvailable
+                  ? "Available"
+                  : "Unavailable"}
             </Text>
           </View>
         </View>
@@ -315,16 +338,19 @@ const styles = StyleSheet.create({
   container: {
     width: "100%",
     backgroundColor: "#FFFFFF",
-    borderRadius: 6,
+    borderRadius: 12,
     overflow: "hidden",
-    marginBottom: 20,
-    // iOS shadow
+    marginBottom: 24,
+    // Enhanced iOS shadow for better card differentiation
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.13,
-    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
     // Android shadow
-    elevation: 8,
+    elevation: 6,
+    // Add subtle border for extra definition
+    borderWidth: 1,
+    borderColor: "rgba(0, 0, 0, 0.04)",
   },
   pressed: {
     opacity: 0.95,
@@ -339,8 +365,8 @@ const styles = StyleSheet.create({
     height: IMAGE_HEIGHT,
   },
   slideImageStyle: {
-    borderTopLeftRadius: 6,
-    borderTopRightRadius: 6,
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
   },
   videoIndicatorOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -441,21 +467,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#656565",
   },
-  ratingContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#F5F5F5",
-    borderRadius: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 4,
-    gap: 4,
-  },
-  ratingText: {
-    fontSize: 12,
-    fontWeight: "600",
-
-    color: "#000000",
-  },
   priceRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -513,4 +524,19 @@ const styles = StyleSheet.create({
   },
 });
 
-export default PropertyListingCard;
+// Optimized with React.memo to prevent redundant re-renders during list scrolling
+export default memo(PropertyListingCard, (prevProps, nextProps) => {
+  // Only re-render if critical props change
+  return (
+    prevProps.id === nextProps.id &&
+    prevProps.isFavorite === nextProps.isFavorite &&
+    prevProps.isAvailable === nextProps.isAvailable &&
+    prevProps.status === nextProps.status &&
+    prevProps.price === nextProps.price &&
+    prevProps.title === nextProps.title &&
+    prevProps.location === nextProps.location &&
+    prevProps.rating === nextProps.rating &&
+    // Check if images array reference changed (usually happens on refresh)
+    prevProps.images === nextProps.images
+  );
+});

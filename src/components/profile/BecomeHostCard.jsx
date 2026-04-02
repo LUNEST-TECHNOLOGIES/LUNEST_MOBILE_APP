@@ -36,7 +36,7 @@ const BecomeHostCard = ({ onStartHosting }) => {
     <View style={[styles.container, { width: containerWidth }]}>
       {/* Text Content */}
       <View style={styles.textContent}>
-        <Text style={styles.title}>Become a Host</Text>
+        <Text style={styles.title}>Become a Host/Landlord</Text>
         <Text style={styles.description}>
           Share your home with verified guests and unlock new earning opportunities.
         </Text>

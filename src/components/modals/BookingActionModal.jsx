@@ -4,16 +4,15 @@
  * Includes toast notification on success
  */
 
-import React, { useState } from 'react';
 import {
-  View,
-  Text,
-  Modal,
-  TouchableOpacity,
-  StyleSheet,
   ActivityIndicator,
+  Modal,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import Svg, { Path, Circle } from 'react-native-svg';
+import Svg, { Circle, Path } from 'react-native-svg';
 
 // Action types
 export const BOOKING_ACTION = {

@@ -217,17 +217,21 @@ class NetworkErrorHandler {
      * Format error for logging
      */
     static formatErrorLog(error, context = {}) {
+        // Extract real message and status even if nested in data
+        const message = error?.data?.message || error?.message || "Unknown Error";
+        const status = error?.status || error?.data?.status || (error?.response && error?.response.status);
+        
         return {
             timestamp: new Date().toISOString(),
             platform: Platform.OS,
             ...context,
             error: {
-                name: error && error.name ? error.name : undefined,
-                message: error && error.message ? error.message : undefined,
-                status: error && error.status ? error.status : undefined,
-                code: error && error.code ? error.code : undefined,
+                name: error?.name || "Error",
+                message: message,
+                status: status,
+                code: error?.code,
             },
-            stack: error && error.stack ? error.stack : undefined,
+            stack: error?.stack ? error.stack.split('\n').slice(0, 3).join('\n') : undefined, // Keep stack short
         };
     }
 
@@ -235,8 +239,19 @@ class NetworkErrorHandler {
      * Log error to console with context
      */
     static logError(error, context = {}) {
+        const status = error?.status || (error?.data && error.data.status);
+        const isClientError = status >= 400 && status < 500;
+        
+        if (isClientError) {
+            // Concise log for expected client/validation errors
+            const message = error?.data?.message || error?.message || "Client Error";
+            console.log(`ℹ️ [Network] Client Error (${status}): ${message}`, context.action ? `[Action: ${context.action}]` : "");
+            return;
+        }
+
+        // Detailed log for critical/system errors
         const formatted = this.formatErrorLog(error, context);
-        console.error("=== NETWORK ERROR LOG ===");
+        console.error("=== 🛑 CRITICAL NETWORK/SERVER ERROR ===");
         console.error(JSON.stringify(formatted, null, 2));
         console.error("========================");
     }

@@ -6,6 +6,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AccountStatusProvider, UserModeProvider } from "../src/context";
 import { useReferralTracker } from "../src/hooks/useReferralTracker";
+import OfflineBanner from "../src/components/common/OfflineBanner";
 import apiClient from "../src/services/apiClient";
 import authService from "../src/services/authService";
 
@@ -145,6 +146,24 @@ export default function RootLayout() {
                 />
                 <Stack.Screen
                   name="signup"
+                  options={{
+                    headerShown: false,
+                  }}
+                />
+                <Stack.Screen
+                  name="forgot-password"
+                  options={{
+                    headerShown: false,
+                  }}
+                />
+                <Stack.Screen
+                  name="verify-code"
+                  options={{
+                    headerShown: false,
+                  }}
+                />
+                <Stack.Screen
+                  name="reset-password"
                   options={{
                     headerShown: false,
                   }}

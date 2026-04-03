@@ -1,5 +1,7 @@
 import { StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
+import EmptyState from "../../components/common/EmptyState";
 
 const MessagesScreen = () => {
   const router = useRouter();

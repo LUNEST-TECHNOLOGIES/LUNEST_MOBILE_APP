@@ -1,19 +1,19 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    ImageBackground,
-    Modal,
-    Platform,
-    Pressable,
-    RefreshControl,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    useWindowDimensions,
-    View,
+  ActivityIndicator,
+  ImageBackground,
+  Modal,
+  Platform,
+  Pressable,
+  RefreshControl,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  useWindowDimensions,
+  View,
 } from "react-native";
 import { Path, Svg } from "react-native-svg";
 
@@ -333,6 +333,7 @@ const ListingCard = ({
             checkInTime: listing.checkInTime || "",
             checkOutTime: listing.checkOutTime || "",
             securityDeposit: (listing.securityDeposit || 0).toString(),
+            serviceCharge: (listing.serviceCharge || 0).toString(),
             cleaningFee: (listing.cleaningFee || 0).toString(),
             instantBooking: (listing.instantBooking || false).toString(),
             address: listing.address || "",
@@ -899,6 +900,7 @@ const HostListingsScreen = () => {
               checkInTime: listing.checkInTime || "",
               checkOutTime: listing.checkOutTime || "",
               securityDeposit: listing.securityDeposit || 0,
+              serviceCharge: listing.serviceCharge || 0,
               cleaningFee: listing.cleaningFee || 0,
               instantBooking: listing.instantBooking || false,
               address: listing.address || "",

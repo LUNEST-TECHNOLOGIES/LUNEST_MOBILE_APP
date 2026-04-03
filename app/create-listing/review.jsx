@@ -996,7 +996,7 @@ const Review = () => {
           )}
           {!!mergedData.securityDeposit && (
             <SummaryRow
-              label="Security Deposit/Caution Fee"
+              label="Caution Fee"
               value={`₦${String(mergedData.securityDeposit || "0")}`}
             />
           )}

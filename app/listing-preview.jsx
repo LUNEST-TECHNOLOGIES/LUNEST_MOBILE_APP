@@ -99,7 +99,7 @@ const convertRegulationsToLabels = (regulations) => {
   return regulations
     .map((regulation) => {
       // Ensure we have a valid value
-      if (regulation === null || regulation === undefined) return null;
+      if (regulation === null || regulation === undefined || regulation === 0 || regulation === "0") return null;
 
       const stringRegulation = String(regulation);
 
@@ -115,13 +115,14 @@ const convertRegulationsToLabels = (regulations) => {
 
       // If it's a number or numeric string, try to map it (0,1,2 problem)
       if (typeof regulation === "number" || /^\d+$/.test(stringRegulation)) {
-        // This handles the 0,1,2 issue - these might be indices or IDs
+        // This handles the indices 1,2,3... (we skip 0 as handled above)
         const ruleIds = Object.keys(HOUSE_RULES_MAP);
         const index = parseInt(regulation);
         if (ruleIds[index]) {
           return HOUSE_RULES_MAP[ruleIds[index]];
         }
-        return `Rule ${regulation}`;
+        // If it's just a number like 0 or 1 that didn't map, and it's not a valid rule, return null
+        return null;
       }
 
       // Fallback: try to beautify the string
@@ -224,6 +225,7 @@ const ListingPreview = () => {
               checkInTime: listing.checkInTime || "",
               checkOutTime: listing.checkOutTime || "",
               securityDeposit: listing.securityDeposit || 0,
+              serviceCharge: listing.serviceCharge || 0,
               cleaningFee: listing.cleaningFee || 0,
               instantBooking: listing.instantBooking || false,
               address: listing.address || "",
@@ -285,6 +287,9 @@ const ListingPreview = () => {
         securityDeposit: params.securityDeposit
           ? parseInt(params.securityDeposit)
           : 0,
+        serviceCharge: params.serviceCharge
+          ? parseInt(params.serviceCharge)
+          : 0,
         cleaningFee: params.cleaningFee ? parseInt(params.cleaningFee) : 0,
         instantBooking: params.instantBooking === "true",
         address: params.address || "",
@@ -316,6 +321,7 @@ const ListingPreview = () => {
         checkInTime: "",
         checkOutTime: "",
         securityDeposit: 0,
+        serviceCharge: 0,
         cleaningFee: 0,
         instantBooking: false,
         address: "",
@@ -587,15 +593,23 @@ const ListingPreview = () => {
         )}
 
         {/* Additional Fees Section */}
-        {(listingData.securityDeposit > 0 || listingData.cleaningFee > 0) && (
+        {(listingData.securityDeposit > 0 || listingData.serviceCharge > 0 || listingData.cleaningFee > 0) && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Additional Fees</Text>
             <View style={styles.feesContainer}>
               {listingData.securityDeposit > 0 && (
                 <View style={styles.feeItem}>
-                  <Text style={styles.feeLabel}>Security Deposit</Text>
+                  <Text style={styles.feeLabel}>Caution Fee</Text>
                   <Text style={styles.feeValue}>
                     ₦{listingData.securityDeposit.toLocaleString()}
+                  </Text>
+                </View>
+              )}
+              {listingData.serviceCharge > 0 && (
+                <View style={styles.feeItem}>
+                  <Text style={styles.feeLabel}>Service Charge</Text>
+                  <Text style={styles.feeValue}>
+                    ₦{listingData.serviceCharge.toLocaleString()}
                   </Text>
                 </View>
               )}
@@ -663,7 +677,7 @@ const ListingPreview = () => {
         )}
 
         {/* Additional House Rules */}
-        {(listingData.houseRules || listingData.additionalRules) && (
+        {(listingData.houseRules || (listingData.additionalRules && listingData.additionalRules !== "0")) && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Additional Information</Text>
             {listingData.houseRules ? (
@@ -671,7 +685,7 @@ const ListingPreview = () => {
                 {String(listingData.houseRules || "")}
               </Text>
             ) : null}
-            {listingData.additionalRules ? (
+            {listingData.additionalRules && listingData.additionalRules !== "0" ? (
               <Text style={[styles.sectionContent, { marginTop: 8 }]}>
                 {String(listingData.additionalRules || "")}
               </Text>

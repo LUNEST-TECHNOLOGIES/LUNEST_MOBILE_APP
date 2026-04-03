@@ -305,11 +305,13 @@ class ListingService {
         success: true,
         message: "Listing created successfully",
         listing:
-          response && response.body
-            ? response.body
-            : response && response.data
-              ? response.data
-              : response,
+          response && response.listing
+            ? response.listing
+            : response && response.body
+              ? response.body
+              : response && response.data
+                ? response.data
+                : response,
       };
     } catch (error) {
       console.error("[ListingService] Error creating listing:", error);
@@ -598,7 +600,13 @@ class ListingService {
         success: true,
         message: "Listing updated successfully",
         listing:
-          response && response.body ? response.body : response && response.data,
+          response && response.listing
+            ? response.listing
+            : response && response.body
+              ? response.body
+              : response && response.data
+                ? response.data
+                : response,
       };
     } catch (error) {
       console.error("[ListingService] Error updating listing:", error);

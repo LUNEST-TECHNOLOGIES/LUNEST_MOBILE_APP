@@ -673,8 +673,8 @@ const Review = () => {
       const listingData = {
         intent: mergedData.intent?.toUpperCase() || "RENT", // Convert to uppercase for backend
         propertyType: mergedData.propertyType,
-        propertyName: mergedData.propertyName || mergedData.propertyTitle,
-        propertyTitle: mergedData.propertyTitle,
+        propertyName: mergedData.propertyName || mergedData.propertyTitle || mergedData.title,
+        propertyTitle: mergedData.propertyTitle || mergedData.propertyName || mergedData.title,
         bedrooms: parseInt(mergedData.bedrooms) || 0,
         bathrooms: parseInt(mergedData.bathrooms) || 0,
         guests: parseInt(mergedData.guestCapacity || mergedData.guests) || 0,
@@ -704,8 +704,7 @@ const Review = () => {
         additionalRules: mergedData.additionalRules || "",
         furnishing: mergedData.furnishing || "",
         titleType: mergedData.titleType || "",
-        status: "PENDING", // Set status to pending for review
-        propertyVideos: propertyVideos,
+        status: isEditing ? (mergedData.status || "PENDING") : "PENDING", // Maintain status if editing
       };
 
       // Add check-in/check-out times only if they were set
@@ -738,8 +737,8 @@ const Review = () => {
 
       console.log("📥 [Review] API response:", result);
 
-      if (result && (result.success || result._id)) {
-        const listingId = result._id || result.listingId || editingListingId;
+      if (result && (result.success || result._id || result.listing?._id)) {
+        const listingId = result.listing?._id || result.listing?.id || result._id || result.listingId || editingListingId;
 
         // Clear the draft
         try {

@@ -338,6 +338,8 @@ const ListingCard = ({
             address: listing.address || "",
             city: listing.city || "",
             state: listing.state || "",
+            propertyVideos: JSON.stringify(listing.propertyVideos || []),
+            video: listing.propertyVideos?.[0] || "",
           },
         });
       } catch (error) {
@@ -1176,9 +1178,19 @@ const HostListingsScreen = () => {
       case "booked":
         return listing.status === "BOOKED";
       case "for_rent":
-        return listing.listingType === "For Rent";
+        return (
+          listing.listingType === "For Rent" &&
+          (listing.status === "LIVE" ||
+            listing.status === "ACTIVE" ||
+            listing.status === "AVAILABLE")
+        );
       case "for_sale":
-        return listing.listingType === "For Sale";
+        return (
+          listing.listingType === "For Sale" &&
+          (listing.status === "LIVE" ||
+            listing.status === "ACTIVE" ||
+            listing.status === "AVAILABLE")
+        );
       case "pending":
         return listing.status === "PENDING";
       case "expired":

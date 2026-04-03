@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Toast from "../../components/common/Toast";
+import EmptyState from "../../components/common/EmptyState";
 import HomeHeader from "../../components/home/HomeHeader";
 import NotificationAlert from "../../components/home/NotificationAlert";
 import ProfileSetupBanner from "../../components/home/ProfileSetupBanner";

@@ -169,7 +169,7 @@ class ListingService {
   async fetchListingsByStatus(filters = {}) {
     console.log("[ListingService] Fetching listings by status:", filters);
     try {
-      const response = await apiClient.post("/v1/listings/listing", filters);
+      const response = await apiClient.post("/v1/listings", filters);
 
       const listings =
         response && response.body
@@ -274,7 +274,7 @@ class ListingService {
 
       console.log("[ListingService] Sending listing data to API...");
       console.log(
-        "[ListingService] Endpoint: POST /v1/listings/listing/create",
+        "[ListingService] Endpoint: POST /v1/listings/create",
       );
       console.log("[ListingService] Listing data:", {
         intent: listingData.intent,
@@ -288,7 +288,7 @@ class ListingService {
       });
 
       const response = await apiClient.post(
-        "/v1/listings/listing/create",
+        "/v1/listings/create",
         listingData,
         {
           headers: {
@@ -368,11 +368,11 @@ class ListingService {
       }
 
       console.log(
-        "[ListingService] Endpoint: POST /v1/listings/listing/my-listings",
+        "[ListingService] Endpoint: POST /v1/listings/my-listings",
       );
 
       const response = await apiClient.post(
-        "/v1/listings/listing/my-listings",
+        "/v1/listings/my-listings",
         {},
         {
           headers: {
@@ -445,7 +445,7 @@ class ListingService {
   async fetchAllListings(filters = {}) {
     console.log("[ListingService] Fetching all public listings...");
     try {
-      const response = await apiClient.post("/v1/listings/listing", filters);
+      const response = await apiClient.post("/v1/listings", filters);
 
       console.log("[ListingService] All listings fetched successfully");
       return {
@@ -487,7 +487,7 @@ class ListingService {
     }
 
     try {
-      const response = await apiClient.get("/v1/listings/listing/" + listingId);
+      const response = await apiClient.get("/v1/listings/" + listingId);
 
       console.log("[ListingService] Listing fetched successfully");
       console.log("[ListingService] Response type:", typeof response);
@@ -589,7 +589,7 @@ class ListingService {
       }
 
       const response = await apiClient.patch(
-        "/v1/listings/listing/update/" + listingId,
+        "/v1/listings/update/" + listingId,
         updateData,
       );
 
@@ -635,7 +635,7 @@ class ListingService {
       // Update the listing status to DRAFT
       // apiClient will automatically add the auth token via buildHeaders
       const response = await apiClient.patch(
-        "/v1/listings/listing/update/" + listingId,
+        "/v1/listings/update/" + listingId,
         { status: "DRAFT" },
       );
 
@@ -691,7 +691,7 @@ class ListingService {
       }
 
       const response = await apiClient.delete(
-        "/v1/listings/listing/delete/" + listingId,
+        "/v1/listings/delete/" + listingId,
         {
           headers: {
             Authorization: "Bearer " + token,
@@ -744,7 +744,7 @@ class ListingService {
 
       const newStatus = pause ? "PAUSED" : "AVAILABLE";
       const response = await apiClient.patch(
-        "/v1/listings/listing/update/" + listingId,
+        "/v1/listings/update/" + listingId,
         { status: newStatus },
       );
 
@@ -902,14 +902,14 @@ class ListingService {
         "[ListingService] Sending " + imageCount + " images to API...",
       );
       console.log(
-        "[ListingService] Endpoint: POST /v1/listings/listing/upload-images",
+        "[ListingService] Endpoint: POST /v1/listings/upload-images",
       );
 
       // Use configService for dynamic URL detection
       const baseURL = await configService.getBaseURL();
 
       const response = await fetch(
-        baseURL + "/v1/listings/listing/upload-images",
+        baseURL + "/v1/listings/upload-images",
         {
           method: "POST",
           headers: {
@@ -1046,7 +1046,7 @@ class ListingService {
 
       const baseURL = await configService.getBaseURL();
       const response = await fetch(
-        baseURL + "/v1/listings/listing/upload-videos",
+        baseURL + "/v1/listings/upload-videos",
         {
           method: "POST",
           headers: {
@@ -1133,7 +1133,7 @@ class ListingService {
         }
       }
 
-      const response = await fetch(`${baseURL}/v1/listings/listing/upload-photos/${listingId}`, {
+      const response = await fetch(`${baseURL}/v1/listings/upload-photos/${listingId}`, {
         method: "POST",
         headers: { Authorization: "Bearer " + token },
         body: formData,
@@ -1186,14 +1186,14 @@ class ListingService {
       if (existingId) {
         console.log("[ListingService] Updating existing draft:", existingId);
         response = await apiClient.patch(
-          "/v1/listings/listing/update/" + existingId,
+          "/v1/listings/update/" + existingId,
           payload, // REMOVED nested { update: ... }
           { headers: { Authorization: "Bearer " + token } },
         );
       } else {
         console.log("[ListingService] Creating new draft");
         response = await apiClient.post(
-          "/v1/listings/listing/create",
+          "/v1/listings/create",
           payload,
           { headers: { Authorization: "Bearer " + token } },
         );
@@ -1226,7 +1226,7 @@ class ListingService {
           drafts: [],
         };
 
-      const response = await apiClient.get("/v1/listings/listing/drafts", {
+      const response = await apiClient.get("/v1/listings/drafts", {
         headers: { Authorization: "Bearer " + token },
       });
 
@@ -1289,7 +1289,7 @@ class ListingService {
       const token = await authService.getToken();
       if (!token) return { success: false, message: "Authentication required" };
 
-      await apiClient.delete("/v1/listings/listing/delete/" + draftId, {
+      await apiClient.delete("/v1/listings/delete/" + draftId, {
         headers: { Authorization: "Bearer " + token },
       });
 

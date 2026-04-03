@@ -1,20 +1,10 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import Animated, { 
-  FadeInDown, 
-  useSharedValue, 
-  useAnimatedStyle, 
-  withRepeat, 
-  withTiming, 
-  withSequence,
-  Easing 
-} from 'react-native-reanimated';
-import { MdSearchOff } from 'react-icons/md'; // Fallback icon
-import { usePremiumUI } from '../../hooks/usePremiumUI';
+import { MaterialIcons } from '@expo/vector-icons';
 
 /**
- * EmptyState - A premium full-page empty state component
- * Includes floating animations and Call to Action (CTA) buttons.
+ * EmptyState - A full-page empty state component
+ * Includes icon and Call to Action (CTA) buttons.
  */
 const EmptyState = ({ 
   title = "No Listings Found", 
@@ -23,70 +13,34 @@ const EmptyState = ({
   buttonTitle,
   onPress,
 }) => {
-  const { triggerHaptic } = usePremiumUI();
-  const floatAnim = useSharedValue(0);
-
-  // Floating effect for the icon
-  React.useEffect(() => {
-    floatAnim.value = withRepeat(
-      withSequence(
-        withTiming(-10, { duration: 2000, easing: Easing.bezier(0.445, 0.05, 0.55, 0.95) }),
-        withTiming(0, { duration: 2000, easing: Easing.bezier(0.445, 0.05, 0.55, 0.95) })
-      ),
-      -1, // Infinite
-      true // Reverse
-    );
-  }, []);
-
-  const animatedIconStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: floatAnim.value }],
-  }));
-
   const handlePress = () => {
-    triggerHaptic('impactMedium');
     if (onPress) onPress();
   };
 
   return (
     <View style={styles.container}>
-      {/* Animated Icon Placeholder */}
-      <Animated.View 
-        entering={FadeInDown.delay(200).duration(800)}
-        style={[styles.iconContainer, animatedIconStyle]}
-      >
+      {/* Icon Placeholder */}
+      <View style={styles.iconContainer}>
         {IconComponent ? (
           <IconComponent size={80} color="#010135" opacity={0.1} />
         ) : (
-          <View style={styles.placeholderCircle} />
+          <MaterialIcons name="search-off" size={80} color="#010135" style={{ opacity: 0.1 }} />
         )}
-      </Animated.View>
+      </View>
 
       {/* Text Content */}
-      <Animated.Text 
-        entering={FadeInDown.delay(400).duration(800)}
-        style={styles.title}
-      >
-        {title}
-      </Animated.Text>
-      
-      <Animated.Text 
-        entering={FadeInDown.delay(600).duration(800)}
-        style={styles.message}
-      >
-        {message}
-      </Animated.Text>
+      <Text style={styles.title}>{title}</Text>
+      <Text style={styles.message}>{message}</Text>
 
       {/* Optional CTA Button */}
       {buttonTitle && (
-        <Animated.View entering={FadeInDown.delay(800).duration(800)}>
-          <TouchableOpacity 
-            onPress={handlePress}
-            style={styles.button}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.buttonText}>{buttonTitle}</Text>
-          </TouchableOpacity>
-        </Animated.View>
+        <TouchableOpacity 
+          onPress={handlePress}
+          style={styles.button}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.buttonText}>{buttonTitle}</Text>
+        </TouchableOpacity>
       )}
     </View>
   );
@@ -94,7 +48,7 @@ const EmptyState = ({
 
 const styles = StyleSheet.create({
   container: {
-    paddingVertical: 100,
+    paddingVertical: 80,
     paddingHorizontal: 40,
     alignItems: 'center',
     justifyContent: 'center',
@@ -105,15 +59,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  placeholderCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#F0F0F0',
-    opacity: 0.5,
-  },
   title: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '700',
     color: '#010135',
     marginBottom: 12,
@@ -121,23 +68,18 @@ const styles = StyleSheet.create({
     fontFamily: 'Aeonik-Bold',
   },
   message: {
-    fontSize: 16,
+    fontSize: 15,
     color: '#6D6D6D',
     textAlign: 'center',
-    lineHeight: 24,
+    lineHeight: 22,
     marginBottom: 32,
     fontFamily: 'Aeonik-Regular',
   },
   button: {
-    paddingVertical: 16,
-    paddingHorizontal: 32,
+    paddingVertical: 14,
+    paddingHorizontal: 30,
     backgroundColor: '#010135',
     borderRadius: 30,
-    shadowColor: '#010135',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.2,
-    shadowRadius: 20,
-    elevation: 10,
   },
   buttonText: {
     color: '#FFFFFF',

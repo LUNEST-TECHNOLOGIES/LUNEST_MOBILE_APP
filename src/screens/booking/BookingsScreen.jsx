@@ -21,10 +21,8 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import useCachedFetch from "../../hooks/useCachedFetch";
 
-// Premium UI Additions
-import { usePremiumUI } from "../../hooks/usePremiumUI";
+
 import EmptyState from "../../components/common/EmptyState";
-import Animated, { FadeInDown } from "react-native-reanimated";
 
 // Import booking components
 import {
@@ -44,7 +42,7 @@ const BookingsScreen = () => {
   const router = useRouter();
   const params = useLocalSearchParams();
   const [activeTab, setActiveTab] = useState("Upcoming");
-  const { triggerHaptic } = usePremiumUI();
+
 
   // Modal state for host profile
   const [showHostModal, setShowHostModal] = useState(false);
@@ -350,12 +348,12 @@ const BookingsScreen = () => {
 
   // Pull to refresh — delegates to the cached hook
   const onRefresh = () => {
-    triggerHaptic('impactLight');
+
     onCachedRefresh();
   };
 
   const handleTabPress = (tab) => {
-    triggerHaptic('selection');
+
     setActiveTab(tab);
   };
 
@@ -551,9 +549,8 @@ const BookingsScreen = () => {
       >
         {filteredBookings.length > 0 ? (
           filteredBookings.map((booking, index) => (
-            <Animated.View 
+            <View 
               key={booking.id}
-              entering={FadeInDown.delay(index * 100).duration(800).springify()}
             >
               <BookingCard
                 booking={booking}
@@ -562,7 +559,7 @@ const BookingsScreen = () => {
                 onPayNow={handlePayNow}
                 onChat={handleChat}
               />
-            </Animated.View>
+            </View>
           ))
         ) : (
           <EmptyState 

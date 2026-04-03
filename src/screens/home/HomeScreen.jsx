@@ -8,7 +8,6 @@ import {
   Text,
   useWindowDimensions,
   View,
-  Animated, // Added Animated
   Platform,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -34,17 +33,6 @@ import storageService from "../../services/storageService";
 import * as ImageUtils from "../../utils/imageUtils";
 import { buildAPIFilters, formatParsedFilters, parseSearchQuery } from "../../utils/smartSearchParser";
 
-// Premium UI Additions
-import { usePremiumUI } from "../../hooks/usePremiumUI";
-import EmptyState from "../../components/common/EmptyState";
-import AnimatedReanimated, { 
-  FadeInDown, 
-  useAnimatedScrollHandler, 
-  useSharedValue, 
-  useAnimatedStyle,
-  interpolate,
-  Extrapolate
-} from "react-native-reanimated";
 
 /**
  * HomeScreen - Main dashboard with Fixed Header, Search, Category & Scrollable Content
@@ -65,41 +53,12 @@ const HomeScreen = () => {
   const [topPicksListings, setTopPicksListings] = useState([]);
   const [notificationCount, setNotificationCount] = useState(0);
   const [bookmarkMap, setBookmarkMap] = useState({});
-  const isFirstFocus = useRef(true);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [toastType, setToastType] = useState("success");
-  const fadeAnim = useRef(new Animated.Value(0)).current; // For smooth entry
   const { height: screenHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { triggerHaptic, useInteractionScale } = usePremiumUI();
-  
-  // Header Morph Shared Values
-  const scrollY = useSharedValue(0);
-  const scrollHandler = useAnimatedScrollHandler((event) => {
-    scrollY.value = event.contentOffset.y;
-  });
-
-  const headerAnimatedStyle = useAnimatedStyle(() => {
-    const opacity = interpolate(
-      scrollY.value,
-      [0, 50],
-      [1, 0.9],
-      Extrapolate.CLAMP
-    );
-    const elevation = interpolate(
-      scrollY.value,
-      [0, 50],
-      [0, 4],
-      Extrapolate.CLAMP
-    );
-    return {
-      opacity,
-      elevation,
-      shadowOpacity: interpolate(scrollY.value, [0, 50], [0, 0.1], Extrapolate.CLAMP),
-    };
-  });
 
   // ── Cached explore listings (stale-while-revalidate) ──
   const {
@@ -126,18 +85,7 @@ const HomeScreen = () => {
   // Never show skeleton if we already have data (prevents flicker during refresh)
   const shouldShowSkeleton = showSkeleton && safeExploreListings.length === 0;
 
-  // Handle fade animation when loading finishes
-  useEffect(() => {
-    if (!shouldShowSkeleton && safeExploreListings.length > 0) {
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 500,
-        useNativeDriver: true,
-      }).start();
-    } else if (shouldShowSkeleton) {
-      fadeAnim.setValue(0);
-    }
-  }, [shouldShowSkeleton, safeExploreListings.length]);
+
 
   // Filter listings by active category
   const filteredListings = useMemo(() => {
@@ -924,16 +872,14 @@ const HomeScreen = () => {
   const renderItem = useCallback(({ item, index }) => {
     const currentBookmarkStatus = bookmarkMap[item.id] || { isBookmarked: false, bookmarkId: null };
     return (
-      <AnimatedReanimated.View 
-        entering={FadeInDown.delay(index * 100).duration(800).springify()}
-      >
+      <View>
         <PropertyListingCard
           {...item}
           isFavorite={currentBookmarkStatus.isBookmarked}
           onPress={handleItemPress}
           onFavoritePress={handleFavoritePress}
         />
-      </AnimatedReanimated.View>
+      </View>
     );
   }, [bookmarkMap, handleItemPress, handleFavoritePress]);
 
@@ -1064,7 +1010,11 @@ const HomeScreen = () => {
       />
 
       {/* FIXED HEADER - Does not scroll */}
-      <AnimatedReanimated.View style={[styles.fixedHeader, headerAnimatedStyle]}>
+      <View
+        style={[
+          styles.headerContainer,
+        ]}
+      >
         {/* Header with Location & Notification */}
         <HomeHeader
           location={userLocation}
@@ -1108,13 +1058,11 @@ const HomeScreen = () => {
           onCategoryPress={handleCategoryPress}
           availableListings={safeExploreListings}
         />
-      </AnimatedReanimated.View>
+      </View>
 
-      {/* SCROLLABLE CONTENT WITH SMOOTH FADE-IN */}
+      {/* SCROLLABLE CONTENT */}
       <View style={{ flex: 1 }}>
         <FlashList
-        onScroll={scrollHandler}
-        scrollEventThrottle={16}
         data={filteredListings}
         keyExtractor={(item) => item.id}
         extraData={bookmarkMap} // Re-render when bookmarks change

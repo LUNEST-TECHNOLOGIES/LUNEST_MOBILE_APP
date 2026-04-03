@@ -29,9 +29,7 @@ import paymentService from "../../services/paymentService";
 import profileService from "../../services/profileService";
 import { resolveImageUrl } from "../../utils/imageUtils";
 
-// Premium UI Additions
-import { usePremiumUI } from "../../hooks/usePremiumUI";
-import Animated, { FadeInDown } from "react-native-reanimated";
+
 
 /**
  * Mode Switching Loading Overlay
@@ -70,7 +68,7 @@ const ProfileScreen = ({ isHostMode: isHostModeProp = false }) => {
     refreshHostStatus,
   } = useUserMode();
   const [refreshing, setRefreshing] = useState(false);
-  const { triggerHaptic } = usePremiumUI();
+
   const [initialLoading, setInitialLoading] = useState(true); // Wait for backend data before displaying
   const [hostApplicationStatus, setHostApplicationStatus] = useState(
     HOST_APPLICATION_STATUS.NONE,
@@ -330,7 +328,7 @@ const ProfileScreen = ({ isHostMode: isHostModeProp = false }) => {
         ? { text: "Verified", type: "success" } 
         : { text: "Pending verification", type: "warning" },
       onPress: () => {
-        triggerHaptic('selection');
+
         router.push("/kyc-verification");
       },
     },
@@ -339,7 +337,7 @@ const ProfileScreen = ({ isHostMode: isHostModeProp = false }) => {
       icon: "payment",
       title: "Payment Settings",
       onPress: () => {
-        triggerHaptic('selection');
+
         router.push("/payment-settings");
       },
     },
@@ -348,7 +346,7 @@ const ProfileScreen = ({ isHostMode: isHostModeProp = false }) => {
       icon: "security",
       title: "Login & Security",
       onPress: () => {
-        triggerHaptic('selection');
+
         router.push("/login-security");
       },
     },
@@ -357,7 +355,7 @@ const ProfileScreen = ({ isHostMode: isHostModeProp = false }) => {
       icon: "notification",
       title: "Notification Settings",
       onPress: () => {
-        triggerHaptic('selection');
+
         console.log("Notification Settings");
       },
     },
@@ -366,7 +364,7 @@ const ProfileScreen = ({ isHostMode: isHostModeProp = false }) => {
       icon: "privacy",
       title: "Privacy & Sharing",
       onPress: () => {
-        triggerHaptic('selection');
+
         console.log("Privacy & Sharing");
       },
     },
@@ -378,7 +376,7 @@ const ProfileScreen = ({ isHostMode: isHostModeProp = false }) => {
       icon: "referral",
       title: "Refer a Guest/Host",
       onPress: () => {
-        triggerHaptic('selection');
+
         router.push("/referrals");
       },
     },
@@ -387,7 +385,7 @@ const ProfileScreen = ({ isHostMode: isHostModeProp = false }) => {
       icon: "loyalty",
       title: "Loyalty Program",
       onPress: () => {
-        triggerHaptic('selection');
+
         router.push("/point-history");
       },
     },
@@ -399,7 +397,7 @@ const ProfileScreen = ({ isHostMode: isHostModeProp = false }) => {
       icon: "help",
       title: "Visit the Help Centre",
       onPress: () => {
-        triggerHaptic('selection');
+
         console.log("Help Centre");
       },
     },
@@ -408,7 +406,7 @@ const ProfileScreen = ({ isHostMode: isHostModeProp = false }) => {
       icon: "report",
       title: "Report a Problem",
       onPress: () => {
-        triggerHaptic('selection');
+
         console.log("Report a Problem");
       },
     },
@@ -417,7 +415,7 @@ const ProfileScreen = ({ isHostMode: isHostModeProp = false }) => {
       icon: "chat",
       title: "Chat Support",
       onPress: () => {
-        triggerHaptic('selection');
+
         router.push("/support-chat");
       },
     },
@@ -429,7 +427,7 @@ const ProfileScreen = ({ isHostMode: isHostModeProp = false }) => {
       icon: "legal",
       title: "Legal",
       onPress: () => {
-        triggerHaptic('selection');
+
         console.log("Legal");
       },
     },
@@ -438,7 +436,6 @@ const ProfileScreen = ({ isHostMode: isHostModeProp = false }) => {
       icon: "logout",
       title: "Logout",
       onPress: async () => {
-        triggerHaptic('impactHeavy');
         const performLogout = async () => {
           try {
             if (resetUserMode) {
@@ -636,24 +633,24 @@ const ProfileScreen = ({ isHostMode: isHostModeProp = false }) => {
         )}
 
         {/* Settings Section */}
-        <Animated.View entering={FadeInDown.delay(100).duration(800).springify()} style={styles.sectionContainer}>
+        <View style={styles.sectionContainer}>
           <SettingsSection title="Settings" items={settingsItems} />
-        </Animated.View>
+        </View>
 
         {/* Referral & Rewards Section */}
-        <Animated.View entering={FadeInDown.delay(200).duration(800).springify()} style={styles.sectionContainer}>
+        <View style={styles.sectionContainer}>
           <SettingsSection title="Referral & Rewards" items={referralItems} />
-        </Animated.View>
+        </View>
 
         {/* Support Section */}
-        <Animated.View entering={FadeInDown.delay(300).duration(800).springify()} style={styles.sectionContainer}>
+        <View style={styles.sectionContainer}>
           <SettingsSection title="Support" items={supportItems} />
-        </Animated.View>
+        </View>
 
         {/* Others Section */}
-        <Animated.View entering={FadeInDown.delay(400).duration(800).springify()} style={styles.sectionContainer}>
+        <View style={styles.sectionContainer}>
           <SettingsSection title="Others" items={otherItems} />
-        </Animated.View>
+        </View>
 
         {/* Bottom Padding */}
         <View style={styles.bottomPadding} />

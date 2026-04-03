@@ -18,10 +18,8 @@ import bookmarkService from "../../services/bookmarkService";
 import configService from "../../services/configService";
 import * as ImageUtils from "../../utils/imageUtils";
 
-// Premium UI Additions
-import { usePremiumUI } from "../../hooks/usePremiumUI";
+
 import EmptyState from "../../components/common/EmptyState";
-import Animated, { FadeInDown } from "react-native-reanimated";
 
 const SavedScreen = () => {
   const router = useRouter();
@@ -31,7 +29,7 @@ const SavedScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [baseURL, setBaseURL] = useState("");
   const [imageErrors, setImageErrors] = useState({});
-  const { triggerHaptic } = usePremiumUI();
+
 
   useFocusEffect(
     useCallback(() => {
@@ -83,7 +81,7 @@ const SavedScreen = () => {
       const result = await bookmarkService.deleteBookmark(bookmarkId);
 
       if (result.success) {
-        triggerHaptic('notificationSuccess');
+
         setBookmarks((prev) => prev.filter((b) => b._id !== bookmarkId));
         Alert.alert("Removed from saved", `${listingTitle} has been removed`);
       } else {
@@ -164,8 +162,7 @@ const SavedScreen = () => {
     };
 
     return (
-      <Animated.View 
-        entering={FadeInDown.delay(index * 100).duration(600).springify()}
+      <View 
         style={styles.savedCard}
       >
         <Pressable onPress={() => handleViewDetails(listing._id)}>
@@ -229,7 +226,7 @@ const SavedScreen = () => {
             <Text style={styles.viewDetailsText}>View details</Text>
           </Pressable>
         </View>
-      </Animated.View>
+      </View>
     );
   };
 
@@ -272,7 +269,6 @@ const SavedScreen = () => {
         <Pressable
           style={[styles.tab, activeTab === "saved" && styles.tabActive]}
           onPress={() => {
-            triggerHaptic('selection');
             setActiveTab("saved");
           }}
         >

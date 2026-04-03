@@ -21,6 +21,11 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import useCachedFetch from "../../hooks/useCachedFetch";
 
+// Premium UI Additions
+import { usePremiumUI } from "../../hooks/usePremiumUI";
+import EmptyState from "../../components/common/EmptyState";
+import Animated, { FadeInDown } from "react-native-reanimated";
+
 // Import booking components
 import {
     BookingCard,
@@ -39,6 +44,7 @@ const BookingsScreen = () => {
   const router = useRouter();
   const params = useLocalSearchParams();
   const [activeTab, setActiveTab] = useState("Upcoming");
+  const { triggerHaptic } = usePremiumUI();
 
   // Modal state for host profile
   const [showHostModal, setShowHostModal] = useState(false);
@@ -344,7 +350,13 @@ const BookingsScreen = () => {
 
   // Pull to refresh — delegates to the cached hook
   const onRefresh = () => {
+    triggerHaptic('impactLight');
     onCachedRefresh();
+  };
+
+  const handleTabPress = (tab) => {
+    triggerHaptic('selection');
+    setActiveTab(tab);
   };
 
   /**
@@ -510,7 +522,7 @@ const BookingsScreen = () => {
   if (loading) {
     return (
       <SafeAreaView style={styles.container} edges={["top"]}>
-        <BookingsHeader activeTab={activeTab} onTabPress={setActiveTab} />
+        <BookingsHeader activeTab={activeTab} onTabPress={handleTabPress} />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#4F46E5" />
           <Text style={styles.loadingText}>Loading your bookings...</Text>
@@ -522,7 +534,7 @@ const BookingsScreen = () => {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       {/* Header with Tabs */}
-      <BookingsHeader activeTab={activeTab} onTabPress={setActiveTab} />
+      <BookingsHeader activeTab={activeTab} onTabPress={handleTabPress} />
 
       {/* Bookings List */}
       <ScrollView
@@ -538,18 +550,27 @@ const BookingsScreen = () => {
         }
       >
         {filteredBookings.length > 0 ? (
-          filteredBookings.map((booking) => (
-            <BookingCard
+          filteredBookings.map((booking, index) => (
+            <Animated.View 
               key={booking.id}
-              booking={booking}
-              onViewDetails={handleViewDetails}
-              onCancelBooking={handleCancelBooking}
-              onPayNow={handlePayNow}
-              onChat={handleChat}
-            />
+              entering={FadeInDown.delay(index * 100).duration(800).springify()}
+            >
+              <BookingCard
+                booking={booking}
+                onViewDetails={handleViewDetails}
+                onCancelBooking={handleCancelBooking}
+                onPayNow={handlePayNow}
+                onChat={handleChat}
+              />
+            </Animated.View>
           ))
         ) : (
-          <EmptyBookingState type={activeTab.toLowerCase()} />
+          <EmptyState 
+            title={`No ${activeTab} Bookings`}
+            message={`You don't have any bookings in the ${activeTab.toLowerCase()} category yet.`}
+            buttonTitle="Explore Properties"
+            onPress={() => router.push("/(tabs)/index")}
+          />
         )}
         {/* Bottom spacing for nav bar */}
         <View style={styles.bottomSpacer} />

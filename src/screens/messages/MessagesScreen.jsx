@@ -2,15 +2,17 @@ import { StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const MessagesScreen = () => {
+  const router = useRouter();
+  
   return (
     <View style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <View style={styles.content}>
-          <View style={styles.center}>
-            <Text style={styles.title}>Coming Soon!</Text>
-            <Text style={styles.subtitle}>Messaging feature is under development.</Text>
-          </View>
-        </View>
+        <EmptyState 
+          title="Messaging Coming Soon"
+          message="We're building a seamless way for you to chat with hosts and guests. Stay tuned!"
+          buttonTitle="Back to Home"
+          onPress={() => router.push("/(tabs)/index")}
+        />
       </SafeAreaView>
     </View>
   );

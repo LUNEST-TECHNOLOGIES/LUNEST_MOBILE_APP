@@ -18,6 +18,11 @@ import bookmarkService from "../../services/bookmarkService";
 import configService from "../../services/configService";
 import * as ImageUtils from "../../utils/imageUtils";
 
+// Premium UI Additions
+import { usePremiumUI } from "../../hooks/usePremiumUI";
+import EmptyState from "../../components/common/EmptyState";
+import Animated, { FadeInDown } from "react-native-reanimated";
+
 const SavedScreen = () => {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("saved");
@@ -26,6 +31,7 @@ const SavedScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [baseURL, setBaseURL] = useState("");
   const [imageErrors, setImageErrors] = useState({});
+  const { triggerHaptic } = usePremiumUI();
 
   useFocusEffect(
     useCallback(() => {
@@ -77,6 +83,7 @@ const SavedScreen = () => {
       const result = await bookmarkService.deleteBookmark(bookmarkId);
 
       if (result.success) {
+        triggerHaptic('notificationSuccess');
         setBookmarks((prev) => prev.filter((b) => b._id !== bookmarkId));
         Alert.alert("Removed from saved", `${listingTitle} has been removed`);
       } else {
@@ -124,22 +131,15 @@ const SavedScreen = () => {
   };
 
   const renderEmptyState = () => (
-    <View style={styles.emptyState}>
-      <Ionicons name="bookmark-outline" size={64} color="#D1D5DB" />
-      <Text style={styles.emptyTitle}>No Saved Properties</Text>
-      <Text style={styles.emptySubtitle}>
-        Properties you save will appear here
-      </Text>
-      <Pressable
-        style={styles.exploreBut}
-        onPress={() => router.push("/(tabs)/explore")}
-      >
-        <Text style={styles.exploreButtonText}>Explore Properties</Text>
-      </Pressable>
-    </View>
+    <EmptyState 
+      title="No Saved Properties"
+      message="Properties you save while exploring will appear here for easy access."
+      buttonTitle="Explore Properties"
+      onPress={() => router.push("/(tabs)/index")}
+    />
   );
 
-  const renderBookmarkItem = ({ item }) => {
+  const renderBookmarkItem = ({ item, index }) => {
     const listing = item.listing;
     if (!listing) {
       console.warn("[SavedScreen] Bookmark item has no listing:", item);
@@ -164,7 +164,10 @@ const SavedScreen = () => {
     };
 
     return (
-      <View style={styles.savedCard}>
+      <Animated.View 
+        entering={FadeInDown.delay(index * 100).duration(600).springify()}
+        style={styles.savedCard}
+      >
         <Pressable onPress={() => handleViewDetails(listing._id)}>
           <View style={styles.imageContainer}>
             {imageUrl && !imageError ? (
@@ -226,7 +229,7 @@ const SavedScreen = () => {
             <Text style={styles.viewDetailsText}>View details</Text>
           </Pressable>
         </View>
-      </View>
+      </Animated.View>
     );
   };
 
@@ -268,7 +271,10 @@ const SavedScreen = () => {
         </Pressable>
         <Pressable
           style={[styles.tab, activeTab === "saved" && styles.tabActive]}
-          onPress={() => setActiveTab("saved")}
+          onPress={() => {
+            triggerHaptic('selection');
+            setActiveTab("saved");
+          }}
         >
           <Text
             style={[

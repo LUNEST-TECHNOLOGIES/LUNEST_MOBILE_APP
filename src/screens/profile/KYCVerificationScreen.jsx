@@ -1,4 +1,3 @@
-import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
@@ -48,7 +47,6 @@ const CameraIcon = ({ size = 32, color = "#010135" }) => (
 const KYCVerificationScreen = () => {
   const router = useRouter();
   const [nin, setNin] = useState("");
-  const [selfie, setSelfie] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
   const [consentChecked, setConsentChecked] = useState(false);
@@ -81,26 +79,6 @@ const KYCVerificationScreen = () => {
     }
   };
 
-  const handleTakeSelfie = async () => {
-    if (isVerified) return;
-
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== "granted") {
-      showToast("Camera access is required for facial verification.", TOAST_TYPE.ERROR);
-      return;
-    }
-
-    const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.3,
-      base64: true,
-    });
-
-    if (!result.canceled && result.assets[0]) {
-      setSelfie(result.assets[0]);
-    }
-  };
 
   const handleVerify = async () => {
     if (!nin || nin.length !== 11) {
@@ -121,11 +99,8 @@ const KYCVerificationScreen = () => {
       return;
     }
 
-    setIsLoading(true);
     try {
-      // Selfie is optional - only send if available
-      const selfieBase64 = selfie ? `data:image/jpeg;base64,${selfie.base64}` : null;
-      const result = await kycService.verifyNIN(nin, selfieBase64);
+      const result = await kycService.verifyNIN(nin, null);
 
       if (result.status === "VERIFIED") {
         setIsVerified(true);
@@ -213,7 +188,7 @@ const KYCVerificationScreen = () => {
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <Text style={styles.title}>Verify your Identity</Text>
           <Text style={styles.subtitle}>
-            We use Korapay to securely verify your NIN record and perform facial matching.
+            We use Korapay to securely verify your NIN record based on official government databases.
           </Text>
 
           <View style={styles.inputContainer}>
@@ -229,27 +204,6 @@ const KYCVerificationScreen = () => {
             />
           </View>
 
-          <View style={styles.selfieSection}>
-            <Text style={styles.inputLabel}>Take a Selfie</Text>
-            <Text style={styles.hint}>
-              Make sure your face is well-lit and clearly visible in the frame.
-            </Text>
-            
-            <TouchableOpacity 
-              style={styles.selfiePlaceholder} 
-              onPress={handleTakeSelfie}
-              disabled={isLoading}
-            >
-              {selfie ? (
-                <Image source={{ uri: selfie.uri }} style={styles.previewImage} />
-              ) : (
-                <View style={styles.placeholderContent}>
-                  <CameraIcon />
-                  <Text style={styles.placeholderText}>Tap to open camera</Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          </View>
 
           <View style={styles.noteContainer}>
             <Text style={styles.noteTitle}>Important Note:</Text>
@@ -271,7 +225,7 @@ const KYCVerificationScreen = () => {
               )}
             </View>
             <Text style={styles.consentText}>
-              I consent to the verification of my NIN and facial matching with official government records via Korapay.
+              I consent to the verification of my NIN with official government records via Korapay.
             </Text>
           </TouchableOpacity>
         </ScrollView>

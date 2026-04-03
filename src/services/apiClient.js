@@ -10,6 +10,8 @@ import { Alert, Platform } from "react-native";
 import { navigateToLogin } from "../utils/navigationUtils";
 import configService from "./configService";
 import secureStorageService from "./secureStorageService";
+import notificationService from "./notificationService";
+import logService from "./logService";
 
 // Use same key as authService
 const AUTH_TOKEN_KEY = "auth_token_secure";
@@ -151,11 +153,20 @@ class APIClient {
       ? `Connection Error: Unable to reach server at ${this.baseURL}. Please check your internet or if the backend is running.`
       : (error.message || "An error occurred");
 
+    // Log error to backend
+    logService.logError(displayMsg, {
+      status: error.status,
+      url: url,
+      response: error.response,
+      originalError: error.message,
+    });
+
     if (Platform.OS === "web") {
       // Avoid spamming alerts on web
       console.warn("[APIClient] Network alert:", displayMsg);
     } else {
-      Alert.alert("Network Error", displayMsg, [{ text: "OK" }]);
+      // Use Toast instead of Alert for a non-intrusive experience
+      notificationService.showError(displayMsg);
     }
   }
 
@@ -166,15 +177,23 @@ class APIClient {
    * @returns {Promise<*>}
    */
   async get(endpoint, options = {}) {
-    const url = new URL(endpoint, this.baseURL);
+    // Safety: React Native doesn't always have a global URL constructor
+    const cleanBase = this.baseURL.replace(/\/$/, "");
+    const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
+    let urlString = `${cleanBase}${cleanEndpoint}`;
 
     // Add query parameters
     if (options.params) {
+      const searchParams = new URLSearchParams();
       Object.entries(options.params).forEach(([key, value]) => {
         if (value !== null && value !== undefined) {
-          url.searchParams.append(key, value);
+          searchParams.append(key, value);
         }
       });
+      const queryString = searchParams.toString();
+      if (queryString) {
+        urlString += (urlString.includes("?") ? "&" : "?") + queryString;
+      }
     }
 
     const headers = await this.buildHeaders(options.headers);
@@ -186,7 +205,7 @@ class APIClient {
       });
 
       const response = await Promise.race([
-        fetch(url.toString(), {
+        fetch(urlString, {
           method: "GET",
           headers,
           ...options,
@@ -217,7 +236,7 @@ class APIClient {
 
       return await this.parseResponse(response);
     } catch (error) {
-      this.handleError(error, url.toString());
+      this.handleError(error, urlString);
       throw error;
     }
   }
@@ -230,13 +249,15 @@ class APIClient {
    * @returns {Promise<*>}
    */
   async post(endpoint, data, options = {}) {
-    const url = new URL(endpoint, this.baseURL);
+    const cleanBase = this.baseURL.replace(/\/$/, "");
+    const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
+    const urlString = `${cleanBase}${cleanEndpoint}`;
 
     const headers = await this.buildHeaders(options.headers);
 
     // Debug logging
     console.log("[APIClient] POST Request Details:");
-    console.log("  URL:", url.toString());
+    console.log("  URL:", urlString);
     console.log("  Data:", JSON.stringify(data));
     console.log("  Headers:", JSON.stringify(headers));
 
@@ -252,7 +273,7 @@ class APIClient {
       });
 
       const response = await Promise.race([
-        fetch(url.toString(), {
+        fetch(urlString, {
           method: "POST",
           headers,
           body: requestBody,
@@ -292,7 +313,7 @@ class APIClient {
 
       return await this.parseResponse(response);
     } catch (error) {
-      this.handleError(error, url.toString());
+      this.handleError(error, urlString);
       throw error;
     }
   }
@@ -305,7 +326,9 @@ class APIClient {
    * @returns {Promise<*>}
    */
   async put(endpoint, data, options = {}) {
-    const url = new URL(endpoint, this.baseURL);
+    const cleanBase = this.baseURL.replace(/\/$/, "");
+    const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
+    const urlString = `${cleanBase}${cleanEndpoint}`;
     const headers = await this.buildHeaders(options.headers);
 
     try {
@@ -316,7 +339,7 @@ class APIClient {
       });
 
       const response = await Promise.race([
-        fetch(url.toString(), {
+        fetch(urlString, {
           method: "PUT",
           headers,
           body: JSON.stringify(data),
@@ -348,7 +371,7 @@ class APIClient {
 
       return await this.parseResponse(response);
     } catch (error) {
-      this.handleError(error);
+      this.handleError(error, urlString);
       throw error;
     }
   }
@@ -360,7 +383,9 @@ class APIClient {
    * @returns {Promise<*>}
    */
   async delete(endpoint, options = {}) {
-    const url = new URL(endpoint, this.baseURL);
+    const cleanBase = this.baseURL.replace(/\/$/, "");
+    const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
+    const urlString = `${cleanBase}${cleanEndpoint}`;
     const headers = await this.buildHeaders(options.headers);
 
     try {
@@ -370,7 +395,7 @@ class APIClient {
       });
 
       const response = await Promise.race([
-        fetch(url.toString(), {
+        fetch(urlString, {
           method: "DELETE",
           headers,
           ...options,
@@ -401,7 +426,7 @@ class APIClient {
 
       return await this.parseResponse(response);
     } catch (error) {
-      this.handleError(error);
+      this.handleError(error, urlString);
       throw error;
     }
   }
@@ -414,7 +439,9 @@ class APIClient {
    * @returns {Promise<*>}
    */
   async patch(endpoint, data, options = {}) {
-    const url = new URL(endpoint, this.baseURL);
+    const cleanBase = this.baseURL.replace(/\/$/, "");
+    const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
+    const urlString = `${cleanBase}${cleanEndpoint}`;
     const headers = await this.buildHeaders(options.headers);
 
     try {
@@ -424,7 +451,7 @@ class APIClient {
       });
 
       const response = await Promise.race([
-        fetch(url.toString(), {
+        fetch(urlString, {
           method: "PATCH",
           headers,
           body: JSON.stringify(data),
@@ -456,7 +483,7 @@ class APIClient {
 
       return await this.parseResponse(response);
     } catch (error) {
-      this.handleError(error);
+      this.handleError(error, urlString);
       throw error;
     }
   }

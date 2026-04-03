@@ -34,6 +34,18 @@ import storageService from "../../services/storageService";
 import * as ImageUtils from "../../utils/imageUtils";
 import { buildAPIFilters, formatParsedFilters, parseSearchQuery } from "../../utils/smartSearchParser";
 
+// Premium UI Additions
+import { usePremiumUI } from "../../hooks/usePremiumUI";
+import EmptyState from "../../components/common/EmptyState";
+import AnimatedReanimated, { 
+  FadeInDown, 
+  useAnimatedScrollHandler, 
+  useSharedValue, 
+  useAnimatedStyle,
+  interpolate,
+  Extrapolate
+} from "react-native-reanimated";
+
 /**
  * HomeScreen - Main dashboard with Fixed Header, Search, Category & Scrollable Content
  */
@@ -61,6 +73,33 @@ const HomeScreen = () => {
   const { height: screenHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { triggerHaptic, useInteractionScale } = usePremiumUI();
+  
+  // Header Morph Shared Values
+  const scrollY = useSharedValue(0);
+  const scrollHandler = useAnimatedScrollHandler((event) => {
+    scrollY.value = event.contentOffset.y;
+  });
+
+  const headerAnimatedStyle = useAnimatedStyle(() => {
+    const opacity = interpolate(
+      scrollY.value,
+      [0, 50],
+      [1, 0.9],
+      Extrapolate.CLAMP
+    );
+    const elevation = interpolate(
+      scrollY.value,
+      [0, 50],
+      [0, 4],
+      Extrapolate.CLAMP
+    );
+    return {
+      opacity,
+      elevation,
+      shadowOpacity: interpolate(scrollY.value, [0, 50], [0, 0.1], Extrapolate.CLAMP),
+    };
+  });
 
   // ── Cached explore listings (stale-while-revalidate) ──
   const {
@@ -826,6 +865,7 @@ const HomeScreen = () => {
   };
 
   const handleCategoryPress = (categoryKey) => {
+    triggerHaptic('selection');
     setActiveCategory(categoryKey);
     console.log("Category selected:", categoryKey);
   };
@@ -881,15 +921,19 @@ const HomeScreen = () => {
     }
   }, []);
 
-  const renderItem = useCallback(({ item }) => {
+  const renderItem = useCallback(({ item, index }) => {
     const currentBookmarkStatus = bookmarkMap[item.id] || { isBookmarked: false, bookmarkId: null };
     return (
-      <PropertyListingCard
-        {...item}
-        isFavorite={currentBookmarkStatus.isBookmarked}
-        onPress={handleItemPress}
-        onFavoritePress={handleFavoritePress}
-      />
+      <AnimatedReanimated.View 
+        entering={FadeInDown.delay(index * 100).duration(800).springify()}
+      >
+        <PropertyListingCard
+          {...item}
+          isFavorite={currentBookmarkStatus.isBookmarked}
+          onPress={handleItemPress}
+          onFavoritePress={handleFavoritePress}
+        />
+      </AnimatedReanimated.View>
     );
   }, [bookmarkMap, handleItemPress, handleFavoritePress]);
 
@@ -993,15 +1037,12 @@ const HomeScreen = () => {
 
   // Empty state component for explore listings
   const renderExploreEmptyState = () => (
-    <View style={styles.exploreEmptyState}>
-      <Text style={styles.exploreEmptyTitle}>No Listings Available</Text>
-      <Text style={styles.exploreEmptySubtext}>
-        No properties match your search criteria.
-      </Text>
-      <Text style={styles.exploreEmptyHint}>
-        Try adjusting your filters or check back later
-      </Text>
-    </View>
+    <EmptyState 
+      title="No Properties Found"
+      message="We couldn't find any listings matching your current filters. Try adjusting them to see more options."
+      buttonTitle="Clear All Filters"
+      onPress={clearAllFilters}
+    />
   );
 
   return (
@@ -1023,7 +1064,7 @@ const HomeScreen = () => {
       />
 
       {/* FIXED HEADER - Does not scroll */}
-      <View style={styles.fixedHeader}>
+      <AnimatedReanimated.View style={[styles.fixedHeader, headerAnimatedStyle]}>
         {/* Header with Location & Notification */}
         <HomeHeader
           location={userLocation}
@@ -1067,11 +1108,13 @@ const HomeScreen = () => {
           onCategoryPress={handleCategoryPress}
           availableListings={safeExploreListings}
         />
-      </View>
+      </AnimatedReanimated.View>
 
       {/* SCROLLABLE CONTENT WITH SMOOTH FADE-IN */}
-      <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
+      <View style={{ flex: 1 }}>
         <FlashList
+        onScroll={scrollHandler}
+        scrollEventThrottle={16}
         data={filteredListings}
         keyExtractor={(item) => item.id}
         extraData={bookmarkMap} // Re-render when bookmarks change
@@ -1088,20 +1131,19 @@ const HomeScreen = () => {
             </>
           ) : filteredListings.length === 0 && safeExploreListings.length > 0 ? (
             // No listings for this category
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyStateTitle}>
-                No{" "}
-                {activeCategory === "all"
-                  ? ""
-                  : activeCategory.replace(/-/g, " ")}{" "}
-                properties found
-              </Text>
-              <Text style={styles.emptyStateText}>
-                Try selecting a different category or check back later.
-              </Text>
-            </View>
+            <EmptyState 
+              title="Category Empty"
+              message={`We don't have any ${activeCategory.replace(/-/g, " ")} properties right now. Check back soon!`}
+              buttonTitle="View All Categories"
+              onPress={() => setActiveCategory('all')}
+            />
           ) : (
-            renderExploreEmptyState
+            <EmptyState 
+              title="No Listings Near You"
+              message="Your current location didn't return any nearby properties. Search for a different area to find a place."
+              buttonTitle="Change Location"
+              onPress={handleLocationPress}
+            />
           )
         }
         contentContainerStyle={[
@@ -1118,7 +1160,7 @@ const HomeScreen = () => {
           />
         }
       />
-    </Animated.View>
+      </View>
 
       {/* Toast notification */}
       <Toast

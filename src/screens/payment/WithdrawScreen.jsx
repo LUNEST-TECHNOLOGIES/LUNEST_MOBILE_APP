@@ -2,8 +2,9 @@
  * WithdrawScreen - Withdraw funds from wallet to bank account
  */
 import { Ionicons } from "@expo/vector-icons";
-import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useFocusEffect } from "@react-navigation/native";
+import { useRouter } from "expo-router";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
     ActivityIndicator,
     FlatList,
@@ -212,7 +213,7 @@ const WithdrawScreen = () => {
         accountName
       );
 
-      if (result.status === "PENDING") {
+      if (result.status === "PENDING" || result.status === "SUCCESS" || result.status === "COMPLETED") {
         // Refresh balance immediately
         await fetchWalletBalance();
         // Show success screen

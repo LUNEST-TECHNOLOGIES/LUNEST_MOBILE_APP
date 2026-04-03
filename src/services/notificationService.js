@@ -1,342 +1,206 @@
 /**
  * Notification Service
- * Handles fetching and managing notifications separated by user type (GUEST vs HOST)
+ * Handles both push-style and in-app notifications
+ * UI feedback (Toasts) merged with backend data fetching
  */
 
-import authService from "./authService";
-import configService from "./configService";
+import { TOAST_TYPE } from "../components/common/ToastNotification";
+import apiClient from "./apiClient";
 
 class NotificationService {
   constructor() {
-    this.baseURL = null;
-    this.isInitialized = false;
+    this.listeners = new Set();
   }
 
-  async initialize() {
-    if (this.isInitialized) return;
-    try {
-      this.baseURL = await configService.getBaseURL();
-      this.isInitialized = true;
-    } catch (error) {
-      console.error("[NotificationService] Initialize error:", error);
-    }
-  }
+  // --- UI TOAST NOTIFICATIONS (Event Emitter) ---
 
   /**
-   * Fetch notifications for a specific user type
-   * @param {string} userType - 'GUEST' or 'HOST'
-   * @returns {Promise<{notifications: Array, unreadCount: number}>}
+   * Subscribe to toast events
+   * @param {Function} callback - Function to call when a toast is triggered
+   * @returns {Function} - Unsubscribe function
    */
-  async fetchNotifications(userType = "GUEST") {
-    try {
-      await this.initialize();
-      const token = await authService.getToken();
-
-      if (!token) {
-        console.log("[NotificationService] No auth token, returning empty");
-        return { notifications: [], unreadCount: 0 };
-      }
-
-      const response = await fetch(
-        `${this.baseURL}/v1/notifications/notification/by-user-type`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ userType }),
-        },
-      );
-
-      const result = await response.json();
-
-      // Check if we have notification data (backend returns body with notifications)
-      if (result.body && result.body.notifications !== undefined) {
-        return {
-          notifications: result.body.notifications || [],
-          unreadCount: result.body.unreadCount || 0,
-        };
-      }
-
-      // Fallback: check for success flag
-      if (result.success && result.body) {
-        return {
-          notifications: result.body.notifications || [],
-          unreadCount: result.body.unreadCount || 0,
-        };
-      }
-
-      console.warn(
-        "[NotificationService] Unexpected response format:",
-        result.message,
-      );
-      return { notifications: [], unreadCount: 0 };
-    } catch (error) {
-      console.error(
-        "[NotificationService] Error fetching notifications:",
-        error,
-      );
-      return { notifications: [], unreadCount: 0 };
-    }
+  subscribe(callback) {
+    this.listeners.add(callback);
+    return () => this.listeners.delete(callback);
   }
 
   /**
-   * Fetch user-specific notifications including unique bookings
-   * Uses the by-user-type endpoint which filters by GUEST or HOST
+   * Show a toast notification
+   */
+  show(message, type = TOAST_TYPE.INFO, duration = 3000) {
+    this.listeners.forEach((callback) => {
+      callback({ message, type, duration });
+    });
+  }
+
+  showSuccess(message, duration = 3000) {
+    this.show(message, TOAST_TYPE.SUCCESS, duration);
+  }
+
+  showError(message, duration = 4000) {
+    this.show(message, TOAST_TYPE.ERROR, duration);
+  }
+
+  showWarning(message, duration = 3500) {
+    this.show(message, TOAST_TYPE.WARNING, duration);
+  }
+
+  // --- BACKEND NOTIFICATION DATA (Original Implementation) ---
+
+  /**
+   * Fetch notifications for a user based on their active mode (GUEST or HOST)
    * @param {string} userType - 'GUEST' or 'HOST'
-   * @returns {Promise<{notifications: Array, data: Array}>}
    */
   async fetchUserNotifications(userType = "GUEST") {
     try {
-      await this.initialize();
-      const token = await authService.getToken();
-
-      if (!token) {
-        console.log("[NotificationService] No auth token, returning empty");
-        return { notifications: [], data: [] };
-      }
-
-      // Use the by-user-type endpoint (POST) which uses the logged-in user's ID from token
-      const response = await fetch(
-        `${this.baseURL}/v1/notifications/notification/by-user-type`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ userType }),
-        },
-      );
-
-      if (!response.ok) {
-        console.warn(
-          `[NotificationService] Request failed with status: ${response.status}`,
-        );
-        return { notifications: [], data: [] };
-      }
-
-      const result = await response.json();
-      console.log("[NotificationService] Fetched notifications:", result);
-
-      // Check multiple response formats
-      if (result.body && Array.isArray(result.body.notifications)) {
-        return {
-          notifications: result.body.notifications,
-          data: result.body.notifications,
-          unreadCount: result.body.unreadCount || 0,
-        };
-      }
-
-      if (result.success && result.body) {
-        return {
-          notifications: result.body.notifications || [],
-          data: result.body.notifications || [],
-          unreadCount: result.body.unreadCount || 0,
-        };
-      }
-
-      // Try direct array access
-      if (Array.isArray(result.notifications)) {
-        return {
-          notifications: result.notifications,
-          data: result.notifications,
-        };
-      }
-
-      console.warn(
-        "[NotificationService] Could not parse user notifications:",
-        result.message,
-      );
-      return { notifications: [], data: [] };
+      const response = await apiClient.post("/notification/by-user-type", {
+        userType,
+      });
+      return response.data || { data: [] };
     } catch (error) {
-      console.error(
-        "[NotificationService] Error fetching user notifications:",
-        error,
-      );
-      return { notifications: [], data: [] };
+      console.error("[NotificationService] fetchUserNotifications error:", error);
+      return { data: [] };
     }
   }
 
   /**
-   * Get unread notification count for a user type
-   * @param {string} userType - 'GUEST' or 'HOST'
-   * @returns {Promise<number>}
+   * Get count of unread notifications
    */
   async getUnreadCount(userType = "GUEST") {
     try {
-      await this.initialize();
-      const token = await authService.getToken();
-
-      if (!token) {
-        return 0;
-      }
-
-      const response = await fetch(
-        `${this.baseURL}/v1/notifications/notification/unread-count`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ userType }),
-        },
-      );
-
-      // Check if response is ok before parsing
-      if (!response.ok) {
-        console.warn(
-          `[NotificationService] Unread count request failed with status: ${response.status}`,
-        );
-        return 0;
-      }
-
-      // Check content type to avoid parsing HTML as JSON
-      const contentType = response.headers.get("content-type");
-      if (!contentType || !contentType.includes("application/json")) {
-        console.warn(
-          "[NotificationService] Response is not JSON, skipping unread count",
-        );
-        return 0;
-      }
-
-      const result = await response.json();
-      return result.success && result.body && result.body.count
-        ? result.body.count
-        : 0;
+      const response = await apiClient.post("/notification/unread-count", {
+        userType,
+      });
+      return response.data?.unreadCount || 0;
     } catch (error) {
-      console.error("[NotificationService] Error getting unread count:", error);
+      console.error("[NotificationService] getUnreadCount error:", error);
       return 0;
     }
   }
 
   /**
-   * Mark a notification as read
-   * @param {string} notificationId
-   * @returns {Promise<boolean>}
+   * Mark a single notification as read
    */
   async markAsRead(notificationId) {
     try {
-      await this.initialize();
-      const token = await authService.getToken();
-
-      if (!token) {
-        return false;
-      }
-
-      const response = await fetch(
-        `${this.baseURL}/v1/notifications/notification/${notificationId}/read`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      );
-
-      const result = await response.json();
-      return result.success;
+      await apiClient.patch(`/notification/${notificationId}/read`);
+      return true;
     } catch (error) {
-      console.error("[NotificationService] Error marking as read:", error);
+      console.error("[NotificationService] markAsRead error:", error);
       return false;
     }
   }
 
   /**
-   * Mark all notifications as read for a user type
-   * @param {string} userType - 'GUEST' or 'HOST'
-   * @returns {Promise<boolean>}
+   * Mark all notifications as read for current user type
    */
   async markAllAsRead(userType = "GUEST") {
     try {
-      await this.initialize();
-      const token = await authService.getToken();
-
-      if (!token) {
-        return false;
-      }
-
-      const response = await fetch(
-        `${this.baseURL}/v1/notifications/notification/read-all`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ userType }),
-        },
-      );
-
-      const result = await response.json();
-      return result.success;
+      await apiClient.patch("/notification/read-all", { userType });
+      return true;
     } catch (error) {
-      console.error("[NotificationService] Error marking all as read:", error);
+      console.error("[NotificationService] markAllAsRead error:", error);
       return false;
     }
   }
 
   /**
-   * Get notification icon type based on notification type
-   * @param {string} type - Notification type
-   * @returns {string} - Icon name
+   * Get host dashboard statistics (listings, bookings, earnings)
+   */
+  async getHostDashboardStats() {
+    try {
+      const response = await apiClient.get("/notification/host/dashboard-stats");
+      return response.data || {};
+    } catch (error) {
+      console.error("[NotificationService] getHostDashboardStats error:", error);
+      return null;
+    }
+  }
+
+  // --- ADMIN NOTIFICATIONS (for Admin mode) ---
+
+  /**
+   * Fetch admin-level notifications
+   */
+  async fetchAdminNotifications(data = {}) {
+    try {
+      const response = await apiClient.post("/admin", data);
+      return response.data || { notifications: [], unreadCount: 0 };
+    } catch (error) {
+      console.error("[NotificationService] fetchAdminNotifications error:", error);
+      return { notifications: [], unreadCount: 0 };
+    }
+  }
+
+  /**
+   * Mark an admin notification as read
+   */
+  async markAdminAsRead(notificationId) {
+    try {
+      await apiClient.patch(`/admin/${notificationId}/read`);
+      return true;
+    } catch (error) {
+      console.error("[NotificationService] markAdminAsRead error:", error);
+      return false;
+    }
+  }
+
+  /**
+   * Mark all admin notifications as read
+   */
+  async markAllAdminAsRead() {
+    try {
+      await apiClient.patch("/admin/read-all");
+      return true;
+    } catch (error) {
+      console.error("[NotificationService] markAllAdminAsRead error:", error);
+      return false;
+    }
+  }
+
+  // --- UI HELPERS ---
+
+  /**
+   * Return appropriate Ionicon name for notification type
    */
   getNotificationIcon(type) {
     const iconMap = {
-      booking_request: "calendar",
-      booking_confirmed: "checkmark-circle",
-      booking_cancelled: "close-circle",
-      booking_completed: "home",
-      message: "chatbubble",
-      payment: "card",
-      review: "star",
-      listing_approved: "checkmark-done",
-      listing_rejected: "close",
-      new_listing: "home-outline",
-      host_application: "person-add",
-      admin_announcement: "megaphone",
-      upcoming_stay: "time",
-      default: "notifications",
+      booking_request: "calendar-outline",
+      booking_confirmed: "checkmark-circle-outline",
+      booking_cancelled: "close-circle-outline",
+      booking_completed: "star-outline",
+      payment: "card-outline",
+      review: "chatbubble-outline",
+      listing_approved: "business-outline",
+      listing_rejected: "alert-circle-outline",
+      new_listing: "rocket-outline",
+      host_application: "person-add-outline",
+      message: "mail-outline",
+      admin_announcement: "megaphone-outline",
+      default: "notifications-outline",
     };
     return iconMap[type] || iconMap.default;
   }
 
   /**
-   * Format notification time to relative string
-   * @param {string} createdAt - ISO date string
-   * @returns {string} - Relative time (e.g., "2 hours ago")
+   * Format ISO date string to "X time ago"
    */
-  formatNotificationTime(createdAt) {
-    // Validate date input
-    if (!createdAt) return "Recently";
+  formatNotificationTime(dateString) {
+    if (!dateString) return "";
+    try {
+      const date = new Date(dateString);
+      const now = new Date();
+      const diffInSeconds = Math.floor((now - date) / 1000);
 
-    const now = new Date();
-    const notifDate = new Date(createdAt);
+      if (diffInSeconds < 60) return "Just now";
+      if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
+      if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
+      if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)}d ago`;
 
-    // Check for invalid date
-    if (isNaN(notifDate.getTime())) {
-      console.warn("[NotificationService] Invalid date:", createdAt);
-      return "Recently";
+      return date.toLocaleDateString();
+    } catch (e) {
+      return "";
     }
-
-    const diffMs = now - notifDate;
-
-    // Handle future dates or negative differences
-    if (diffMs < 0) return "Just now";
-
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 1) return "Just now";
-    if (diffMins < 60) return `${diffMins} min${diffMins > 1 ? "s" : ""} ago`;
-    if (diffHours < 24)
-      return `${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
-    if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? "s" : ""} ago`;
-    return notifDate.toLocaleDateString();
   }
 }
 

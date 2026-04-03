@@ -9,7 +9,7 @@ const IS_PRODUCTION = false;
 const DEV_CONFIG = {
   APP_SCHEME: "lunestmobile",
   // In dev, the backend URL (where /join/:refCode is hosted)
-  REFERRAL_DOMAIN: "http://192.168.0.200:3000",
+  REFERRAL_DOMAIN: process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000",
   ANDROID_PACKAGE: "com.lunest.mobile",
   IOS_STORE_ID: "0000000000",
   GOOGLE_MAPS_API_KEY: "AIzaSyDhZhU0M8ca_puGciEUxELK4xt2nHxzVuw",

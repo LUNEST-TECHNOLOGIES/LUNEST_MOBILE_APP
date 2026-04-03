@@ -14,17 +14,19 @@ export const resolveImageUrl = async (path, baseUrl = null) => {
   let stringPath = typeof path === 'object' && path?.url ? path.url : String(path);
 
   // Strip hardcoded localhost / local network IPs for backend attachments if they match private IP patterns
-  const isLocalOrPrivateIP = (url) => {
+  const isOutdatedHost = (url) => {
     return url.includes('localhost') || 
            url.includes('127.0.0.1') || 
            url.includes('192.168.') || 
            url.includes('10.') || 
-           url.includes('172.');
+           url.includes('172.') ||
+           (url.includes('lunest.app') && !url.startsWith(baseUrl || ''));
   };
 
-  if (stringPath.startsWith("http") && stringPath.includes("/uploads/") && isLocalOrPrivateIP(stringPath)) {
+  if (stringPath.startsWith("http") && stringPath.includes("/uploads/") && isOutdatedHost(stringPath)) {
     const uploadIndex = stringPath.indexOf("/uploads/");
     stringPath = stringPath.substring(uploadIndex);
+    if (typeof path === 'string') console.log(`[ImageUtils] Stripped outdated host from: ${path} -> ${stringPath}`);
   }
 
   // If it's already a full URL, return it

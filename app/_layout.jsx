@@ -8,6 +8,8 @@ import { AccountStatusProvider, UserModeProvider } from "../src/context";
 import { useReferralTracker } from "../src/hooks/useReferralTracker";
 import apiClient from "../src/services/apiClient";
 import authService from "../src/services/authService";
+import notificationService from "../src/services/notificationService";
+import ToastNotification, { TOAST_TYPE } from "../src/components/common/ToastNotification";
 
 // Verify env is loaded
 console.log("[App] Environment Check:");
@@ -29,6 +31,14 @@ export default function RootLayout() {
 
   // Capture referral deep links on app launch
   useReferralTracker();
+  
+  // Global Toast State
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastConfig, setToastConfig] = useState({
+    message: "",
+    type: TOAST_TYPE.INFO,
+    duration: 3000,
+  });
 
   // Check onboarding and auth status on app launch
   useEffect(() => {
@@ -86,6 +96,20 @@ export default function RootLayout() {
 
     checkAndNavigate();
   }, [isLoading, segments]);
+
+  // Subscribe to global notifications
+  useEffect(() => {
+    const unsubscribe = notificationService.subscribe((config) => {
+      setToastConfig(config);
+      setToastVisible(true);
+    });
+
+    return () => {
+      if (typeof unsubscribe === "function") {
+        unsubscribe();
+      }
+    };
+  }, []);
 
   const checkAppStatus = async () => {
     try {
@@ -281,6 +305,13 @@ export default function RootLayout() {
           </SafeAreaProvider>
         </AccountStatusProvider>
       </UserModeProvider>
+      <ToastNotification
+        visible={toastVisible}
+        message={toastConfig.message}
+        type={toastConfig.type}
+        duration={toastConfig.duration}
+        onHide={() => setToastVisible(false)}
+      />
     </GestureHandlerRootView>
   );
 }

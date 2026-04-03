@@ -14,6 +14,10 @@ import configService from "../../services/configService";
 import { resolveImageUrlSync } from "../../utils/imageUtils";
 import PropertyRating from "../ui/PropertyRating";
 
+// Premium UI Additions
+import { usePremiumUI } from "../../hooks/usePremiumUI";
+import Animated from "react-native-reanimated";
+
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const IMAGE_HEIGHT = 346;
 
@@ -63,6 +67,9 @@ const PropertyListingCard = ({
   const [favorite, setFavorite] = useState(isFavorite);
   const [containerWidth, setContainerWidth] = useState(SCREEN_WIDTH - 40);
   const scrollViewRef = useRef(null);
+  
+  const { useInteractionScale } = usePremiumUI();
+  const { animatedStyle, onPressIn, onPressOut } = useInteractionScale();
 
   // Sync isFavorite prop changes to state
   useEffect(() => {
@@ -155,9 +162,12 @@ const PropertyListingCard = ({
 
   return (
     <Pressable
-      style={({ pressed }) => [styles.container, pressed && styles.pressed]}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
       onPress={handleCardPress}
+      style={styles.pressable}
     >
+      <Animated.View style={[styles.container, animatedStyle]}>
       {/* Image Slider */}
       <View
         style={styles.imageSliderContainer}
@@ -330,7 +340,8 @@ const PropertyListingCard = ({
           <Text style={styles.amenitiesText}>{formatAmenities()}</Text>
         </View>
       </View>
-    </Pressable>
+    </Animated.View>
+  </Pressable>
   );
 };
 
@@ -352,8 +363,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(0, 0, 0, 0.04)",
   },
-  pressed: {
-    opacity: 0.95,
+  pressable: {
+    width: "100%",
   },
   imageSliderContainer: {
     width: "100%",

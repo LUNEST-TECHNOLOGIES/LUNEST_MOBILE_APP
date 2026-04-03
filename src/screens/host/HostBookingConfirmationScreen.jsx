@@ -1,3 +1,4 @@
+import React, { useState, useEffect } from "react";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import {
     Image,
@@ -8,10 +9,22 @@ import {
     View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { resolveImageUrlSync } from "../../utils/imageUtils";
+import configService from "../../services/configService";
 
 const HostBookingConfirmationScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
+  const [baseUrl, setBaseUrl] = useState("");
+
+  useEffect(() => {
+    const fetchBaseUrl = async () => {
+      const url = await configService.getBaseURL();
+      setBaseUrl(url);
+    };
+    fetchBaseUrl();
+  }, []);
+
   // Get booking from params (fallback to sample if not provided)
   const booking = route.params?.booking || {
     bookingId: "LNS-CD051DAE",
@@ -24,11 +37,12 @@ const HostBookingConfirmationScreen = () => {
     id: "698605f982d72c2acd051dae",
     nights: 62,
     price: 0,
-    propertyImage:
-      "http://192.168.0.200:3000/uploads/listings/image_0-1769876137529-802219474.jpg",
+    propertyImage: "/uploads/listings/image_placeholder.jpg",
     propertyName: "1Bedroom Shortlet Apartment  in Abuja ",
     status: "CONFIRMED",
   };
+
+  const resolvedImage = resolveImageUrlSync(booking.propertyImage, baseUrl);
 
   return (
     <SafeAreaView style={styles.bookingConfirm}>
@@ -48,7 +62,7 @@ const HostBookingConfirmationScreen = () => {
                 <Image
                   style={styles.frameChild}
                   resizeMode="cover"
-                  source={{ uri: booking.propertyImage }}
+                  source={{ uri: resolvedImage }}
                 />
                 <View style={styles.frameGroup}>
                   <View style={styles.bedroomDuplexApartmenentWrapper}>

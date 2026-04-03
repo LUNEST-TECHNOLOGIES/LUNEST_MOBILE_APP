@@ -40,16 +40,23 @@ export const usePaymentCallback = (options: UsePaymentCallbackOptions = {}) => {
         return null;
       }
 
-      // Parse URL parameters
-      const urlObj = new URL(url.replace('lunestmobile://', 'http://temp.'));
-      const params = new URLSearchParams(urlObj.search);
+      // Parse URL parameters manually (safer for React Native)
+      const queryString = url.split("?")[1] || "";
+      const params: Record<string, string> = {};
+      
+      if (queryString) {
+        queryString.split("&").forEach(pair => {
+          const [key, value] = pair.split("=");
+          if (key) params[decodeURIComponent(key)] = decodeURIComponent(value || "");
+        });
+      }
 
       const callbackData: PaymentCallbackData = {
-        status: (params.get('status') as any) || 'unknown',
-        reference: params.get('reference') || undefined,
-        verified: params.get('verified') === 'true',
-        message: params.get('message') || 'Payment processed',
-        timestamp: params.get('timestamp') || Date.now().toString()
+        status: (params.status as any) || 'unknown',
+        reference: params.reference || undefined,
+        verified: params.verified === 'true',
+        message: params.message || 'Payment processed',
+        timestamp: params.timestamp || Date.now().toString()
       };
 
       console.log('✅ [PaymentCallback] Parsed callback data:', callbackData);

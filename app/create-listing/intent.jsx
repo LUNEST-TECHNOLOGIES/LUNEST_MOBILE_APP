@@ -330,7 +330,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   intentOptionSelected: {
-    borderColor: '#192DFF',
+    borderColor: '#010135',
     backgroundColor: '#F0F4FF',
   },
   intentOptionDisabled: {
@@ -346,7 +346,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   intentTextSelected: {
-    color: '#192DFF',
+    color: '#010135',
     fontWeight: '600',
   },
   intentTextDisabled: {

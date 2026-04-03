@@ -307,7 +307,7 @@ const PropertyTypeOption = ({ type, selected, onPress }) => {
       style={[styles.typeOption, selected && styles.typeOptionSelected]}
       onPress={onPress}
     >
-      <IconComponent size={32} color={selected ? "#192DFF" : "#292929"} />
+      <IconComponent size={32} color={selected ? "#010135" : "#292929"} />
       <Text style={[styles.typeText, selected && styles.typeTextSelected]}>
         {type.label}
       </Text>
@@ -533,7 +533,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FAFAFA",
   },
   typeOptionSelected: {
-    borderColor: "#192DFF",
+    borderColor: "#010135",
     backgroundColor: "#F0F4FF",
   },
   typeText: {
@@ -544,7 +544,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   typeTextSelected: {
-    color: "#192DFF",
+    color: "#010135",
     fontWeight: "600",
   },
   footer: {

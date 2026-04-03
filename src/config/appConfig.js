@@ -4,7 +4,7 @@
  */
 
 // Toggle between environments
-const IS_PRODUCTION = false;
+const IS_PRODUCTION = true;
 
 const DEV_CONFIG = {
   APP_SCHEME: "lunestmobile",

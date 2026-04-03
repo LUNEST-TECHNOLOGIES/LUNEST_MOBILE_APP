@@ -503,7 +503,7 @@ const SearchResultsScreen = () => {
       {/* Results Grid */}
       {loading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#192DFF" />
+          <ActivityIndicator size="large" color="#010135" />
           <Text style={styles.loadingText}>Searching properties...</Text>
         </View>
       ) : (
@@ -520,8 +520,8 @@ const SearchResultsScreen = () => {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              colors={["#192DFF"]}
-              tintColor="#192DFF"
+              colors={["#010135"]}
+              tintColor="#010135"
             />
           }
         />
@@ -590,7 +590,7 @@ const styles = StyleSheet.create({
     minWidth: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: "#192DFF",
+    backgroundColor: "#010135",
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 4,
@@ -617,7 +617,7 @@ const styles = StyleSheet.create({
   clearFiltersText: {
     fontSize: 14,
     fontWeight: "500",
-    color: "#192DFF",
+    color: "#010135",
   },
   loadingContainer: {
     flex: 1,
@@ -753,7 +753,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
     paddingHorizontal: 20,
     paddingVertical: 10,
-    backgroundColor: "#192DFF",
+    backgroundColor: "#010135",
     borderRadius: 8,
   },
   clearButtonText: {

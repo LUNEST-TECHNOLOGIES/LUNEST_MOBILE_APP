@@ -838,7 +838,7 @@ const Review = () => {
                       <View
                         style={[styles.previewImage, styles.videoPlaceholder]}
                       >
-                        <VideoIcon size={30} color="#192DFF" />
+                        <VideoIcon size={30} color="#010135" />
                         <Text style={styles.videoPlaceholderText}>Video</Text>
                       </View>
                     </View>
@@ -1616,7 +1616,7 @@ const styles = StyleSheet.create({
   videoPlaceholderText: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#192DFF",
+    color: "#010135",
   },
 });
 

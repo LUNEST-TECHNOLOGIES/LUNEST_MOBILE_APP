@@ -655,7 +655,7 @@ const LandlordRequestForm = () => {
                   >
                     {authorizationLetter ? (
                       <View style={styles.imagePreviewContainer}>
-                        <Ionicons name="document-text" size={32} color="#192DFF" />
+                        <Ionicons name="document-text" size={32} color="#010135" />
                         <Text style={styles.uploadText}>Letter Uploaded</Text>
                         <TouchableOpacity
                           style={styles.removeImageButton}
@@ -824,13 +824,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   radioOuterSelected: {
-    borderColor: '#192DFF',
+    borderColor: '#010135',
   },
   radioInner: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#192DFF',
+    backgroundColor: '#010135',
   },
   genderText: {
     fontSize: 14,
@@ -862,7 +862,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '400',
     
-    color: '#192DFF',
+    color: '#010135',
     marginTop: 4,
     marginBottom: 8,
   },
@@ -882,7 +882,7 @@ const styles = StyleSheet.create({
     borderColor: '#888888',
   },
   propertyChipSelected: {
-    borderColor: '#192DFF',
+    borderColor: '#010135',
     backgroundColor: '#E5EFFF',
   },
   propertyChipText: {
@@ -892,7 +892,7 @@ const styles = StyleSheet.create({
     color: '#292929',
   },
   propertyChipTextSelected: {
-    color: '#192DFF',
+    color: '#010135',
   },
   toggleRow: {
     flexDirection: 'row',
@@ -1044,7 +1044,7 @@ const styles = StyleSheet.create({
   authLetterText: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#192DFF',
+    color: '#010135',
   },
 });
 

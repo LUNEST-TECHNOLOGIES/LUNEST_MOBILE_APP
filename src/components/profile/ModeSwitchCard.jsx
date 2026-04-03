@@ -220,8 +220,7 @@ const styles = StyleSheet.create({
   },
   arrowContainer: {
     backgroundColor: '#010135',
-    width: 28,
-    height: 28,
+  height: 28,
     borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',

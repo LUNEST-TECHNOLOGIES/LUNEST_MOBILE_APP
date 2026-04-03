@@ -97,7 +97,7 @@ export default function SupportChatScreen() {
 
   const renderLoadingOverlay = () => (
     <View style={styles.loadingOverlay}>
-      <ActivityIndicator size="large" color="#192DFF" />
+      <ActivityIndicator size="large" color="#010135" />
       <Text style={styles.loadingText}>Connecting to Support...</Text>
     </View>
   );

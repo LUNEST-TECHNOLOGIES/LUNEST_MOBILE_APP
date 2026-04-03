@@ -394,7 +394,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     
-    color: '#192DFF',
+    color: '#010135',
   },
   agreementContainer: {
     flexDirection: 'row',

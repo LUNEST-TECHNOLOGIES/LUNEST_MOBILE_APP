@@ -57,7 +57,7 @@ const CloseIcon = ({ size = 24, color = "#000000" }) => (
 );
 
 // Camera Icon
-const CameraIcon = ({ size = 40, color = "#192DFF" }) => (
+const CameraIcon = ({ size = 40, color = "#010135" }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M23 19C23 19.5304 22.7893 20.0391 22.4142 20.4142C22.0391 20.7893 21.5304 21 21 21H3C2.46957 21 1.96086 20.7893 1.58579 20.4142C1.21071 20.0391 1 19.5304 1 19V8C1 7.46957 1.21071 6.96086 1.58579 6.58579C1.96086 6.21071 2.46957 6 3 6H7L9 3H15L17 6H21C21.5304 6 22.0391 6.21071 22.4142 6.58579C22.7893 6.96086 23 7.46957 23 8V19Z"
@@ -77,7 +77,7 @@ const CameraIcon = ({ size = 40, color = "#192DFF" }) => (
 );
 
 // Plus Icon
-const PlusIcon = ({ size = 24, color = "#192DFF" }) => (
+const PlusIcon = ({ size = 24, color = "#010135" }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M12 5V19M5 12H19"
@@ -114,7 +114,7 @@ const ProgressBar = ({ currentStep, totalSteps }) => {
 };
 
 // Video Icon
-const VideoIcon = ({ size = 40, color = "#192DFF" }) => (
+const VideoIcon = ({ size = 40, color = "#010135" }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M23 7L16 12L23 17V7Z"
@@ -664,7 +664,7 @@ const Photos = () => {
         {/* Photo Upload Area */}
         {isCompressing ? (
           <View style={[styles.uploadArea, { gap: 10 }]}>
-            <RNActivityIndicator size="large" color="#192DFF" />
+            <RNActivityIndicator size="large" color="#010135" />
             <Text style={styles.uploadTitle}>
               Processing and Uploading Photos... {imageProgress}%
             </Text>
@@ -681,7 +681,7 @@ const Photos = () => {
                 style={{
                   width: `${imageProgress}%`,
                   height: "100%",
-                  backgroundColor: "#192DFF",
+                  backgroundColor: "#010135",
                   borderRadius: 3,
                 }}
               />
@@ -689,7 +689,7 @@ const Photos = () => {
           </View>
         ) : photos.length === 0 ? (
           <Pressable style={styles.uploadArea} onPress={pickImage}>
-            <CameraIcon size={50} color="#192DFF" />
+            <CameraIcon size={50} color="#010135" />
             <Text style={styles.uploadTitle}>Tap to upload photos</Text>
             <Text style={styles.uploadSubtitle}>PNG, JPG up to 10MB each</Text>
           </Pressable>
@@ -713,7 +713,7 @@ const Photos = () => {
             ))}
             {photos.length < 10 && (
               <Pressable style={styles.addMoreButton} onPress={pickImage}>
-                <PlusIcon size={30} color="#192DFF" />
+                <PlusIcon size={30} color="#010135" />
                 <Text style={styles.addMoreText}>Add More</Text>
               </Pressable>
             )}
@@ -733,7 +733,7 @@ const Photos = () => {
 
           {isCompressingVideo ? (
             <View style={[styles.videoUploadArea, { gap: 10 }]}>
-              <RNActivityIndicator size="large" color="#192DFF" />
+              <RNActivityIndicator size="large" color="#010135" />
               <Text style={styles.uploadTitle}>
                 Processing videos... {videoProgress}%
               </Text>
@@ -751,7 +751,7 @@ const Photos = () => {
                   style={{
                     width: `${videoProgress}%`,
                     height: "100%",
-                    backgroundColor: "#192DFF",
+                    backgroundColor: "#010135",
                     borderRadius: 3,
                   }}
                 />
@@ -759,7 +759,7 @@ const Photos = () => {
             </View>
           ) : videos.length === 0 ? (
             <Pressable style={styles.videoUploadArea} onPress={pickVideo}>
-              <VideoIcon size={40} color="#192DFF" />
+              <VideoIcon size={40} color="#010135" />
               <Text style={styles.uploadTitle}>Tap to upload video</Text>
               <Text style={styles.uploadSubtitle}>MP4, MOV up to 100MB</Text>
             </Pressable>
@@ -768,7 +768,7 @@ const Photos = () => {
               {videos.map((vid, index) => (
                 <View key={index} style={styles.videoItemContainer}>
                   <View style={styles.videoPreview}>
-                    <VideoIcon size={30} color="#192DFF" />
+                    <VideoIcon size={30} color="#010135" />
                     <Text style={styles.videoFileName} numberOfLines={1}>
                       Video {index + 1}
                     </Text>
@@ -921,7 +921,7 @@ const styles = StyleSheet.create({
     height: 200,
     borderRadius: 16,
     borderWidth: 2,
-    borderColor: "#192DFF",
+    borderColor: "#010135",
     borderStyle: "dashed",
     backgroundColor: "#F0F4FF",
     justifyContent: "center",
@@ -933,7 +933,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
 
-    color: "#192DFF",
+    color: "#010135",
   },
   uploadSubtitle: {
     fontSize: 12,
@@ -972,7 +972,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     bottom: 6,
     left: 6,
-    backgroundColor: "#192DFF",
+    backgroundColor: "#010135",
     borderRadius: 4,
     paddingHorizontal: 8,
     paddingVertical: 3,
@@ -999,7 +999,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "500",
 
-    color: "#192DFF",
+    color: "#010135",
   },
   photoCount: {
     fontSize: 14,

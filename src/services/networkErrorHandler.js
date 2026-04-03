@@ -64,6 +64,17 @@ class NetworkErrorHandler {
             };
         }
 
+        // 503 Maintenance Handling
+        if (status === 503) {
+            return {
+                type: "MAINTENANCE_ERROR",
+                severity: "high",
+                userMessage: "Lunest is temporarily undergoing maintenance. We'll be back in a few minutes!",
+                cause: "Service Temporarily Unavailable (503)",
+                platform: Platform.OS,
+            };
+        }
+
         // Server errors
         if (status >= 500) {
             return {

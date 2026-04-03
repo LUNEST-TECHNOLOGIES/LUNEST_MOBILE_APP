@@ -905,7 +905,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   chipSelected: {
-    borderColor: "#192DFF",
+    borderColor: "#010135",
     backgroundColor: "rgba(180, 206, 255, 0.3)",
   },
   chipText: {
@@ -916,7 +916,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   chipTextSelected: {
-    color: "#192DFF",
+    color: "#010135",
   },
   counterRow: {
     flexDirection: "row",

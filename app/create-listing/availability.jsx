@@ -358,14 +358,14 @@ const Availability = () => {
                     paddingVertical: 10,
                     borderRadius: 20,
                     borderWidth: 1.5,
-                    borderColor: isSelected ? '#192DFF' : '#DADADA',
-                    backgroundColor: isSelected ? 'rgba(25, 45, 255, 0.08)' : '#FFFFFF',
+                    borderColor: isSelected ? '#010135' : '#DADADA',
+                    backgroundColor: isSelected ? 'rgba(1, 1, 53, 0.08)' : '#FFFFFF',
                   }}
                 >
                   <Text style={{
                     fontSize: 13,
                     fontWeight: '500',
-                    color: isSelected ? '#192DFF' : '#333',
+                    color: isSelected ? '#010135' : '#333',
                   }}>
                     {rule.label}
                   </Text>

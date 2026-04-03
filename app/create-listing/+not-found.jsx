@@ -31,7 +31,7 @@ const WarningIcon = ({ size = 60, color = '#FDAE31' }) => (
 );
 
 // Arrow Left Icon
-const ArrowLeftIcon = ({ size = 20, color = '#192DFF' }) => (
+const ArrowLeftIcon = ({ size = 20, color = '#010135' }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M19 12H5M5 12L12 19M5 12L12 5"
@@ -107,7 +107,7 @@ export default function CreateListingNotFoundScreen() {
         <View style={styles.buttonContainer}>
           {/* Go Back Button */}
           <TouchableOpacity style={styles.secondaryButton} onPress={handleGoBack}>
-            <ArrowLeftIcon size={18} color="#192DFF" />
+            <ArrowLeftIcon size={18} color="#010135" />
             <Text style={styles.secondaryButtonText}>Go Back</Text>
           </TouchableOpacity>
 
@@ -166,7 +166,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#192DFF',
+    backgroundColor: '#010135',
     borderRadius: 25,
     paddingVertical: 14,
     paddingHorizontal: 24,
@@ -185,7 +185,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 25,
     borderWidth: 1,
-    borderColor: '#192DFF',
+    borderColor: '#010135',
     paddingVertical: 14,
     paddingHorizontal: 24,
     gap: 8,
@@ -194,7 +194,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     
-    color: '#192DFF',
+    color: '#010135',
   },
   outlineButton: {
     flexDirection: 'row',

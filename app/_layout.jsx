@@ -147,7 +147,7 @@ export default function RootLayout() {
                   backgroundColor: "#FFFFFF",
                 }}
               >
-                <ActivityIndicator size="large" color="#192DFF" />
+                <ActivityIndicator size="large" color="#010135" />
               </View>
             ) : (
               <Stack

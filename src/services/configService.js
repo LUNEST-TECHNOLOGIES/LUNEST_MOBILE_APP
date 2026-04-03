@@ -90,13 +90,9 @@ class ConfigService {
     if (Platform.OS === "ios") {
       return await this.detectIOSURL();
     }
-    // Fallback if no env URL set - use localhost (requires ngrok or same network)
-    console.warn("⚠️ [ConfigService] No EXPO_PUBLIC_API_URL in .env");
-    console.warn("⚠️ [ConfigService] Using localhost:3000 as fallback");
-    console.warn(
-      "⚠️ [ConfigService] For physical devices, set EXPO_PUBLIC_API_URL to your machine's IP",
-    );
-    return "http://localhost:3000";
+    // FINAL PRODUCTION FALLBACK - Critical for physical devices in production
+    console.warn("⚠️ [ConfigService] No env URL or local IP detected. Using production fallback.");
+    return "https://api.lunest.app";
   }
 
   /**

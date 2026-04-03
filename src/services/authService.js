@@ -15,6 +15,7 @@
 
 import { Image as ExpoImage } from "expo-image";
 import { Alert, Platform } from "react-native";
+import { Image as ImageCompressor } from "react-native-compressor";
 import inactivityTimeoutService from "./inactivityTimeoutService";
 import NetworkErrorHandler from "./networkErrorHandler";
 import profileService from "./profileService";
@@ -1530,6 +1531,25 @@ class AuthService {
         }
       });
 
+      // Helper to compress image
+      const compressImage = async (uri) => {
+        if (!uri) return null;
+        try {
+          console.log("[AuthService] Compressing image:", uri);
+          const compressed = await ImageCompressor.compress(uri, {
+            compressionMethod: 'auto',
+            quality: 0.7,
+            maxWidth: 2048,
+            maxHeight: 2048,
+          });
+          console.log("[AuthService] Compression complete:", compressed);
+          return compressed;
+        } catch (error) {
+          console.warn("[AuthService] Compression failed, using original:", error);
+          return uri;
+        }
+      };
+
       // Helper to append image to FormData
       const appendImage = (fieldName, uri) => {
         if (!uri) return;
@@ -1546,14 +1566,22 @@ class AuthService {
         });
       };
 
-      // Append property images
+      // Compress and append property images
       if (Array.isArray(propertyImages)) {
-        propertyImages.forEach((uri) => appendImage("propertyImages", uri));
+        const compressedPropertyImages = await Promise.all(
+          propertyImages.map(uri => compressImage(uri))
+        );
+        compressedPropertyImages.filter(uri => !!uri).forEach((uri) => appendImage("propertyImages", uri));
       }
 
-      // Append single images
-      appendImage("validIdImage", validIdImage);
-      appendImage("authorizationLetter", authorizationLetter);
+      // Compress and append single images
+      const [compressedId, compressedLetter] = await Promise.all([
+        compressImage(validIdImage),
+        compressImage(authorizationLetter),
+      ]);
+
+      appendImage("validIdImage", compressedId);
+      appendImage("authorizationLetter", compressedLetter);
 
       const response = await this._secureRequest(
         `${this.baseURL}/v1/users/apply-host`,

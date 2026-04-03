@@ -870,7 +870,7 @@ const styles = StyleSheet.create({
     color: '#010135',
   },
   selectedCountBadge: {
-    backgroundColor: '#192DFF',
+    backgroundColor: '#010135',
     borderRadius: 10,
     paddingHorizontal: 8,
     paddingVertical: 2,
@@ -901,14 +901,14 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   amenityTagSelected: {
-    borderColor: '#192DFF',
+    borderColor: '#010135',
     backgroundColor: '#F0F4FF',
   },
   tagCheckIcon: {
     width: 16,
     height: 16,
     borderRadius: 8,
-    backgroundColor: '#192DFF',
+    backgroundColor: '#010135',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -919,7 +919,7 @@ const styles = StyleSheet.create({
     color: '#666666',
   },
   amenityTagTextSelected: {
-    color: '#192DFF',
+    color: '#010135',
     fontWeight: '500',
   },
   selectedSummary: {
@@ -933,7 +933,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     
-    color: '#192DFF',
+    color: '#010135',
   },
   footer: {
     flexDirection: 'row',

@@ -49,7 +49,7 @@ const CloseIcon = ({ size = 24, color = "#000000" }) => (
 );
 
 // Location Pin Icon
-const LocationIcon = ({ size = 24, color = "#192DFF" }) => (
+const LocationIcon = ({ size = 24, color = "#010135" }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M12 13C13.6569 13 15 11.6569 15 10C15 8.34315 13.6569 7 12 7C10.3431 7 9 8.34315 9 10C9 11.6569 10.3431 13 12 13Z"
@@ -69,7 +69,7 @@ const LocationIcon = ({ size = 24, color = "#192DFF" }) => (
 );
 
 // Plus Icon
-const PlusIcon = ({ size = 24, color = "#192DFF" }) => (
+const PlusIcon = ({ size = 24, color = "#010135" }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M12 5V19M5 12H19"
@@ -502,7 +502,7 @@ const Location = () => {
           keyboardDismissMode="on-drag"
         >
         <View style={styles.titleRow}>
-                <LocationIcon size={24} color="#192DFF" />
+                <LocationIcon size={24} color="#010135" />
                 <Text style={styles.sectionTitle}>
                   Where is your property located?
                 </Text>
@@ -595,7 +595,7 @@ const Location = () => {
                       updateLocation({ address: text });
                     },
                     style: styles.googlePlacesInput,
-                    selectionColor: "#192DFF",
+                    selectionColor: "#010135",
                     multiline: false,
                     numberOfLines: 1,
                     clearButtonMode: 'while-editing',
@@ -607,7 +607,7 @@ const Location = () => {
                   disableScroll={true}                 // Disable internal FlatList scrolling
                   renderRow={(data) => (
                     <View style={styles.suggestionRow}>
-                      <LocationIcon size={20} color="#192DFF" />
+                      <LocationIcon size={20} color="#010135" />
                       <View style={styles.suggestionTextContainer}>
                         <Text style={styles.suggestionMainText} numberOfLines={1}>
                           {data.main_text || data.description}

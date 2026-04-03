@@ -355,7 +355,7 @@ const ListingPreview = () => {
           </Pressable>
         </View>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#192DFF" />
+          <ActivityIndicator size="large" color="#010135" />
           <Text style={styles.loadingText}>Loading listing...</Text>
         </View>
       </SafeAreaView>
@@ -682,7 +682,19 @@ const ListingPreview = () => {
             <Text style={styles.sectionTitle}>Additional Information</Text>
             {listingData.houseRules ? (
               <Text style={styles.sectionContent}>
-                {String(listingData.houseRules || "")}
+                {(() => {
+                  let rules = listingData.houseRules;
+                  if (typeof rules === "string" && (rules.startsWith("[") || rules.includes(","))) {
+                    try {
+                      rules = rules.startsWith("[") ? JSON.parse(rules) : rules.split(",").map(r => r.trim());
+                    } catch (e) {
+                      rules = rules.split(",").map(r => r.trim());
+                    }
+                  }
+                  return Array.isArray(rules) 
+                    ? convertRegulationsToLabels(rules).join(", ")
+                    : String(rules || "");
+                })()}
               </Text>
             ) : null}
             {listingData.additionalRules && listingData.additionalRules !== "0" ? (
@@ -951,7 +963,7 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: "#192DFF",
+    backgroundColor: "#010135",
     justifyContent: "center",
     alignItems: "center",
     marginTop: 2,
@@ -1060,7 +1072,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
   },
   primaryButton: {
-    backgroundColor: "#192DFF",
+    backgroundColor: "#010135",
   },
   secondaryButton: {
     backgroundColor: "#FFFFFF",

@@ -679,7 +679,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FAFAFA",
   },
   periodOptionSelected: {
-    borderColor: "#192DFF",
+    borderColor: "#010135",
     backgroundColor: "#F0F4FF",
   },
   periodText: {
@@ -689,7 +689,7 @@ const styles = StyleSheet.create({
     color: "#666666",
   },
   periodTextSelected: {
-    color: "#192DFF",
+    color: "#010135",
     fontWeight: "600",
   },
   previewCard: {
@@ -770,7 +770,7 @@ const styles = StyleSheet.create({
     padding: 12,
     marginTop: 8,
     borderLeftWidth: 3,
-    borderLeftColor: "#192DFF",
+    borderLeftColor: "#010135",
   },
   noticeText: {
     fontSize: 12,

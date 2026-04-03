@@ -1166,40 +1166,51 @@ class ListingService {
    * @returns {Promise<Object>} Response with draft details
    */
   async saveDraftToDatabase(draftData) {
-    console.log("[ListingService] Saving draft to database...");
+    console.log("[ListingService] Preparing to save draft to database...");
     try {
       const token = await authService.getToken();
       if (!token) return { success: false, message: "Authentication required" };
 
+      // SANITIZE PAYLOAD - Fixes 400 errors due to type mismatches
       const payload = {
         ...draftData,
         isDraft: true,
-        status: "DRAFT", // Enforce uppercase for backend enum
+        status: "DRAFT",
       };
-      // Enforce uppercase for intent to pass backend enum validation unconditionally
+
+      // Ensure numbers are really Numbers (Fixes 400 "expected number, received string")
+      if (payload.price) payload.price = Number(payload.price) || 0;
+      if (payload.bedrooms) payload.bedrooms = Number(payload.bedrooms) || 0;
+      if (payload.bathrooms) payload.bathrooms = Number(payload.bathrooms) || 0;
+      if (payload.guests) payload.guests = Number(payload.guests) || 0;
+
+      // Normalize string enums
       if (payload.intent) {
         payload.intent = String(payload.intent).toUpperCase();
       }
 
-      // Ensure houseRules is a string to prevent validation errors
+      // Ensure houseRules is a string
       if (payload.houseRules && typeof payload.houseRules === "object") {
         payload.houseRules = JSON.stringify(payload.houseRules, null, 2);
       }
 
-      let response;
-      // Only update (PATCH) if the draft has been previously synced to backend (_id exists)
-      // If no _id, always create (POST) a new draft
+      // If we have an existing ID, but it's a local temporary one, remove it for POST
       const existingId = draftData._id;
+      const isTemporaryId = existingId && (existingId.toString().startsWith("draft_") || existingId.toString().startsWith("edit_"));
 
-      if (existingId) {
-        console.log("[ListingService] Updating existing draft:", existingId);
+      let response;
+      if (existingId && !isTemporaryId) {
+        console.log("[ListingService] Syncing existing draft via PATCH:", existingId);
         response = await apiClient.patch(
           "/v1/listings/update/" + existingId,
-          payload, // REMOVED nested { update: ... }
+          payload,
           { headers: { Authorization: "Bearer " + token } },
         );
       } else {
-        console.log("[ListingService] Creating new draft");
+        console.log("[ListingService] Creating brand new draft via POST");
+        // Remove temp ID if present so server creates a real one
+        if (isTemporaryId) delete payload._id;
+        
         response = await apiClient.post(
           "/v1/listings/create",
           payload,
@@ -1207,7 +1218,7 @@ class ListingService {
         );
       }
 
-      console.log("[ListingService] Draft saved to database successfully.");
+      console.log("[ListingService] Draft synchronization complete.");
       return {
         success: true,
         message: "Draft saved to database",

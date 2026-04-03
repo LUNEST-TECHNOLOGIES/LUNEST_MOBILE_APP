@@ -53,7 +53,7 @@ class NotificationService {
    */
   async fetchUserNotifications(userType = "GUEST") {
     try {
-      const response = await apiClient.post("/notification/by-user-type", {
+      const response = await apiClient.post("/v1/notifications/by-user-type", {
         userType,
       });
       return response.data || { data: [] };
@@ -68,7 +68,7 @@ class NotificationService {
    */
   async getUnreadCount(userType = "GUEST") {
     try {
-      const response = await apiClient.post("/notification/unread-count", {
+      const response = await apiClient.post("/v1/notifications/unread-count", {
         userType,
       });
       return response.data?.unreadCount || 0;
@@ -83,7 +83,7 @@ class NotificationService {
    */
   async markAsRead(notificationId) {
     try {
-      await apiClient.patch(`/notification/${notificationId}/read`);
+      await apiClient.patch(`/v1/notifications/${notificationId}/read`);
       return true;
     } catch (error) {
       console.error("[NotificationService] markAsRead error:", error);
@@ -96,7 +96,7 @@ class NotificationService {
    */
   async markAllAsRead(userType = "GUEST") {
     try {
-      await apiClient.patch("/notification/read-all", { userType });
+      await apiClient.patch("/v1/notifications/read-all", { userType });
       return true;
     } catch (error) {
       console.error("[NotificationService] markAllAsRead error:", error);
@@ -109,7 +109,7 @@ class NotificationService {
    */
   async getHostDashboardStats() {
     try {
-      const response = await apiClient.get("/notification/host/dashboard-stats");
+      const response = await apiClient.get("/v1/notifications/host/dashboard-stats");
       return response.data || {};
     } catch (error) {
       console.error("[NotificationService] getHostDashboardStats error:", error);

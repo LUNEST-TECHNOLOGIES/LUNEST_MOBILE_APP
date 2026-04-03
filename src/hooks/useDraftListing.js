@@ -6,6 +6,7 @@
  */
 
 import { useLocalSearchParams } from 'expo-router';
+import { AppState } from 'react-native';
 import { useCallback, useEffect, useState } from 'react';
 import draftListingService from '../services/draftListingService';
 
@@ -95,6 +96,24 @@ export const useDraftListing = () => {
       lastModified: new Date().toISOString(),
     }));
   }, []);
+
+  // Background Auto-Save: Sync current draft whenever the app is hidden/backgrounded
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      // 'inactive' = iOS app switcher, 'background' = Android/Home button
+      if (nextAppState.match(/inactive|background/) && draftData) {
+        console.log('📱 [useDraftListing] App backgrounded/closed - syncing current draft state');
+        // Directly call the service to avoid re-triggering state updates during backgrounding
+        draftListingService.saveDraft(draftData).catch(err => {
+          console.warn('[useDraftListing] Auto-save failed on background:', err.message);
+        });
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [draftData]);
 
   // Auto-load draft when draftId in params changes
   useEffect(() => {

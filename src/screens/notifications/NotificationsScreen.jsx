@@ -71,75 +71,6 @@ const DEFAULT_IMAGES = {
   default: DEFAULT_IMAGE,
 };
 
-// Sample notifications for demo purposes
-const SAMPLE_NOTIFICATIONS = [
-  {
-    _id: "sample-1",
-    type: "booking_confirmed",
-    message:
-      "Your booking at Modern Apartment in Victoria Island has been confirmed!",
-    actionMessage: "Check-in: Jan 15, 2026",
-    read: false,
-    createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-    payload: JSON.stringify({
-      listingId: "sample-listing-1",
-      bookingId: "sample-booking-1",
-      propertyName: "Modern Apartment",
-    }),
-  },
-  {
-    _id: "sample-2",
-    type: "new_listing",
-    message: "New luxury apartment available in your area",
-    actionMessage: "3BR Apartment in Lekki - ₦45,000/night",
-    read: false,
-    createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
-    payload: JSON.stringify({
-      listingId: "sample-listing-2",
-      propertyName: "3BR Apartment in Lekki",
-    }),
-  },
-  {
-    _id: "sample-3",
-    type: "admin_announcement",
-    message:
-      "Welcome to Lunest! Complete your profile to get the best experience",
-    actionMessage: "Tap to update your profile",
-    read: true,
-    createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-    payload: JSON.stringify({}),
-  },
-];
-
-// Sample host notifications
-const SAMPLE_HOST_NOTIFICATIONS = [
-  {
-    _id: "host-sample-1",
-    type: "booking_request",
-    message: "New booking request for your property",
-    actionMessage: "Guest wants to book for 3 nights in February",
-    read: false,
-    createdAt: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(),
-    payload: JSON.stringify({
-      listingId: "host-listing-1",
-      bookingId: "host-booking-1",
-      propertyName: "Your Property",
-    }),
-  },
-  {
-    _id: "host-sample-2",
-    type: "listing_approved",
-    message: "Your listing 'Cozy Studio Apartment' has been approved!",
-    actionMessage: "Your property is now live and accepting bookings",
-    read: false,
-    createdAt: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
-    payload: JSON.stringify({
-      listingId: "host-listing-2",
-      propertyName: "Cozy Studio Apartment",
-    }),
-  },
-];
-
 const NotificationsScreen = () => {
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -170,28 +101,16 @@ const NotificationsScreen = () => {
 
       // Fetch real notifications from backend
       const result = await notificationService.fetchUserNotifications(userType);
-      let notifications = result.data || result.notifications || [];
+      const notifications = result.data || result.notifications || [];
 
-      // If no real notifications from API, use sample data as fallback
-      if (notifications.length === 0) {
-        console.log("No real notifications found, using sample data");
-        notifications =
-          userType === "HOST"
-            ? SAMPLE_HOST_NOTIFICATIONS
-            : SAMPLE_NOTIFICATIONS;
-      } else {
-        console.log(
-          `Fetched ${notifications.length} real notifications for ${userType}`,
-        );
-      }
+      console.log(
+        `Fetched ${notifications.length} real notifications for ${userType}`,
+      );
 
       setNotifications(notifications);
     } catch (error) {
       console.error("[NotificationsScreen] Error:", error);
-      // On error, show sample notifications
-      const sampleNotifs =
-        userType === "HOST" ? SAMPLE_HOST_NOTIFICATIONS : SAMPLE_NOTIFICATIONS;
-      setNotifications(sampleNotifs);
+      setNotifications([]);
     } finally {
       setLoading(false);
       setRefreshing(false);

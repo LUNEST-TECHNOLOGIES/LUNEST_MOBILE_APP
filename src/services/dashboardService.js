@@ -32,7 +32,7 @@ class DashboardService {
       // Fetch all host-specific data in parallel for performance
       // Now including the single optimized dashboard stats endpoint
       const [statsResult, listingsResult, bookingsResult, userProfileResult] = await Promise.allSettled([
-        apiClient.get("/v1/notifications/notification/host/dashboard-stats"),
+        apiClient.get("/v1/notifications/host/dashboard-stats"),
         listingService.fetchUserListings(), // Uses /my-listings - only host's listings
         bookingService.fetchHostBookings(), // Uses /my-bookings - only host's property bookings
         authService.fetchProfile(),

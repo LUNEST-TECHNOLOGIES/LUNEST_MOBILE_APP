@@ -211,12 +211,21 @@ const FullDetailsScreen = () => {
   const [error, setError] = useState(null);
   const [baseURL, setBaseURL] = useState("");
 
+  const [imageErrors, setImageErrors] = useState({});
+
   // Helper for image URL resolution
   const convertImageUrl = (image) => {
     if (!image) return null;
     const path = typeof image === "object" ? image.url || image.uri : image;
-    const baseUrl = configService.getBaseURLSync();
-    return resolveImageUrlSync(path, baseUrl);
+    // Use the state-populated baseURL if available, otherwise fallback to sync
+    const urlToUse = baseURL || configService.getBaseURLSync();
+    return resolveImageUrlSync(path, urlToUse);
+  };
+
+  // Handle image loading error
+  const handleImageError = (index, error) => {
+    console.warn(`[FullDetailsScreen] Image ${index} failed:`, error?.error || 'Unknown error');
+    setImageErrors((prev) => ({ ...prev, [index]: true }));
   };
 
   // Parse review images robustly (handles JSON strings and arrays)
@@ -657,6 +666,7 @@ const FullDetailsScreen = () => {
       getPropertyImages,
       getPropertyMedia,
       getFeatures,
+      baseURL,
     ],
   );
 
@@ -722,17 +732,19 @@ const FullDetailsScreen = () => {
           style={styles.mediaItemContainer}
           onPress={() => handleImagePress(index)}
         >
-          <Image
-            source={{ uri: item.uri }}
-            style={[StyleSheet.absoluteFillObject]}
-            contentFit="cover"
-            onError={(error) =>
-              console.warn(
-                `[FullDetailsScreen] Image ${index} failed to load:`,
-                error,
-              )
-            }
-          />
+          {imageErrors[index] ? (
+            <View style={[StyleSheet.absoluteFillObject, styles.imageErrorContainer]}>
+              <Ionicons name="image-outline" size={48} color="#CCC" />
+              <Text style={styles.imageErrorText}>Image unavailable</Text>
+            </View>
+          ) : (
+            <Image
+              source={{ uri: item.uri }}
+              style={[StyleSheet.absoluteFillObject]}
+              contentFit="cover"
+              onError={(error) => handleImageError(index, error)}
+            />
+          )}
         </Pressable>
       );
     },
@@ -1829,6 +1841,17 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     backgroundColor: "#F0F0F0",
     position: "relative",
+  },
+  imageErrorContainer: {
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#F5F5F5",
+  },
+  imageErrorText: {
+    marginTop: 8,
+    fontSize: 12,
+    color: "#999",
+    fontWeight: "500",
   },
   mediaImage: {
     width: "100%",

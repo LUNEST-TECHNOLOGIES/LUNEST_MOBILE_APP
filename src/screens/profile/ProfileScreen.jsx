@@ -1,33 +1,34 @@
 import { useFocusEffect } from "@react-navigation/native";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    Modal,
-    Platform,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    Text,
-    useWindowDimensions,
-    View,
+  ActivityIndicator,
+  Alert,
+  Modal,
+  Platform,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  useWindowDimensions,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
-    BecomeHostCard,
-    ModeSwitchCard,
-    ProfileHeader,
-    SettingsSection,
-    SwitchToHostButton,
-    WalletCard,
+  BecomeHostCard,
+  ModeSwitchCard,
+  ProfileHeader,
+  SettingsSection,
+  SwitchToHostButton,
+  WalletCard,
 } from "../../components/profile";
 import { HOST_APPLICATION_STATUS } from "../../components/profile/SwitchToHostButton";
 import { USER_MODES, useUserMode } from "../../context";
+import axiosInstance from "../../lib/axiosInstance";
 import authService from "../../services/authService";
-import paymentService from "../../services/paymentService";
-import profileService from "../../services/profileService";
-import { resolveImageUrl } from "../../utils/imageUtils";
+import logService from "../../services/logService";
 
 
 
@@ -35,21 +36,44 @@ import { resolveImageUrl } from "../../utils/imageUtils";
  * Mode Switching Loading Overlay
  * Shows during mode switch while data is being loaded
  */
-const ModeSwitchingOverlay = ({ visible, targetMode }) => (
-  <Modal transparent visible={visible} animationType="fade">
-    <View style={styles.switchingOverlay}>
-      <View style={styles.switchingContainer}>
-        <ActivityIndicator size="large" color="#007BFF" />
-        <Text style={styles.switchingTitle}>
-          Switching to {targetMode} Mode
-        </Text>
-        <Text style={styles.switchingSubtitle}>
-          Loading your personalized data...
-        </Text>
+const ModeSwitchingOverlay = ({ visible, targetMode, onCancel }) => {
+  const [showCancel, setShowCancel] = useState(false);
+
+  useEffect(() => {
+    let timer;
+    if (visible) {
+      setShowCancel(false);
+      timer = setTimeout(() => setShowCancel(true), 5000);
+    }
+    return () => clearTimeout(timer);
+  }, [visible]);
+
+  return (
+    <Modal transparent visible={visible} animationType="fade">
+      <View style={styles.switchingOverlay}>
+        <View style={styles.switchingContainer}>
+          <ActivityIndicator size="large" color="#007BFF" />
+          <Text style={styles.switchingTitle}>
+            Switching to {targetMode} Mode
+          </Text>
+          <Text style={styles.switchingSubtitle}>
+            Loading your personalized data...
+          </Text>
+
+          {showCancel && (
+            <TouchableOpacity 
+              style={styles.cancelButton} 
+              onPress={onCancel}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.cancelButtonText}>Cancel and Go Back</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
-    </View>
-  </Modal>
-);
+    </Modal>
+  );
+};
 
 /**
  * Profile Screen
@@ -67,210 +91,202 @@ const ProfileScreen = ({ isHostMode: isHostModeProp = false }) => {
     resetUserMode,
     refreshHostStatus,
   } = useUserMode();
-  const [refreshing, setRefreshing] = useState(false);
+  const [isRefreshingState, setIsRefreshingState] = useState(false);
 
-  const [initialLoading, setInitialLoading] = useState(true); // Wait for backend data before displaying
+  // DETERMINE MODE
+  const isInHostMode = isHostModeProp || currentMode === USER_MODES.HOST;
+  const queryClient = useQueryClient();
+
+  // 1. DATA FETCHING (TanStack Query)
+  const { 
+    data: profileData, 
+    isLoading: loadingProfile, 
+    refetch: refetchProfile,
+    isRefetching: refreshingProfile
+  } = useQuery({
+    queryKey: ["userProfile"],
+    queryFn: async () => {
+      const response = await axiosInstance.get("/v1/users/profile");
+      return response.data.body || response.data;
+    },
+  });
+
+  const { 
+    data: walletInfo, 
+    isLoading: loadingWallet, 
+    refetch: refetchWallet,
+    isRefetching: refreshingWallet 
+  } = useQuery({
+    queryKey: ["walletInfo"],
+    queryFn: async () => {
+      const response = await axiosInstance.get("/v1/wallet/balance");
+      return response.data.body;
+    },
+  });
+
+  const { data: listingsCount = 0 } = useQuery({
+    queryKey: ["myListingsCount"],
+    queryFn: async () => {
+      const res = await listingService.fetchUserListings();
+      console.log("[ProfileScreen] Listings count:", res.listings?.length || 0);
+      return res.success ? (res.listings?.length || 0) : 0;
+    },
+    enabled: !!profileData,
+  });
+
+  const { data: bookingsCount = 0 } = useQuery({
+    queryKey: ["myBookingsCount", isInHostMode ? "HOST" : "GUEST"],
+    queryFn: async () => {
+      const res = isInHostMode 
+        ? await bookingService.fetchHostBookings() 
+        : await bookingService.fetchGuestBookings();
+      console.log("[ProfileScreen] Bookings count:", res.bookings?.length || 0);
+      return res.success ? (res.bookings?.length || 0) : 0;
+    },
+    enabled: !!profileData,
+  });
+
+  // Log profile stats for verification
+  useEffect(() => {
+    if (profileData) {
+      console.log("[ProfileScreen] Profile Stats:", {
+        hostRating: profileData?.hostRating,
+        hostRatingCount: profileData?.hostRatingCount,
+        listingsCount,
+        bookingsCount,
+        isHostMode: isInHostMode,
+      });
+    }
+  }, [profileData, listingsCount, bookingsCount, isInHostMode]);
+
+  // Host Application Status Tracking (Local State for smooth sync)
   const [hostApplicationStatus, setHostApplicationStatus] = useState(
     HOST_APPLICATION_STATUS.NONE,
   );
   const [isVerified, setIsVerified] = useState(false);
-  const [switchingTarget, setSwitchingTarget] = useState("Guest"); // Track target mode for overlay
-  const [userData, setUserData] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    nin: "",
-    avatarUri: null,
-    emailVerified: false,
-  });
-  const [walletData, setWalletData] = useState({
-    balance: 0,
-    accountNumber: "",
-  });
+  const [switchingTarget, setSwitchingTarget] = useState("Guest");
 
-  // Determine if we're in host mode based on prop or context
-  const isInHostMode = isHostModeProp || currentMode === USER_MODES.HOST;
-
-  const loadUserData = useCallback(async () => {
-    try {
-      // Get auth user data (from login)
-      const user = await authService.getUserData();
-      console.log("=== PROFILE LOAD DEBUG ===");
-      console.log("Auth user data:", JSON.stringify(user, null, 2));
-
-      // Fetch fresh profile data from server (includes hostApplicationStatus)
-      const serverProfileResult = await authService.fetchProfile();
-      console.log(
-        "Server profile data:",
-        JSON.stringify(serverProfileResult, null, 2),
-      );
-
-      // Get saved profile data (local)
-      const profileData = await profileService.getProfileData();
-      console.log("Local profile data:", JSON.stringify(profileData, null, 2));
-
-      const finalName =
-        serverProfileResult?.data?.fullName ||
-        user?.fullName ||
-        profileData?.name ||
-        "";
-      console.log("Final name to display:", finalName);
-
-      // Set host application status from server
-      const serverStatus = serverProfileResult?.data?.hostApplicationStatus;
-      console.log("[Profile] Raw hostApplicationStatus from server:", serverStatus);
-      
-      if (serverStatus) {
-        setHostApplicationStatus(serverStatus);
-        console.log("[Profile] Set status to:", serverStatus);
-      } else {
-        // Fallback to local storage if server doesn't have it
-        if (profileData?.hostRequestSubmitted) {
-          console.log("[Profile] Status missing from server but found in local profile (PENDING)");
-          setHostApplicationStatus(HOST_APPLICATION_STATUS.PENDING);
-        } else {
-          console.log("[Profile] No status found on server or locally, defaulting to NONE");
-          setHostApplicationStatus(HOST_APPLICATION_STATUS.NONE);
-        }
-      }
-
-      // Set verification status from server
-      const verifiedStatus = serverProfileResult?.data?.verified || false;
-      setIsVerified(verifiedStatus);
-      console.log("User verified status:", verifiedStatus);
-
-      // Get NIN from server profile (registered during signup) or fallback to local
-      // Server NIN takes priority as it's the verified NIN from registration
-      const serverNin = serverProfileResult?.data?.nin;
-      const serverPhone = serverProfileResult?.data?.phoneNumber;
-
-      console.log("Server NIN:", serverNin);
-      console.log("Server Phone:", serverPhone);
-
-      // Pre-calculate avatar URL to avoid 'await' inside the synchronous setState callback
-      const avatarUri = await (async () => {
-        const serverAvatar = serverProfileResult?.data?.avatar;
-        if (serverAvatar) {
-          return await resolveImageUrl(serverAvatar, authService.baseURL);
-        }
-        // Filter out blob URIs from local storage
-        const savedAvatar = profileData?.avatarUri;
-        if (
-          savedAvatar &&
-          (savedAvatar.startsWith("blob:") || savedAvatar.startsWith("data:"))
-        ) {
-          return null;
-        }
-        return savedAvatar || null;
-      })();
-
-      setUserData((prev) => ({
-        ...prev,
-        // Auth data takes priority for name and email (from login)
-        name: finalName,
-        email:
-          serverProfileResult?.data?.emailAddress ||
-          user?.email ||
-          profileData?.email ||
-          prev.email,
-        // Server NIN takes priority (from signup), then local storage, then previous value
-        nin: serverNin || user?.nin || profileData?.nin || prev.nin,
-        // Server phone takes priority, then local storage, then previous value
-        phone:
-          serverPhone || user?.phoneNumber || profileData?.phone || prev.phone,
-        // Server emailVerified takes priority, then auth user data
-        emailVerified:
-          serverProfileResult?.data?.emailVerified ||
-          user?.emailVerified ||
-          false,
-        // Prioritize server avatar, then local storage
-        avatarUri,
-      }));
-
-      // Set wallet data with user ID as account number and actual balance
-      // Get userID from server or local data (custom 10-digit ID from backend)
-      const userID =
-        serverProfileResult?.data?.userID ||
-        user?.userID ||
-        user?._id ||
-        user?.id;
-
-      // Generate account number from userID (same logic as PayWithWalletScreen)
-      const getAccountNumber = (id) => {
-        if (!id) return "";
-        // If it's already a proper userID format (e.g., starts with numbers), use it
-        if (/^\d+$/.test(id) || id.startsWith("LNT")) {
-          return id;
-        }
-        // Fallback: generate from MongoDB _id
-        const idStr = id.toString();
-        let hash = 0;
-        for (let i = 0; i < idStr.length; i++) {
-          hash = ((hash << 5) - hash + idStr.charCodeAt(i)) & 0xffffffff;
-        }
-        const digits = Math.abs(hash)
-          .toString()
-          .padStart(7, "0")
-          .substring(0, 7);
-        return `LNT${digits}`;
-      };
-
-      // Fetch real-time wallet balance from dedicated endpoint
-      // (profile endpoint may return stale balance)
-      let walletBalance = 0;
-      try {
-        const walletInfo = await paymentService.getWalletInfo();
-        walletBalance = walletInfo?.availableBalance || walletInfo?.balance || 0;
-        console.log("[ProfileScreen] Real-time wallet balance:", walletBalance);
-      } catch (walletErr) {
-        console.warn("[ProfileScreen] Wallet API fallback to profile data:", walletErr.message);
-        walletBalance =
-          serverProfileResult?.data?.walletBalance ||
-          serverProfileResult?.data?.wallet?.balance ||
-          user?.walletBalance ||
-          user?.wallet?.balance ||
-          0;
-      }
-
-      setWalletData({
-        balance: walletBalance,
-        accountNumber: getAccountNumber(userID),
-      });
-
-      // Refresh global host status to ensure toggle appears if approved
-      if (refreshHostStatus) {
-        await refreshHostStatus();
-      }
-    } catch (error) {
-      console.error("Error loading user data:", error);
-    } finally {
-      setInitialLoading(false);
+  // Sync server data to local display status
+  useEffect(() => {
+    if (profileData) {
+      setHostApplicationStatus(profileData.hostApplicationStatus || HOST_APPLICATION_STATUS.NONE);
+      setIsVerified(profileData.verified || false);
     }
-  }, [refreshHostStatus]);
+  }, [profileData]);
+
+  const isRefreshing = refreshingProfile || refreshingWallet;
+  const isLoadingData = loadingProfile || loadingWallet;
+
+  // Debug Trigger State
+  const [tapCount, setTapCount] = useState(0);
+  const [lastTapTime, setLastTapTime] = useState(0);
+  const lastFetchTimeRef = useRef(0); // Cooldown for automated refreshes
+  const isFetchingRef = useRef(false); // Guard for concurrent calls
+  const FETCH_COOLDOWN = 30000; // 30 seconds
+
+  // Log session info when debug is accessed
+  useEffect(() => {
+    if (tapCount >= 5) {
+      logService.logInfo('[ProfileScreen] Debug menu access initiated', {
+        tapCount,
+        userMode: currentMode,
+        isHost,
+        hostApplicationStatus,
+        isVerified,
+      });
+    }
+  }, [tapCount, currentMode, isHost, hostApplicationStatus, isVerified]);
+
+  const handleDebugTrigger = () => {
+    const now = Date.now();
+    if (now - lastTapTime < 2000) {
+      const newCount = tapCount + 1;
+      setTapCount(newCount);
+      if (newCount >= 10) {
+        setTapCount(0);
+        // Log comprehensive session info before opening debug screen
+        logService.logInfo('[ProfileScreen] Opening debug logs screen');
+        logService.getSessionSummary().then(summary => {
+          logService.logInfo('[ProfileScreen] Session Summary', summary);
+        });
+        router.push("/debug-logs");
+      }
+    } else {
+      setTapCount(1);
+    }
+    setLastTapTime(now);
+  };
+
+  // Refresh logic
+  const handleManualRefresh = useCallback(async () => {
+    await Promise.all([
+      refetchProfile(), 
+      refetchWallet(),
+      queryClient.invalidateQueries({ queryKey: ["myListingsCount"] }),
+      queryClient.invalidateQueries({ queryKey: ["myBookingsCount"] })
+    ]);
+  }, [refetchProfile, refetchWallet, queryClient]);
+
+  // Handle focus effects
+  useFocusEffect(
+    useCallback(() => {
+      handleManualRefresh();
+    }, [handleManualRefresh])
+  );
 
   // Handle mode switch with loading
   const handleModeSwitch = async () => {
     if (isSwitching) return; // Prevent double taps
     
-    if (isInHostMode) {
-      setSwitchingTarget("Guest");
-      const success = await switchToGuest();
-      if (success) {
-        router.replace("/(tabs)");
-      }
-    } else {
-      // Require approved host application OR existing host status to switch to host mode
-      if (isHost || hostApplicationStatus === HOST_APPLICATION_STATUS.APPROVED) {
-        setSwitchingTarget("Host");
-        const success = await switchToHost();
+    try {
+      if (isInHostMode) {
+        setSwitchingTarget("Guest");
+        const success = await switchToGuest();
         if (success) {
-          router.replace("/(host-tabs)");
+          router.replace("/(tabs)");
+        } else {
+          // No need for redundant Alert here as APIClient shows a Toast for the core error
+          console.error("[ProfileScreen] Mode switch to Guest failed");
         }
       } else {
-        // User is not a host yet, show become host flow
-        handleStartHosting();
+        // Require approved host application OR existing host status to switch to host mode
+        if (isHost || hostApplicationStatus === HOST_APPLICATION_STATUS.APPROVED) {
+          setSwitchingTarget("Host");
+          const success = await switchToHost();
+          if (success) {
+            // Add a small delay for Android stabilization
+            setTimeout(() => {
+              router.replace("/(host-tabs)");
+            }, 100);
+          } else {
+            console.error("[ProfileScreen] Mode switch to Host failed");
+          }
+        } else {
+          // User is not a host yet, show become host flow
+          handleStartHosting();
+        }
       }
+    } catch (error) {
+      console.error("[ProfileScreen] Mode switch error:", error);
+      Alert.alert("Error", "An unexpected error occurred while switching modes.");
     }
+  };
+
+  // Double Protect: Manual Cancel Handler
+  const handleCancelSwitch = () => {
+    console.log("🛑 [ProfileScreen] Manual switch cancel triggered");
+    // Reset UserMode context switching state if it has a way to force reset
+    // Even if not, clearing the overlay locally allows the user to continue
+    if (resetUserMode) {
+        // Use reset as a proxy for clearing stuck states if needed, 
+        // but primarily we trust the Context's own safety timeout added earlier.
+    }
+    
+    // Forcing a re-render/logic skip by refreshing the whole screen state
+    handleManualRefresh();
+    // The Context's safety timeout will handle the actual isSwitching variable,
+    // but we can also trigger a silent error to break the sync if possible.
+    Alert.alert("Switch Cancelled", "The mode switch was cancelled. You can try again.");
   };
 
   useEffect(() => {
@@ -279,43 +295,19 @@ const ProfileScreen = ({ isHostMode: isHostModeProp = false }) => {
     console.log("Is Host User Check:", isHost);
     console.log("Is In Host Mode:", isInHostMode);
     console.log("Host Application Status:", hostApplicationStatus);
-    console.log("HOST_APPLICATION_STATUS.NONE:", HOST_APPLICATION_STATUS.NONE);
     console.log("Condition check for BecomeHostCard:");
     console.log("!isInHostMode:", !isInHostMode);
     console.log("!isHost:", !isHost);
     console.log("Status === NONE:", hostApplicationStatus === HOST_APPLICATION_STATUS.NONE);
     console.log("============================");
+  }, [currentMode, isHost, isInHostMode, hostApplicationStatus]);
 
-    loadUserData();
-
-    // Subscribe to profile changes
-    const unsubscribe = profileService.addListener((profileData) => {
-      if (profileData) {
-        setUserData((prev) => ({
-          ...prev,
-          // Update phone, nin and avatar from profile changes
-          phone: profileData.phone || prev.phone,
-          nin: profileData.nin || prev.nin,
-          avatarUri: profileData.avatarUri || prev.avatarUri,
-        }));
-      }
-    });
-
-    return () => unsubscribe();
-  }, [loadUserData]);
-
-  // Refresh profile each time screen gains focus
-  useFocusEffect(
-    useCallback(() => {
-      console.log("[ProfileScreen] Focus effect triggered - refreshing data");
-      loadUserData();
-    }, [loadUserData]),
-  );
+  // Settings items configuration
 
   const onRefresh = async () => {
-    setRefreshing(true);
-    await loadUserData();
-    setRefreshing(false);
+    setIsRefreshingState(true);
+    await handleManualRefresh();
+    setIsRefreshingState(false);
   };
 
   // Settings items configuration
@@ -444,18 +436,8 @@ const ProfileScreen = ({ isHostMode: isHostModeProp = false }) => {
             await authService.logout();
             // Reset all profile-related state to initial values
             setHostApplicationStatus(HOST_APPLICATION_STATUS.NONE);
+            setHostApplicationStatus(HOST_APPLICATION_STATUS.NONE);
             setIsVerified(false);
-            setUserData({
-              name: "",
-              email: "",
-              phone: "",
-              nin: "",
-              avatarUri: null,
-            });
-            setWalletData({
-              balance: 0,
-              accountNumber: "",
-            });
             router.replace("/login");
           } catch (error) {
             console.error("Logout error:", error);
@@ -521,19 +503,9 @@ const ProfileScreen = ({ isHostMode: isHostModeProp = false }) => {
     router.push("/landlord-request");
   };
 
-  // Show loading screen while initial data is being fetched
-  if (initialLoading) {
-    return (
-      <SafeAreaView style={styles.container} edges={["top"]}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Profile</Text>
-        </View>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#010135" />
-          <Text style={styles.loadingText}>Loading profile...</Text>
-        </View>
-      </SafeAreaView>
-    );
+  // (Optional: handle unexpected data error)
+  if (!isLoadingData && !profileData && !walletInfo) {
+     handleManualRefresh();
   }
 
   return (
@@ -542,6 +514,7 @@ const ProfileScreen = ({ isHostMode: isHostModeProp = false }) => {
       <ModeSwitchingOverlay
         visible={isSwitching}
         targetMode={switchingTarget}
+        onCancel={handleCancelSwitch}
       />
 
       {/* Header */}
@@ -553,29 +526,30 @@ const ProfileScreen = ({ isHostMode: isHostModeProp = false }) => {
       <View style={styles.topSection}>
         <View style={styles.topContent}>
           <ProfileHeader
-            name={userData.name}
-            email={userData.email}
-            phone={userData.phone}
-            nin={userData.nin}
+            isLoading={loadingProfile}
+            name={profileData?.fullName || profileData?.name || ""}
+            email={profileData?.emailAddress || profileData?.email || ""}
+            phone={profileData?.phoneNumber || profileData?.phone || ""}
+            nin={profileData?.nin || ""}
             isHostMode={isInHostMode}
-            emailVerified={userData.emailVerified}
+            emailVerified={profileData?.emailVerified}
             verified={isVerified}
-            avatarUri={
-                userData.avatarUri && !(userData.avatarUri.startsWith("blob:") && Platform.OS !== "web")
-                ? userData.avatarUri
-                : null
-            }
+            avatarUri={profileData?.avatar}
             onEditPress={handleEditProfile}
           />
           <View style={styles.spacer} />
           <WalletCard
-            balance={walletData.balance}
-            accountNumber={walletData.accountNumber}
+            isLoading={loadingWallet}
+            balance={walletInfo?.availableBalance || 0}
+            accountNumber={profileData?.userID || ""}
             onAddFunds={handleAddFunds}
             onWithdraw={handleWithdraw}
             onViewTransactions={handleViewTransactions}
             onCopyAccount={handleCopyAccount}
           />
+          <View style={styles.spacer} />
+          
+          
         </View>
       </View>
 
@@ -585,7 +559,7 @@ const ProfileScreen = ({ isHostMode: isHostModeProp = false }) => {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl refreshing={isRefreshingState} onRefresh={onRefresh} />
         }
       >
         {/* Mode Switch Card - Show switch option if user is a Host (which implies they are either already in host mode or can switch to it) */}
@@ -652,6 +626,15 @@ const ProfileScreen = ({ isHostMode: isHostModeProp = false }) => {
           <SettingsSection title="Others" items={otherItems} />
         </View>
 
+        {/* Version & Debug Trigger */}
+        <TouchableOpacity
+          activeOpacity={1}
+          onPress={handleDebugTrigger}
+          style={styles.versionContainer}
+        >
+          <Text style={styles.versionText}>Version 1.3.0</Text>
+        </TouchableOpacity>
+
         {/* Bottom Padding */}
         <View style={styles.bottomPadding} />
       </ScrollView>
@@ -707,6 +690,49 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0, 0, 0, 0.7)",
     justifyContent: "center",
     alignItems: "center",
+  },
+  statsRow: {
+    flexDirection: "row",
+    backgroundColor: "#F9FAFB",
+    borderRadius: 16,
+    paddingVertical: 15,
+    width: "100%",
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: "#F3F4F6",
+  },
+  statBox: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  statDivider: {
+    width: 1,
+    height: "140%", // Taller than standard to look premium
+    backgroundColor: "#E5E7EB",
+    alignSelf: "center",
+    position: 'absolute',
+    left: '33.33%',
+    marginTop: -5,
+  },
+  // Second divider
+  statDivider2: {
+    width: 1,
+    height: "140%",
+    backgroundColor: "#E5E7EB",
+    position: 'absolute',
+    left: '66.66%',
+  },
+  statValue: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#111827",
+  },
+  statLabel: {
+    fontSize: 12,
+    color: "#6B7280",
+    marginTop: 2,
+    fontWeight: "500",
   },
   switchingContainer: {
     backgroundColor: "#FFFFFF",
@@ -770,6 +796,28 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     color: "#010135",
+  },
+  versionContainer: {
+    alignItems: "center",
+    paddingVertical: 20,
+    opacity: 0.5,
+  },
+  versionText: {
+    fontSize: 12,
+    color: "#999999",
+  },
+  cancelButton: {
+    marginTop: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  cancelButtonText: {
+    color: "#EF4444",
+    fontSize: 14,
+    fontWeight: "500",
   },
 });
 

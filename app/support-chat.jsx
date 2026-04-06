@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Platform, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import { getUserData } from '../src/services/userDataService';
 
@@ -11,6 +12,7 @@ export default function SupportChatScreen() {
   const [tawkReady, setTawkReady] = useState(false);
   const webviewRef = useRef(null);
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     const loadUser = async () => {
@@ -82,10 +84,19 @@ export default function SupportChatScreen() {
   };
 
   const renderHeader = () => (
-    <View style={styles.header}>
+    <View style={[
+      styles.header,
+      { paddingTop: Math.max(insets.top, 10) }
+    ]}>
       <TouchableOpacity 
         style={styles.closeButton} 
-        onPress={() => router.back()}
+        onPress={() => {
+          if (router.canGoBack()) {
+            router.back();
+          } else {
+            router.replace('/(tabs)');
+          }
+        }}
         activeOpacity={0.7}
       >
         <Ionicons name="close" size={28} color="#333" />
@@ -105,9 +116,25 @@ export default function SupportChatScreen() {
   // For Expo Web
   if (Platform.OS === 'web') {
     return (
-      <SafeAreaView style={styles.container}>
+      <View style={[styles.container, { paddingTop: Math.max(insets.top, 10) }]}>
         <Stack.Screen options={{ headerShown: false }} />
-        {renderHeader()}
+        <View style={styles.header}>
+          <TouchableOpacity 
+            style={styles.closeButton} 
+            onPress={() => {
+              if (router.canGoBack()) {
+                router.back();
+              } else {
+                router.replace('/(tabs)');
+              }
+            }}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="close" size={28} color="#333" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Live Support</Text>
+          <View style={{ width: 40 }} />
+        </View>
         <View style={{ flex: 1 }}>
           <iframe 
             src={tawkUrl}
@@ -117,7 +144,7 @@ export default function SupportChatScreen() {
           />
           {isLoading && renderLoadingOverlay()}
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
@@ -154,14 +181,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   header: {
-    height: 60,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
+    paddingBottom: 15,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-    backgroundColor: '#fff',
+    borderBottomColor: '#F0F0F0',
+    backgroundColor: '#FFFFFF',
+    height: 56,
   },
   headerTitle: {
     fontSize: 18,

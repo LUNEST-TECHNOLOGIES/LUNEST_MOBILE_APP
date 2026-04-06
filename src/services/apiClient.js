@@ -5,21 +5,18 @@
  * Automatically detects and uses correct backend URL based on environment
  */
 
-import { Alert, Platform } from "react-native";
-
-import { navigateToLogin } from "../utils/navigationUtils";
+import NetInfo from "@react-native-community/netinfo";
+import { Platform } from "react-native";
+import { APP_CONFIG } from "../config/appConfig";
 import configService from "./configService";
-import secureStorageService from "./secureStorageService";
-import notificationService from "./notificationService";
 import logService from "./logService";
+import secureStorageService from "./secureStorageService";
+import { AUTH_TOKEN_KEY } from "../constants/storageKeys";
+import toastService from "./toastService";
+import NetworkErrorHandler from "./networkErrorHandler";
+import { navigateToLogin } from "../utils/navigationUtils";
+const ALERT_THROTTLE_MS = 5000; // 5 seconds
 
-// Use same key as authService
-const AUTH_TOKEN_KEY = "auth_token_secure";
-
-/**
- * Detect the correct API URL based on platform and environment
- * Priority: ENV > Platform Detection > Fallback
- */
 const detectAPIURL = () => {
   // Check for explicit ENV override first (Works for native AND web)
   const envURL = process.env.EXPO_PUBLIC_API_URL;
@@ -49,6 +46,7 @@ class APIClient {
     this.retryAttempts = 3;
     this.retryDelay = 1000;
     this.isInitialized = false;
+    this.lastAlertTime = 0;
   }
 
   /**
@@ -133,40 +131,105 @@ class APIClient {
   }
 
   /**
-   * Handle API errors
-   * @param {Error} error - Error object
-   * @param {string} url - The URL that failed
-   * @returns {void}
+   * Internal helper to create a rich Error object with unwrapped validation messages
+   * @private
    */
-  handleError(error, url = "unknown") {
-    console.error("❌ [APIClient] API Error:", {
-      message: error.message,
-      status: error.status,
-      url: url,
-      baseURL: this.baseURL,
-      platform: Platform.OS,
-      response: error.response,
-    });
+  _createError(errorResponse, status) {
+    let message = errorResponse?.message || `HTTP ${status}`;
+    
+    // Unwrap validation errors (Zod, etc.)
+    if (Array.isArray(errorResponse?.errors) && errorResponse.errors.length > 0) {
+      const detailMessages = errorResponse.errors.map(err => {
+        if (typeof err === "string") return err;
+        const pathPrefix = err.path ? (Array.isArray(err.path) ? err.path.join(".") : err.path) + ": " : "";
+        return `${pathPrefix}${err.message || JSON.stringify(err)}`;
+      }).join(", ");
+      message = `Validation Error: ${detailMessages}`;
+    }
 
-    // Show user-friendly error message
-    const displayMsg = error.message === "Failed to fetch" 
-      ? `Connection Error: Unable to reach server at ${this.baseURL}. Please check your internet or if the backend is running.`
-      : (error.message || "An error occurred");
+    const error = new Error(message);
+    error.status = status;
+    error.response = errorResponse;
+    return error;
+  }
 
-    // Log error to backend
-    logService.logError(displayMsg, {
-      status: error.status,
-      url: url,
-      response: error.response,
-      originalError: error.message,
-    });
+  /**
+   * Universal error handler with toast throttling
+   */
+  handleError(diagnostic, silent = false) {
+    if (silent) {
+       console.log("[APIClient] Silent error suppressed toast:", diagnostic.message);
+       return;
+    }
 
-    if (Platform.OS === "web") {
-      // Avoid spamming alerts on web
-      console.warn("[APIClient] Network alert:", displayMsg);
-    } else {
-      // Use Toast instead of Alert for a non-intrusive experience
-      notificationService.showError(displayMsg);
+    const now = Date.now();
+    if (now - this.lastAlertTime < ALERT_THROTTLE_MS) {
+      console.log("[APIClient] Alert throttled:", diagnostic.message);
+      return;
+    }
+
+    this.lastAlertTime = now;
+    toastService.showError(diagnostic.message);
+  }
+
+  /**
+   * Internal fetch with retry and exponential backoff
+   * Specifically handles 429 (Too Many Requests)
+   * @private
+   */
+  async _fetchWithRetry(url, options, attempt = 1, silent = false) {
+    const maxRetries = options.retries || 3;
+    const retryDelay = options.retryDelay || 2000;
+
+    try {
+      let timeoutId;
+      const timeoutPromise = new Promise((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error("Request timeout")), this.timeout);
+      });
+
+      const response = await Promise.race([
+        fetch(url, options),
+        timeoutPromise,
+      ]);
+      clearTimeout(timeoutId);
+
+      // Handle Rate Limiting (429) - Automatic Retry
+      if (response.status === 429 && attempt <= maxRetries) {
+        const backoff = retryDelay * Math.pow(2, attempt - 1);
+        console.warn(`[APIClient] 429 Rate Limited. Retrying in ${backoff}ms (Attempt ${attempt}/${maxRetries})...`);
+        await new Promise(resolve => setTimeout(resolve, backoff));
+        return this._fetchWithRetry(url, options, attempt + 1, silent);
+      }
+
+      if (!response.ok) {
+        const errorResponse = await this.parseResponse(response);
+        
+        // Global 401 handler: redirect to login
+        if (response.status === 401) {
+          console.warn("[APIClient] 401 Unauthorized - redirecting to login...");
+          if (typeof navigateToLogin === "function") {
+            await secureStorageService.removeSecureItem(AUTH_TOKEN_KEY);
+            navigateToLogin();
+          }
+        }
+
+        const error = this._createError(errorResponse, response.status);
+        throw error;
+      }
+
+      return await this.parseResponse(response);
+    } catch (error) {
+      // Retry on network errors too (timeout, connection failed)
+      if (attempt <= maxRetries && (error.message.includes("timeout") || error.message === "Failed to fetch")) {
+        const backoff = retryDelay * Math.pow(2, attempt - 1);
+        console.warn(`[APIClient] Network Error (${error.message}). Retrying in ${backoff}ms (Attempt ${attempt}/${maxRetries})...`);
+        await new Promise(resolve => setTimeout(resolve, backoff));
+        return this._fetchWithRetry(url, options, attempt + 1, silent);
+      }
+      
+      const diagnostic = NetworkErrorHandler.categorizeError(error);
+      this.handleError(diagnostic, silent);
+      throw error;
     }
   }
 
@@ -177,12 +240,10 @@ class APIClient {
    * @returns {Promise<*>}
    */
   async get(endpoint, options = {}) {
-    // Safety: React Native doesn't always have a global URL constructor
     const cleanBase = this.baseURL.replace(/\/$/, "");
     const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
     let urlString = `${cleanBase}${cleanEndpoint}`;
 
-    // Add query parameters
     if (options.params) {
       const searchParams = new URLSearchParams();
       Object.entries(options.params).forEach(([key, value]) => {
@@ -198,47 +259,11 @@ class APIClient {
 
     const headers = await this.buildHeaders(options.headers);
 
-    try {
-      let timeoutId;
-      const timeoutPromise = new Promise((_, reject) => {
-        timeoutId = setTimeout(() => reject(new Error("Request timeout")), this.timeout);
-      });
-
-      const response = await Promise.race([
-        fetch(urlString, {
-          method: "GET",
-          headers,
-          ...options,
-        }),
-        timeoutPromise,
-      ]);
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        const errorResponse = await this.parseResponse(response);
-        
-        // Global 401 handler: redirect to login
-        if (response.status === 401) {
-          console.warn("[APIClient] 401 Unauthorized - redirecting to login...");
-          if (typeof navigateToLogin === "function") {
-            await secureStorageService.removeSecureItem(AUTH_TOKEN_KEY);
-            navigateToLogin();
-          }
-        }
-
-        const error = new Error(
-          errorResponse?.message || `HTTP ${response.status}`,
-        );
-        error.status = response.status;
-        error.response = errorResponse;
-        throw error;
-      }
-
-      return await this.parseResponse(response);
-    } catch (error) {
-      this.handleError(error, urlString);
-      throw error;
-    }
+    return this._fetchWithRetry(urlString, {
+      method: "GET",
+      headers,
+      ...options,
+    }, 1, options.silent || false);
   }
 
   /**
@@ -252,70 +277,17 @@ class APIClient {
     const cleanBase = this.baseURL.replace(/\/$/, "");
     const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
     const urlString = `${cleanBase}${cleanEndpoint}`;
-
     const headers = await this.buildHeaders(options.headers);
 
-    // Debug logging
-    console.log("[APIClient] POST Request Details:");
-    console.log("  URL:", urlString);
-    console.log("  Data:", JSON.stringify(data));
-    console.log("  Headers:", JSON.stringify(headers));
+    const requestBody = JSON.stringify(data);
+    const { headers: _h, ...restOptions } = options || {};
 
-    try {
-      const requestBody = JSON.stringify(data);
-      console.log("  Request Body:", requestBody);
-
-      // Destructure to avoid options.headers overwriting merged headers
-      const { headers: _h, ...restOptions } = options || {};
-      let timeoutId;
-      const timeoutPromise = new Promise((_, reject) => {
-        timeoutId = setTimeout(() => reject(new Error("Request timeout")), this.timeout);
-      });
-
-      const response = await Promise.race([
-        fetch(urlString, {
-          method: "POST",
-          headers,
-          body: requestBody,
-          ...restOptions,
-        }),
-        timeoutPromise,
-      ]);
-      clearTimeout(timeoutId);
-
-      console.log(
-        "[APIClient] Response Status:",
-        response.status,
-        response.statusText,
-      );
-
-      if (!response.ok) {
-        const errorResponse = await this.parseResponse(response);
-        console.error(
-          "[APIClient] Error Response:",
-          JSON.stringify(errorResponse),
-        );
-        // Global 401 handler: force logout and redirect to login
-        if (response.status === 401) {
-          console.warn("[APIClient] 401 Unauthorized - redirecting to login...");
-          if (typeof navigateToLogin === "function") {
-            await secureStorageService.removeSecureItem(AUTH_TOKEN_KEY);
-            navigateToLogin();
-          }
-        }
-        const error = new Error(
-          errorResponse?.message || `HTTP ${response.status}`,
-        );
-        error.status = response.status;
-        error.response = errorResponse;
-        throw error;
-      }
-
-      return await this.parseResponse(response);
-    } catch (error) {
-      this.handleError(error, urlString);
-      throw error;
-    }
+    return this._fetchWithRetry(urlString, {
+      method: "POST",
+      headers,
+      body: requestBody,
+      ...restOptions,
+    }, 1, options.silent || false);
   }
 
   /**
@@ -329,47 +301,16 @@ class APIClient {
     const cleanBase = this.baseURL.replace(/\/$/, "");
     const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
     const urlString = `${cleanBase}${cleanEndpoint}`;
-    const headers = await this.buildHeaders(options.headers);
-
     try {
-      const { headers: _h, ...restOptions } = options || {};
-      let timeoutId;
-      const timeoutPromise = new Promise((_, reject) => {
-        timeoutId = setTimeout(() => reject(new Error("Request timeout")), this.timeout);
+      const { headers: customHeaders, ...restOptions } = options || {};
+      const headers = await this.buildHeaders(customHeaders);
+      
+      return await this._fetchWithRetry(urlString, {
+        method: "PUT",
+        headers,
+        body: JSON.stringify(data),
+        ...restOptions,
       });
-
-      const response = await Promise.race([
-        fetch(urlString, {
-          method: "PUT",
-          headers,
-          body: JSON.stringify(data),
-          ...restOptions,
-        }),
-        timeoutPromise,
-      ]);
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        const errorResponse = await this.parseResponse(response);
-        
-        // Global 401 handler: redirect to login
-        if (response.status === 401) {
-          console.warn("[APIClient] 401 Unauthorized - redirecting to login...");
-          if (typeof navigateToLogin === "function") {
-            await secureStorageService.removeSecureItem(AUTH_TOKEN_KEY);
-            navigateToLogin();
-          }
-        }
-
-        const error = new Error(
-          errorResponse?.message || `HTTP ${response.status}`,
-        );
-        error.status = response.status;
-        error.response = errorResponse;
-        throw error;
-      }
-
-      return await this.parseResponse(response);
     } catch (error) {
       this.handleError(error, urlString);
       throw error;
@@ -386,45 +327,15 @@ class APIClient {
     const cleanBase = this.baseURL.replace(/\/$/, "");
     const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
     const urlString = `${cleanBase}${cleanEndpoint}`;
-    const headers = await this.buildHeaders(options.headers);
-
     try {
-      let timeoutId;
-      const timeoutPromise = new Promise((_, reject) => {
-        timeoutId = setTimeout(() => reject(new Error("Request timeout")), this.timeout);
+      const { headers: customHeaders, ...restOptions } = options || {};
+      const headers = await this.buildHeaders(customHeaders);
+
+      return await this._fetchWithRetry(urlString, {
+        method: "DELETE",
+        headers,
+        ...restOptions,
       });
-
-      const response = await Promise.race([
-        fetch(urlString, {
-          method: "DELETE",
-          headers,
-          ...options,
-        }),
-        timeoutPromise,
-      ]);
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        const errorResponse = await this.parseResponse(response);
-        
-        // Global 401 handler: redirect to login
-        if (response.status === 401) {
-          console.warn("[APIClient] 401 Unauthorized - redirecting to login...");
-          if (typeof navigateToLogin === "function") {
-            await secureStorageService.removeSecureItem(AUTH_TOKEN_KEY);
-            navigateToLogin();
-          }
-        }
-
-        const error = new Error(
-          errorResponse?.message || `HTTP ${response.status}`,
-        );
-        error.status = response.status;
-        error.response = errorResponse;
-        throw error;
-      }
-
-      return await this.parseResponse(response);
     } catch (error) {
       this.handleError(error, urlString);
       throw error;
@@ -442,46 +353,16 @@ class APIClient {
     const cleanBase = this.baseURL.replace(/\/$/, "");
     const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
     const urlString = `${cleanBase}${cleanEndpoint}`;
-    const headers = await this.buildHeaders(options.headers);
-
     try {
-      let timeoutId;
-      const timeoutPromise = new Promise((_, reject) => {
-        timeoutId = setTimeout(() => reject(new Error("Request timeout")), this.timeout);
+      const { headers: customHeaders, ...restOptions } = options || {};
+      const headers = await this.buildHeaders(customHeaders);
+
+      return await this._fetchWithRetry(urlString, {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify(data),
+        ...restOptions,
       });
-
-      const response = await Promise.race([
-        fetch(urlString, {
-          method: "PATCH",
-          headers,
-          body: JSON.stringify(data),
-          ...options,
-        }),
-        timeoutPromise,
-      ]);
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        const errorResponse = await this.parseResponse(response);
-        
-        // Global 401 handler: redirect to login
-        if (response.status === 401) {
-          console.warn("[APIClient] 401 Unauthorized - redirecting to login...");
-          if (typeof navigateToLogin === "function") {
-            await secureStorageService.removeSecureItem(AUTH_TOKEN_KEY);
-            navigateToLogin();
-          }
-        }
-
-        const error = new Error(
-          errorResponse?.message || `HTTP ${response.status}`,
-        );
-        error.status = response.status;
-        error.response = errorResponse;
-        throw error;
-      }
-
-      return await this.parseResponse(response);
     } catch (error) {
       this.handleError(error, urlString);
       throw error;

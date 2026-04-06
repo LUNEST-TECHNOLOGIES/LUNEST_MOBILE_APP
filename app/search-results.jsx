@@ -4,19 +4,20 @@
  */
 
 import { Ionicons } from "@expo/vector-icons";
+import { FlashList } from "@shopify/flash-list";
+import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import {
     ActivityIndicator,
     Dimensions,
-    FlatList,
     ImageBackground,
     Pressable,
     RefreshControl,
     StyleSheet,
     Text,
     TextInput,
-    View,
+    View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import ArrowLeftIcon from "../src/assets/icons/bookings/arrow-left.svg";
@@ -24,6 +25,7 @@ import SearchIcon from "../src/assets/icons/home/SearchIcon.svg";
 import FilterIcon from "../src/assets/icons/navbar/vuesax/outline/setting-4.svg";
 import ShieldTickIcon from "../src/assets/icons/shield-tick.svg";
 import FilterModal from "../src/components/modals/FilterModal";
+import GridListingSkeleton from "../src/components/skeletons/GridListingSkeleton";
 import bookmarkService from "../src/services/bookmarkService";
 import configService from "../src/services/configService";
 import listingService from "../src/services/listingService";
@@ -38,55 +40,43 @@ const DEFAULT_PROPERTY_IMAGE = require("../src/assets/images/prop_image.png");
 const SearchResultsScreen = () => {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const queryClient = useQueryClient();
 
   // Parse initial filters from params
   const initialQuery = params?.query || "";
   const initialFilters = params?.filters ? JSON.parse(params.filters) : {};
 
   const [searchQuery, setSearchQuery] = useState(initialQuery);
-  const [listings, setListings] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [activeFilters, setActiveFilters] = useState(initialFilters);
-  const [bookmarkMap, setBookmarkMap] = useState({});
-  const [resultCount, setResultCount] = useState(0);
 
-  useEffect(() => {
-    fetchSearchResults();
-  }, [searchQuery, activeFilters]);
-
-  const fetchSearchResults = async () => {
-    try {
-      setLoading(true);
-      console.log(
-        "[SearchResults] Fetching with query:",
-        searchQuery,
-        "filters:",
-        activeFilters,
-      );
-
+  // ── Infinite Listings (React Query) ──
+  const {
+    data: searchPages,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading: loading,
+    isRefetching: refreshing,
+    refetch: onRefresh,
+  } = useInfiniteQuery({
+    queryKey: ["searchResults", searchQuery, activeFilters],
+    queryFn: async ({ pageParam = 1 }) => {
+      console.log(`[SearchResults] Fetching page ${pageParam} with query: "${searchQuery}"`, activeFilters);
+      
       const baseURL = await configService.getBaseURL();
 
-      // Build filter object for API
+      // Build filter object for API (Adapting original logic)
       const apiFilters = {
         status: { $in: ["AVAILABLE", "BOOKED"] },
       };
 
-      // Search query - search in property name, city, address, description
-      // Handle keywords with spaces by also searching individual words
       if (searchQuery && searchQuery.trim()) {
         const trimmedQuery = searchQuery.trim();
-        // Create search patterns - both full query and individual words
         const searchPatterns = [trimmedQuery];
-
-        // If query has spaces, also search for individual words (min 2 chars)
         if (trimmedQuery.includes(" ")) {
-          const words = trimmedQuery.split(/\s+/).filter((w) => w.length >= 2);
-          searchPatterns.push(...words);
+          searchPatterns.push(...trimmedQuery.split(/\s+/).filter((w) => w.length >= 2));
         }
-
-        // Build OR conditions for each search pattern
         const searchConditions = [];
         searchPatterns.forEach((pattern) => {
           searchConditions.push(
@@ -99,163 +89,121 @@ const SearchResultsScreen = () => {
             { "address.state": { $regex: pattern, $options: "i" } },
           );
         });
-
         apiFilters.$or = searchConditions;
       }
 
-      // Location filter
-      if (activeFilters.location) {
-        apiFilters.city = { $regex: activeFilters.location, $options: "i" };
-      }
-
-      // Price range
-      if (activeFilters.minPrice) {
-        apiFilters.price = {
-          ...apiFilters.price,
-          $gte: activeFilters.minPrice,
-        };
-      }
-      if (activeFilters.maxPrice) {
-        apiFilters.price = {
-          ...apiFilters.price,
-          $lte: activeFilters.maxPrice,
-        };
-      }
-
-      // Property categories
-      if (activeFilters.categories && activeFilters.categories.length > 0) {
-        apiFilters.propertyType = { $in: activeFilters.categories };
-      }
-
-      // Bedrooms, bathrooms, guests
-      if (activeFilters.bedrooms && activeFilters.bedrooms > 0) {
-        apiFilters.bedrooms = { $gte: activeFilters.bedrooms };
-      }
-      if (activeFilters.bathrooms && activeFilters.bathrooms > 0) {
-        apiFilters.bathrooms = { $gte: activeFilters.bathrooms };
-      }
-      if (activeFilters.guests && activeFilters.guests > 0) {
-        apiFilters.guests = { $gte: activeFilters.guests };
-      }
-
-      // Furnished filter
-      if (activeFilters.furnished) {
-        apiFilters.furnishingStatus = { $regex: 'furnished', $options: 'i' };
-      }
+      if (activeFilters.location) apiFilters.city = { $regex: activeFilters.location, $options: "i" };
+      if (activeFilters.minPrice) apiFilters.price = { ...apiFilters.price, $gte: activeFilters.minPrice };
+      if (activeFilters.maxPrice) apiFilters.price = { ...apiFilters.price, $lte: activeFilters.maxPrice };
+      if (activeFilters.categories?.length > 0) apiFilters.propertyType = { $in: activeFilters.categories };
+      if (activeFilters.bedrooms > 0) apiFilters.bedrooms = { $gte: activeFilters.bedrooms };
+      if (activeFilters.bathrooms > 0) apiFilters.bathrooms = { $gte: activeFilters.bathrooms };
+      if (activeFilters.guests > 0) apiFilters.guests = { $gte: activeFilters.guests };
 
       const result = await listingService.fetchListingsByStatus(apiFilters);
-
-      if (result && result.success && result.listings) {
+      
+      if (result?.success && result.listings) {
         let filteredListings = result.listings;
 
-        // Client-side filtering for amenities
-        if (activeFilters.amenities && activeFilters.amenities.length > 0) {
-          filteredListings = filteredListings.filter((listing) =>
-            activeFilters.amenities.every(
-              (amenity) =>
-                listing.amenities && listing.amenities.includes(amenity),
-            ),
+        // Client-side filtering as per original code
+        if (activeFilters.amenities?.length > 0) {
+          filteredListings = filteredListings.filter((l) =>
+            activeFilters.amenities.every((a) => l.amenities?.includes(a))
           );
         }
-
-        // Verified only filter
         if (activeFilters.verifiedOnly) {
-          filteredListings = filteredListings.filter(
-            (listing) => listing.host && listing.host.active === true,
-          );
+          filteredListings = filteredListings.filter((l) => l.host?.active || l.host?.hostApplicationStatus === "APPROVED");
         }
-
-        // Furnished filter (client-side)
         if (activeFilters.furnished) {
-          filteredListings = filteredListings.filter(
-            (listing) => 
-              listing.furnishingStatus && 
-              listing.furnishingStatus.toLowerCase().includes('furnished'),
+          filteredListings = filteredListings.filter((l) => 
+            l.furnishingStatus?.toLowerCase().includes("furnished") || 
+            l.description?.toLowerCase().includes("furnished")
           );
         }
 
-        // Transform listings
-        const transformedListings = filteredListings.map((listing) => {
-          // Get first image URL
-          let imageUrl = null;
-          if (listing.propertyImages && listing.propertyImages.length > 0) {
-            const firstImg = listing.propertyImages[0];
-            if (typeof firstImg === "object" && firstImg.url) {
-              imageUrl = firstImg.url.startsWith("http")
-                ? firstImg.url
-                : `${baseURL}${firstImg.url}`;
-            } else if (typeof firstImg === "string") {
-              imageUrl = firstImg.startsWith("http")
-                ? firstImg
-                : `${baseURL}${firstImg}`;
-            }
-          }
-
-          // Build location string with city and state
-          const buildLocation = () => {
-            const parts = [];
-            // Try address object first
-            if (listing.address && typeof listing.address === "object") {
-              if (listing.address.city) parts.push(listing.address.city);
-              if (listing.address.state) parts.push(listing.address.state);
-            } else {
-              // Fallback to direct fields
-              if (listing.city) parts.push(listing.city);
-              if (listing.state) parts.push(listing.state);
-            }
-            return parts.length > 0 ? parts.join(", ") : "Nigeria";
-          };
+        // Standardized listing transformation
+        return filteredListings.map((listing) => {
+          const firstImg = (listing.propertyImages || listing.images || [])[0];
+          let imageUrl = firstImg ? (typeof firstImg === "object" ? firstImg.url || firstImg.uri : firstImg) : null;
+          if (imageUrl && !imageUrl.startsWith("http")) imageUrl = `${baseURL}${imageUrl}`;
 
           return {
             id: listing._id || listing.id,
-            title: listing.propertyName || "Property",
-            location: buildLocation(),
+            _id: listing._id || listing.id,
+            title: listing.propertyName || listing.propertyTitle || "Property",
+            location: listing.city && listing.state ? `${listing.city}, ${listing.state}` : (listing.location || listing.propertyLocation?.name || "Nigeria"),
+            currencySymbol: (() => {
+              const curr = listing.propertyPrice?.currency || listing.currency || "NGN";
+              if (curr === "NGN" || curr === "naira") return "₦";
+              if (curr === "USD" || curr === "usd") return "$";
+              return "₦";
+            })(),
+            pricingPeriod: listing.pricingPeriod || listing.propertyPrice?.pricingPeriod || "night",
             price: listing.price || listing.propertyPrice?.price || 0,
-            pricingPeriod: listing.pricingPeriod || "night",
             image: imageUrl,
+            rating: listing.averageRating || listing.rating || 4.5,
+            reviewCount: listing.listingReviews?.length || listing.reviews?.length || 0,
             bedrooms: listing.bedrooms || 0,
             bathrooms: listing.bathrooms || 0,
-            isVerified: listing.host?.active === true,
-            rating: listing.rating || 4.5,
-            status: listing.status, // Pass status for availability display
+            guests: listing.guests || 0,
+            isVerified: listing.host?.active === true || listing.host?.hostApplicationStatus === "APPROVED",
+            status: listing.status,
+            propertyType: listing.propertyType,
+            amenities: listing.amenities || [],
+            host: listing.host || {},
+            propertyLocation: listing.propertyLocation || {},
+            listingData: listing, // Keep full raw object
           };
         });
-
-        setListings(transformedListings);
-        setResultCount(transformedListings.length);
-        console.log(
-          "[SearchResults] Found",
-          transformedListings.length,
-          "results",
-        );
-
-        // Load bookmark statuses
-        await loadBookmarkStatuses(transformedListings);
-      } else {
-        setListings([]);
-        setResultCount(0);
       }
-    } catch (error) {
-      console.error("[SearchResults] Error fetching results:", error);
-      setListings([]);
-      setResultCount(0);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
+      return [];
+    },
+    initialPageParam: 1,
+    getNextPageParam: (lastPage, allPages) => {
+      return lastPage.length === 10 ? allPages.length + 1 : undefined;
+    },
+    staleTime: 2 * 60_000,
+  });
 
-  const loadBookmarkStatuses = async (listingsData) => {
-    try {
-      const newBookmarkMap = {};
-      for (const listing of listingsData) {
-        const status = await bookmarkService.isListingBookmarked(listing.id);
-        newBookmarkMap[listing.id] = status;
+  const listings = useMemo(() => {
+    return searchPages?.pages.flatMap((page) => page) || [];
+  }, [searchPages]);
+
+  const resultCount = listings.length;
+
+  // ── Bookmarks Management ──
+  const { data: bookmarkMap = {} } = useInfiniteQuery({
+    queryKey: ["bookmarksMap"],
+    queryFn: async () => {
+      const res = await bookmarkService.fetchBookmarks();
+      const map = {};
+      if (res.success) {
+        res.bookmarks.forEach(b => {
+          const id = b.listing?._id || b.listing?.id || b.listing;
+          map[id] = { isBookmarked: true, bookmarkId: b._id };
+        });
       }
-      setBookmarkMap(newBookmarkMap);
-    } catch (error) {
-      console.error("[SearchResults] Error loading bookmarks:", error);
-    }
+      return map;
+    },
+  });
+
+  const toggleFavoriteMutation = useMutation({
+    mutationFn: async ({ listingId, isBookmarked, bookmarkId }) => {
+      return await bookmarkService.toggleBookmark(listingId, !isBookmarked, bookmarkId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["bookmarksMap"] });
+      queryClient.invalidateQueries({ queryKey: ["bookmarks"] });
+    },
+  });
+
+  const handleFavoritePress = (listing) => {
+    const status = bookmarkMap[listing.id] || { isBookmarked: false, bookmarkId: null };
+    toggleFavoriteMutation.mutate({ 
+      listingId: listing.id, 
+      isBookmarked: status.isBookmarked, 
+      bookmarkId: status.bookmarkId 
+    });
   };
 
   const handleGoBack = () => {
@@ -276,11 +224,6 @@ const SearchResultsScreen = () => {
     setSearchQuery("");
   };
 
-  const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    fetchSearchResults();
-  }, [searchQuery, activeFilters]);
-
   const handlePropertyPress = (listing) => {
     router.push({
       pathname: "/property-details",
@@ -288,31 +231,6 @@ const SearchResultsScreen = () => {
     });
   };
 
-  const handleFavoritePress = async (listing) => {
-    try {
-      const bookmarkStatus = bookmarkMap[listing.id] || {
-        isBookmarked: false,
-        bookmarkId: null,
-      };
-      const result = await bookmarkService.toggleBookmark(
-        listing.id,
-        !bookmarkStatus.isBookmarked,
-        bookmarkStatus.bookmarkId,
-      );
-
-      if (result.success) {
-        const updatedStatus = await bookmarkService.isListingBookmarked(
-          listing.id,
-        );
-        setBookmarkMap((prev) => ({
-          ...prev,
-          [listing.id]: updatedStatus,
-        }));
-      }
-    } catch (error) {
-      console.error("[SearchResults] Error toggling favorite:", error);
-    }
-  };
 
   // Format price with K/M suffixes
   const formatPrice = (num) => {
@@ -501,19 +419,30 @@ const SearchResultsScreen = () => {
       </View>
 
       {/* Results Grid */}
-      {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#010135" />
-          <Text style={styles.loadingText}>Searching properties...</Text>
-        </View>
+      {loading && listings.length === 0 ? (
+        <FlashList
+          data={[1, 2, 3, 4, 5, 6]}
+          keyExtractor={(item) => item.toString()}
+          renderItem={() => <GridListingSkeleton />}
+          numColumns={2}
+          contentContainerStyle={styles.listContent}
+          estimatedItemSize={250}
+        />
       ) : (
-        <FlatList
+        <FlashList
           data={listings}
           keyExtractor={(item) => item.id}
           renderItem={renderPropertyCard}
           numColumns={2}
-          columnWrapperStyle={styles.row}
           contentContainerStyle={styles.listContent}
+          estimatedItemSize={250}
+          onEndReached={() => hasNextPage && fetchNextPage()}
+          onEndReachedThreshold={0.5}
+          ListFooterComponent={() => 
+            isFetchingNextPage ? (
+              <ActivityIndicator size="small" color="#010135" style={{ marginVertical: 20 }} />
+            ) : null
+          }
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={renderEmptyState}
           refreshControl={

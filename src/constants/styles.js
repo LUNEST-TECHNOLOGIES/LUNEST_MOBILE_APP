@@ -507,7 +507,7 @@ export const footerStyles = StyleSheet.create({
     flexDirection: "row",
     paddingHorizontal: 20,
     paddingTop: 20,
-    paddingBottom: Platform.OS === "android" ? 30 : 20,
+    paddingBottom: Platform.OS === "android" ? 48 : 20,
     gap: 12,
     backgroundColor: COLORS.white,
   },

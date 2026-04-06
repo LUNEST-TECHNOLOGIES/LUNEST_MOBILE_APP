@@ -1,14 +1,18 @@
 import { Image } from "expo-image";
 import { useEffect, useState } from "react";
 import {
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  useWindowDimensions,
-  View,
+    Platform,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    useWindowDimensions,
+    View,
 } from "react-native";
 import Svg, { Circle, Path } from "react-native-svg";
+import configService from "../../services/configService";
 import profileService from "../../services/profileService";
+import { resolveImageUrlSync } from "../../utils/imageUtils";
+import Skeleton from "../common/Skeleton";
 
 /**
  * Profile Avatar Icon - Same style as bottom nav profile icon
@@ -78,6 +82,7 @@ const ProfileHeader = ({
   emailVerified = false,
   verified = false,
   avatarUri: externalAvatarUri,
+  isLoading = false,
   onEditPress,
 }) => {
   const { width } = useWindowDimensions();
@@ -90,6 +95,36 @@ const ProfileHeader = ({
 
   // Profile avatar state - use passed prop or load from service
   const [avatarUri, setAvatarUri] = useState(externalAvatarUri);
+  const [resolvedAvatarUri, setResolvedAvatarUri] = useState(null);
+
+  // Resolve avatar URI with base URL
+  useEffect(() => {
+    const resolveAvatar = async () => {
+      if (!avatarUri) {
+        setResolvedAvatarUri(null);
+        return;
+      }
+      
+      // If already a full URL or blob, use as-is
+      if (avatarUri.startsWith("http") || avatarUri.startsWith("blob:")) {
+        setResolvedAvatarUri(avatarUri);
+        return;
+      }
+      
+      // Resolve relative path with base URL
+      try {
+        const baseUrl = await configService.getBaseURL();
+        const resolved = resolveImageUrlSync(avatarUri, baseUrl);
+        console.log("[ProfileHeader] Resolved avatar:", { original: avatarUri, resolved });
+        setResolvedAvatarUri(resolved);
+      } catch (error) {
+        console.error("[ProfileHeader] Error resolving avatar:", error);
+        setResolvedAvatarUri(avatarUri);
+      }
+    };
+    
+    resolveAvatar();
+  }, [avatarUri]);
 
   // Load profile avatar on mount and listen for changes
   useEffect(() => {
@@ -131,9 +166,11 @@ const ProfileHeader = ({
     >
       {/* Avatar */}
       <View style={styles.avatarContainer}>
-        {avatarUri && !(typeof avatarUri === 'string' && avatarUri.startsWith("blob:") && Platform.OS !== "web") ? (
+        {isLoading ? (
+          <Skeleton width={69} height={69} variant="circle" />
+        ) : resolvedAvatarUri && !(typeof resolvedAvatarUri === 'string' && resolvedAvatarUri.startsWith("blob:") && Platform.OS !== "web") ? (
           <Image
-            source={{ uri: avatarUri }}
+            source={{ uri: resolvedAvatarUri }}
             style={styles.avatar}
             contentFit="cover"
             cachePolicy="disk"
@@ -145,7 +182,7 @@ const ProfileHeader = ({
           </View>
         )}
         {/* Host Tag Badge */}
-        {isHostMode && (
+        {!isLoading && isHostMode && (
           <View style={styles.hostTagBadge}>
             <Text style={styles.hostTagText}>HOST</Text>
           </View>
@@ -154,65 +191,75 @@ const ProfileHeader = ({
 
       {/* User Info */}
       <View style={styles.infoContainer}>
-        <View style={styles.nameRow}>
-          <Text style={styles.name} numberOfLines={1}>
-            {name}
-          </Text>
-          <View style={styles.nameRowSpacer} />
-          {isFullyVerified ? (
-            <View style={styles.verifiedBadge}>
-              <VerifiedIcon size={16} />
-              <Text style={styles.verifiedText}>VERIFIED</Text>
-            </View>
-          ) : (
-            <View style={styles.unverifiedBadge}>
-              <Text style={styles.unverifiedText}>Unverified</Text>
-            </View>
-          )}
-        </View>
-        <View style={styles.verifiedItemRow}>
-          <Text style={styles.email} numberOfLines={1}>
-            {email}
-          </Text>
-          {emailVerified && (
-            <Text style={styles.verifiedSmallText}>✓ Verified</Text>
-          )}
-        </View>
-
-        {/* Phone Status */}
-        {isPhoneVerified ? (
-          <View style={styles.verifiedItemRow}>
-            <Text style={styles.phone}>{phone}</Text>
-            {verified ? (
-              <Text style={styles.verifiedSmallText}>✓ Verified</Text>
-            ) : (
-              <Text style={styles.pendingSmallText}>Pending</Text>
-            )}
-          </View>
+        {isLoading ? (
+          <>
+            <Skeleton width={120} height={20} />
+            <Skeleton width={180} height={14} style={{ marginTop: 4 }} />
+            <Skeleton width={140} height={14} style={{ marginTop: 4 }} />
+          </>
         ) : (
-          <View style={styles.phoneWarningContainer}>
-            <Text style={styles.phoneWarningText}>⚠️ Add phone number</Text>
-          </View>
-        )}
+          <>
+            <View style={styles.nameRow}>
+              <Text style={styles.name} numberOfLines={1}>
+                {name}
+              </Text>
+              <View style={styles.nameRowSpacer} />
+              {isFullyVerified ? (
+                <View style={styles.verifiedBadge}>
+                  <VerifiedIcon size={16} />
+                  <Text style={styles.verifiedText}>VERIFIED</Text>
+                </View>
+              ) : (
+                <View style={styles.unverifiedBadge}>
+                  <Text style={styles.unverifiedText}>Unverified</Text>
+                </View>
+              )}
+            </View>
+            <View style={styles.verifiedItemRow}>
+              <Text style={styles.email} numberOfLines={1}>
+                {email}
+              </Text>
+              {emailVerified && (
+                <Text style={styles.verifiedSmallText}>✓ Verified</Text>
+              )}
+            </View>
 
-        {/* NIN Status */}
-        {isNinVerified ? (
-          <View style={styles.verifiedItemRow}>
-            <Text style={styles.ninText}>
-              NIN: {nin.slice(0, 4)}****{nin.slice(-3)}
-            </Text>
-            {verified ? (
-              <Text style={styles.verifiedSmallText}>✓ Verified</Text>
+            {/* Phone Status */}
+            {isPhoneVerified ? (
+              <View style={styles.verifiedItemRow}>
+                <Text style={styles.phone}>{phone}</Text>
+                {verified ? (
+                  <Text style={styles.verifiedSmallText}>✓ Verified</Text>
+                ) : (
+                  <Text style={styles.pendingSmallText}>Pending</Text>
+                )}
+              </View>
             ) : (
-              <Text style={styles.pendingSmallText}>Pending verification</Text>
+              <View style={styles.phoneWarningContainer}>
+                <Text style={styles.phoneWarningText}>⚠️ Add phone number</Text>
+              </View>
             )}
-          </View>
-        ) : (
-          <View style={styles.phoneWarningContainer}>
-            <Text style={styles.phoneWarningText}>
-              ⚠️ Add NIN for verification
-            </Text>
-          </View>
+
+            {/* NIN Status */}
+            {isNinVerified ? (
+              <View style={styles.verifiedItemRow}>
+                <Text style={styles.ninText}>
+                  NIN: {nin.slice(0, 4)}****{nin.slice(-3)}
+                </Text>
+                {verified ? (
+                  <Text style={styles.verifiedSmallText}>✓ Verified</Text>
+                ) : (
+                  <Text style={styles.pendingSmallText}>Pending verification</Text>
+                )}
+              </View>
+            ) : (
+              <View style={styles.phoneWarningContainer}>
+                <Text style={styles.phoneWarningText}>
+                  ⚠️ Add NIN for verification
+                </Text>
+              </View>
+            )}
+          </>
         )}
       </View>
 
@@ -366,6 +413,9 @@ const styles = StyleSheet.create({
   },
   editButton: {
     padding: 8,
+    alignSelf: 'flex-end',
+    marginBottom: 4,
+    marginTop: 4,
   },
 });
 

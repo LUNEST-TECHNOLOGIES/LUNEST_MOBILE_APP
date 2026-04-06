@@ -35,6 +35,7 @@ import authService from "../../services/authService";
 import bookingService from "../../services/bookingService";
 import configService from "../../services/configService";
 import { resolveImageUrlSync } from "../../utils/imageUtils";
+import { HostBookingsSkeleton } from "../../components/skeletons";
 
 // Filter tab options
 const FILTER_TABS = [
@@ -689,10 +690,7 @@ const HostBookingsScreen = () => {
 
       {/* Content */}
       {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#4F46E5" />
-          <Text style={styles.loadingText}>Loading your bookings...</Text>
-        </View>
+        <HostBookingsSkeleton />
       ) : error ? (
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>{error}</Text>

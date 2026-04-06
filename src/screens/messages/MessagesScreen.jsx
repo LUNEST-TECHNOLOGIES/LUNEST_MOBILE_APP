@@ -12,8 +12,6 @@ const MessagesScreen = () => {
         <EmptyState 
           title="Messaging Coming Soon"
           message="We're building a seamless way for you to chat with hosts and guests. Stay tuned!"
-          buttonTitle="Back to Home"
-          onPress={() => router.push("/(tabs)/index")}
         />
       </SafeAreaView>
     </View>

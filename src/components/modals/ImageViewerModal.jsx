@@ -92,7 +92,7 @@ const ImageViewerModal = ({
       return { uri: image };
     }
     if (image.uri) {
-      return image;
+      return { uri: image.uri };
     }
     if (image.url) {
       return { uri: image.url };
@@ -101,7 +101,8 @@ const ImageViewerModal = ({
   };
 
   const renderMedia = ({ item, index }) => {
-    const isVideo = item.type === "video" || (typeof item === "string" && (item.endsWith(".mp4") || item.endsWith(".mov")));
+    if (!item) return null;
+    const isVideo = item.type === "video" || (typeof item === "string" && (item.endsWith?.(".mp4") || item.endsWith?.(".mov")));
     const source = getImageSource(item);
     const isLoading = imageLoadingStates[index];
     const isActive = currentIndex === index;

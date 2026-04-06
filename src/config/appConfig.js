@@ -17,7 +17,7 @@ const DEV_CONFIG = {
 
 const PROD_CONFIG = {
   APP_SCHEME: "lunestmobile",
-  REFERRAL_DOMAIN: "https://lunest.app", // ← update when live
+  REFERRAL_DOMAIN: "https://api.lunest.app", // ← update when live
   ANDROID_PACKAGE: "com.lunest.mobile",  // ← update when live
   IOS_STORE_ID: "0000000000",            // ← update when live
   GOOGLE_MAPS_API_KEY: "AIzaSyDhZhU0M8ca_puGciEUxELK4xt2nHxzVuw",

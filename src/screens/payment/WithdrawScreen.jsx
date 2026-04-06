@@ -213,9 +213,13 @@ const WithdrawScreen = () => {
         accountName
       );
 
-      if (result.status === "PENDING" || result.status === "SUCCESS" || result.status === "COMPLETED") {
+      if (result.status === "PENDING") {
         // Refresh balance immediately
         await fetchWalletBalance();
+        
+        // Success Toast
+        showToast("Withdrawal initiated successfully", "success");
+        
         // Show success screen
         setWithdrawalDetails({
           amount: numericAmount,

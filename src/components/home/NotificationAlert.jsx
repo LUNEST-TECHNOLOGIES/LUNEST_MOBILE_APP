@@ -59,8 +59,11 @@ const NotificationAlert = ({
       duration: 250,
       useNativeDriver: true,
     }).start(() => {
-      if (callback) callback();
-      if (onClose) onClose();
+      if (callback) {
+        callback();
+      } else if (onClose) {
+        onClose();
+      }
     });
   };
 

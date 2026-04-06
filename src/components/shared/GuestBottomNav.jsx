@@ -10,7 +10,9 @@ import {
     View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import configService from "../../services/configService";
 import profileService from "../../services/profileService";
+import { resolveImageUrlSync } from "../../utils/imageUtils";
 
 // Import custom SVG icons
 import BookingsIcon from "../../assets/icons/navbar/BookingsIcon.svg";
@@ -59,6 +61,7 @@ const GuestBottomNav = () => {
 
   // Profile avatar state
   const [profileAvatarUri, setProfileAvatarUri] = useState(null);
+  const [resolvedAvatarUri, setResolvedAvatarUri] = useState(null);
 
   // Load profile avatar on mount and listen for changes
   useEffect(() => {
@@ -73,6 +76,35 @@ const GuestBottomNav = () => {
 
     return () => unsubscribe();
   }, []);
+
+  // Resolve avatar URI with base URL
+  useEffect(() => {
+    const resolveAvatar = async () => {
+      if (!profileAvatarUri) {
+        setResolvedAvatarUri(null);
+        return;
+      }
+      
+      // If already a full URL or blob, use as-is
+      if (profileAvatarUri.startsWith("http") || profileAvatarUri.startsWith("blob:")) {
+        setResolvedAvatarUri(profileAvatarUri);
+        return;
+      }
+      
+      // Resolve relative path with base URL
+      try {
+        const baseUrl = await configService.getBaseURL();
+        const resolved = resolveImageUrlSync(profileAvatarUri, baseUrl);
+        console.log("[GuestBottomNav] Resolved avatar:", { original: profileAvatarUri, resolved });
+        setResolvedAvatarUri(resolved);
+      } catch (error) {
+        console.error("[GuestBottomNav] Error resolving avatar:", error);
+        setResolvedAvatarUri(profileAvatarUri);
+      }
+    };
+    
+    resolveAvatar();
+  }, [profileAvatarUri]);
 
   // Reload avatar when navigating back to profile tab
   useEffect(() => {
@@ -167,7 +199,7 @@ const GuestBottomNav = () => {
                     pressed && styles.pressed,
                   ]}
                 >
-                  {isProfileTab && profileAvatarUri ? (
+                  {isProfileTab && resolvedAvatarUri ? (
                     <View
                       style={[
                         styles.profileImageContainer,
@@ -176,7 +208,7 @@ const GuestBottomNav = () => {
                       ]}
                     >
                       <Image
-                        source={{ uri: profileAvatarUri }}
+                        source={{ uri: resolvedAvatarUri }}
                         style={[
                           styles.profileImage,
                           { width: iconSize - 2, height: iconSize - 2 },

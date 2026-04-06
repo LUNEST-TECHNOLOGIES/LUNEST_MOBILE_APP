@@ -1,29 +1,20 @@
 // navigationUtils.js
-import { CommonActions } from "@react-navigation/native";
+import { router } from "expo-router";
 import { Platform } from "react-native";
 
-let navigationRef = null;
-
-export function setNavigationRef(ref) {
-  navigationRef = ref;
-}
-
+/**
+ * Navigate to the login screen
+ * Uses expo-router for consistent navigation across platforms
+ */
 export function navigateToLogin() {
-  if (navigationRef) {
-    console.log("[navigationUtils] Navigating to Login via React Navigation");
-    navigationRef.dispatch(
-      CommonActions.reset({
-        index: 0,
-        routes: [{ name: "Login" }],
-      }),
-    );
-  } else {
-    // fallback: log error and check platform
-    console.error(
-      "[navigationUtils] Cannot navigate to Login: navigationRef is null",
-    );
-
-    // Only attempt web redirect if explicitly on web and NOT in a native environment
+  console.log("[navigationUtils] Navigating to Login via Expo Router");
+  
+  try {
+    router.replace("/login");
+  } catch (error) {
+    console.error("[navigationUtils] Navigation error:", error);
+    
+    // Web fallback
     if (Platform.OS === "web" && typeof window !== "undefined" && window.location) {
       try {
         console.log("[navigationUtils] Attempting web redirect to /login");
@@ -33,4 +24,11 @@ export function navigateToLogin() {
       }
     }
   }
+}
+
+/**
+ * Legacy support - no longer needed for expo-router but kept to avoid broken imports
+ */
+export function setNavigationRef() {
+  // No-op for expo-router
 }

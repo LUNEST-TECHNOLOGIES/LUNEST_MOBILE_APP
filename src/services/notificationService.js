@@ -4,45 +4,35 @@
  * UI feedback (Toasts) merged with backend data fetching
  */
 
-import { TOAST_TYPE } from "../components/common/ToastNotification";
 import apiClient from "./apiClient";
+import toastService from "./toastService";
 
 class NotificationService {
   constructor() {
     this.listeners = new Set();
   }
 
-  // --- UI TOAST NOTIFICATIONS (Event Emitter) ---
-
   /**
-   * Subscribe to toast events
-   * @param {Function} callback - Function to call when a toast is triggered
-   * @returns {Function} - Unsubscribe function
+   * Delegate subscriptions to ToastService for backward compatibility
    */
   subscribe(callback) {
-    this.listeners.add(callback);
-    return () => this.listeners.delete(callback);
+    return toastService.subscribe(callback);
   }
 
-  /**
-   * Show a toast notification
-   */
-  show(message, type = TOAST_TYPE.INFO, duration = 3000) {
-    this.listeners.forEach((callback) => {
-      callback({ message, type, duration });
-    });
+  show(message, type, duration) {
+    toastService.show(message, type, duration);
   }
 
-  showSuccess(message, duration = 3000) {
-    this.show(message, TOAST_TYPE.SUCCESS, duration);
+  showSuccess(message, duration) {
+    toastService.showSuccess(message, duration);
   }
 
-  showError(message, duration = 4000) {
-    this.show(message, TOAST_TYPE.ERROR, duration);
+  showError(message, duration) {
+    toastService.showError(message, duration);
   }
 
-  showWarning(message, duration = 3500) {
-    this.show(message, TOAST_TYPE.WARNING, duration);
+  showWarning(message, duration) {
+    toastService.showWarning(message, duration);
   }
 
   // --- BACKEND NOTIFICATION DATA (Original Implementation) ---
@@ -55,9 +45,13 @@ class NotificationService {
     try {
       const response = await apiClient.post("/v1/notifications/by-user-type", {
         userType,
-      });
+      }, { silent: true });
       return response.data || { data: [] };
     } catch (error) {
+      // Re-throw 401 to let global handler redirect to login
+      if (error.status === 401 || error.message?.includes("Unauthorized")) {
+        throw error;
+      }
       console.error("[NotificationService] fetchUserNotifications error:", error);
       return { data: [] };
     }
@@ -70,9 +64,13 @@ class NotificationService {
     try {
       const response = await apiClient.post("/v1/notifications/unread-count", {
         userType,
-      });
+      }, { silent: true });
       return response.data?.unreadCount || 0;
     } catch (error) {
+      // Re-throw 401 to let global handler redirect to login
+      if (error.status === 401 || error.message?.includes("Unauthorized")) {
+        throw error;
+      }
       console.error("[NotificationService] getUnreadCount error:", error);
       return 0;
     }
@@ -109,9 +107,13 @@ class NotificationService {
    */
   async getHostDashboardStats() {
     try {
-      const response = await apiClient.get("/v1/notifications/host/dashboard-stats");
+      const response = await apiClient.get("/v1/notifications/host/dashboard-stats", { silent: true });
       return response.data || {};
     } catch (error) {
+      // Re-throw 401 to let global handler redirect to login
+      if (error.status === 401 || error.message?.includes("Unauthorized")) {
+        throw error;
+      }
       console.error("[NotificationService] getHostDashboardStats error:", error);
       return null;
     }
@@ -127,6 +129,10 @@ class NotificationService {
       const response = await apiClient.post("/admin", data);
       return response.data || { notifications: [], unreadCount: 0 };
     } catch (error) {
+      // Re-throw 401 to let global handler redirect to login
+      if (error.status === 401 || error.message?.includes("Unauthorized")) {
+        throw error;
+      }
       console.error("[NotificationService] fetchAdminNotifications error:", error);
       return { notifications: [], unreadCount: 0 };
     }

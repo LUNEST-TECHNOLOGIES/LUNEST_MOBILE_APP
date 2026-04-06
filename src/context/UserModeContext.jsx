@@ -66,28 +66,36 @@ export const UserModeProvider = ({ children }) => {
         userData?.userType === "ADMIN" ||
         userData?.userType === "SUPERADMIN";
 
+      // SET INITIAL STATUS FROM CACHE (Fast UI update)
+      setIsHost(userIsHost);
+
       // Also fetch fresh profile from server to get accurate hostApplicationStatus
       // This prevents stale AsyncStorage data from showing host switch to guest users
       try {
-        const serverProfile = await authService.fetchProfile();
-        if (serverProfile?.data) {
-          const serverType = serverProfile.data.userType;
-          const serverHostStatus = serverProfile.data.hostApplicationStatus;
-          userIsHost =
-            serverType === "HOST" ||
-            serverType === "ADMIN" ||
-            serverType === "SUPERADMIN" ||
-            serverHostStatus === "APPROVED";
+        const loggedIn = await authService.isLoggedIn();
+        if (loggedIn) {
+          const serverProfile = await authService.fetchProfile();
+          if (serverProfile?.data) {
+            const serverType = serverProfile.data.userType;
+            const serverHostStatus = serverProfile.data.hostApplicationStatus;
+            userIsHost =
+              serverType === "HOST" ||
+              serverType === "ADMIN" ||
+              serverType === "SUPERADMIN" ||
+              serverHostStatus === "APPROVED";
+            
+            // UPDATE STATUS IF SERVER DIFFERS
+            setIsHost(userIsHost);
+          }
         }
       } catch (profileErr) {
         // If server fetch fails, also check local hostApplicationStatus
         if (userData?.hostApplicationStatus === "APPROVED") {
           userIsHost = true;
+          setIsHost(true);
         }
         console.warn("[UserMode] Could not fetch server profile, using local data:", profileErr);
       }
-
-      setIsHost(userIsHost);
 
       if (currentUserId) {
         // Load user-specific mode preference
@@ -182,27 +190,40 @@ export const UserModeProvider = ({ children }) => {
       setIsSwitching(true);
       console.log("🔄 [UserMode] Switching to GUEST mode...");
 
-      // Prefetch guest-specific data before switching
-      await prefetchGuestData();
-
+      // OPTIMISTIC UPDATE: Set mode and save preference immediately
       setMode(USER_MODES.GUEST);
+      modeRef.current = USER_MODES.GUEST; // Sync ref immediately
+      
       if (userId) {
-        await storageService.setUserItem(
+        storageService.setUserItem(
           userId,
           USER_MODE_KEY,
           USER_MODES.GUEST,
-        );
+        ).catch(err => console.warn("Error saving guest mode preference:", err));
       }
-      // Save last visited side
-      await AsyncStorage.setItem(LAST_SIDE_KEY, "guest");
+      AsyncStorage.setItem(LAST_SIDE_KEY, "guest").catch(err => console.warn("Error saving last side:", err));
 
-      console.log("✅ [UserMode] Switched to GUEST mode successfully");
+      // SAFETY TIMEOUT: Force reset isSwitching after 10s if something hangs
+      const safetyTimeout = setTimeout(() => {
+        if (isSwitching) {
+            console.warn("⚠️ [UserMode] Guest switch safety timeout reached. Forcing reset.");
+            setIsSwitching(false);
+        }
+      }, 10000);
+
+      // Prefetch guest-specific data in the background
+      // We don't strictly await it so navigation can happen instantly
+      prefetchGuestData().finally(() => {
+        clearTimeout(safetyTimeout);
+        setIsSwitching(false);
+      });
+
+      console.log("✅ [UserMode] Optimistic switch to GUEST mode initiated");
       return true;
     } catch (error) {
       console.error("Error switching to guest mode:", error);
-      return false;
-    } finally {
       setIsSwitching(false);
+      return false;
     }
   }, [isSwitching, prefetchGuestData, userId]);
 
@@ -217,27 +238,39 @@ export const UserModeProvider = ({ children }) => {
       setIsSwitching(true);
       console.log("🔄 [UserMode] Switching to HOST mode...");
 
-      // Prefetch host-specific data before switching
-      await prefetchHostData();
-
+      // OPTIMISTIC UPDATE: Set mode and save preference immediately
       setMode(USER_MODES.HOST);
+      modeRef.current = USER_MODES.HOST; // Sync ref immediately
+      
       if (userId) {
-        await storageService.setUserItem(
+        storageService.setUserItem(
           userId,
           USER_MODE_KEY,
           USER_MODES.HOST,
-        );
+        ).catch(err => console.warn("Error saving host mode preference:", err));
       }
-      // Save last visited side
-      await AsyncStorage.setItem(LAST_SIDE_KEY, "host");
+      AsyncStorage.setItem(LAST_SIDE_KEY, "host").catch(err => console.warn("Error saving last side:", err));
 
-      console.log("✅ [UserMode] Switched to HOST mode successfully");
+      // SAFETY TIMEOUT: Force reset isSwitching after 10s if something hangs
+      const safetyTimeout = setTimeout(() => {
+        if (isSwitching) {
+            console.warn("⚠️ [UserMode] Host switch safety timeout reached. Forcing reset.");
+            setIsSwitching(false);
+        }
+      }, 10000);
+
+      // Prefetch host-specific data in the background
+      prefetchHostData().finally(() => {
+        clearTimeout(safetyTimeout);
+        setIsSwitching(false);
+      });
+
+      console.log("✅ [UserMode] Optimistic switch to HOST mode initiated");
       return true;
     } catch (error) {
       console.error("Error switching to host mode:", error);
-      return false;
-    } finally {
       setIsSwitching(false);
+      return false;
     }
   }, [isHost, isSwitching, prefetchHostData, userId]);
 

@@ -57,6 +57,7 @@ const BookingConfirmationScreen = () => {
   const bookingId = params.bookingId || params.id;
   const [booking, setBooking] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [baseURL, setBaseURL] = useState("");
   
   // ── Derive Coupon Values from Params or Fetch ──
   const pBreakdown = booking?.pricingBreakdown;
@@ -181,8 +182,7 @@ const BookingConfirmationScreen = () => {
   const convertImageUrl = (image) => {
     if (!image) return null;
     let path = typeof image === "object" ? image.url || image.uri : image;
-    const baseUrl = configService.getBaseURLSync();
-    return resolveImageUrlSync(path, baseUrl);
+    return resolveImageUrlSync(path, baseURL);
   };
 
   // Parse review images robustly (handles JSON strings and arrays)
@@ -203,6 +203,9 @@ const BookingConfirmationScreen = () => {
   };
 
   useEffect(() => {
+    // Load dynamic base URL
+    configService.getBaseURL().then(url => setBaseURL(url));
+
     authService
       .getUserData()
       .then((data) => setUserData(data))

@@ -349,7 +349,13 @@ const LandlordRequestForm = () => {
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.closeButton}
-          onPress={() => router.back()}
+          onPress={() => {
+            if (router.canGoBack()) {
+              router.back();
+            } else {
+              router.replace('/profile');
+            }
+          }}
           activeOpacity={0.7}
         >
           <View style={styles.closeButtonCircle}>

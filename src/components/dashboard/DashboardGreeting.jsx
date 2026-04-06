@@ -3,7 +3,7 @@
  * Shows personalized greeting, plan badge with upgrade option
  */
 
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
 
 // Arrow Up Icon for upgrade
@@ -22,8 +22,6 @@ const ArrowUpIcon = ({ size = 10, color = "#FFFFFF" }) => (
 const DashboardGreeting = ({
   userName = "User",
   planType = "Basic Plan",
-  onPlanPress,
-  onUpgradePress,
 }) => {
   // Get greeting based on time of day
   const getGreeting = () => {
@@ -36,7 +34,6 @@ const DashboardGreeting = ({
   // Safe string conversions
   const safeUserName = String(userName || "User");
   const safePlanType = String(planType || "Basic Plan");
-  const isBasicPlan = safePlanType.toLowerCase().includes("basic");
   // Prefer first name for greeting (use first token of the full name)
   const displayName = safeUserName.split(" ")[0] || safeUserName;
 
@@ -46,14 +43,9 @@ const DashboardGreeting = ({
         {getGreeting()}, {displayName}!
       </Text>
       <View style={styles.planSection}>
-        <Pressable style={styles.planBadgeContainer} onPress={onPlanPress}>
+        <View style={styles.planBadgeContainer}>
           <Text style={styles.planText}>{safePlanType}</Text>
-          {isBasicPlan && (
-            <Pressable style={styles.upgradeIcon} onPress={onUpgradePress}>
-              <ArrowUpIcon size={8} color="#FFFFFF" />
-            </Pressable>
-          )}
-        </Pressable>
+        </View>
       </View>
     </View>
   );
@@ -83,8 +75,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#2E7D32",
     borderRadius: 15,
-    paddingLeft: 10,
-    paddingRight: 4,
+    paddingHorizontal: 12,
     paddingVertical: 4,
     gap: 6,
   },

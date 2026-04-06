@@ -5,6 +5,7 @@
 
 import { Platform, Alert } from "react-native";
 import storageService from "./storageService";
+import logService from "./logService";
 
 class NetworkErrorHandler {
     /**
@@ -64,6 +65,18 @@ class NetworkErrorHandler {
             };
         }
 
+        // Rate Limiting (429)
+        if (status === 429) {
+            logService.logError("Rate limit exceeded (429)", { message });
+            return {
+                type: "RATE_LIMIT_ERROR",
+                severity: "high",
+                userMessage: "You're performing actions too fast! Please wait a moment before trying again.",
+                cause: "Too Many Requests (429)",
+                platform: Platform.OS,
+            };
+        }
+
         // 503 Maintenance Handling
         if (status === 503) {
             return {
@@ -101,7 +114,9 @@ class NetworkErrorHandler {
         return {
             type: "UNKNOWN_ERROR",
             severity: "medium",
-            userMessage: "An unexpected error occurred. Please try again.",
+            userMessage: message.includes("Network request failed") || message.includes("fetch failed") || message.includes("Unable to connect") || message.includes("ECONNREFUSED") || message.includes("ETIMEDOUT")
+                ? "Unable to connect to server. Check your internet connection and try again."
+                : message || "An unexpected error occurred. Please try again.",
             cause: message || "Unknown error",
             platform: Platform.OS,
         };
@@ -172,29 +187,7 @@ class NetworkErrorHandler {
      * Android-specific connection error message
      */
     static getAndroidErrorMessage(baseMessage) {
-        const troubleshooting = [
-            "🤖 Android Connection Troubleshooting:",
-            "",
-            "If using Android Emulator:",
-            "  ✓ Backend should be running on http://localhost:3000",
-            "  ✓ Use special IP: http://10.0.2.2:3000",
-            "  ✓ This is how emulator reaches host machine",
-            "  ✓ Verify: adb shell ping -c 1 10.0.2.2",
-            "",
-            "If using physical Android device:",
-            "  ✓ Find computer's local IP: ipconfig (Windows) or ifconfig (Mac/Linux)",
-            "  ✓ Use: http://<your-computer-ip>:3000",
-            "  ✓ Device and computer MUST be on same WiFi",
-            "  ✓ Open app settings to manually set URL",
-            "",
-            "Common issues:",
-            "  • Using 127.0.0.1 or localhost (won't work on physical device)",
-            "  • Firewall blocking port 3000",
-            "  • Different networks (WiFi vs mobile data)",
-            "  • USB debugging affecting network",
-        ].join("\n");
-
-        return `${baseMessage}\n\n${troubleshooting}`;
+        return baseMessage;
     }
 
     /**
@@ -229,8 +222,20 @@ class NetworkErrorHandler {
      */
     static formatErrorLog(error, context = {}) {
         // Extract real message and status even if nested in data
-        const message = error?.data?.message || error?.message || "Unknown Error";
+        let message = error?.data?.message || error?.message || "Unknown Error";
         const status = error?.status || error?.data?.status || (error?.response && error?.response.status);
+        
+        // Handle validation errors (Zod, etc.)
+        const errors = error?.data?.errors;
+        if (Array.isArray(errors) && errors.length > 0) {
+            // Flatten errors into the message for easier debugging
+            const errorMessages = errors.map(err => {
+                if (typeof err === 'string') return err;
+                const pathPrefix = err.path ? (Array.isArray(err.path) ? err.path.join(".") : err.path) + ": " : "";
+                return `${pathPrefix}${err.message || JSON.stringify(err)}`;
+            }).join(', ');
+            message = `Validation Error: ${errorMessages}`;
+        }
         
         return {
             timestamp: new Date().toISOString(),
@@ -241,6 +246,7 @@ class NetworkErrorHandler {
                 message: message,
                 status: status,
                 code: error?.code,
+                rawErrors: errors, // Keep raw errors for inspection
             },
             stack: error?.stack ? error.stack.split('\n').slice(0, 3).join('\n') : undefined, // Keep stack short
         };
@@ -254,9 +260,9 @@ class NetworkErrorHandler {
         const isClientError = status >= 400 && status < 500;
         
         if (isClientError) {
-            // Concise log for expected client/validation errors
-            const message = error?.data?.message || error?.message || "Client Error";
-            console.log(`ℹ️ [Network] Client Error (${status}): ${message}`, context.action ? `[Action: ${context.action}]` : "");
+            // Use the formatter to get the unwrapped message
+            const formatted = this.formatErrorLog(error, context);
+            console.log(`ℹ️ [Network] Client Error (${status}): ${formatted.error.message}`, context.action ? `[Action: ${context.action}]` : "");
             return;
         }
 

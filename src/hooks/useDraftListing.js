@@ -74,9 +74,11 @@ export const useDraftListing = () => {
       };
 
       console.log('💾 [useDraftListing] Saving draft:', draftId);
-      console.log('📊 [useDraftListing] Draft data:', updatedDraft);
-      await draftListingService.saveDraft(updatedDraft);
-      setDraftData(updatedDraft);
+      const savedDraft = await draftListingService.saveDraft(updatedDraft);
+      
+      // If the service returned a draft (which might have a new draftId or _id), use it
+      const finalDraft = savedDraft || updatedDraft;
+      setDraftData(finalDraft);
       console.log('✅ [useDraftListing] Draft saved successfully');
       return true;
     } catch (error) {

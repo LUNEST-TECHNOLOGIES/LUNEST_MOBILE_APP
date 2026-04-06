@@ -191,6 +191,174 @@ export const ProfileSkeleton = () => (
   </View>
 );
 
+/**
+ * HostDashboardSkeleton - Loading state for Host Dashboard
+ */
+export const HostDashboardSkeleton = () => (
+  <View style={styles.container}>
+    {/* Header: Location & Notifications */}
+    <View style={styles.dashboardHeader}>
+      <SkeletonPlaceholder>
+        <View style={styles.locationContainer} />
+      </SkeletonPlaceholder>
+      <SkeletonPlaceholder>
+        <View style={styles.notificationIcon} />
+      </SkeletonPlaceholder>
+    </View>
+
+    {/* Greeting */}
+    <View style={styles.greetingSection}>
+      <SkeletonPlaceholder>
+        <View style={styles.greetingTitle} />
+      </SkeletonPlaceholder>
+      <SkeletonPlaceholder>
+        <View style={styles.planBadge} />
+      </SkeletonPlaceholder>
+    </View>
+
+    {/* Stats Cards (2 columns) */}
+    <View style={styles.statsGrid}>
+      {Array.from({ length: 4 }).map((_, i) => (
+        <SkeletonPlaceholder key={i}>
+          <View style={styles.statsCard} />
+        </SkeletonPlaceholder>
+      ))}
+    </View>
+
+    {/* Quick Actions (2 side-by-side) */}
+    <View style={styles.quickActionsRow}>
+      <SkeletonPlaceholder>
+        <View style={styles.quickActionCard} />
+      </SkeletonPlaceholder>
+      <SkeletonPlaceholder>
+        <View style={styles.quickActionCard} />
+      </SkeletonPlaceholder>
+    </View>
+
+    {/* Performance Chart Placeholder */}
+    <SkeletonPlaceholder>
+      <View style={styles.chartPlaceholder} />
+    </SkeletonPlaceholder>
+
+    {/* Listings Carousel Section */}
+    <View style={styles.carouselHeader}>
+      <SkeletonPlaceholder><View style={styles.carouselTitle} /></SkeletonPlaceholder>
+      <SkeletonPlaceholder><View style={styles.viewAllBtn} /></SkeletonPlaceholder>
+    </View>
+    <View style={styles.row}>
+      <SkeletonPlaceholder>
+        <View style={styles.carouselCard} />
+      </SkeletonPlaceholder>
+      <SkeletonPlaceholder>
+        <View style={styles.carouselCard} />
+      </SkeletonPlaceholder>
+    </View>
+  </View>
+);
+
+/**
+ * HostBookingsSkeleton - Loading state for My Bookings (Host)
+ */
+export const HostBookingsSkeleton = () => (
+  <View style={styles.container}>
+    {/* Header */}
+    <View style={styles.screenHeader}>
+      <SkeletonPlaceholder>
+        <View style={styles.headerTitlePlaceholder} />
+      </SkeletonPlaceholder>
+    </View>
+
+    {/* Tab Bar */}
+    <View style={styles.tabBar}>
+      {Array.from({ length: 4 }).map((_, i) => (
+        <SkeletonPlaceholder key={i}>
+          <View style={styles.tabPlaceholder} />
+        </SkeletonPlaceholder>
+      ))}
+    </View>
+
+    {/* Bookings List */}
+    {Array.from({ length: 3 }).map((_, i) => (
+      <SkeletonPlaceholder key={i}>
+        <View style={styles.bookingCardSkeleton}>
+          <View style={styles.bookingHeaderRow}>
+            <View style={styles.guestAvatarSmall} />
+            <View style={styles.guestNamePlaceholder} />
+            <View style={styles.statusBadgeSmall} />
+          </View>
+          <View style={styles.bookingContentRow}>
+            <View style={styles.propertyImageSmall} />
+            <View style={styles.bookingDetailsCol}>
+              <View style={styles.propertyTitleSmall} />
+              <View style={styles.bookingDatesSmall} />
+              <View style={styles.bookingPriceSmall} />
+            </View>
+          </View>
+          <View style={styles.bookingActionsRow}>
+            <View style={styles.actionBtnSmall} />
+            <View style={styles.actionBtnSmall} />
+            <View style={styles.actionBtnSmall} />
+          </View>
+        </View>
+      </SkeletonPlaceholder>
+    ))}
+  </View>
+);
+
+/**
+ * HostEarningsSkeleton - Loading state for Earnings Screen
+ */
+export const HostEarningsSkeleton = () => (
+  <View style={styles.container}>
+    {/* Header */}
+    <View style={styles.screenHeader}>
+      <SkeletonPlaceholder>
+        <View style={styles.headerTitlePlaceholder} />
+      </SkeletonPlaceholder>
+    </View>
+
+    {/* Total Earnings Card */}
+    <SkeletonPlaceholder>
+      <View style={styles.earningsMainCard} />
+    </SkeletonPlaceholder>
+
+    {/* Breakdown Row */}
+    <View style={styles.row}>
+      <SkeletonPlaceholder>
+        <View style={styles.breakdownCardSmall} />
+      </SkeletonPlaceholder>
+      <SkeletonPlaceholder>
+        <View style={styles.breakdownCardSmall} />
+      </SkeletonPlaceholder>
+    </View>
+
+    {/* Wallet Section */}
+    <SkeletonPlaceholder>
+      <View style={styles.walletSectionSkeleton} />
+    </SkeletonPlaceholder>
+
+    {/* Transactions Header */}
+    <View style={styles.transactionsHeader}>
+      <SkeletonPlaceholder><View style={styles.transactionsTitle} /></SkeletonPlaceholder>
+      <SkeletonPlaceholder><View style={styles.viewAllBtn} /></SkeletonPlaceholder>
+    </View>
+
+    {/* Transaction Items */}
+    {Array.from({ length: 4 }).map((_, i) => (
+      <SkeletonPlaceholder key={i}>
+        <View style={styles.transactionItem}>
+          <View style={styles.transactionIcon} />
+          <View style={styles.transactionInfo}>
+            <View style={styles.transactionTitle} />
+            <View style={styles.transactionDate} />
+          </View>
+          <View style={styles.transactionAmount} />
+        </View>
+      </SkeletonPlaceholder>
+    ))}
+  </View>
+);
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -507,6 +675,219 @@ const styles = StyleSheet.create({
     backgroundColor: '#E1E9EE',
     borderRadius: 4,
   },
+  // Host Dashboard styles
+  dashboardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  locationContainer: {
+    width: 150,
+    height: 36,
+    backgroundColor: '#E1E9EE',
+    borderRadius: 18,
+  },
+  notificationIcon: {
+    width: 40,
+    height: 40,
+    backgroundColor: '#E1E9EE',
+    borderRadius: 20,
+  },
+  greetingSection: {
+    marginBottom: 24,
+    gap: 8,
+  },
+  greetingTitle: {
+    width: 180,
+    height: 24,
+    backgroundColor: '#E1E9EE',
+    borderRadius: 4,
+  },
+  planBadge: {
+    width: 100,
+    height: 20,
+    backgroundColor: '#E1E9EE',
+    borderRadius: 10,
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 24,
+  },
+  statsCard: {
+    width: (width - 44) / 2,
+    height: 80,
+    backgroundColor: '#E1E9EE',
+    borderRadius: 12,
+  },
+  quickActionsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 24,
+  },
+  quickActionCard: {
+    flex: 1,
+    height: 60,
+    backgroundColor: '#E1E9EE',
+    borderRadius: 12,
+  },
+  chartPlaceholder: {
+    width: '100%',
+    height: 200,
+    backgroundColor: '#E1E9EE',
+    borderRadius: 12,
+    marginBottom: 24,
+  },
+  carouselHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  carouselTitle: {
+    width: 120,
+    height: 18,
+    backgroundColor: '#E1E9EE',
+    borderRadius: 4,
+  },
+  viewAllBtn: {
+    width: 60,
+    height: 16,
+    backgroundColor: '#E1E9EE',
+    borderRadius: 4,
+  },
+  row: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  carouselCard: {
+    width: width * 0.7,
+    height: 120,
+    backgroundColor: '#E1E9EE',
+    borderRadius: 12,
+  },
+  // Host Booking styles
+  screenHeader: {
+    alignItems: 'center',
+    paddingVertical: 16,
+    marginBottom: 8,
+  },
+  headerTitlePlaceholder: {
+    width: 140,
+    height: 20,
+    backgroundColor: '#E1E9EE',
+    borderRadius: 4,
+  },
+  tabBar: {
+    flexDirection: 'row',
+    marginBottom: 20,
+    gap: 12,
+  },
+  tabPlaceholder: {
+    width: 80,
+    height: 32,
+    backgroundColor: '#E1E9EE',
+    borderRadius: 16,
+  },
+  bookingCardSkeleton: {
+    backgroundColor: '#f9fafb',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    gap: 12,
+  },
+  bookingHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  guestAvatarSmall: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#E1E9EE',
+  },
+  guestNamePlaceholder: {
+    flex: 1,
+    height: 14,
+    backgroundColor: '#E1E9EE',
+    borderRadius: 4,
+  },
+  statusBadgeSmall: {
+    width: 70,
+    height: 20,
+    backgroundColor: '#E1E9EE',
+    borderRadius: 10,
+  },
+  bookingContentRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  propertyImageSmall: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    backgroundColor: '#E1E9EE',
+  },
+  bookingDetailsCol: {
+    flex: 1,
+    gap: 6,
+  },
+  propertyTitleSmall: {
+    width: '80%',
+    height: 14,
+    backgroundColor: '#E1E9EE',
+    borderRadius: 4,
+  },
+  bookingDatesSmall: {
+    width: '60%',
+    height: 12,
+    backgroundColor: '#E1E9EE',
+    borderRadius: 4,
+  },
+  bookingPriceSmall: {
+    width: '40%',
+    height: 12,
+    backgroundColor: '#E1E9EE',
+    borderRadius: 4,
+  },
+  bookingActionsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#f3f4f6',
+    paddingTop: 12,
+  },
+  actionBtnSmall: {
+    flex: 1,
+    height: 32,
+    backgroundColor: '#E1E9EE',
+    borderRadius: 16,
+  },
+  // Host Earnings styles
+  earningsMainCard: {
+    width: '100%',
+    height: 160,
+    backgroundColor: '#E1E9EE',
+    borderRadius: 16,
+    marginBottom: 20,
+  },
+  breakdownCardSmall: {
+    flex: 1,
+    height: 80,
+    backgroundColor: '#E1E9EE',
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  walletSectionSkeleton: {
+    width: '100%',
+    height: 70,
+    backgroundColor: '#E1E9EE',
+    borderRadius: 12,
+    marginBottom: 24,
+  },
 });
 
 export default {
@@ -514,4 +895,7 @@ export default {
   PaymentMethodSkeleton,
   WalletSkeleton,
   ProfileSkeleton,
+  HostDashboardSkeleton,
+  HostBookingsSkeleton,
+  HostEarningsSkeleton,
 };

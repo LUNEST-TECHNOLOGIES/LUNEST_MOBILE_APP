@@ -1,5 +1,7 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useFocusEffect } from "@react-navigation/native";
+import { useCallback, useEffect, useState, useMemo } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ActivityIndicator,
   ImageBackground,
@@ -15,6 +17,7 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Path, Svg } from "react-native-svg";
 
 // Context
@@ -25,6 +28,7 @@ import Toast from "../../components/common/Toast";
 import configService from "../../services/configService";
 import draftListingService from "../../services/draftListingService";
 import listingService from "../../services/listingService";
+import logService from "../../services/logService";
 import * as ImageUtils from "../../utils/imageUtils";
 
 // Icons
@@ -41,6 +45,7 @@ import ChartIcon from "../../assets/icons/listing/vuesax/outline/chart-square.sv
 import ClockIcon from "../../assets/icons/listing/vuesax/outline/clock.svg";
 import EditIcon from "../../assets/icons/listing/vuesax/outline/edit.svg";
 import HomeIcon from "../../assets/icons/navbar/HomeIcon.svg";
+import { HostListingSkeleton } from "../../components/skeletons";
 
 // Re-defining PromotionIcon locally if not found in assets
 const PromotionIcon = ({ size = 24, color = "#FFFFFF" }) => (
@@ -712,6 +717,7 @@ const HostListingsScreen = () => {
   const { width } = useWindowDimensions();
   const router = useRouter();
   const params = useLocalSearchParams();
+  const insets = useSafeAreaInsets();
   const cardWidth = (width - 40 - 15) / 2; // 2 columns with 20px padding each side and 15px gap
 
   const { currentMode, toggleMode } = useUserMode();
@@ -719,10 +725,112 @@ const HostListingsScreen = () => {
 
   const [selectedFilter, setSelectedFilter] = useState(params.filter || "all");
   const [showTipsModal, setShowTipsModal] = useState(false);
+  
+  const queryClient = useQueryClient();
+
+  // TanStack Query for host listings
+  const { 
+    data: formattedListings = [], 
+    isLoading: listingsLoading, 
+    isRefetching: listingsRefetching,
+    error: queryError,
+    refetch: refetchListings 
+  } = useQuery({
+    queryKey: ['hostListings'],
+    queryFn: async () => {
+      console.log("🔄 [HostListings] Fetching via TanStack Query...");
+      const baseURL = await configService.getBaseURL();
+      const result = await listingService.fetchUserListings();
+      
+      if (!result.success) {
+        throw new Error(result.message || "Failed to load listings");
+      }
+
+      const fetchedListings = result.listings || [];
+      
+      // Transform API data to match component format
+      return fetchedListings.map((listing) => {
+        // Convert property images to full URLs
+        const processedImages = (listing.propertyImages || [])
+          .map((img) => {
+            const imagePath = typeof img === 'string' ? img : img?.url;
+            return ImageUtils.resolveImageUrlSync(imagePath, baseURL);
+          })
+          .filter(Boolean);
+
+        const propertyTitle = listing.propertyName || listing.propertyTitle || listing.title || "Untitled Property";
+        
+        const locationCity = listing.city || listing.propertyLocation?.city || listing.address?.city || null;
+        const locationState = listing.state || listing.propertyLocation?.state || listing.address?.state || null;
+        const fullAddress = listing.propertyLocation?.fullAddress || (typeof listing.address === 'string' ? listing.address : null);
+
+        let displayLocation = "No location";
+        if (fullAddress) {
+          displayLocation = fullAddress.length > 50 ? (fullAddress.split(',')[0] || fullAddress.substring(0, 45) + "...") : fullAddress;
+        } else if (locationCity && locationState) {
+          displayLocation = `${locationCity}, ${locationState}`;
+        } else if (locationCity || locationState || listing.location) {
+          displayLocation = locationCity || locationState || listing.location;
+        } else {
+          displayLocation = "Nigeria";
+        }
+
+        return {
+          id: listing._id,
+          propertyName: propertyTitle,
+          title: propertyTitle,
+          propertyType: listing.propertyType || "Property",
+          location: displayLocation,
+          listingType: listing.intent === "SALE" ? "For Sale" : "For Rent",
+          rentalType: listing.pricingPeriod || "Daily",
+          price: listing.price || listing.propertyPrice?.price || 0,
+          priceUnit: listing.pricingPeriod || "Night",
+          pricingPeriod: listing.pricingPeriod || "night",
+          status: listing.status ? listing.status.toUpperCase() : "PENDING",
+          isDraft: listing.status === "DRAFT" || listing.isDraft === true,
+          image: processedImages[0] || null,
+          images: processedImages,
+          description: listing.description || "",
+          bedrooms: listing.bedrooms || 0,
+          bathrooms: listing.bathrooms || 0,
+          guests: listing.guests || 1,
+          amenities: listing.amenities || [],
+          regulations: listing.regulations || [],
+          landmarks: listing.landmarks || [],
+          createdAt: listing.createdAt,
+          updatedAt: listing.updatedAt,
+          houseRules: listing.houseRules || "",
+          additionalRules: listing.additionalRules || "",
+          features: listing.features || [],
+          checkInTime: listing.checkInTime || "",
+          checkOutTime: listing.checkOutTime || "",
+          securityDeposit: listing.securityDeposit || 0,
+          serviceCharge: listing.serviceCharge || 0,
+          cleaningFee: listing.cleaningFee || 0,
+          instantBooking: listing.instantBooking || false,
+          address: listing.address || "",
+          city: locationCity || "",
+          state: locationState || "",
+        };
+      });
+    },
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+
+  // Soft refresh whenever the screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      console.log("📍 [HostListings] Screen focused - triggering soft refresh...");
+      refetchListings();
+      // Optional: also reload drafts
+      loadDrafts();
+    }, [refetchListings])
+  );
+
   const [draftListings, setDraftListings] = useState([]);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
-  const [sortOrder, setSortOrder] = useState("newest"); // 'newest' or 'oldest'
+  const [sortOrder, setSortOrder] = useState("newest");
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [listingToDelete, setListingToDelete] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -733,221 +841,10 @@ const HostListingsScreen = () => {
   const [listingToPause, setListingToPause] = useState(null);
   const [pauseLoading, setPauseLoading] = useState(false);
 
-  // API state for listings
-  const [listings, setListings] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState(null);
-
-  // Helper function to convert image URLs to full URLs
-  const convertImageUrl = (image, baseURL) => {
-    // Handle both string URLs and object URLs (e.g., { url: '/uploads/...' })
-    const imagePath = typeof image === 'string' ? image : image?.url;
-    return ImageUtils.resolveImageUrlSync(imagePath, baseURL);
-  };
-
-  // Fetch listings with proper async/await usage
-  const fetchListings = useCallback(
-    async (showLoading = true) => {
-      if (showLoading) setLoading(true);
-      try {
-        const baseURL = await configService.getBaseURL();
-        const result = await listingService.fetchUserListings();
-        console.log("📋 [HostListings] API Result success:", result.success);
-
-        if (result.success) {
-          const fetchedListings = result.listings || [];
-          console.log(
-            `📋 [HostListings] Received ${fetchedListings.length} raw listings`,
-          );
-
-          // Log specific IDs and statuses for troubleshooting
-          if (fetchedListings.length > 0) {
-            const statusSummary = fetchedListings
-              .map((l) => `${l._id?.slice(-4)}:${l.status}`)
-              .join(", ");
-            console.log(
-              `📋 [HostListings] Status Map (last 4 chars of ID):`,
-              statusSummary,
-            );
-          }
-          // Transform API data to match component format
-          const formattedListings = (result.listings || []).map((listing) => {
-            // Convert property images to full URLs
-            const processedImages = (listing.propertyImages || [])
-              .map((img) => convertImageUrl(img, baseURL))
-              .filter(Boolean);
-
-            // Get title from various possible fields (backend uses propertyName or propertyTitle)
-            const propertyTitle =
-              listing.propertyName ||
-              listing.propertyTitle ||
-              listing.title ||
-              "Untitled Property";
-
-            // Get location from various possible fields
-            const locationCity =
-              listing.city ||
-              (listing.propertyLocation && listing.propertyLocation.city) ||
-              (listing.address && listing.address.city) ||
-              null;
-            const locationState =
-              listing.state ||
-              (listing.propertyLocation && listing.propertyLocation.state) ||
-              (listing.address && listing.address.state) ||
-              null;
-            const fullAddress =
-              listing.propertyLocation && listing.propertyLocation.fullAddress
-                ? listing.propertyLocation.fullAddress
-                : (listing.address && typeof listing.address === 'string' ? listing.address : null);
-
-            // Build location string with improved formatting
-            let displayLocation = "No location";
-            
-            // Debug: Log address data for troubleshooting
-            console.log('📍 [HostListings] Address data for listing:', {
-              listingId: listing.id,
-              city: locationCity,
-              state: locationState,
-              fullAddress: fullAddress,
-              address: listing.address,
-              location: listing.location,
-              propertyLocation: listing.propertyLocation
-            });
-            
-            // Priority 1: Use full address if available and not too long
-            if (fullAddress && fullAddress.length > 0) {
-              // If full address is very long, truncate it smartly
-              if (fullAddress.length > 50) {
-                // Try to extract city, state from full address
-                const parts = fullAddress.split(',').map(p => p.trim()).filter(p => p);
-                if (parts.length >= 2) {
-                  displayLocation = `${parts[0]}, ${parts[1]}`;
-                } else {
-                  displayLocation = fullAddress.substring(0, 45) + "...";
-                }
-              } else {
-                displayLocation = fullAddress;
-              }
-            }
-            // Priority 2: Use city and state combination
-            else if (locationCity && locationState) {
-              displayLocation = `${locationCity}, ${locationState}`;
-            } else if (locationCity) {
-              displayLocation = locationCity;
-            } else if (locationState) {
-              displayLocation = locationState;
-            } else if (listing.location) {
-              displayLocation = listing.location;
-            } else {
-              // Try to extract from address field
-              const address = listing.address;
-              if (address && typeof address === 'string') {
-                // Look for common patterns like "City, State" or "City State"
-                const parts = address.split(',').map(p => p.trim()).filter(p => p);
-                if (parts.length >= 2) {
-                  displayLocation = `${parts[0]}, ${parts[1]}`;
-                } else if (parts.length === 1) {
-                  // Try to split by space for patterns like "Lagos Nigeria"
-                  const spaceParts = parts[0].split(' ').filter(p => p.length > 2);
-                  if (spaceParts.length >= 2) {
-                    displayLocation = `${spaceParts[0]}, ${spaceParts[1]}`;
-                  } else {
-                    displayLocation = parts[0];
-                  }
-                } else {
-                  displayLocation = address;
-                }
-              } else {
-                displayLocation = "Nigeria";
-              }
-            }
-
-            // Debug: Log final display location
-            console.log('📍 [HostListings] Final display location:', displayLocation);
-
-            return {
-              id: listing._id,
-              propertyName: propertyTitle,
-              title: propertyTitle,
-              propertyType: listing.propertyType || "Property",
-              location: displayLocation,
-              listingType: listing.intent === "SALE" ? "For Sale" : "For Rent",
-              rentalType: listing.pricingPeriod || "Daily",
-              price:
-                listing.price ||
-                (listing.propertyPrice && listing.propertyPrice.price) ||
-                0,
-              priceUnit: listing.pricingPeriod || "Night",
-              pricingPeriod: listing.pricingPeriod || "night",
-              status: listing.status ? listing.status.toUpperCase() : "PENDING",
-              isDraft: listing.status === "DRAFT" || listing.isDraft === true,
-              image: processedImages[0] || null,
-              images: processedImages,
-              description: listing.description || "",
-              bedrooms: listing.bedrooms || 0,
-              bathrooms: listing.bathrooms || 0,
-              guests: listing.guests || 1,
-              amenities: listing.amenities || [],
-              regulations: listing.regulations || [],
-              landmarks: listing.landmarks || [],
-              createdAt: listing.createdAt,
-              updatedAt: listing.updatedAt,
-              // Additional fields for detail view
-              houseRules: listing.houseRules || "",
-              additionalRules: listing.additionalRules || "",
-              features: listing.features || [],
-              checkInTime: listing.checkInTime || "",
-              checkOutTime: listing.checkOutTime || "",
-              securityDeposit: listing.securityDeposit || 0,
-              serviceCharge: listing.serviceCharge || 0,
-              cleaningFee: listing.cleaningFee || 0,
-              instantBooking: listing.instantBooking || false,
-              address: listing.address || "",
-              city: locationCity || "",
-              state: locationState || "",
-            };
-          });
-
-          console.log(
-            `✅ [HostListings] Loaded ${formattedListings.length} listings from backend`,
-          );
-          setListings(formattedListings);
-        } else {
-          console.warn(
-            "⚠️ [HostListings] Failed to fetch listings:",
-            result.message,
-          );
-
-          // Handle specific error types
-          if (result.needsAuth) {
-            setError("Please log in to view your listings");
-          } else if (result.serverError) {
-            setError("Server configuration error. Please contact support.");
-          } else {
-            setError(result.message || "Failed to load listings");
-          }
-
-          // Don't fall back to demo data - show empty state instead
-          setListings([]);
-        }
-      } catch (err) {
-        console.error("❌ [HostListings] Error fetching listings:", err);
-        setError("Something went wrong. Please try again.");
-        setListings([]); // Clear listings on error
-      } finally {
-        setLoading(false);
-        setRefreshing(false);
-      }
-    },
-    [currentMode],
-  );
-
   // Pull to refresh
   const onRefresh = () => {
-    setRefreshing(true);
-    fetchListings(false);
     loadDrafts();
+    refetchListings();
   };
 
   // Handle filter param changes separately
@@ -1115,14 +1012,13 @@ const HostListingsScreen = () => {
     }
   };
 
-  // Initial load: fetch listings and drafts on mount or when fetchListings changes
+  // Initial load: fetch drafts on mount
   useEffect(() => {
-    fetchListings(true);
     loadDrafts();
-  }, [fetchListings]);
+  }, []);
 
   // Combine regular listings with drafts - ensure both are arrays
-  const safeListings = Array.isArray(listings) ? listings : [];
+  const safeListings = Array.isArray(formattedListings) ? formattedListings : [];
   const safeDraftListings = Array.isArray(draftListings) ? draftListings : [];
 
   // Deduplicate before merging to prevent identical React keys
@@ -1300,12 +1196,9 @@ const HostListingsScreen = () => {
           setShowToast(true);
         }
       } else if (listing.isDraft && (!listing.draftData || Object.keys(listing.draftData).length === 0)) {
-        console.error(
-          "❌ [HostListingsScreen] Draft data is missing for listing:",
-          listing.id,
-        );
-        setToastMessage("Error: Draft data is incomplete. Please try again.");
-        setShowToast(true);
+        console.log("ℹ️ [HostListingsScreen] Draft data missing locally, re-hydrating from server...");
+        // Re-hydrate the draft from server and navigate
+        navigateToEditAsDraft(listing);
       } else if (!listing.isDraft) {
         // Published listing - show confirmation that edits require re-approval
         const status = listing.status
@@ -1434,8 +1327,9 @@ const HostListingsScreen = () => {
         price: fullListing.price || priceData.price || 0,
         pricingPeriod:
           fullListing.pricingPeriod || priceData.frequency || "night",
-        securityDeposit: fullListing.securityDeposit || 0,
-        cleaningFee: fullListing.cleaningFee || 0,
+        securityDeposit: fullListing.securityDeposit || priceData.securityDeposit || 0,
+        serviceCharge: fullListing.serviceCharge || priceData.serviceCharge || 0,
+        cleaningFee: fullListing.cleaningFee || priceData.cleaningFee || 0,
         // Photos
         photos: photosList,
         // Amenities and features - convert labels to IDs for the amenities screen
@@ -1514,12 +1408,15 @@ const HostListingsScreen = () => {
         console.log("✅ [HostListingsScreen] Listing converted to draft");
         setToastMessage("Listing converted to draft. You can now edit it.");
         setShowToast(true);
+        
+        // Invalidate queries BEFORE navigating
+        queryClient?.invalidateQueries({ queryKey: ['hostListings'] });
 
         // Navigate to edit listing as a draft (full edit flow)
         await navigateToEditAsDraft(listingToEdit);
 
         // Refresh listings to show updated status
-        fetchListings(false);
+        refetchListings();
       } else {
         console.error(
           "❌ [HostListingsScreen] Failed to convert listing to draft:",
@@ -1649,8 +1546,9 @@ const HostListingsScreen = () => {
         // Pricing
         price: price,
         pricingPeriod: pricingPeriod,
-        securityDeposit: fullListing.securityDeposit || 0,
-        cleaningFee: fullListing.cleaningFee || 0,
+        securityDeposit: fullListing.securityDeposit || priceData.securityDeposit || 0,
+        serviceCharge: fullListing.serviceCharge || priceData.serviceCharge || 0,
+        cleaningFee: fullListing.cleaningFee || priceData.cleaningFee || 0,
         // Photos
         photos: photosList,
         // Amenities and features - convert labels to IDs for the amenities screen
@@ -1731,67 +1629,43 @@ const HostListingsScreen = () => {
     if (!listingToDelete || deleteLoading) return;
 
     setDeleteLoading(true);
-    const target = listingToDelete; // snapshot to avoid races
-    // Optimistically remove from UI to avoid perceived glitches on slow networks
-    let previousListings = listings;
+    const target = listingToDelete;
+    
     try {
-      setListings((prev) =>
-        Array.isArray(prev) ? prev.filter((l) => l.id !== target.id) : prev,
-      );
-      try {
-        if (target.isDraft) {
-          await draftListingService.deleteDraft(target.id);
-          setToastMessage("Draft deleted successfully");
-          setShowToast(true);
-          await loadDrafts(); // Refresh drafts
-        } else {
-          // Handle published listing deletion via API
-          console.log("Delete published listing:", target.id);
-          const result = await listingService.deleteListing(target.id);
-
-          if (result && result.success) {
-            // Remove any associated edit drafts for this listing
-            await draftListingService.deleteDraftByListingId(target.id);
-
-            setToastMessage("Listing deleted successfully");
-            setShowToast(true);
-            // Refresh both regular listings and drafts to be sure
-            await fetchListings(true);
-            await loadDrafts();
-          } else if (
-            result &&
-            result.message &&
-            /not\s*found/i.test(result.message)
-          ) {
-            // Treat 'not found' as success (already deleted on server)
-            await draftListingService.deleteDraftByListingId(target.id);
-            setToastMessage("Listing deleted");
-            setShowToast(true);
-            await fetchListings(true);
-            await loadDrafts();
-          } else {
-            // Restore previous listings on failure
-            setListings(previousListings);
-            setToastMessage(
-              (result && result.message) || "Failed to delete listing",
-            );
-            setShowToast(true);
-          }
-        }
-      } catch (error) {
-        console.error("Error deleting listing:", error);
-        // Restore UI state on unexpected failure
-        setListings(previousListings);
-        setToastMessage("Error deleting listing");
+      if (target.isDraft) {
+        await draftListingService.deleteDraft(target.id);
+        setToastMessage("Draft deleted successfully");
         setShowToast(true);
-      } finally {
-        setDeleteLoading(false);
-        setShowDeleteModal(false);
-        setListingToDelete(null);
+        await loadDrafts(); // Refresh local drafts
+        // We also invalidate server listings just in case it was a server-synced draft
+        queryClient?.invalidateQueries({ queryKey: ['hostListings'] });
+      } else {
+        console.log("Delete published listing:", target.id);
+        const result = await listingService.deleteListing(target.id);
+
+        if (result && result.success) {
+          await draftListingService.deleteDraftByListingId(target.id);
+          setToastMessage("Listing deleted successfully");
+          setShowToast(true);
+          // Standard TanStack Query way: invalidate and refetch
+          queryClient?.invalidateQueries({ queryKey: ['hostListings'] });
+          await loadDrafts();
+        } else if (result && result.message && /not\s*found/i.test(result.message)) {
+          await draftListingService.deleteDraftByListingId(target.id);
+          setToastMessage("Listing deleted");
+          setShowToast(true);
+          queryClient?.invalidateQueries({ queryKey: ['hostListings'] });
+          await loadDrafts();
+        } else {
+          setToastMessage((result && result.message) || "Failed to delete listing");
+          setShowToast(true);
+        }
       }
-    } catch (err) {
-      // if setting listings failed, just ensure cleanup
-      console.error("Unexpected error during delete flow:", err);
+    } catch (error) {
+      console.error("Error deleting listing:", error);
+      setToastMessage("Error deleting listing");
+      setShowToast(true);
+    } finally {
       setDeleteLoading(false);
       setShowDeleteModal(false);
       setListingToDelete(null);
@@ -1824,14 +1698,9 @@ const HostListingsScreen = () => {
       );
 
       if (result.success) {
-        // Optimistically update local state
-        setListings((prev) =>
-          prev.map((l) =>
-            l.id === listingToPause.id
-              ? { ...l, status: shouldPause ? "PAUSED" : "AVAILABLE" }
-              : l,
-          ),
-        );
+        // Invalidate query to trigger refetch with updated status
+        queryClient.invalidateQueries({ queryKey: ['hostListings'] });
+        
         setToastMessage(
           shouldPause
             ? "Listing paused — property is now unavailable"
@@ -1872,14 +1741,14 @@ const HostListingsScreen = () => {
     console.log("Promote listing");
   };
 
-  const showEmptyState = filteredListings.length === 0 && !loading;
+  const showEmptyState = filteredListings.length === 0 && !listingsLoading;
   const isPromotionTab = selectedFilter === "promotion";
 
   // Show loading state
-  if (loading && !refreshing) {
+  if (listingsLoading && !listingsRefetching) {
     return (
       <SafeAreaView style={styles.container} edges={["top"]}>
-        <View style={styles.header}>
+        <View style={[styles.header, { paddingTop: Math.max(insets.top, 10) }]}>
           <Text style={styles.headerTitle}>Listings</Text>
           <TouchableOpacity
             style={styles.tipsButton}
@@ -1889,10 +1758,16 @@ const HostListingsScreen = () => {
             <Text style={styles.tipsText}>Tips</Text>
           </TouchableOpacity>
         </View>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#010135" />
-          <Text style={styles.loadingText}>Loading your listings...</Text>
-        </View>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+        >
+          <View style={styles.listingsGrid}>
+            {Array.from({ length: 6 }).map((_, i) => (
+              <HostListingSkeleton key={i} />
+            ))}
+          </View>
+        </ScrollView>
       </SafeAreaView>
     );
   }
@@ -1900,7 +1775,7 @@ const HostListingsScreen = () => {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: Math.max(insets.top, 10) }]}>
         <Text style={styles.headerTitle}>Listings</Text>
         <TouchableOpacity
           style={styles.tipsButton}
@@ -1955,7 +1830,7 @@ const HostListingsScreen = () => {
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
-            refreshing={refreshing}
+            refreshing={listingsRefetching}
             onRefresh={onRefresh}
             colors={["#010135"]}
             tintColor="#010135"
@@ -2186,7 +2061,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingTop: 10,
     paddingBottom: 16,
     position: "relative",
   },
@@ -2303,6 +2178,7 @@ const styles = StyleSheet.create({
   propertyImage: {
     width: "100%",
     height: 164,
+    backgroundColor: "#F5F5F5", // Clean neutral background for empty states
   },
   statusBadgeWrapper: {
     position: "absolute",
@@ -2463,7 +2339,7 @@ const styles = StyleSheet.create({
   // FAB Styles
   fab: {
     position: "absolute",
-    bottom: Platform.OS === "android" ? 90 : 100,
+    bottom: Platform.OS === "android" ? 135 : 115, // Adjusted for Android system nav
     right: 20,
     flexDirection: "row",
     alignItems: "center",

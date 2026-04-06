@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -253,19 +254,84 @@ const PropertyDetailsScreen = () => {
   const [showImageViewer, setShowImageViewer] = useState(false);
   const [imageViewerIndex, setImageViewerIndex] = useState(0);
   const [viewerImages, setViewerImages] = useState([]); // Added viewerImages
-  const [listing, setListing] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState(null);
   const [baseURL, setBaseURL] = useState("");
   const [imageErrors, setImageErrors] = useState({});
+  const queryClient = useQueryClient();
+
+  // ── Data Fetching (React Query) ──
+  const {
+    data: listing,
+    isLoading: loading,
+    isRefetching: refreshing,
+    error: queryError,
+    refetch: handleRefresh,
+  } = useQuery({
+    queryKey: ["listing", listingId],
+    staleTime: 0, // Ensure we always fetch fresh data on navigation
+    refetchOnMount: true,
+    queryFn: async () => {
+      console.log(`[PropertyDetailsScreen] Fetching listing: ${listingId}`);
+      
+      if (!listingId) {
+        console.error("[PropertyDetailsScreen] No listingId provided!");
+        throw new Error("No listing ID provided");
+      }
+      
+      const result = await listingService.fetchListingById(listingId);
+      console.log("[PropertyDetailsScreen] API Result:", {
+        hasResult: !!result,
+        success: result?.success,
+        hasListing: !!result?.listing,
+        hasBody: !!result?.body,
+        hasId: !!result?._id,
+        keys: result ? Object.keys(result) : [],
+      });
+      
+      // The service returns the listing object directly or in .body
+      if (result && result.success) {
+        const listingData = result.listing || result.body;
+        console.log("[PropertyDetailsScreen] Extracted listing data:", {
+          id: listingData?._id || listingData?.id,
+          hasPropertyImages: !!listingData?.propertyImages?.length,
+          propertyImagesCount: listingData?.propertyImages?.length || 0,
+          hasImages: !!listingData?.images?.length,
+          imagesCount: listingData?.images?.length || 0,
+        });
+        return listingData;
+      }
+      if (result && result._id) {
+        console.log("[PropertyDetailsScreen] Using result directly as listing");
+        return result;
+      }
+      
+      console.error("[PropertyDetailsScreen] Failed to load listing:", result?.message);
+      throw new Error(result?.message || "Failed to load listing");
+    },
+    enabled: !!listingId,
+    staleTime: 0, // Always fetch fresh data
+  });
+
+  // Simplified error state
+  const error = queryError ? queryError.message : null;
 
   // Helper function to convert image URLs to full URLs
   const convertImageUrl = (image) => {
     if (!image) return null;
     let path = typeof image === "object" ? image.url || image.uri : image;
-    const baseUrl = configService.getBaseURLSync();
-    return resolveImageUrlSync(path, baseUrl);
+    // Use the state-populated baseURL if available, otherwise fallback to sync
+    const urlToUse = baseURL || configService.getBaseURLSync();
+    
+    // Debug logging for review images
+    if (path && path.includes('/uploads/')) {
+      console.log('[PropertyDetailsScreen] convertImageUrl:', {
+        path: path?.substring(0, 50),
+        baseURL: baseURL || 'null',
+        fallbackUrl: configService.getBaseURLSync() || 'null',
+        urlToUse: urlToUse || 'null',
+      });
+    }
+    
+    return resolveImageUrlSync(path, urlToUse);
   };
 
   // Parse review images robustly (handles JSON strings and arrays)
@@ -307,216 +373,47 @@ const PropertyDetailsScreen = () => {
   const scrollViewRef = useRef(null);
   const insets = useSafeAreaInsets();
 
-  const loadListingData = async () => {
-    if (!listingId) {
-      console.warn("[PropertyDetailsScreen] No listing ID provided");
-      setLoading(false);
-      setError("No listing ID provided");
-      return;
-    }
+  // Get base URL for image conversion
+  useEffect(() => {
+    configService.getBaseURL().then(setBaseURL);
+  }, []);
 
-    try {
-      // Only show full-page loading if we don't have data yet and aren't refreshing
-      if (!listing && !refreshing) {
-        setLoading(true);
-      }
-      setError(null);
-      console.log(
-        "[PropertyDetailsScreen] Fetching listing with ID:",
-        listingId,
-      );
-      console.log("[PropertyDetailsScreen] listingId type:", typeof listingId);
 
-      // Get base URL for image conversion
-      const apiBaseURL = await configService.getBaseURL();
-      console.log("[PropertyDetailsScreen] Base URL:", apiBaseURL);
-      setBaseURL(apiBaseURL);
+  useEffect(() => {
+    if (!listingId || !listing) return;
 
-      const isValidObjectId = (id) => /^[0-9a-fA-F]{24}$/.test(id);
+    const fetchExtraData = async () => {
+      try {
+        // Fetch listing reviews
+        const reviewsResult = await bookingService.fetchListingReviews(listingId);
+        if (reviewsResult.success) {
+          setListingReviews(reviewsResult.reviews);
+        }
 
-      // Handle listing result format
-      let result = null;
-      if (listingId && isValidObjectId(listingId)) {
-        console.log("[PropertyDetailsScreen] Fetching listing:", listingId);
-        result = await listingService.fetchListingById(listingId);
-        console.log(
-          "[PropertyDetailsScreen] Fetch result:",
-          JSON.stringify(result, null, 2),
-        );
+        // Fetch host avatar
+        const hostId = listing.hostInfo?._id || listing.host?._id;
+        if (hostId) {
+          const hostResult = await fetchHostData(hostId);
+          if (hostResult.success && hostResult.avatar) {
+            setHostCurrentAvatar(hostResult.avatar);
+          }
 
-        // Handle different result formats
-        let listingData = null;
-
-        if (result && result.success && result.listing) {
-          listingData = result.listing;
-          setListing(listingData);
-          console.log("[PropertyDetailsScreen] Listing data received:", {
-            _id: listingData._id,
-            id: listingData.id,
-            latitude: listingData.latitude,
-            longitude: listingData.longitude,
-            propertyLocation: listingData.propertyLocation,
+          // Fetch host listings count
+          const listingsResult = await listingService.fetchAllListings({
+            host: hostId,
+            status: { $in: ["AVAILABLE", "BOOKED", "PENDING"] },
           });
-        } else if (result && result.body) {
-          // Direct API response format
-          listingData = result.body;
-        } else if (result && result._id) {
-          // Direct listing object
-          listingData = result;
-        }
-
-        if (listingData) {
-          console.log("[PropertyDetailsScreen] Listing loaded successfully");
-          setListing(listingData);
-          setImageErrors({}); // Reset image errors for new listing
-          setError(null);
-
-          // Fetch listing reviews
-          try {
-            const reviewsResult =
-              await bookingService.fetchListingReviews(listingId);
-            if (reviewsResult.success) {
-              setListingReviews(reviewsResult.reviews);
-              console.log(
-                "[PropertyDetailsScreen] Listing reviews fetched:",
-                reviewsResult.reviews.length,
-              );
-            }
-          } catch (reviewsError) {
-            console.warn(
-              "[PropertyDetailsScreen] Error fetching listing reviews:",
-              reviewsError,
-            );
-          }
-
-          // Fetch complete host data using centralized service
-          try {
-            const hostId = listingData.hostInfo?._id || listingData.host?._id;
-            if (hostId) {
-              const hostResult = await fetchHostData(hostId);
-              if (hostResult.success && hostResult.avatar) {
-                setHostCurrentAvatar(hostResult.avatar);
-                console.log(
-                  "[PropertyDetailsScreen] Host avatar fetched from profile:",
-                  hostResult.avatar,
-                );
-              }
-              if (hostResult.success && hostResult.hostData?.hostRating) {
-                setHostCurrentRating(hostResult.hostData.hostRating);
-              } else if (hostResult.error) {
-                console.warn(
-                  "[PropertyDetailsScreen] Could not fetch host data:",
-                  hostResult.error,
-                );
-              }
-            }
-          } catch (hostError) {
-            console.warn(
-              "[PropertyDetailsScreen] Error fetching host data:",
-              hostError,
-            );
-          }
-
-          // Fetch host total listings count
-          try {
-            const hostId = listingData.hostInfo?._id || listingData.host?._id;
-            if (hostId) {
-              const listingsResult = await listingService.fetchAllListings({
-                host: hostId,
-                status: { $in: ["AVAILABLE", "BOOKED", "PENDING"] },
-              });
-              if (
-                listingsResult?.success &&
-                Array.isArray(listingsResult.listings)
-              ) {
-                setHostTotalListings(listingsResult.listings.length);
-                console.log(
-                  "[PropertyDetailsScreen] Host total listings:",
-                  listingsResult.listings.length,
-                );
-              }
-            }
-          } catch (listingsError) {
-            console.warn(
-              "[PropertyDetailsScreen] Error fetching host listings:",
-              listingsError,
-            );
-          }
-
-          // Check if listing is bookmarked (non-blocking)
-          try {
-            const bookmarkStatus = await bookmarkService.isListingBookmarked(
-              listingData._id || listingData.id,
-            );
-            setIsFavorite(bookmarkStatus.isBookmarked);
-            setBookmarkId(bookmarkStatus.bookmarkId);
-          } catch (bookmarkError) {
-            console.warn(
-              "[PropertyDetailsScreen] Could not check bookmark status:",
-              bookmarkError,
-            );
-            // Continue without bookmark status - not critical
-          }
-        } else {
-          // If we had a previous listing but it's now null, or full-page load fails
-          if (!listing || !result || result.status === 404) {
-            setError(result?.message || "Failed to load listing");
-            setListing(null);
-          } else {
-            console.warn(
-              "[PropertyDetailsScreen] Refresh failed but keeping stale data"
-            );
+          if (listingsResult?.success && Array.isArray(listingsResult.listings)) {
+            setHostTotalListings(listingsResult.listings.length);
           }
         }
-      } else {
-        // Extract detailed error message
-        const errorMsg =
-          result?.message || result?.error || "Unknown error occurred";
-        console.error(
-          "[PropertyDetailsScreen] Failed to load listing:",
-          errorMsg,
-        );
-
-        // Provide more user-friendly error messages
-        let userMessage = errorMsg;
-        if (errorMsg.includes("404") || errorMsg === "Listing not found") {
-          userMessage = "This listing is no longer available";
-        } else if (
-          errorMsg.includes("network") ||
-          errorMsg.includes("timeout")
-        ) {
-          userMessage =
-            "Network error. Please check your connection and try again.";
-        } else if (!errorMsg || errorMsg === "Unknown error") {
-          userMessage = "Failed to load listing. Please try again.";
-        }
-
-        setError(userMessage);
-        setListing(null);
+      } catch (err) {
+        console.warn("[PropertyDetailsScreen] Error fetching extra data:", err);
       }
-    } catch (err) {
-      console.error("[PropertyDetailsScreen] Error loading listing:", err);
-      console.error("[PropertyDetailsScreen] Error details:", {
-        message: err.message,
-        code: err.code,
-        status: err.status,
-      });
-      const errorMsg = err.message || "Failed to load listing";
-      let userMessage = "Failed to load listing. Please try again.";
+    };
 
-      if (errorMsg.includes("network") || errorMsg.includes("timeout")) {
-        userMessage = "Network error. Please check your connection.";
-      } else if (errorMsg.includes("404")) {
-        userMessage = "This listing is no longer available.";
-      }
-
-      setError(userMessage);
-      setListing(null);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
+    fetchExtraData();
+  }, [listingId, listing]);
 
   // Check if current user has booked this property and status is COMPLETED and HAS NOT REVIEWED YET
   useEffect(() => {
@@ -585,7 +482,11 @@ const PropertyDetailsScreen = () => {
         setIsUploadingImages(false);
 
         if (uploadResult.success && uploadResult.images) {
-          uploadedImageUrls = uploadResult.images;
+          // Filter out any invalid URLs that contain "undefined"
+          uploadedImageUrls = uploadResult.images.filter(
+            (url) => url && typeof url === "string" && !url.includes("undefined")
+          );
+          console.log("[PropertyDetailsScreen] Uploaded review images:", uploadedImageUrls);
         } else {
           Alert.alert(
             "Upload Failed",
@@ -627,7 +528,7 @@ const PropertyDetailsScreen = () => {
         setReviewRating(0);
         setIsPostingReview(false);
         // Refresh listing data to show new rating/review
-        loadListingData();
+        handleRefresh();
       } else {
         Alert.alert("Error", result.message || "Failed to post review");
         setIsPostingReview(false);
@@ -643,9 +544,7 @@ const PropertyDetailsScreen = () => {
   };
 
   // Fetch listing data on mount
-  useEffect(() => {
-    loadListingData();
-  }, [listingId]);
+  // Removed manual loadListingData call - managed by useQuery
 
   // Geocode address if no coordinates available
   useEffect(() => {
@@ -690,9 +589,8 @@ const PropertyDetailsScreen = () => {
     geocodeListingAddress();
   }, [listing]);
 
-  const handleRefresh = () => {
-    setRefreshing(true);
-    loadListingData();
+  const onRefresh = () => {
+    handleRefresh();
   };
 
   const handleToggleFavorite = async () => {
@@ -709,26 +607,16 @@ const PropertyDetailsScreen = () => {
         bookmarkId,
       );
 
-      console.log("[PropertyDetailsScreen] Toggle result:", result);
-
       if (result.success) {
         setIsFavorite(!isFavorite);
         if (result.action === "added") {
-          console.log("[PropertyDetailsScreen] Bookmark added, fetching ID");
           // Fetch the new bookmark to get its ID
           const bookmarkStatus =
             await bookmarkService.isListingBookmarked(listingId);
           setBookmarkId(bookmarkStatus.bookmarkId);
-          console.log(
-            "[PropertyDetailsScreen] New bookmark ID:",
-            bookmarkStatus.bookmarkId,
-          );
         } else {
-          console.log("[PropertyDetailsScreen] Bookmark removed");
           setBookmarkId(null);
         }
-      } else {
-        console.warn("[PropertyDetailsScreen] Toggle failed:", result.message);
       }
     } catch (error) {
       console.error("[PropertyDetailsScreen] Error toggling favorite:", error);
@@ -745,11 +633,7 @@ const PropertyDetailsScreen = () => {
 
   // Transform API listing data (must handle null listing for useMemo safety)
   const propertyImages = useMemo(() => {
-    if (
-      !listing ||
-      !(listing.propertyImages || listing.images) ||
-      (listing.propertyImages || listing.images).length === 0
-    ) {
+    if (!listing) {
       return [
         {
           uri: "https://via.placeholder.com/400x300?text=No+Image",
@@ -757,17 +641,31 @@ const PropertyDetailsScreen = () => {
         },
       ];
     }
-    return (listing.propertyImages || listing.images)
-      .map((img) => {
-        try {
-          const url = convertImageUrl(img);
-          return url ? { uri: url, type: "image" } : null;
-        } catch (err) {
-          return null;
-        }
-      })
-      .filter(Boolean);
-  }, [listing]);
+    
+    // Robust image field detection
+    const rawImages = listing.propertyImages || listing.images || listing.photos || (listing.image ? [listing.image] : []);
+    
+    const processedImages = Array.isArray(rawImages) 
+      ? rawImages
+          .map((img) => {
+            try {
+              if (!img) return null;
+              const url = convertImageUrl(img);
+              return url ? { uri: url, type: "image" } : null;
+            } catch (err) {
+              return null;
+            }
+          })
+          .filter(Boolean)
+      : [];
+    
+    return processedImages.length > 0 ? processedImages : [
+      {
+        uri: "https://via.placeholder.com/400x300?text=No+Image",
+        type: "image",
+      },
+    ];
+  }, [listing, baseURL]); // Added baseURL to dependencies as it impacts resolution
 
   const propertyVideos = useMemo(() => {
     if (!listing) return [];
@@ -778,7 +676,7 @@ const PropertyDetailsScreen = () => {
         return url ? { uri: url, type: "video" } : null;
       })
       .filter(Boolean);
-  }, [listing]);
+  }, [listing, baseURL]);
 
   const propertyMedia = useMemo(
     () => [...propertyImages, ...propertyVideos],
@@ -812,7 +710,10 @@ const PropertyDetailsScreen = () => {
     }
     return {
       id: listing._id || listing.id,
+      _id: listing._id || listing.id,
       title: listing.propertyTitle || listing.propertyName || "Listing",
+      address: listing.address || listing.propertyLocation?.fullAddress || "",
+      propertyType: listing.propertyType || "Apartment",
       location: (() => {
             const city = listing.city || listing.propertyLocation?.city;
             const state = listing.state || listing.propertyLocation?.state;
@@ -833,7 +734,7 @@ const PropertyDetailsScreen = () => {
       isUnavailable: listing.status === "BOOKED" || listing.status === "PAUSED",
       status: listing.status,
       bookingExpiryDate: listing.bookingExpiryDate,
-      price: formatPrice(listing.propertyPrice?.price || listing.price),
+      price: formatCurrency(listing.propertyPrice?.amount || listing.propertyPrice?.price || listing.price || 0),
       priceType: `per ${listing.pricingPeriod || "night"}`,
       rentalType: (() => {
         if (listing.intent === "SELL") return "For Sale";
@@ -942,14 +843,16 @@ const PropertyDetailsScreen = () => {
           hostCurrentAvatar || require("../../assets/images/prop_image.png"),
         hostRating: hostCurrentRating || null,
         totalListings: hostTotalListings || 1,
+        rating: hostCurrentRating || null,
         isVerified:
           listing.hostInfo?.hostApplicationStatus === "APPROVED" || 
           listing.host?.hostApplicationStatus === "APPROVED" ||
-          listing.host?.isVerified || listing.hostInfo?.isVerified || false,
+          listing.user?.hostApplicationStatus === "APPROVED" ||
+          listing.host?.isVerified || listing.hostInfo?.isVerified || listing.user?.verified || false,
         userType:
-          listing.host?.userType || listing.hostInfo?.userType || "HOST",
+          listing.host?.userType || listing.hostInfo?.userType || listing.user?.userType || "HOST",
         id:
-          listing.host?._id || listing.hostInfo?._id || listing.host?.id || "",
+          listing.host?._id || listing.hostInfo?._id || listing.user?._id || listing.host?.id || "",
       },
       reviews: listingReviews,
     };
@@ -996,7 +899,7 @@ const PropertyDetailsScreen = () => {
           <Ionicons name="alert-circle-outline" size={48} color="#EF4444" />
           <Text style={styles.errorText}>{error || "Listing not found"}</Text>
           <View style={styles.errorButtonsContainer}>
-            <Pressable style={styles.retryButton} onPress={loadListingData}>
+            <Pressable style={styles.retryButton} onPress={handleRefresh}>
               <Text style={styles.retryButtonText}>Try Again</Text>
             </Pressable>
             <Pressable style={styles.goBackButton} onPress={handleErrorGoBack}>
@@ -1097,11 +1000,6 @@ const PropertyDetailsScreen = () => {
       // 1. Fetch latest profile data to ensure we have up-to-date info
       const profileData = await profileService.getProfileData();
 
-      console.log(
-        "[PropertyDetailsScreen] Validating user for booking:",
-        profileData,
-      );
-
       // 2. Validate Email
       if (!profileData?.email || !profileData?.emailAddress) {
         Alert.alert(
@@ -1124,19 +1022,6 @@ const PropertyDetailsScreen = () => {
         setShowPhoneModal(true);
         return;
       }
-
-      // 4. Validate KYC/Verification (Optional: based on requirement "user whose kyc is not verified")
-      //   if (!profileData?.isVerified && !profileData?.kycVerified) {
-      //      Alert.alert(
-      //         "Verification Required",
-      //         "Identity verification is required to book this property.",
-      //         [
-      //             { text: "Cancel", style: "cancel" },
-      //             { text: "Verify Now", onPress: () => router.push("/verification") } // Adjust route as needed
-      //         ]
-      //      );
-      //      return;
-      //   }
 
       // Get the cover image URL (first property image)
       const coverImageUrl = propertyImages?.[0]?.uri || "";
@@ -1176,7 +1061,6 @@ const PropertyDetailsScreen = () => {
   const handleMessageHost = () => {
     // Message functionality is currently disabled
     // TODO: Enable when messaging feature is implemented
-    console.log("Message host functionality is currently disabled");
   };
 
   const handleHostPress = () => {
@@ -1242,6 +1126,7 @@ const PropertyDetailsScreen = () => {
           style={styles.imageScrollView}
         >
           {propertyMedia.map((media, index) => {
+            if (!media) return null;
             if (media.type === "video") {
               return (
                 <VideoPlayer
@@ -1272,7 +1157,7 @@ const PropertyDetailsScreen = () => {
                 ) : (
                   <>
                     <Image
-                      source={media}
+                      source={{ uri: media.uri }}
                       style={[
                         StyleSheet.absoluteFillObject,
                         { width: screenWidth, height: "100%" },
@@ -1613,18 +1498,23 @@ const PropertyDetailsScreen = () => {
                       showsHorizontalScrollIndicator={false}
                       style={{ marginTop: 6 }}
                     >
-                      {reviewImages.map((img, imgIdx) => (
-                        <Image
-                          key={imgIdx}
-                          source={{ uri: convertImageUrl(img) }}
-                          style={{
-                            width: 50,
-                            height: 50,
-                            borderRadius: 6,
-                            marginRight: 6,
-                          }}
-                        />
-                      ))}
+                      {reviewImages.map((img, imgIdx) => {
+                        if (!img) return null;
+                        const uri = convertImageUrl(img);
+                        if (!uri) return null;
+                        return (
+                          <Image
+                            key={imgIdx}
+                            source={{ uri }}
+                            style={{
+                              width: 50,
+                              height: 50,
+                              borderRadius: 6,
+                              marginRight: 6,
+                            }}
+                          />
+                        );
+                      })}
                     </ScrollView>
                   );
                 })()}
@@ -1714,16 +1604,18 @@ const PropertyDetailsScreen = () => {
               pressed && styles.locationPressed,
             ]}
           >
-            <View style={styles.locationIconContainer}>
-              <Ionicons name="location-sharp" size={10} color="#192DFF" />
+            <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
+              <View style={styles.locationIconContainer}>
+                <Ionicons name="location-sharp" size={14} color="#192DFF" />
+              </View>
+              <Text 
+                style={styles.location}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                {propertyData.location}
+              </Text>
             </View>
-            <Text 
-              style={styles.location}
-              numberOfLines={1}
-              ellipsizeMode="tail"
-            >
-              {propertyData.location}
-            </Text>
           </Pressable>
 
           {/* Availability */}
@@ -1962,7 +1854,7 @@ const PropertyDetailsScreen = () => {
       </ScrollView>
 
       {/* Fixed Book Button */}
-      <View style={styles.bookButtonContainer}>
+      <View style={[styles.bookButtonContainer, { paddingBottom: Math.max(insets.bottom, 20) }]}>
         <Pressable
           style={[
             styles.bookButton,
@@ -2527,18 +2419,17 @@ const styles = StyleSheet.create({
   locationIconContainer: {
     alignItems: "center",
     justifyContent: "center",
-    width: 14,
-    height: 14,
-    alignSelf: "flex-start",
-    marginTop: 4, // Align with text baseline
+    width: 20,
+    height: 20,
+    marginTop: 0,
   },
   locationPressable: {
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "center",
     gap: 8,
     paddingVertical: 8,
     paddingHorizontal: 4,
-    marginBottom: 16,
+    marginBottom: 24,
     borderRadius: 6,
     minWidth: 0,
   },

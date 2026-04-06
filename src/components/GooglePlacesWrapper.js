@@ -1,17 +1,33 @@
 import React from 'react';
-import { TextInput, View } from 'react-native';
+import { Platform } from 'react-native';
+import { GooglePlacesAutocomplete as GoogleAutocomplete } from 'react-native-google-places-autocomplete';
 
-// Web fallback: export a functional component stub so location.jsx doesn't crash
-// On web, we'll render a standard TextInput that mimics the basic interface
+/**
+ * GooglePlacesWrapper
+ * Wraps the GooglePlacesAutocomplete library to provide a consistent interface
+ * and safe web fallback if needed.
+ */
 export const GooglePlacesAutocomplete = React.forwardRef((props, ref) => {
+  if (Platform.OS === 'web') {
+    // Current web fallback (standard search input)
+    const { TextInput, View } = require('react-native');
+    return (
+      <View style={props.styles?.container}>
+        <TextInput
+          ref={ref}
+          {...props.textInputProps}
+          placeholder={props.placeholder}
+          style={[props.textInputProps?.style, { height: 50, backgroundColor: '#FAFAFA' }]}
+        />
+      </View>
+    );
+  }
+
+  // Native Implementation
   return (
-    <View style={props.styles?.container}>
-      <TextInput
-        ref={ref}
-        {...props.textInputProps}
-        placeholder={props.placeholder}
-        style={[props.textInputProps?.style, { height: 50, backgroundColor: '#FAFAFA' }]}
-      />
-    </View>
+    <GoogleAutocomplete
+      ref={ref}
+      {...props}
+    />
   );
 });

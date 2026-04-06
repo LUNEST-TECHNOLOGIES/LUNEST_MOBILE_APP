@@ -159,6 +159,10 @@ class PaymentService {
 
       const response = await apiClient.get("/v1/wallet/balance");
 
+      if (!response) {
+        throw new Error("No response from wallet service");
+      }
+
       if (response.success) {
         return response.body;
       } else {

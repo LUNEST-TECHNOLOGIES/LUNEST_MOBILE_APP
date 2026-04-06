@@ -1,8 +1,7 @@
-import React from "react";
-import { StyleSheet, View, Text, Image, Pressable, Modal } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import DoneV2Icon from "../../assets/icons/done-v.svg";
-import { Ionicons } from "@expo/vector-icons";
 
 const VerifiedInfoOverlay = ({ visible, onClose }) => {
   const verificationItems = [

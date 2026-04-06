@@ -57,6 +57,24 @@ const ListingsIcon = ({ size = 38 }) => (
   </View>
 );
 
+// Rating Icon (star)
+const RatingIcon = ({ size = 38 }) => (
+  <View
+    style={[
+      styles.iconContainer,
+      { width: size, height: size, backgroundColor: "#FDB913" },
+    ]}
+  >
+    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M12 17.27L18.18 21L16.54 13.97L22 9.24L14.81 8.63L12 2L9.19 8.63L2 9.24L7.46 13.97L5.82 21L12 17.27Z"
+        fill="#FFFFFF"
+      />
+    </Svg>
+  </View>
+);
+
+
 // Format currency with 2 decimal places
 const formatCurrency = (amount) => {
   // Format with 2 decimal places
@@ -81,6 +99,8 @@ const DashboardStatsCards = ({
   pendingBalance = 0,
   totalBookings = 0,
   totalListings = 0,
+  hostRating = 0,
+  hostRatingCount = 0,
   bookingsPeriod = "30 days",
   earningsPeriod = "Last 30 Days",
 }) => {
@@ -141,6 +161,36 @@ const DashboardStatsCards = ({
             <View style={styles.cardInfo}>
               <Text style={styles.smallCardLabel}>Total Listings</Text>
               <Text style={styles.smallCardValue}>{safeListingsValue}</Text>
+            </View>
+          </View>
+        </View>
+      </View>
+
+      {/* Performance row - Two smaller cards */}
+      <View style={[styles.bottomRow, { marginTop: 16 }]}>
+        {/* Host Rating */}
+        <View style={[styles.smallCard, { backgroundColor: "#FFF7ED" }]}>
+          <View style={styles.cardContent}>
+            <RatingIcon />
+            <View style={styles.cardInfo}>
+              <Text style={styles.smallCardLabel}>Average Rating</Text>
+              <View style={styles.viewsRow}>
+                <Text style={styles.smallCardValue}>
+                  {Number(hostRating).toFixed(1)}
+                </Text>
+                <Text style={styles.periodText}>/ 5.0</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+
+        {/* Total Reviews */}
+        <View style={[styles.smallCard, { backgroundColor: "#F0FDFA" }]}>
+          <View style={styles.cardContent}>
+            <ListingsIcon />
+            <View style={styles.cardInfo}>
+              <Text style={styles.smallCardLabel}>Total Reviews</Text>
+              <Text style={styles.smallCardValue}>{hostRatingCount}</Text>
             </View>
           </View>
         </View>

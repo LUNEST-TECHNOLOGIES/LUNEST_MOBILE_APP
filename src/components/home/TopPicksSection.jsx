@@ -1,6 +1,7 @@
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
+  Dimensions,
   ScrollView,
   StyleSheet,
   Text,
@@ -15,6 +16,9 @@ import SectionHeader from "./SectionHeader";
 
 // Local property image
 const propImage = require("../../assets/images/prop_image.png");
+
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const CAROUSEL_CARD_WIDTH = 170; // Reduced width for a more compact carousel feel
 
 /**
  * TopPicksSection Component
@@ -45,36 +49,88 @@ const TopPicksSection = ({
         externalListings.length,
         "external listings (location-based from HomeScreen)",
       );
+      // Log first listing structure for debugging
+      console.log("[TopPicksSection] First external listing:", JSON.stringify(externalListings[0], null, 2));
       const getBase = async () => {
         try {
+          setLoading(true); // Ensure loading is set at start
           const baseURL = await configService.getBaseURL();
+          console.log("[TopPicksSection] baseURL:", baseURL);
           // Transform external listings to ensure image format is correct
-          const transformedExternal = externalListings.map((listing) => ({
-            ...listing,
-            // Ensure image is in correct format for PropertyCard
-            image: listing.image
-              ? { uri: ImageUtils.resolveImageUrlSync(listing.image, baseURL) }
-              : listing.propertyImages?.[0]
-                ? { uri: ImageUtils.resolveImageUrlSync(listing.propertyImages[0], baseURL) }
-                : null,
-          }));
+          const transformedExternal = externalListings.map((listing, index) => {
+            // Handle image that could be string, object, or already resolved
+            // External listings may have imageUrl instead of image
+            // Check if image is a valid string or object with content
+            let imagePath = null;
+            const data = listing.listingData || listing;
+            
+            if (typeof listing.image === 'string' && listing.image.trim()) {
+              imagePath = listing.image;
+            } else if (typeof listing.imageUrl === 'string' && listing.imageUrl.trim()) {
+              imagePath = listing.imageUrl;
+            } else if (data.propertyImages?.[0]) {
+              imagePath = data.propertyImages[0];
+            } else if (data.images?.[0]) {
+              imagePath = data.images[0];
+            }
+            
+            // If image is an object, extract the URL
+            if (typeof imagePath === 'object' && imagePath !== null) {
+              imagePath = imagePath.uri || imagePath.url || imagePath.path || null;
+            }
+            
+            const rating = listing.rating ?? data.averageRating ?? data.rating ?? data.avgRating ?? null;
+            const bedrooms = listing.bedrooms ?? data.bedrooms ?? data.bedroomCount ?? 0;
+            const bathrooms = listing.bathrooms ?? data.bathrooms ?? data.bathroomCount ?? 0;
+            const amenities = listing.amenities || data.amenities || [];
+
+            const resolvedImage = imagePath && typeof imagePath === 'string'
+              ? { uri: ImageUtils.resolveImageUrlSync(imagePath, baseURL) }
+              : null;
+            
+            if (index === 0) {
+              console.log("[TopPicksSection] Image resolution:", {
+                imagePath,
+                resolvedImage,
+                baseURL,
+              });
+            }
+
+            // Map properties with fallbacks for different naming conventions
+            return {
+              id: listing.id || listing._id || data._id || data.id,
+              image: resolvedImage,
+              title: listing.title || data.propertyName || data.propertyTitle || "Untitled",
+              location: listing.location || data.city || "Nigeria",
+              price: listing.price || data.propertyPrice?.price || data.price || 0,
+              currency: listing.currency || data.propertyPrice?.currency || data.currency || "NGN",
+              rating: rating,
+              bedrooms: bedrooms,
+              bathrooms: bathrooms,
+              amenities: Array.isArray(amenities) ? amenities : [],
+              isFavorite: listing.isFavorite || false,
+              status: listing.status || data.status || "AVAILABLE",
+              listingData: data,
+            };
+          });
           setListings(transformedExternal);
           console.log(
             "✅ [TopPicksSection] Transformed",
             transformedExternal.length,
             "listings with resolved image URLs",
           );
-          setLoading(false);
+          console.log("[TopPicksSection] First transformed listing image:", transformedExternal[0]?.image);
         } catch (error) {
           console.error("❌ [TopPicksSection] Error transforming listings:", error);
+          setListings([]);
+        } finally {
           setLoading(false);
         }
       };
       getBase();
     } else {
-      console.log(
-        "ℹ️ [TopPicksSection] No external listings provided - falling back to fetch all",
-      );
+      // No external listings, fetch directly
+      console.log("[TopPicksSection] No external listings, fetching directly...");
       loadTopPickListings();
     }
   }, [externalListings]);
@@ -82,7 +138,6 @@ const TopPicksSection = ({
   const loadTopPickListings = async () => {
     try {
       setLoading(true);
-      console.log("🔍 [TopPicksSection] Fetching top pick listings (no location filter)...");
 
       // Fetch published listings (AVAILABLE and BOOKED) with limit for top picks
       const baseURL = await configService.getBaseURL();
@@ -92,11 +147,23 @@ const TopPicksSection = ({
 
       if (result.success && result.listings && result.listings.length > 0) {
         // Transform backend listings to component format
-        const transformedListings = result.listings.map((listing) => ({
+        const transformedListings = result.listings.map((listing) => {
+          // Handle different image formats from backend
+          let rawImage = listing.propertyImages?.[0] || listing.images?.[0];
+          
+          // If image is an object, extract the URL
+          if (typeof rawImage === 'object' && rawImage !== null) {
+            rawImage = rawImage.url || rawImage.uri || rawImage.path || rawImage.filename || null;
+          }
+          
+          const imageUrl = rawImage
+            ? ImageUtils.resolveImageUrlSync(rawImage, baseURL)
+            : null;
+          const rating = listing.averageRating ?? listing.rating ?? listing.avgRating ?? listing.totalRating ?? null;
+          
+          return {
           id: listing._id || listing.id,
-          image: listing.propertyImages?.[0]
-            ? { uri: ImageUtils.resolveImageUrlSync(listing.propertyImages[0], baseURL) }
-            : null,
+          image: imageUrl ? { uri: imageUrl } : null,
           title: listing.propertyName || listing.propertyTitle || "Untitled",
           location: (() => {
             const city = listing.propertyLocation?.city || listing.city;
@@ -130,7 +197,7 @@ const TopPicksSection = ({
           price: listing.propertyPrice?.price || listing.price || 0,
           currency:
             listing.propertyPrice?.currency || listing.currency || "NGN",
-          rating: listing.averageRating || listing.rating || null,
+          rating: rating,
           isFavorite: false, // Can be enhanced with bookmark check
           host: listing.host || {},
           propertyType: listing.propertyType,
@@ -141,23 +208,13 @@ const TopPicksSection = ({
           status: listing.status || "AVAILABLE", // Include status for availability display
           isAvailable: listing.status === "AVAILABLE", // Show as bookable
           listingData: listing, // Store full listing data
-        }));
+        }});
 
         setListings(transformedListings);
-        console.log(
-          "✅ [TopPicksSection] Loaded",
-          transformedListings.length,
-          "listings (no location filter)",
-        );
       } else {
-        console.log("ℹ️ [TopPicksSection] No listings available");
         setListings([]);
       }
     } catch (error) {
-      console.error(
-        "❌ [TopPicksSection] Error loading listings:",
-        error.message || error,
-      );
       setListings([]);
     } finally {
       setLoading(false);
@@ -178,14 +235,12 @@ const TopPicksSection = ({
         },
       });
     }
-    console.log("Property pressed:", property.title);
   };
 
   const handleFavoritePress = (id, isFavorite) => {
     if (onFavoritePress) {
       onFavoritePress(id, isFavorite);
     }
-    console.log("Favorite toggled:", id, isFavorite);
   };
 
   // Show skeleton loading state
@@ -245,6 +300,7 @@ const TopPicksSection = ({
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
         decelerationRate="fast"
+        snapToInterval={CAROUSEL_CARD_WIDTH + 12} // Card width + gap
         snapToAlignment="start"
       >
         {listings.map((listing) => {
@@ -252,6 +308,16 @@ const TopPicksSection = ({
           const bookmarkStatus = bookmarkMap[listing.id];
           const isFavorite =
             bookmarkStatus?.isBookmarked || listing.isFavorite || false;
+
+          // Debug log
+          console.log("[TopPicksSection] Rendering PropertyCard:", {
+            id: listing.id,
+            hasImage: !!listing.image,
+            imageUri: listing.image?.uri?.substring(0, 30),
+            bedrooms: listing.bedrooms,
+            bathrooms: listing.bathrooms,
+            amenities: listing.amenities,
+          });
 
           return (
             <PropertyCard
@@ -266,6 +332,7 @@ const TopPicksSection = ({
               bedrooms={listing.bedrooms}
               bathrooms={listing.bathrooms}
               amenities={listing.amenities}
+              width={CAROUSEL_CARD_WIDTH} // PASS equal width here
               onPress={() => handlePropertyPress(listing)}
               onFavoritePress={handleFavoritePress}
             />

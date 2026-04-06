@@ -4,19 +4,19 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { useEffect, useState } from "react";
 import {
-  ActivityIndicator,
-  Image,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View
+    ActivityIndicator,
+    Image,
+    KeyboardAvoidingView,
+    Modal,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    View
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import ArrowLeftIcon from "../../assets/icons/bookings/arrow-left.svg";
 import CalendarIcon from "../../assets/icons/vuesax/outline/calendar.svg";
 import ToastNotification, { TOAST_TYPE } from "../../components/common/ToastNotification";
@@ -31,6 +31,7 @@ const DEFAULT_PROPERTY_IMAGE = require("../../assets/images/prop_image.png");
 const BookingSummary = () => {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const insets = useSafeAreaInsets();
   const [showCancelPolicy, setShowCancelPolicy] = useState(false);
   // Show payment modal immediately if coming from reservation Pay Now
   const [showPaymentModal, setShowPaymentModal] = useState(
@@ -1534,7 +1535,12 @@ const BookingSummary = () => {
         </ScrollView>
 
         {/* Proceed to Payment Button */}
-        <View style={styles.buttonContainer}>
+        <View
+          style={[
+            styles.footer,
+            { paddingBottom: Math.max(insets.bottom, 20) }
+          ]}
+        >
           <Pressable
             style={[
               styles.proceedButton,
@@ -1925,7 +1931,7 @@ const styles = StyleSheet.create({
     color: "#010135",
   },
   bottomSpacer: {
-    height: 20,
+    height: 120, // Increased to ensure content scrolls above the sticky footer
   },
   buttonContainer: {
     paddingHorizontal: 16,
@@ -1934,12 +1940,24 @@ const styles = StyleSheet.create({
     borderTopColor: "#F5F5F5",
     backgroundColor: "#fff",
   },
+  footer: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "#fff",
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: "#eee",
+  },
   proceedButton: {
     backgroundColor: "#010135",
     paddingVertical: 14,
     borderRadius: 25,
     justifyContent: "center",
     alignItems: "center",
+    width: "100%",
   },
   proceedButtonText: {
     fontSize: 16,

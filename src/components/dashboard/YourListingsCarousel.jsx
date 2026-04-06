@@ -30,13 +30,23 @@ const ListingCard = ({ listing, onPress, cardWidth }) => {
   const scrollViewRef = useRef(null);
 
   // Get images array - no fallback, show placeholder if empty
+  // Also filter out any images with 'demo' or 'test' in the name/URL
   const displayImages = (
     listing.images && listing.images.length > 0
       ? listing.images
       : listing.image
         ? [listing.image]
         : []
-  ).filter(Boolean);
+  )
+    .filter(Boolean)
+    .filter((img) => {
+      const url = typeof img === "string" ? img : img.uri || img.url || "";
+      const isDemo =
+        url.toLowerCase().includes("demo") ||
+        url.toLowerCase().includes("placeholder") ||
+        url.toLowerCase().includes("test");
+      return !isDemo;
+    });
 
   // Handle container layout to get actual width
   const handleContainerLayout = (event) => {
@@ -244,7 +254,7 @@ const ListingCard = ({ listing, onPress, cardWidth }) => {
         {/* Title and Rating Row */}
         <View style={styles.titleRow}>
           <View style={styles.titleContainer}>
-            <Text style={styles.title} numberOfLines={2} ellipsizeMode="tail">
+            <Text style={styles.title}>
               {safeTitle}
             </Text>
             <Text

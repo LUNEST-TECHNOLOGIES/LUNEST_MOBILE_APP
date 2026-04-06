@@ -3,12 +3,12 @@ import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import ArrowLeftIcon from "../../assets/icons/bookings/arrow-left.svg";
@@ -285,7 +285,7 @@ const HostInformation = () => {
                     )}
                   </View>
                   <Text style={styles.totalListingsText}>
-                    Total listings: {hostListings.length}
+                    Total listings: {hostListings.length} • Total bookings: {hostData.hostBookingCount || 0}
                   </Text>
                   <View style={styles.ratingRow}>
                     <View style={styles.ratingWithIcon}>
@@ -326,6 +326,12 @@ const HostInformation = () => {
 
             {activeTab === "about" && (
               <View style={styles.tabContent}>
+                <View style={styles.reviewCountWithIcon}>
+                      <Text style={styles.ratingValue}>
+                        {(hostReviews && hostReviews.length) || hostData.hostRatingCount || 0}
+                      </Text>
+                      <Text style={styles.reviewLabel}>Reviews</Text>
+                    </View>
                 <Text style={styles.sectionTitle}>
                   About {hostData.fullName}
                 </Text>

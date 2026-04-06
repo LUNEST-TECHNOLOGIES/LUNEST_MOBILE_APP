@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
     ActivityIndicator,
     Alert,
@@ -23,78 +24,69 @@ import EmptyState from "../../components/common/EmptyState";
 
 const SavedScreen = () => {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("saved");
-  const [bookmarks, setBookmarks] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [baseURL, setBaseURL] = useState("");
   const [imageErrors, setImageErrors] = useState({});
 
+  useEffect(() => {
+    configService.getBaseURL().then(setBaseURL);
+  }, []);
 
-  useFocusEffect(
-    useCallback(() => {
-      fetchSavedListings();
-      loadBaseURL();
-    }, []),
-  );
-
-  const loadBaseURL = async () => {
-    const url = await configService.getBaseURL();
-    setBaseURL(url);
-  };
-
-  const fetchSavedListings = async (showLoader = true) => {
-    try {
-      if (showLoader) setLoading(true);
+  // ── Data Fetching (React Query) ──
+  const {
+    data: bookmarks = [],
+    isLoading: loading,
+    isRefetching: refreshing,
+    refetch,
+  } = useQuery({
+    queryKey: ["bookmarks"],
+    queryFn: async () => {
       const result = await bookmarkService.fetchBookmarks();
+      return result.success ? result.bookmarks : [];
+    },
+    staleTime: 5 * 60_000,
+  });
 
-      if (result.success) {
-        console.log(
-          "[SavedScreen] Fetched bookmarks:",
-          result.bookmarks.length,
-        );
-        console.log(
-          "[SavedScreen] Bookmark IDs:",
-          result.bookmarks.map((b) => b._id),
-        );
-        setBookmarks(result.bookmarks);
-      } else {
-        console.log("[SavedScreen] Failed to fetch bookmarks");
-        setBookmarks([]);
-      }
-    } catch (error) {
-      console.error("[SavedScreen] Error fetching bookmarks:", error);
-      setBookmarks([]);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
+  // ── Mutation for Removing Bookmark ──
+  const removeBookmarkMutation = useMutation({
+    mutationFn: async ({ bookmarkId }) => {
+      return await bookmarkService.deleteBookmark(bookmarkId);
+    },
+    onMutate: async ({ bookmarkId }) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["bookmarks"] });
+      // Snapshot the previous value
+      const previousBookmarks = queryClient.getQueryData(["bookmarks"]);
+      // Optimistically update to the new value
+      queryClient.setQueryData(["bookmarks"], (old) =>
+        old ? old.filter((b) => b._id !== bookmarkId) : []
+      );
+      return { previousBookmarks };
+    },
+    onError: (err, variables, context) => {
+      queryClient.setQueryData(["bookmarks"], context.previousBookmarks);
+      Alert.alert("Error", "Failed to remove property from saved");
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["bookmarks"] });
+    },
+    onSuccess: (data, variables) => {
+      Alert.alert("Removed", `${variables.listingTitle} has been removed from saved`);
+    },
+  });
 
   const handleRefresh = () => {
-    setRefreshing(true);
-    fetchSavedListings(false);
+    refetch();
   };
 
-  const handleRemoveBookmark = async (bookmarkId, listingTitle) => {
-    try {
-      const result = await bookmarkService.deleteBookmark(bookmarkId);
-
-      if (result.success) {
-
-        setBookmarks((prev) => prev.filter((b) => b._id !== bookmarkId));
-        Alert.alert("Removed from saved", `${listingTitle} has been removed`);
-      } else {
-        Alert.alert("Failed to remove", result.message);
-      }
-    } catch (error) {
-      Alert.alert("Error", "Failed to remove property");
-    }
+  const handleRemoveBookmark = (bookmarkId, listingTitle) => {
+    removeBookmarkMutation.mutate({ bookmarkId, listingTitle });
   };
 
   const handleViewDetails = (listingId) => {
     console.log("[SavedScreen] Navigating to property:", listingId);
-    router.replace({
+    router.push({
       pathname: "/property-details",
       params: { listingId },
     });

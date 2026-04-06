@@ -156,14 +156,12 @@ const PersonalInfoEditScreen = () => {
       { value: userData.name, weight: 15 },
       { value: userData.email, weight: 15 },
       { value: userData.phone, weight: 15 },
-      { value: userData.location, weight: 10 },
-      { value: userData.nin, weight: 15 },
+      { value: userData.location, weight: 12 },
+      { value: userData.nin, weight: 18 },
       { value: userData.avatarUri, weight: 5 },
       { value: userData.employment.employerName, weight: 8 },
       { value: userData.employment.employerAddress, weight: 7 },
       { value: userData.employment.employerContact, weight: 5 },
-      { value: userData.employment.cacVerified, weight: 3 },
-      { value: userData.employment.businessIdVerified, weight: 2 },
     ];
 
     const totalWeight = fields.reduce((sum, f) => sum + f.weight, 0);
@@ -799,7 +797,7 @@ const PersonalInfoEditScreen = () => {
             onAction={() => handleUpdate("employerAddress", true)}
             isEmpty={!userData.employment.employerAddress}
           />
-          <InfoRow
+           <InfoRow
             label={
               userData.employment.employerContact
                 ? `Contact: ${userData.employment.employerContact}`
@@ -809,7 +807,8 @@ const PersonalInfoEditScreen = () => {
             onAction={() => handleUpdate("employerContact", true)}
             isEmpty={!userData.employment.employerContact}
           />
-          <InfoRow
+          {/* CAC and Business ID verification hidden for now */}
+          {/* <InfoRow
             label="CAC verification"
             showVerification
             isVerified={userData.employment.cacVerified}
@@ -818,7 +817,7 @@ const PersonalInfoEditScreen = () => {
             label="Business ID"
             showVerification
             isVerified={userData.employment.businessIdVerified}
-          />
+          /> */}
         </SectionCard>
 
         {/* Bottom spacing */}

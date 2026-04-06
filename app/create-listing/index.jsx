@@ -342,8 +342,10 @@ const SelectPropertyCategory = () => {
   const handleClose = () => {
     if (selectedCategory) {
       setShowCancelModal(true);
-    } else {
+    } else if (router.canGoBack()) {
       router.back();
+    } else {
+      router.replace("/(host-tabs)/listings");
     }
   };
 

@@ -8,6 +8,8 @@ import apiClient from "./apiClient";
 import authService from "./authService";
 import configService from "./configService";
 import NetworkErrorHandler from "./networkErrorHandler";
+import logService from "./logService";
+import axiosInstance from "../lib/axiosInstance";
 // Listing Status Constants from API Backend
 export const LISTING_STATUSES = {
   PENDING: "PENDING",
@@ -39,6 +41,18 @@ export const LISTING_STATUS_COLORS = {
   [LISTING_STATUSES.REJECTED]: "#EF4444", // red
   [LISTING_STATUSES.SUSPENDED]: "#F97316", // orange
   [LISTING_STATUSES.PAUSED]: "#FD3131", // red
+};
+
+const ARRAY_FIELDS = ["amenities", "landmarks", "photos", "images", "selectedAmenities", "customAmenities"];
+
+const VALID_STATUSES = ["DRAFT", "PENDING", "AVAILABLE", "BOOKED", "SOLD", "REJECTED", "SUSPENDED", "PAUSED", "ACTIVE", "ALL"];
+
+const sanitizeStatus = (status) => {
+  if (!status) return "PENDING";
+  const upperStatus = String(status).toUpperCase();
+  if (VALID_STATUSES.includes(upperStatus)) return upperStatus;
+  if (upperStatus === "LIVE") return "AVAILABLE";
+  return "PENDING";
 };
 
 class ListingService {
@@ -162,6 +176,31 @@ class ListingService {
   }
 
   /**
+   * Fetch listings with pagination support (React Query friendly)
+   * @param {Object} params - { page, limit, ...filters }
+   * @returns {Promise<Array>} List of listings
+   */
+  async fetchPaginatedListings({ page = 1, limit = 10, ...filters } = {}) {
+    console.log(`[ListingService] Fetching paginated listings (Page: ${page}, Limit: ${limit})`);
+    try {
+      const response = await axiosInstance.post("/v1/listings", {
+        ...filters,
+        page,
+        limit
+      });
+
+      // Backend returns CallBack.body structure: { success: true, body: [...], message: "..." }
+      if (response.data && response.data.success) {
+        return response.data.body || [];
+      }
+      return [];
+    } catch (error) {
+      console.error("[ListingService] Error in fetchPaginatedListings:", error);
+      throw error; // Let React Query handle the error
+    }
+  }
+
+  /**
    * Fetch listings with status filtering
    * @param {Object} filters - Filtering options including status
    * @returns {Promise<Object>} Filtered listings
@@ -261,92 +300,57 @@ class ListingService {
    */
   async createListing(listingData) {
     console.log("[ListingService] Creating listing...");
-    try {
-      const token = await authService.getToken();
-      if (!token) {
-        console.error("[ListingService] No auth token found");
-        return {
-          success: false,
-          message: "Authentication required. Please log in again.",
-          error: "NO_TOKEN",
-        };
+    const userData = await authService.getUserData();
+    const hostId = userData?._id || userData?.id;
+
+    const payload = { 
+      ...listingData,
+      host: hostId || listingData.host,
+      status: sanitizeStatus(listingData.status)
+    };
+
+    // SANITIZE PAYLOAD - Ensure types match backend expectations
+    if (payload.price) payload.price = Number(payload.price) || 0;
+    if (payload.bedrooms) payload.bedrooms = Number(payload.bedrooms) || 0;
+    if (payload.bathrooms) payload.bathrooms = Number(payload.bathrooms) || 0;
+    if (payload.guests) payload.guests = Number(payload.guests) || 0;
+    if (payload.guestCapacity) payload.guestCapacity = Number(payload.guestCapacity) || 0;
+
+    ARRAY_FIELDS.forEach(field => {
+      if (payload[field] && typeof payload[field] === "string") {
+        try {
+          payload[field] = JSON.parse(payload[field]);
+        } catch (e) {
+          if (payload[field]?.includes && payload[field].includes(",")) {
+            payload[field] = payload[field].split(",").map(s => String(s).trim());
+          }
+        }
       }
+    });
 
-      console.log("[ListingService] Sending listing data to API...");
-      console.log(
-        "[ListingService] Endpoint: POST /v1/listings/create",
-      );
-      console.log("[ListingService] Listing data:", {
-        intent: listingData.intent,
-        propertyType: listingData.propertyType,
-        propertyName: listingData.propertyName,
-        bedrooms: listingData.bedrooms,
-        bathrooms: listingData.bathrooms,
-        guests: listingData.guests,
-        price: listingData.price,
-        pricingPeriod: listingData.pricingPeriod,
-      });
+    if (Array.isArray(payload.houseRules)) {
+      payload.houseRules = payload.houseRules.join("\n");
+    }
 
-      const response = await apiClient.post(
-        "/v1/listings/create",
-        listingData,
-        {
-          headers: {
-            Authorization: "Bearer " + token,
-            "Content-Type": "application/json",
-          },
-        },
-      );
+    try {
+      console.log("[ListingService] Sending listing data to API via axiosInstance...");
+      const response = await axiosInstance.post("/v1/listings/create", payload);
 
       console.log("[ListingService] Listing created successfully");
-      console.log("[ListingService] Response:", response);
-
       return {
         success: true,
         message: "Listing created successfully",
-        listing:
-          response && response.listing
-            ? response.listing
-            : response && response.body
-              ? response.body
-              : response && response.data
-                ? response.data
-                : response,
+        listing: response.data?.listing || response.data?.body || response.data
       };
     } catch (error) {
       console.error("[ListingService] Error creating listing:", error);
-      console.error("[ListingService] Error details:", {
-        message: error.message,
-        status: error.status || (error.response && error.response.status),
-        response:
-          (error.response && error.response.data) ||
-          (error.response && error.response.body),
-      });
-
       const categorized = NetworkErrorHandler.categorizeError(error);
-
-      let errorMessage = "Failed to create listing. Please try again.";
-      if (
-        error.response &&
-        error.response.data &&
-        error.response.data.message
-      ) {
-        errorMessage = error.response.data.message;
-      } else if (
-        error.response &&
-        error.response.body &&
-        error.response.body.message
-      ) {
-        errorMessage = error.response.body.message;
-      } else if (categorized.userMessage) {
-        errorMessage = categorized.userMessage;
-      }
 
       return {
         success: false,
-        message: errorMessage,
+        message: error.response?.data?.message || categorized.userMessage || "Failed to create listing",
         error: categorized.type,
-        details: error.message,
+        details: error.message
       };
     }
   }
@@ -358,49 +362,16 @@ class ListingService {
    */
   async fetchUserListings() {
     console.log("[ListingService] Fetching user listings (host only)...");
+    logService.logInfo("Fetching host listings");
     try {
-      const token = await authService.getToken();
-      if (!token) {
-        console.error("[ListingService] No auth token found");
-        return {
-          success: false,
-          listings: [],
-          message: "Authentication required",
-        };
-      }
+      // axiosInstance handles token injection automatically via interceptors
+      const response = await axiosInstance.post("/v1/listings/my-listings", {});
 
-      console.log(
-        "[ListingService] Endpoint: POST /v1/listings/my-listings",
-      );
-
-      const response = await apiClient.post(
-        "/v1/listings/my-listings",
-        {},
-        {
-          headers: {
-            Authorization: "Bearer " + token,
-          },
-        },
-      );
-
-      const listings =
-        response && response.body
-          ? response.body
-          : response && response.data
-            ? response.data
-            : [];
+      const listings = response.data?.body || response.data?.data || [];
 
       console.log(
         `✅ [ListingService] Fetched ${listings.length} host listings`,
       );
-
-      // Log status breakdown for better debugging
-      const statusBreakdown = listings.reduce((acc, l) => {
-        const s = l.status || "UNKNOWN";
-        acc[s] = (acc[s] || 0) + 1;
-        return acc;
-      }, {});
-      console.log("📋 [ListingService] Status Breakdown:", statusBreakdown);
 
       return {
         success: true,
@@ -408,11 +379,12 @@ class ListingService {
       };
     } catch (error) {
       console.error("[ListingService] Error fetching user listings:", error);
+      logService.logError("Failed to fetch host listings", {
+        message: error.message,
+        status: error.response?.status,
+      });
 
-      if (
-        (error && error.response && error.response.status === 401) ||
-        (error && error.status === 401)
-      ) {
+      if (error.response?.status === 401) {
         return {
           success: false,
           listings: [],
@@ -421,10 +393,7 @@ class ListingService {
         };
       }
 
-      if (
-        (error && error.response && error.response.status === 404) ||
-        (error && error.status === 404)
-      ) {
+      if (error.response?.status === 404) {
         return {
           success: true,
           listings: [],
@@ -435,7 +404,10 @@ class ListingService {
       return {
         success: false,
         listings: [],
-        message: (error && error.message) || "Failed to fetch listings",
+        message:
+          error.response?.data?.message ||
+          error.message ||
+          "Failed to fetch listings",
       };
     }
   }
@@ -475,67 +447,30 @@ class ListingService {
    * @returns {Promise<Object>} Listing details
    */
   async fetchListingById(listingId) {
-    console.log("[ListingService] Fetching listing:", listingId);
-    console.log("[ListingService] listingId type:", typeof listingId);
-
-    // Ensure listingId is valid
-    if (!listingId || listingId === "undefined" || listingId === "null") {
-      console.error("[ListingService] Invalid listing ID:", listingId);
-      return {
-        success: false,
-        listing: null,
-        message: "Invalid listing ID",
-      };
+    if (!listingId) {
+      console.error("[ListingService] fetchListingById: No listingId provided");
+      return { success: false, message: "Listing ID is required" };
     }
 
+    console.log("[ListingService] Fetching listing details for ID:", listingId);
     try {
-      const response = await apiClient.get("/v1/listings/" + listingId);
-
-      console.log("[ListingService] Listing fetched successfully");
-      console.log("[ListingService] Response type:", typeof response);
-      console.log(
-        "[ListingService] Response keys:",
-        response ? Object.keys(response) : "null",
-      );
-
-      // Handle different response formats
-      let listing = null;
-      if (response && response.body) {
-        listing = response.body;
-        console.log("[ListingService] Using response.body");
-      } else if (response && response.data) {
-        listing = response.data;
-        console.log("[ListingService] Using response.data");
-      } else if (response && response._id) {
-        // Direct listing object returned
-        listing = response;
-        console.log("[ListingService] Using direct response");
-      } else if (response) {
-        listing = response;
-        console.log("[ListingService] Using raw response");
-      }
+      // Use axiosInstance for automatic token handling and base URL
+      const response = await axiosInstance.get(`/v1/listings/${listingId}`);
+      
+      // The backend returns the listing in body or data field depending on the endpoint
+      const listing = response.data?.body || response.data?.data || response.data;
 
       if (!listing) {
-        console.error("[ListingService] No listing data in response");
+        console.error("[ListingService] No listing found for ID:", listingId);
         return {
           success: false,
           listing: null,
-          message: "No listing data received from server",
-        };
-      }
-
-      // Verify we have a valid listing object
-      if (!listing._id && !listing.id) {
-        console.error("[ListingService] Listing missing ID field:", listing);
-        return {
-          success: false,
-          listing: null,
-          message: "Invalid listing data received",
+          message: "Listing not found",
         };
       }
 
       console.log(
-        "[ListingService] Returning listing:",
+        "[ListingService] Successfully fetched listing:",
         listing._id || listing.id,
       );
       return {
@@ -543,32 +478,21 @@ class ListingService {
         listing: listing,
       };
     } catch (error) {
-      console.error("[ListingService] Error fetching listing:", error);
-      console.error("[ListingService] Error message:", error.message);
-      console.error("[ListingService] Error response:", error.response);
-      console.error(
-        "[ListingService] Error status:",
-        error.status || (error.response && error.response.status),
-      );
+      console.error("[ListingService] Error fetching listing by ID:", {
+        id: listingId,
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data
+      });
 
-      let errorMessage = "Failed to fetch listing";
-      if (error.response && error.response.status === 404) {
-        errorMessage = "Listing not found";
-      } else if (
-        error.response &&
-        error.response.data &&
-        error.response.data.message
-      ) {
-        errorMessage = error.response.data.message;
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
+      const categorized = NetworkErrorHandler.categorizeError(error);
+      let errorMessage = error.response?.data?.message || categorized.userMessage || "Failed to fetch listing";
 
       return {
         success: false,
         listing: null,
         message: errorMessage,
-        error: error.message,
+        error: categorized.type,
       };
     }
   }
@@ -580,42 +504,60 @@ class ListingService {
    * @returns {Promise<Object>} Updated listing
    */
   async updateListing(listingId, updateData) {
-    console.log("[ListingService] Updating listing:", listingId);
+    if (!listingId) {
+      console.error("[ListingService] updateListing: No listingId provided");
+      return { success: false, message: "Listing ID is required" };
+    }
+
+    console.log(`[ListingService] Updating listing: ${listingId}`);
     try {
-      const token = await authService.getToken();
-      if (!token) {
-        return {
-          success: false,
-          message: "Authentication required",
-        };
+      const payload = { ...updateData };
+      
+      // Standardize status for backend enum
+      if (payload.status) {
+        payload.status = sanitizeStatus(payload.status);
       }
 
-      const response = await apiClient.patch(
-        "/v1/listings/update/" + listingId,
-        updateData,
-      );
+      // DIAGNOSTIC LOGGING
+      console.log("[ListingService] Update Payload (Sanitized):", {
+        ...payload,
+        propertyImages: `[${payload.propertyImages?.length || 0} images]`,
+        propertyVideos: `[${payload.propertyVideos?.length || 0} videos]`
+      });
+
+      const endpoint = `/v1/listings/update/${listingId}`;
+      console.log(`[ListingService] PATCH Request (via apiClient): ${endpoint}`);
+
+      // Use apiClient for consistency with convertToDraft and other methods
+      const response = await apiClient.patch(endpoint, payload);
 
       console.log("[ListingService] Listing updated successfully");
       return {
         success: true,
         message: "Listing updated successfully",
-        listing:
-          response && response.listing
-            ? response.listing
-            : response && response.body
-              ? response.body
-              : response && response.data
-                ? response.data
-                : response,
+        listing: response.body || response.data || response
       };
     } catch (error) {
-      console.error("[ListingService] Error updating listing:", error);
+      console.error("[ListingService] Error updating listing:", {
+        id: listingId,
+        status: error.status || error.response?.status,
+        message: error.message || error.response?.message,
+        data: error.response
+      });
 
       const categorized = NetworkErrorHandler.categorizeError(error);
+      let userMessage = error.response?.data?.message || categorized.userMessage || "Failed to update listing";
+      
+      if (error.response?.status === 404) {
+        userMessage = "Listing not found. It may have been deleted or the ID is incorrect.";
+        console.warn(`[ListingService] 404 Detected for ID: ${listingId}. Verify if this is a DRAFT that should be CREATED instead.`);
+      }
+
       return {
         success: false,
-        message: categorized.userMessage || "Failed to update listing",
+        message: userMessage,
         error: categorized.type,
+        details: error.response?.data || error.message
       };
     }
   }
@@ -791,6 +733,7 @@ class ListingService {
    */
   async uploadImages(imageUris) {
     console.log("[ListingService] Uploading images...", imageUris.length);
+    logService.logInfo("Uploading listing images", { count: imageUris.length });
 
     // Handle empty images array
     if (!imageUris || imageUris.length === 0) {
@@ -1171,32 +1114,101 @@ class ListingService {
       const token = await authService.getToken();
       if (!token) return { success: false, message: "Authentication required" };
 
-      // SANITIZE PAYLOAD - Fixes 400 errors due to type mismatches
+      const userData = await authService.getUserData();
+      const hostId = userData?._id || userData?.id;
+
+      // SANITIZE PAYLOAD - Ensure types and field names match backend expectations
+      // First, remove fields that should not coexist with specific structures
+      const {
+        photos,
+        images: uiImages,
+        guestCapacity,
+        propertyHighlight,
+        pricingPeriod: uiPeriod,
+        securityDeposit: uiDeposit,
+        cautionFee: uiCaution,
+        serviceCharge: uiService,
+        legalFee: uiLegal,
+        agencyFee: uiAgency,
+        ...restOfDraft
+      } = draftData;
+
       const payload = {
-        ...draftData,
+        ...restOfDraft,
+        host: hostId || draftData.host,
+        propertyCategory: draftData.category || draftData.propertyCategory || "rental", // Ensure DB alignment
+        draftId: draftData.draftId || String(existingId), // Critical for backend update matching
         isDraft: true,
         status: "DRAFT",
       };
 
-      // Ensure numbers are really Numbers (Fixes 400 "expected number, received string")
-      if (payload.price) payload.price = Number(payload.price) || 0;
-      if (payload.bedrooms) payload.bedrooms = Number(payload.bedrooms) || 0;
-      if (payload.bathrooms) payload.bathrooms = Number(payload.bathrooms) || 0;
-      if (payload.guests) payload.guests = Number(payload.guests) || 0;
+      // 1. Map Media Fields (Model expects propertyImages/propertyVideos)
+      payload.propertyImages = photos || uiImages || draftData.propertyImages || [];
+      payload.propertyVideos = draftData.video || draftData.propertyVideos || [];
 
-      // Normalize string enums
-      if (payload.intent) {
-        payload.intent = String(payload.intent).toUpperCase();
-      }
+      // 2. Map Core Property Details
+      if (guestCapacity) payload.guests = Number(guestCapacity);
+      if (propertyHighlight) payload.description = propertyHighlight;
 
-      // Ensure houseRules is a string
-      if (payload.houseRules && typeof payload.houseRules === "object") {
+      // 3. Map/Align Pricing Structure
+      const priceVal = Number(draftData.price) || 0;
+      const periodVal = uiPeriod || draftData.pricingPeriod || "night";
+      
+      payload.price = priceVal;
+      payload.pricingPeriod = periodVal;
+      
+      // Ensure propertyPrice object exists for model compatibility
+      payload.propertyPrice = {
+        price: priceVal,
+        currency: draftData.currency || "NGN",
+        frequency: `per ${periodVal.replace(/^per\s+/, "")}`, // "night" -> "per night"
+      };
+
+      // 4. Map Admin/Governance Fees
+      payload.cautionFee = Number(uiCaution || uiDeposit || draftData.cautionFee || draftData.securityDeposit || 0);
+      payload.serviceCharge = Number(uiService || draftData.serviceCharge || 0);
+      
+      // Ensure flat fields are valid numbers or null (don't send NaN)
+      const toNum = (val) => {
+          if (val === undefined || val === null || val === "") return 0;
+          const n = Number(val);
+          return isNaN(n) ? 0 : n;
+      };
+
+      payload.price = toNum(payload.price);
+      payload.bedrooms = toNum(payload.bedrooms);
+      payload.bathrooms = toNum(payload.bathrooms);
+      payload.guests = toNum(payload.guests || guestCapacity);
+      payload.cautionFee = toNum(payload.cautionFee);
+      payload.serviceCharge = toNum(payload.serviceCharge);
+
+      ARRAY_FIELDS.forEach(field => {
+        if (payload[field] && typeof payload[field] === "string") {
+          try {
+            payload[field] = JSON.parse(payload[field]);
+          } catch (e) {
+            // If it's a comma-separated string, convert or leave as-is
+            if (payload[field]?.includes && payload[field].includes(",")) {
+              payload[field] = payload[field].split(",").map(s => String(s).trim());
+            }
+          }
+        }
+      });
+
+      // Special case for houseRules - some frontends send as array, backend might expect string
+      if (Array.isArray(payload.houseRules)) {
+        payload.houseRules = payload.houseRules.join("\n");
+      } else if (payload.houseRules && typeof payload.houseRules === "object") {
         payload.houseRules = JSON.stringify(payload.houseRules, null, 2);
       }
 
       // If we have an existing ID, but it's a local temporary one, remove it for POST
-      const existingId = draftData._id;
-      const isTemporaryId = existingId && (existingId.toString().startsWith("draft_") || existingId.toString().startsWith("edit_"));
+      const existingId = draftData._id || draftData.id;
+      const isTemporaryId = existingId && (
+        String(existingId).startsWith("draft_") || 
+        String(existingId).startsWith("edit_") ||
+        String(existingId).startsWith("remote_")
+      );
 
       let response;
       if (existingId && !isTemporaryId) {
@@ -1208,8 +1220,13 @@ class ListingService {
         );
       } else {
         console.log("[ListingService] Creating brand new draft via POST");
-        // Remove temp ID if present so server creates a real one
-        if (isTemporaryId) delete payload._id;
+        // IMPORTANT: Remove temporary string IDs (e.g. "draft_123...") 
+        // to prevent CastError: ObjectId failed on the server
+        if (isTemporaryId) {
+          delete payload._id;
+          delete payload.id;
+          console.log("[ListingService] Stripped temporary IDs from payload:", existingId);
+        }
         
         response = await apiClient.post(
           "/v1/listings/create",
@@ -1226,7 +1243,24 @@ class ListingService {
       };
     } catch (error) {
       console.error("[ListingService] Error saving draft to database:", error);
-      return { success: false, message: error.message };
+      
+      // Extract specific backend message if available
+      let errorMsg = error.response?.message || 
+                     (error.response?.errors ? (Array.isArray(error.response.errors) ? error.response.errors.join(", ") : JSON.stringify(error.response.errors)) : null) ||
+                     error.message || 
+                     "Unknown server error";
+      
+      // Specifically catch Permission or Validation errors for clear feedback
+      if (error.status === 403 || error.status === 401) {
+        throw new Error("Authentication/Permission Error: " + errorMsg);
+      } else if (error.status === 400 || error.name === "ValidationError") {
+          throw new Error("Validation Error: " + errorMsg);
+      }
+      if (error.status === 403) {
+          errorMsg = "Unauthorized: Only users with Host privileges can save drafts. Please ensure your account is a Host.";
+      }
+                       
+      return { success: false, message: errorMsg };
     }
   }
 

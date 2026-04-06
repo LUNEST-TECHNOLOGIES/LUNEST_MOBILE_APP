@@ -350,7 +350,16 @@ const ListingPreview = () => {
               {isHost ? "Your Listing" : "Property Details"}
             </Text>
           </View>
-          <Pressable style={styles.closeButton} onPress={() => router.back()}>
+          <Pressable 
+            style={styles.closeButton} 
+            onPress={() => {
+              if (router.canGoBack()) {
+                router.back();
+              } else {
+                router.replace(isHost ? "/(host-tabs)/listings" : "/(tabs)");
+              }
+            }}
+          >
             <Text style={styles.closeButtonText}>✕</Text>
           </Pressable>
         </View>
@@ -371,7 +380,16 @@ const ListingPreview = () => {
           </Text>
           {isHost && <StatusBadge status={listingData.status} />}
         </View>
-        <Pressable style={styles.closeButton} onPress={() => router.back()}>
+        <Pressable 
+          style={styles.closeButton} 
+          onPress={() => {
+            if (router.canGoBack()) {
+              router.back();
+            } else {
+              router.replace(isHost ? "/(host-tabs)/listings" : "/(tabs)");
+            }
+          }}
+        >
           <Text style={styles.closeButtonText}>✕</Text>
         </Pressable>
       </View>
@@ -730,7 +748,13 @@ const ListingPreview = () => {
           <>
             <Pressable
               style={[styles.button, styles.secondaryButton]}
-              onPress={() => router.back()}
+              onPress={() => {
+                if (router.canGoBack()) {
+                  router.back();
+                } else {
+                  router.replace(isHost ? "/(host-tabs)/listings" : "/(tabs)");
+                }
+              }}
             >
               <Text style={[styles.buttonText, styles.secondaryButtonText]}>
                 Back
@@ -749,7 +773,13 @@ const ListingPreview = () => {
           <>
             <Pressable
               style={[styles.button, styles.secondaryButton]}
-              onPress={() => router.back()}
+              onPress={() => {
+                if (router.canGoBack()) {
+                  router.back();
+                } else {
+                  router.replace(isHost ? "/(host-tabs)/listings" : "/(tabs)");
+                }
+              }}
             >
               <Text style={[styles.buttonText, styles.secondaryButtonText]}>
                 Back

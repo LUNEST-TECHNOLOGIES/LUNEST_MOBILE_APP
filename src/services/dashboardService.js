@@ -212,6 +212,8 @@ class DashboardService {
           totalBookings,
           totalListings,
           upcomingBookings,
+          hostRating: stats.hostRating || 0,
+          hostRatingCount: stats.hostRatingCount || 0,
           newMessages: 0, // TODO: Implement message count
           bookingsData: weeklyBookingsData,
           earningsData: weeklyEarningsData,

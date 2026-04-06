@@ -296,7 +296,14 @@ const HostBookingConfirmationScreen = () => {
             <Text style={styles.bookingDetails}>Booking Details</Text>
             <Pressable
               style={styles.wrapper}
-              onPress={() => navigation.goBack()}
+            onPress={() => {
+              if (navigation.canGoBack()) {
+                navigation.goBack();
+              } else {
+                // Fallback to host tabs if we can't go back
+                navigation.navigate("(host-tabs)");
+              }
+            }}
             >
               <Text style={{ fontSize: 18 }}>{"< Back"}</Text>
             </Pressable>

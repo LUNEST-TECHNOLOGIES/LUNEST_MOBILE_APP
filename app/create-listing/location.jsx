@@ -265,8 +265,7 @@ const Location = () => {
 
   // Geocode an address string using Google Geocoding API
   const geocodeAddress = useCallback(async (query) => {
-    if (!query || query.trim().length < 5) return;
-    const apiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
+    const apiKey = APP_CONFIG.GOOGLE_MAPS_API_KEY;
     if (!apiKey) return;
     try {
       // Build a comprehensive query string
@@ -309,12 +308,13 @@ const Location = () => {
     };
   }, [address, geocodeAddress]);
 
-  // Sync address text to GooglePlacesAutocomplete ref if it changes externally
+  // Sync address text to GooglePlacesAutocomplete ref if it changes externally (e.g. from draft)
   useEffect(() => {
     if (googlePlacesRef.current && address) {
-       // Only update if the text is actually different to avoid focus loops
-       if (googlePlacesRef.current.getAddressText() !== address) {
-         googlePlacesRef.current.setAddressText(address);
+       const currentText = googlePlacesRef.current.getAddressText();
+       // Only update if the text is actually different and NOT being typed
+       if (currentText !== address && !Keyboard.isVisible()) {
+          googlePlacesRef.current.setAddressText(address);
        }
     }
   }, [address]);
@@ -584,16 +584,12 @@ const Location = () => {
                   query={{
                     key: APP_CONFIG.GOOGLE_MAPS_API_KEY,
                     language: "en",
-                    components:
-                      country === "Nigeria" ? "country:ng" : undefined,
+                    components: country === "Nigeria" ? "country:ng" : undefined,
                   }}
+                  nearbyPlacesAPI="GooglePlacesSearch"
+                  onFail={(error) => console.log('GooglePlaces Error: ', error)}
                   textInputProps={{
                     placeholderTextColor: "#999999",
-                    value: address,
-                    onChangeText: (text) => {
-                      setAddress(text);
-                      updateLocation({ address: text });
-                    },
                     style: styles.googlePlacesInput,
                     selectionColor: "#010135",
                     multiline: false,
@@ -625,8 +621,9 @@ const Location = () => {
                       flex: 0,
                       width: '100%',
                       marginTop: 8,
-                      zIndex: 9000,
-                      position: 'relative'
+                      zIndex: 9999,
+                      position: 'relative',
+                      elevation: 5,
                     },
                     textInputContainer: {
                       padding: 0,
@@ -656,19 +653,19 @@ const Location = () => {
                       borderBottomLeftRadius: 12,
                       borderBottomRightRadius: 12,
                       marginTop: -1,
-                      elevation: 8,
+                      elevation: 10,       // Higher elevation for Android
                       position: "absolute",
                       top: 50,
                       left: 0,
                       right: 0,
                       width: "100%",
-                      zIndex: 10000,
-                      maxHeight: 320,
+                      zIndex: 9999,        // Extreme zIndex for Android compatibility
+                      maxHeight: 280,
                       shadowColor: "#000",
                       shadowOffset: { width: 0, height: 4 },
                       shadowOpacity: 0.15,
                       shadowRadius: 8,
-                      overflow: "hidden",
+                      overflow: "visible", // Support overlapping content
                     },
                     row: {
                       paddingVertical: 12,
@@ -1055,7 +1052,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     paddingHorizontal: 20,
     paddingTop: 20,
-    paddingBottom: Platform.OS === "android" ? 30 : 20,
+    paddingBottom: Platform.OS === "android" ? 48 : 20,
     gap: 20,
     backgroundColor: "#FFFFFF",
   },
@@ -1243,12 +1240,12 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   googlePlacesInput: {
-    height: 50,
+    height: 44,
     borderRadius: 12,
     borderWidth: 1.5,
     borderColor: "#E5E5E5",
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 8,
     fontSize: 14,
     color: "#000000",
     backgroundColor: "#FAFAFA",
@@ -1257,9 +1254,9 @@ const styles = StyleSheet.create({
   suggestionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 8,
     paddingHorizontal: 16,
-    minHeight: 56,
+    minHeight: 46,
     gap: 12,
     borderBottomWidth: 1,
     borderBottomColor: "#F0F0F0",
@@ -1270,16 +1267,16 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   suggestionMainText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '500',
     color: "#000000",
-    lineHeight: 18,
+    lineHeight: 16,
   },
   suggestionSecondaryText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '400',
     color: "#666666",
-    lineHeight: 16,
+    lineHeight: 14,
   },
 });
 

@@ -47,8 +47,10 @@ export default function HostTabLayout() {
         }}
       >
         <Tabs.Screen name="index" options={{ title: "Dashboard" }} />
+        <Tabs.Screen name="bookings" options={{ title: "Bookings" }} />
         <Tabs.Screen name="listings" options={{ title: "Listings" }} />
         <Tabs.Screen name="calendar" options={{ title: "Calendar" }} />
+        <Tabs.Screen name="messages" options={{ title: "Messages" }} />
         <Tabs.Screen name="earnings" options={{ title: "Earnings" }} />
         <Tabs.Screen name="profile" options={{ title: "Profile" }} />
       </Tabs>

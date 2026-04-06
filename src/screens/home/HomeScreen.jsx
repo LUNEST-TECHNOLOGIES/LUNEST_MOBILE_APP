@@ -1,18 +1,19 @@
 import { useFocusEffect } from "@react-navigation/native";
+import { FlashList } from "@shopify/flash-list";
+import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FlashList } from "@shopify/flash-list";
 import {
+  ActivityIndicator,
   RefreshControl,
   StyleSheet,
-  Text,
   useWindowDimensions,
-  View,
-  Platform,
+  View
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Toast from "../../components/common/Toast";
 import EmptyState from "../../components/common/EmptyState";
+import ListingSkeleton from "../../components/common/ListingSkeleton";
+import Toast from "../../components/common/Toast";
 import HomeHeader from "../../components/home/HomeHeader";
 import NotificationAlert from "../../components/home/NotificationAlert";
 import ProfileSetupBanner from "../../components/home/ProfileSetupBanner";
@@ -22,8 +23,7 @@ import TopPicksSection from "../../components/home/TopPicksSection";
 import FilterModal from "../../components/modals/FilterModal";
 import { CategorySlider } from "../../components/shared";
 import PropertyListingCard from "../../components/shared/PropertyListingCard";
-import useCachedFetch from "../../hooks/useCachedFetch";
-import { useProgressiveLoading } from "../../hooks/useDelayedLoading";
+import { usePremiumUI } from "../../hooks/usePremiumUI";
 import authService from "../../services/authService";
 import bookmarkService from "../../services/bookmarkService";
 import configService from "../../services/configService";
@@ -60,51 +60,40 @@ const HomeScreen = () => {
   const { height: screenHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const queryClient = useQueryClient();
+  const { triggerHaptic } = usePremiumUI();
+  const lastNotificationFetchTimeRef = useRef(0);
+  const NOTIF_COOLDOWN = 60000; // 1 minute
 
-  // ── Cached explore listings (stale-while-revalidate) ──
+  // ── Infinite Explore Listings (React Query) ──
   const {
-    data: exploreListings,
-    loading: loadingExplore,
-    refreshing,
-    onRefresh: onCachedRefresh,
-  } = useCachedFetch(
-    "home:exploreListings",
-    fetchExploreListingsRaw, // raw fetcher defined below
-    { revalidateOnFocus: false, staleTTL: 5 * 60_000 }, // 5 minutes, no focus revalidation
-  );
+    data: explorePages,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading: loadingExplore,
+    isRefetching: refreshing,
+    refetch: onRefresh,
+  } = useInfiniteQuery({
+    queryKey: ["exploreListings", activeCategory],
+    queryFn: ({ pageParam = 1 }) => fetchExploreListingsRaw(pageParam),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage, allPages) => {
+      // Backend returns empty array if no more listings
+      return lastPage.length === 10 ? allPages.length + 1 : undefined;
+    },
+    staleTime: 5 * 60_000, // 5 minutes
+  });
 
-  // Ensure exploreListings is always an array
-  const safeExploreListings = exploreListings || [];
+  // Flatten pages into a single array for FlashList
+  const safeExploreListings = useMemo(() => {
+    return explorePages?.pages.flatMap((page) => page) || [];
+  }, [explorePages]);
 
-  // Progressive loading: delay skeleton on first load ONLY, never during refresh
-  const { showSkeleton, isRefreshing } = useProgressiveLoading(
-    safeExploreListings,
-    loadingExplore,
-    { skeletonDelay: 300 }
-  );
-  
-  // Never show skeleton if we already have data (prevents flicker during refresh)
-  const shouldShowSkeleton = showSkeleton && safeExploreListings.length === 0;
+  // Handle category filtering locally if needed, but we prefer server-side
+  const filteredListings = safeExploreListings;
 
-
-
-  // Filter listings by active category
-  const filteredListings = useMemo(() => {
-    if (!activeCategory || activeCategory === "all") {
-      return safeExploreListings;
-    }
-    return safeExploreListings.filter((listing) => {
-      const listingType =
-        listing.propertyType?.toLowerCase().replace(/\s+/g, "-") || "";
-      const categoryKey = activeCategory.toLowerCase();
-      if (categoryKey === "others") {
-        return (
-          !listingType || listingType === "other" || listingType === "others"
-        );
-      }
-      return listingType === categoryKey;
-    });
-  }, [safeExploreListings, activeCategory]);
+  const shouldShowSkeleton = loadingExplore && safeExploreListings.length === 0;
 
   // Check notification alert on mount (device-wide, not user-specific)
   useEffect(() => {
@@ -138,7 +127,12 @@ const HomeScreen = () => {
   );
 
   // Fetch notification count
-  const fetchNotificationCount = async () => {
+  const fetchNotificationCount = async (force = false) => {
+    const now = Date.now();
+    if (!force && now - lastNotificationFetchTimeRef.current < NOTIF_COOLDOWN) {
+      return;
+    }
+    
     try {
       // Import notification service dynamically to avoid circular deps
       const notificationService = (
@@ -146,6 +140,7 @@ const HomeScreen = () => {
       ).default;
       const count = await notificationService.getUnreadCount("GUEST");
       setNotificationCount(count);
+      lastNotificationFetchTimeRef.current = Date.now();
     } catch (error) {
       console.log("[HomeScreen] Error fetching notification count:", error);
     }
@@ -363,52 +358,32 @@ const HomeScreen = () => {
 
         // Limit to 5 listings for top picks
         const topPicks = listingsWithDistance.slice(0, 5).map((listing) => {
-          // Get the first image URL from propertyImages
-          let imageUrl = null;
-          if (listing.propertyImages && listing.propertyImages.length > 0) {
-            imageUrl = ImageUtils.resolveImageUrlSync(
-              listing.propertyImages[0],
-              baseURL,
-            );
-          }
+          const firstImg = (listing.propertyImages || listing.images || [])[0];
+          let imageUrl = firstImg ? (typeof firstImg === "object" ? firstImg.url || firstImg.uri : firstImg) : null;
+          if (imageUrl && !imageUrl.startsWith("http")) imageUrl = `${baseURL}${imageUrl}`;
 
           return {
             id: listing._id || listing.id,
-            title: listing.propertyName || "Property",
-            location: (() => {
-              // Get city and state from various possible locations
-              const city = listing.city || listing.propertyLocation?.city;
-              const state = listing.state || listing.propertyLocation?.state;
-              
-              // Build location string prioritizing city and state
-              if (city && state) {
-                return `${city}, ${state}`;
-              } else if (city) {
-                return city;
-              } else if (state) {
-                return state;
-              } else {
-                // Fallback to other location fields
-                const locationParts = [
-                  listing.address?.city,
-                  listing.address?.state,
-                  listing.propertyLocation?.fullAddress,
-                  listing.address,
-                ].filter(Boolean);
-
-                const uniqueParts = [...new Set(locationParts)];
-                return uniqueParts.slice(0, 2).join(", ") || "Nigeria";
-              }
+            _id: listing._id || listing.id,
+            image: imageUrl, // Pass pre-resolved image URL or path
+            title: listing.propertyName || listing.propertyTitle || "Property",
+            location: listing.city && listing.state ? `${listing.city}, ${listing.state}` : (listing.location || listing.propertyLocation?.name || "Nigeria"),
+            currencySymbol: (() => {
+              const curr = listing.propertyPrice?.currency || listing.currency || "NGN";
+              if (curr === "NGN" || curr === "naira") return "₦";
+              if (curr === "USD" || curr === "usd") return "$";
+              return "₦";
             })(),
+            pricingPeriod: listing.pricingPeriod || listing.propertyPrice?.pricingPeriod || "night",
             price: listing.price || listing.propertyPrice?.price || 0,
-            image: imageUrl, // Single image URL for PropertyCard
             rating: listing.averageRating || listing.rating || null,
-            bedrooms: listing.bedrooms,
-            bathrooms: listing.bathrooms,
+            bedrooms: listing.bedrooms || 0,
+            bathrooms: listing.bathrooms || 0,
             amenities: listing.amenities || [],
-            status: listing.status, // Pass the status for "Booked" badge
-            bookedUntil: listing.bookedUntil || null, // When the current booking ends
-            distance: listing.distance, // Include distance for debugging
+            propertyLocation: listing.propertyLocation,
+            propertyType: listing.propertyType,
+            host: listing.host || {},
+            listingData: listing,
           };
         });
         setTopPicksListings(topPicks);
@@ -574,39 +549,62 @@ const HomeScreen = () => {
       navigationTimeoutRef.current = null;
     }, 300);
     
-    console.log("[HomeScreen] Navigating to property details:", listingId);
+    console.log("[HomeScreen] Prefetching & Navigating to property details:", listingId);
+    
+    // Prefetch for ultra-snappy navigation
+    queryClient.prefetchQuery({
+      queryKey: ["listing", listingId],
+      queryFn: async () => {
+        const result = await listingService.fetchListingById(listingId);
+        if (result && result.success) return result.listing || result.body;
+        if (result && result._id) return result;
+        throw new Error("Failed to prefetch");
+      },
+      staleTime: 10 * 60_000,
+    });
+
     router.push({
       pathname: "/property-details",
       params: { listingId },
     });
-  }, [router]);
+  }, [router, queryClient]);
 
   const bottomNavHeight = screenHeight < 700 ? 70 : 85;
   const bottomPadding = bottomNavHeight + Math.max(insets.bottom, 10);
 
   // Pull to refresh — delegates explore listings to the cached hook
-  const onRefresh = useCallback(async () => {
+  const handleRefresh = useCallback(async () => {
     fetchUserLocation(true);
-    fetchNotificationCount();
-    await onCachedRefresh(); // this forces a fresh fetch + sets refreshing
-  }, [onCachedRefresh]);
+    fetchNotificationCount(true);
+    await onRefresh();
+  }, [onRefresh]);
 
   /**
-   * Raw fetcher for explore listings — used by useCachedFetch.
-   * Returns the transformed array (the hook manages the state).
+   * Raw fetcher for explore listings — used by useInfiniteQuery.
+   * Returns the transformed array for a specific page.
    */
-  async function fetchExploreListingsRaw() {
-    console.log("[HomeScreen] Fetching explore listings...");
+  async function fetchExploreListingsRaw(page = 1) {
+    console.log(`[HomeScreen] Fetching explore listings (Page: ${page}, Category: ${activeCategory})`);
     const baseURL = await configService.getBaseURL();
 
     const convertImageUrl = (image) => {
       return ImageUtils.resolveImageUrlSync(image, baseURL);
     };
 
-    const result = await listingService.fetchAllListings({});
+    // Prepare filters based on category
+    const filters = {};
+    if (activeCategory && activeCategory !== "all") {
+      filters.propertyType = activeCategory;
+    }
 
-    if (result.success && result.listings && result.listings.length > 0) {
-      const transformedListings = result.listings.map((listing) => {
+    const listings = await listingService.fetchPaginatedListings({
+      page,
+      limit: 10,
+      ...filters
+    });
+
+    if (listings && listings.length > 0) {
+      const transformedListings = listings.map((listing) => {
         let processedImages = [];
         if (listing.propertyImages && listing.propertyImages.length > 0) {
           processedImages = listing.propertyImages
@@ -661,6 +659,7 @@ const HomeScreen = () => {
 
         return {
           id: listing._id || listing.id,
+          _id: listing._id || listing.id,
           images:
             combinedMedia.length > 0
               ? combinedMedia
@@ -691,6 +690,9 @@ const HomeScreen = () => {
           bathrooms: listing.bathrooms,
           guests: listing.guests,
           description: listing.description,
+          latitude: listing.propertyLocation?.latitude || listing.latitude,
+          longitude: listing.propertyLocation?.longitude || listing.longitude,
+          propertyLocation: listing.propertyLocation,
           listingData: listing,
         };
       });
@@ -979,6 +981,15 @@ const HomeScreen = () => {
 
       {/* Explore Now Section Header */}
       <SectionHeader title="Explore now" icon="compass" showSeeAll={false} />
+      
+      {/* Initial load skeletons */}
+      {shouldShowSkeleton && (
+        <View style={{ paddingHorizontal: 0 }}>
+          <ListingSkeleton />
+          <ListingSkeleton />
+          <ListingSkeleton />
+        </View>
+      )}
     </>
   );
 
@@ -1071,29 +1082,24 @@ const HomeScreen = () => {
         renderItem={renderItem}
         ListHeaderComponent={renderScrollableContent}
         ListEmptyComponent={
-          shouldShowSkeleton ? (
-            // Show improved skeleton loading on first load only (delayed 300ms)
-            <>
-              <PropertyListingCardSkeleton />
-              <PropertyListingCardSkeleton />
-              <PropertyListingCardSkeleton />
-            </>
-          ) : filteredListings.length === 0 && safeExploreListings.length > 0 ? (
-            // No listings for this category
-            <EmptyState 
-              title="Category Empty"
-              message={`We don't have any ${activeCategory.replace(/-/g, " ")} properties right now. Check back soon!`}
-              buttonTitle="View All Categories"
-              onPress={() => setActiveCategory('all')}
-            />
-          ) : (
-            <EmptyState 
-              title="No Listings Near You"
-              message="Your current location didn't return any nearby properties. Search for a different area to find a place."
-              buttonTitle="Change Location"
-              onPress={handleLocationPress}
-            />
-          )
+          !shouldShowSkeleton && filteredListings.length === 0 ? (
+             filteredListings.length === 0 && safeExploreListings.length > 0 ? (
+               // No listings for this category
+               <EmptyState 
+                 title="Category Empty"
+                 message={`We don't have any ${activeCategory.replace(/-/g, " ")} properties right now. Check back soon!`}
+                 buttonTitle="View All Categories"
+                 onPress={() => setActiveCategory('all')}
+               />
+             ) : (
+               <EmptyState 
+                 title="No Listings Near You"
+                 message="Your current location didn't return any nearby properties. Search for a different area to find a place."
+                 buttonTitle="Change Location"
+                 onPress={handleLocationPress}
+               />
+             )
+          ) : null
         }
         contentContainerStyle={[
           styles.scrollContent,
@@ -1103,11 +1109,24 @@ const HomeScreen = () => {
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={onRefresh}
+            onRefresh={handleRefresh}
             colors={["#010135"]}
             tintColor="#010135"
           />
         }
+        onEndReached={() => {
+          if (hasNextPage && !isFetchingNextPage) {
+            fetchNextPage();
+          }
+        }}
+        onEndReachedThreshold={0.5}
+        ListFooterComponent={() => (
+          isFetchingNextPage ? (
+            <View style={{ paddingVertical: 20 }}>
+              <ActivityIndicator size="small" color="#010135" />
+            </View>
+          ) : null
+        )}
       />
       </View>
 

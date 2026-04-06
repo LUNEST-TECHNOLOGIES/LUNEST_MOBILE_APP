@@ -16,6 +16,8 @@
 import { Image as ExpoImage } from "expo-image";
 import { Alert, Platform } from "react-native";
 import { Image as ImageCompressor } from "react-native-compressor";
+import { SECURE_KEYS, STORAGE_KEYS } from "../constants/storageKeys";
+import * as ImageUtils from "../utils/imageUtils";
 import inactivityTimeoutService from "./inactivityTimeoutService";
 import NetworkErrorHandler from "./networkErrorHandler";
 import profileService from "./profileService";
@@ -43,20 +45,7 @@ const getDefaultBaseURL = () => {
 const API_BASE_URL = getDefaultBaseURL();
 console.log("[AuthService] Module load - API_BASE_URL:", API_BASE_URL);
 
-// Secure storage keys
-const SECURE_KEYS = {
-  AUTH_TOKEN: "auth_token_secure",
-  REFRESH_TOKEN: "refresh_token_secure",
-  TOKEN_EXPIRY: "token_expiry",
-  SESSION_ID: "session_id",
-};
-
-// Regular storage keys (non-sensitive)
-const STORAGE_KEYS = {
-  USER_DATA: "userData",
-  LAST_LOGIN: "lastLogin",
-  LOGIN_ATTEMPTS: "loginAttempts",
-};
+// Storage keys are now imported from ../constants/storageKeys.js
 
 // Security constants
 const SECURITY_CONFIG = {
@@ -441,7 +430,17 @@ class AuthService {
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         console.log("❌ Error response data:", errorData);
-        const error = new Error(errorData.message || `HTTP ${response.status}`);
+        let errorMessage = errorData.message || errorData.error || errorData.msg || `HTTP ${response.status}`;
+        if (Array.isArray(errorData.errors) && errorData.errors.length > 0) {
+          const detailMessages = errorData.errors.map(err => {
+            if (typeof err === "string") return err;
+            const pathPrefix = err.path ? (Array.isArray(err.path) ? (Array.isArray(err.path) ? err.path.join(".") : err.path) : err.path) + ": " : "";
+            return `${pathPrefix}${err.message || err.msg || JSON.stringify(err)}`;
+          }).join(", ");
+          errorMessage = `Validation Error: ${detailMessages}`;
+        }
+
+        const error = new Error(errorMessage);
         error.status = response.status;
         error.data = errorData;
         throw error;
@@ -530,7 +529,7 @@ class AuthService {
         fullName,
         emailAddress: email,
         password,
-        gender: (userData.gender && userData.gender.toUpperCase()) || "OTHERS",
+        gender: (userData.gender && userData.gender.toString().toUpperCase()) || "OTHERS",
         isMarketingSubscribed: userData.isMarketingSubscribed || false,
         referralCode: userData.referralCode,
       };
@@ -660,20 +659,7 @@ class AuthService {
         await storageService.setItem(STORAGE_KEYS.USER_DATA, safeUserData);
 
         // Sync avatar with profile service for BottomNav
-        let avatarUrl = user.avatar || null;
-        if (
-          avatarUrl &&
-          !avatarUrl.startsWith("http") &&
-          !avatarUrl.startsWith("file")
-        ) {
-          // Remove trailing slash from base URL if present to avoid double slashes
-          const baseUrl = this.baseURL.replace(/\/$/, "");
-          // Remove leading slash from avatar URL if present
-          const cleanAvatarPath = avatarUrl.startsWith("/")
-            ? avatarUrl
-            : `/${avatarUrl}`;
-          avatarUrl = `${baseUrl}${cleanAvatarPath}`;
-        }
+        const avatarUrl = ImageUtils.resolveImageUrlSync(user.avatar, this.baseURL);
 
         // Prefetch avatar for better performance
         if (avatarUrl) {
@@ -1117,8 +1103,19 @@ class AuthService {
         return false;
       } catch (error) {
         console.error("Token refresh failed:", error);
-        // If refresh fails with auth error, clear auth state and require re-login
+        
+        // If refresh fails with 401 (Unauthorized/User not found), 
+        // we must clear all auth state and user data to force a re-login
+        // and prevent the app from being stuck in a broken authenticated state
         await this._clearTokens();
+        try {
+          // Also clear user data to ensure UI updates and redirects to login
+          await storageService.removeItem(STORAGE_KEYS.USER_DATA);
+          console.log("[AuthService] Auth state and user data cleared due to refresh failure");
+        } catch (storageError) {
+          console.error("[AuthService] Failed to clear user data during refresh failure:", storageError);
+        }
+        
         return false;
       } finally {
         this._tokenRefreshPromise = null;
@@ -1126,17 +1123,6 @@ class AuthService {
     })();
 
     return this._tokenRefreshPromise;
-  }
-
-  /**
-   * Get stored user data
-   */
-  async getUserData() {
-    return await getUserDataShared();
-  }
-
-  async setUserData(userData) {
-    return await setUserDataShared(userData);
   }
 
   /**
@@ -1194,7 +1180,13 @@ class AuthService {
     try {
       const token = await this.getToken();
       if (!token) {
-        throw new Error("Not authenticated");
+        console.warn("[AuthService] fetchProfile: No token available, user not authenticated");
+        return {
+          success: false,
+          message: "Not authenticated",
+          data: null,
+          requiresAuth: true,
+        };
       }
 
       const response = await this._secureRequest(
@@ -1212,18 +1204,7 @@ class AuthService {
         await this.setUserData(response.body);
 
         // Sync avatar with profile service for BottomNav
-        let avatarUrl = response.body.avatar || null;
-        if (
-          avatarUrl &&
-          !avatarUrl.startsWith("http") &&
-          !avatarUrl.startsWith("file")
-        ) {
-          const baseUrl = this.baseURL.replace(/\/$/, "");
-          const cleanAvatarPath = avatarUrl.startsWith("/")
-            ? avatarUrl
-            : `/${avatarUrl}`;
-          avatarUrl = `${baseUrl}${cleanAvatarPath}`;
-        }
+        const avatarUrl = ImageUtils.resolveImageUrlSync(response.body.avatar, this.baseURL);
         await profileService.updateAvatar(avatarUrl);
       }
 
@@ -1232,7 +1213,12 @@ class AuthService {
         data: response.body,
       };
     } catch (error) {
-      console.error("Error fetching profile:", error);
+      // Don't log a full error for "Not authenticated" as it's an expected state for guests
+      if (error.message === "Not authenticated" || error.status === 401) {
+        console.warn("[AuthService] fetchProfile: User is not authenticated");
+      } else {
+        console.error("Error fetching profile:", error);
+      }
       return {
         success: false,
         message: error.message || "Failed to fetch profile",
@@ -1284,18 +1270,7 @@ class AuthService {
         await this.setUserData(response.body);
 
         // Sync avatar with profile service if updated
-        let avatarUrl = response.body.avatar || null;
-        if (
-          avatarUrl &&
-          !avatarUrl.startsWith("http") &&
-          !avatarUrl.startsWith("file")
-        ) {
-          const baseUrl = this.baseURL.replace(/\/$/, "");
-          const cleanAvatarPath = avatarUrl.startsWith("/")
-            ? avatarUrl
-            : `/${avatarUrl}`;
-          avatarUrl = `${baseUrl}${cleanAvatarPath}`;
-        }
+        const avatarUrl = ImageUtils.resolveImageUrlSync(response.body.avatar, this.baseURL);
         if (avatarUrl !== null || response.body.hasOwnProperty("avatar")) {
           await profileService.updateAvatar(avatarUrl);
         }

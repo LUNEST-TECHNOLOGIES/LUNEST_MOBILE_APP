@@ -481,15 +481,15 @@ const SignupScreen = ({ onBack, onLogin, onSignupSuccess }) => {
             )}
           </TouchableOpacity>
 
-          {/* Divider */}
-          <View style={styles.dividerContainer}>
+          {/* Divider Hidden for Now */}
+          {/* <View style={styles.dividerContainer}>
             <View style={styles.dividerLine} />
             <Text style={styles.dividerText}>or continue with</Text>
             <View style={styles.dividerLine} />
-          </View>
+          </View> */}
 
-          {/* Social Login Buttons */}
-          <View style={styles.socialContainer}>
+          {/* Social Login Buttons Hidden for Now */}
+          {/* <View style={styles.socialContainer}>
             <TouchableOpacity
               style={[styles.socialButton, styles.socialButtonFirst]}
               activeOpacity={0.8}
@@ -502,7 +502,7 @@ const SignupScreen = ({ onBack, onLogin, onSignupSuccess }) => {
             >
               <AppleIcon size={24} color="#000000" />
             </TouchableOpacity>
-          </View>
+          </View> */}
 
           {/* Login Link */}
           <View style={styles.loginContainer}>

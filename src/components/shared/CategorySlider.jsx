@@ -74,21 +74,27 @@ const CategorySlider = ({ activeCategory = "all", onCategoryPress, availableList
   const isMediumScreen = width >= 375 && width < 414;
 
   // Filter categories to only show those with listings available
+  // MODIFIED: Ensure we always show at least a core set of categories to prevent "Empty UI" look
   const filteredCategories = useMemo(() => {
-    if (!availableListings || availableListings.length === 0) {
-      // Fallback: show first few if no data or loading
-      return CATEGORIES.slice(0, 8); 
+    // If no listings or very few, show all categories to keep UI "populated"
+    if (!availableListings || availableListings.length < 5) {
+      return CATEGORIES; 
     }
     
+    // Create a set of available types from the listings
+    const availableTypes = new Set(
+      availableListings.map(listing => 
+        (listing.propertyType || "").toLowerCase().replace(/\s+/g, '-').trim()
+      )
+    );
+
     return CATEGORIES.filter(category => {
       // Always show 'All'
       if (category.key === "all") return true;
       
-      // Match category against propertyType in available listings
-      return availableListings.some(listing => {
-        const listingType = (listing.propertyType || "").toLowerCase().replace(/\s+/g, '-');
-        return listingType === category.key.toLowerCase();
-      });
+      // Show if listings exist for this category OR if it's one of the primary types
+      const primaryTypes = ["apartment", "shortlet", "purchase", "luxury", "duplex"];
+      return availableTypes.has(category.key.toLowerCase()) || primaryTypes.includes(category.key.toLowerCase());
     });
   }, [availableListings]);
 

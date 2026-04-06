@@ -9,11 +9,13 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -23,6 +25,12 @@ import SubmitConfirmationModal from "../../src/components/create-listing/SubmitC
 import { useDraftListing } from "../../src/hooks/useDraftListing";
 import draftListingService from "../../src/services/draftListingService";
 import listingService from "../../src/services/listingService";
+import { fetchHostData, getHostAvatarUrl } from "../../src/services/hostService";
+import authService from "../../src/services/authService";
+import toastService from "../../src/services/toastService";
+import { Ionicons } from "@expo/vector-icons";
+// Use distinct name to avoid collision with local StarIcon component
+import StarIconSvg from "../../src/assets/icons/star.svg";
 
 // Close X Icon - with explicit dimensions for web
 const CloseIcon = ({ size = 24, color = "#000000" }) => (
@@ -61,6 +69,23 @@ const CheckIcon = ({ size = 16, color = "#22C55E" }) => (
     />
   </Svg>
 );
+
+// Local Star Icon component for ratings - renamed to avoid collision
+const StarIconLocal = ({ size = 16, color = "#FDB913" }) => (
+  <Svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill={color}
+    style={{ width: size, height: size }}
+  >
+    <Path
+      d="M12 17.27L18.18 21L16.54 13.97L22 9.24L14.81 8.63L12 2L9.19 8.63L2 9.24L7.46 13.97L5.82 21L12 17.27Z"
+    />
+  </Svg>
+);
+
+
 
 // Progress Bar Component
 const ProgressBar = ({ currentStep, totalSteps }) => {
@@ -285,46 +310,99 @@ const Review = () => {
   const [showSubmitModal, setShowSubmitModal] = useState(false);
 
   // Check if we're editing an existing listing
-  const isEditing = draftData?.isEditing || params.isEditing === "true";
+  // Robustly detect isEditing from draftId prefix if params are missing
+  const isEditing = draftData?.isEditing || params.isEditing === "true" || (draftId && draftId.startsWith("edit_"));
   const editingListingId =
-    draftData?.editingListingId || params.editingListingId;
+    draftData?.editingListingId || params.editingListingId || (draftId && draftId.startsWith("edit_") ? draftId.replace("edit_", "") : null);
 
-  // Load and merge draft data with params - initialize with empty object to avoid unstable params
+  // Load and merge draft data with params
   const [mergedData, setMergedData] = useState({});
-  
-  // Track if initial load is done to prevent infinite updates - use ref to avoid dependency issues
-  const initialLoadDoneRef = useRef(false);
+  const [hostStats, setHostStats] = useState({ rating: 0, reviews: 0, totalListings: 0, fullName: "", avatar: "" });
+  const [isLoadingHost, setIsLoadingHost] = useState(false);
+  const [showSaveAsNewModal, setShowSaveAsNewModal] = useState(false);
+  const [isFallbackCreating, setIsFallbackCreating] = useState(false);
   
   // Capture params once at mount to avoid unstable reference issues
   const initialParamsRef = useRef(params);
 
-  // Load and merge draft data on mount - run only once
+  // Load and merge data whenever draftData or params change
   useEffect(() => {
-    // Prevent re-running after initial load
-    if (initialLoadDoneRef.current || !draftData) return;
-    initialLoadDoneRef.current = true;
-    
-    console.log('📂 [Review] Loading draft data for review:', draftId);
-    
-    // Start with stable params as base
+    // 1. Start with initial params as baseline
     const baseData = { ...initialParamsRef.current };
     
-    console.log('📸 [Review] Draft photos count:', safeParseArray(draftData.photos).length);
+    // 2. Merge with current draft data
+    const activeDraft = draftData || {};
     
-    // In editing mode, prioritize draft data but preserve existing photos if draft photos are empty
-    const mergedPhotos = isEditing
-      ? safeParseArray(draftData.photos).length > 0
-        ? safeParseArray(draftData.photos)
-        : safeParseArray(baseData.photos || baseData.images)
-      : safeParseArray(draftData.photos);
+    // 3. Resolve Media (Photos)
+    // Priority: draftData.photos -> initialParams.photos -> initialParams.images
+    const draftPhotos = safeParseArray(activeDraft.photos || activeDraft.images);
+    const paramPhotos = safeParseArray(baseData.photos || baseData.images);
+    const finalPhotos = draftPhotos.length > 0 ? draftPhotos : paramPhotos;
+
+    console.log('📂 [Review] Merging data for display:', {
+      hasDraft: !!draftData,
+      photosCount: finalPhotos.length,
+      propertyTitle: activeDraft.propertyTitle || baseData.propertyTitle || 'Untitled'
+    });
 
     setMergedData({
       ...baseData,
-      ...draftData,
-      photos: mergedPhotos,
-      images: mergedPhotos,
+      ...activeDraft,
+      photos: finalPhotos,
+      images: finalPhotos,
+      // Ensure specific fields have consistent fallbacks
+      propertyTitle: activeDraft.propertyTitle || activeDraft.propertyName || baseData.propertyTitle || baseData.propertyName || "Untitled",
+      intent: (activeDraft.intent || baseData.intent || "rent").toLowerCase(),
+      houseRules: activeDraft.houseRules || baseData.houseRules || [],
+      additionalRules: activeDraft.additionalRules || baseData.additionalRules || ""
     });
-  }, [draftData, isEditing, draftId]); // Standardizing dependency array
+
+    console.log('📋 [Review] Rules data synced:', {
+      houseRules: activeDraft.houseRules || baseData.houseRules,
+      additionalRules: activeDraft.additionalRules || baseData.additionalRules
+    });
+  }, [draftData]); // Re-run whenever draftData arrives or updates
+
+  // Fetch host stats from backend
+  useEffect(() => {
+    const loadHostStats = async () => {
+      try {
+        setIsLoadingHost(true);
+        const userData = await authService.getUserData();
+        const hostId = userData?._id || userData?.id;
+        
+        if (hostId) {
+          console.log("👤 [Review] Fetching stats for host:", hostId);
+          const result = await fetchHostData(hostId);
+          
+          if (result.success && result.hostData) {
+            console.log("✅ [Review] Host stats loaded:", result.hostData);
+            setHostStats({
+              rating: result.hostData.hostRating || 0,
+              reviews: result.hostData.hostRatingCount || 0,
+              totalListings: result.hostData.totalListings || 0, // Note: Backend might need to provide this or we count manually
+              fullName: result.hostData.fullName || "Host",
+              avatar: result.hostData.avatar
+            });
+            
+            // If totalListings is not in profile, we might fetch it from fetchUserListings
+            if (result.hostData.totalListings === undefined) {
+              const listingsResult = await listingService.fetchUserListings();
+              if (listingsResult.success) {
+                setHostStats(prev => ({ ...prev, totalListings: listingsResult.listings.length }));
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error("❌ [Review] Error loading host stats:", error);
+      } finally {
+        setIsLoadingHost(false);
+      }
+    };
+
+    loadHostStats();
+  }, []);
 
   // Parse merged data with improved photo handling for editing
   const photos = useMemo(() => {
@@ -589,8 +667,6 @@ const Review = () => {
               setIsSubmitting(false);
               return;
             }
-          } else {
-            propertyImages = existingUrls;
           }
         } else {
           // All photos are already URLs, use them directly
@@ -646,19 +722,10 @@ const Review = () => {
 
       const allAmenities = [...amenityLabels, ...customAmenityLabels];
 
-      // Convert house rules from object to string format for backend
-      let houseRulesString = "";
-      if (mergedData.houseRules && typeof mergedData.houseRules === "object") {
-        // Convert object format to string
-        const activeRules = Object.entries(mergedData.houseRules)
-          .filter(([_, enabled]) => enabled)
-          .map(([rule, _]) =>
-            rule.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()),
-          );
-        houseRulesString = activeRules.join(", ");
-      } else if (typeof mergedData.houseRules === "string") {
-        houseRulesString = mergedData.houseRules;
-      }
+      // Convert house rules (array or object) to string for backend display
+      const houseRulesLabels = convertHouseRulesToLabels(mergedData.houseRules);
+      const houseRulesString = houseRulesLabels.join(", ");
+
 
       // Helper to parse price strings that may contain commas
       const parsePrice = (priceStr) => {
@@ -704,7 +771,13 @@ const Review = () => {
         additionalRules: mergedData.additionalRules || "",
         furnishing: mergedData.furnishing || "",
         titleType: mergedData.titleType || "",
-        status: isEditing ? (mergedData.status || "PENDING") : "PENDING", // Maintain status if editing
+        // ALIGN WITH BACKEND: Use propertyName and explicit bedrooms/bathrooms
+        propertyName: mergedData.propertyTitle || mergedData.propertyName || "Listing",
+        propertyTitle: mergedData.propertyTitle || mergedData.propertyName || "Listing",
+        title: mergedData.propertyTitle || mergedData.propertyName || "Listing",
+        bedrooms: parseInt(mergedData.bedrooms) || 0,
+        bathrooms: parseInt(mergedData.bathrooms) || 0,
+        status: "PENDING",
       };
 
       // Add check-in/check-out times only if they were set
@@ -759,20 +832,62 @@ const Review = () => {
         }, 500);
       } else {
         console.error("❌ [Review] Submission failed:", result?.message);
-        Alert.alert(
-          "Error",
-          result?.message ||
-            `Failed to ${isEditing ? "update" : "create"} listing. Please try again.`,
-          [{ text: "OK" }],
-        );
+        
+        // CUSTOM 404 HANDLING: Show specialized modal instead of silent fallback
+        const detailString = JSON.stringify(result?.details || "").toLowerCase();
+        const errorMessage = (result?.message || "").toLowerCase();
+        const isNotFoundError = errorMessage.includes("not found") || 
+                            detailString.includes("not found") || 
+                            detailString.includes("notfounderror");
+        
+        if (isEditing && isNotFoundError) {
+            console.warn("⚠️ [Review] Update failed with NotFound. Listing ID might be invalid or deleted.");
+            setIsSubmitting(false);
+            toastService.showWarning("Original listing record not found", 4000);
+            setShowSaveAsNewModal(true);
+            return;
+        }
+
+        toastService.showError(result?.message || "Something went wrong. Please try again.");
         setIsSubmitting(false);
       }
     } catch (error) {
       console.error("❌ [Review] Unexpected error during submission:", error);
-      Alert.alert("Error", "An unexpected error occurred. Please try again.", [
-        { text: "OK" },
-      ]);
+      toastService.showError("An unexpected error occurred. Please try again.");
       setIsSubmitting(false);
+    }
+  };
+
+  // Handles the actual fallback creation from the modal
+  const handleSaveAsNewFallback = async () => {
+    try {
+      setIsFallbackCreating(true);
+      console.log("🆕 [Review] Falling back to createListing via Modal");
+      
+      const listingData = generateListingData(mergedData);
+      // Remove all ID fields to ensure a fresh create
+      const { _id, id, listingId, ...newData } = listingData;
+      
+      const result = await listingService.createListing(newData);
+      
+      if (result.success) {
+        toastService.showSuccess("Saved as new listing successfully!", 3000);
+        setShowSaveAsNewModal(false);
+        
+        // Navigate to publish confirmation
+        router.dismissAll();
+        router.push({
+          pathname: "/create-listing/publish1",
+          params: { listingId: result.listing?._id || result._id || result.id },
+        });
+      } else {
+        toastService.showError(result.message || "Failed to create new listing");
+      }
+    } catch (error) {
+      console.error("❌ [Review] Fallback modal error:", error);
+      toastService.showError("An unexpected error occurred during fallback saving.");
+    } finally {
+      setIsFallbackCreating(false);
     }
   };
 
@@ -780,6 +895,20 @@ const Review = () => {
     if (!price) return "₦0";
     return `₦${price}`;
   };
+
+  // Show loading indicator if draft is selected but not yet loaded
+  // Check both draftId presence and draftData content availability
+  const isActuallyLoading = draftId && (!draftData || Object.keys(mergedData).length === 0 || mergedData.propertyTitle === "Untitled");
+
+  if (isActuallyLoading && !isSubmitting) {
+    return (
+      <SafeAreaView style={[styles.container, { justifyContent: "center", alignItems: "center", backgroundColor: "#FFFFFF" }]} edges={["top"]}>
+        <ActivityIndicator size="large" color="#010135" />
+        <Text style={{ marginTop: 16, fontSize: 16, fontWeight: "600", color: "#010135" }}>Loading listing details...</Text>
+        <Text style={{ marginTop: 8, fontSize: 14, color: "#666666" }}>Preparing your review</Text>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
@@ -1006,6 +1135,48 @@ const Review = () => {
               value={`₦${String(mergedData.cleaningFee || "0")}`}
             />
           )}
+
+          {/* New Description Section */}
+          <View style={{ marginTop: 24, paddingVertical: 16, borderTopWidth: 1, borderTopColor: "#F5F5F5" }}>
+            <Text style={{ fontSize: 16, fontWeight: "700", color: "#000", marginBottom: 8 }}>
+              Property Description
+            </Text>
+            <Text style={{ fontSize: 14, color: "#4B5563", lineHeight: 20 }}>
+              {mergedData.propertyHighlight || mergedData.description || "No description provided."}
+            </Text>
+          </View>
+
+          {/* Host Profile Info - REAL DATA */}
+          <View style={{ marginTop: 24, paddingVertical: 16, borderTopWidth: 1, borderTopColor: "#F5F5F5" }}>
+            <Text style={{ fontSize: 16, fontWeight: "700", color: "#000", marginBottom: 12 }}>
+              Host Information
+            </Text>
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: "#F3F4F6", overflow: "hidden", marginRight: 12 }}>
+                {hostStats.avatar ? (
+                  <Image source={{ uri: getHostAvatarUrl(hostStats.avatar) }} style={{ width: "100%", height: "100%" }} />
+                ) : (
+                  <View style={{ width: "100%", height: "100%", alignItems: "center", justifyContent: "center" }}>
+                    <Text style={{ fontSize: 18, color: "#9CA3AF" }}>{hostStats.fullName?.charAt(0) || "H"}</Text>
+                  </View>
+                )}
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 16, fontWeight: "600", color: "#1F2937" }}>{hostStats.fullName}</Text>
+                <View style={{ flexDirection: "row", alignItems: "center", marginTop: 2 }}>
+                  <StarIconLocal size={14} color="#FDB913" />
+                  <Text style={{ fontSize: 13, color: "#4B5563", marginLeft: 4 }}>
+                    {Number(hostStats.rating || 0).toFixed(1)} ({hostStats.reviews} reviews)
+                  </Text>
+                  <Text style={{ fontSize: 13, color: "#9CA3AF", marginHorizontal: 8 }}>•</Text>
+                  <Text style={{ fontSize: 13, color: "#4B5563" }}>
+                    {hostStats.totalListings} Listings
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
+
 
           {/* Breakdown for Rentals */}
           {mergedData.intent?.toLowerCase() !== "sale" && mergedData.price && (
@@ -1236,6 +1407,51 @@ const Review = () => {
         onConfirm={handleSubmitConfirmed}
         onDismiss={() => setShowSubmitModal(false)}
       />
+
+      {/* Save As New Fallback Modal */}
+      <Modal
+          transparent
+          visible={showSaveAsNewModal}
+          animationType="fade"
+          onRequestClose={() => !isFallbackCreating && setShowSaveAsNewModal(false)}
+      >
+          <View style={styles.modalOverlay}>
+              <View style={styles.modalContainer}>
+                  <View style={styles.modalIconContainer}>
+                      <Ionicons name="alert-circle" size={50} color="#F59E0B" />
+                  </View>
+                  
+                  <Text style={styles.modalTitle}>Listing Record Missing</Text>
+                  <Text style={styles.modalMessage}>
+                      We couldn't find the original listing record to update. Your listing might have been removed or moved. 
+                      {"\n\n"}
+                      Would you like to save this as a NEW listing instead?
+                  </Text>
+                  
+                  <View style={styles.modalActionButtons}>
+                      <TouchableOpacity 
+                          style={[styles.modalButton, styles.cancelButton]}
+                          onPress={() => setShowSaveAsNewModal(false)}
+                          disabled={isFallbackCreating}
+                      >
+                          <Text style={styles.cancelButtonText}>Cancel</Text>
+                      </TouchableOpacity>
+                      
+                      <TouchableOpacity 
+                          style={[styles.modalButton, styles.confirmButton]}
+                          onPress={handleSaveAsNewFallback}
+                          disabled={isFallbackCreating}
+                      >
+                          {isFallbackCreating ? (
+                              <ActivityIndicator size="small" color="#FFFFFF" />
+                          ) : (
+                              <Text style={styles.confirmButtonText}>Save as New</Text>
+                          )}
+                      </TouchableOpacity>
+                  </View>
+              </View>
+          </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -1563,7 +1779,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     paddingHorizontal: 20,
     paddingTop: 20,
-    paddingBottom: Platform.OS === "android" ? 30 : 20,
+    paddingBottom: Platform.OS === "android" ? 48 : 20,
     gap: 20,
     backgroundColor: "#FFFFFF",
   },
@@ -1617,6 +1833,72 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     color: "#010135",
+  },
+
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  modalContainer: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    padding: 24,
+    width: "100%",
+    maxWidth: 340,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  modalIconContainer: {
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#1F2937",
+    marginBottom: 12,
+    textAlign: "center",
+  },
+  modalMessage: {
+    fontSize: 14,
+    color: "#6B7280",
+    textAlign: "center",
+    marginBottom: 24,
+    lineHeight: 20,
+  },
+  modalActionButtons: {
+    width: "100%",
+    gap: 12,
+  },
+  modalButton: {
+    width: "100%",
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  confirmButton: {
+    backgroundColor: "#6371F1",
+  },
+  confirmButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#FFFFFF",
+  },
+  cancelButton: {
+    backgroundColor: "#F3F4F6",
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#4B5563",
   },
 });
 

@@ -37,6 +37,7 @@ import {
 import authService from "../../services/authService";
 import dashboardService from "../../services/dashboardService";
 import locationService from "../../services/locationService";
+import { HostDashboardSkeleton } from "../../components/skeletons";
 
 const HostDashboardScreen = () => {
   const router = useRouter();
@@ -277,9 +278,6 @@ const HostDashboardScreen = () => {
     router.push("/(host-tabs)/listings");
   };
 
-  const handleUpgradePlan = () => {
-    router.push("/upgrade-plan");
-  };
 
   const handleActivityPress = (activity) => {
     console.log("Activity pressed:", activity.id);
@@ -300,10 +298,7 @@ const HostDashboardScreen = () => {
   if (loading && !refreshing) {
     return (
       <SafeAreaView style={styles.container} edges={["top"]}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#4F46E5" />
-          <Text style={styles.loadingText}>Loading your dashboard...</Text>
-        </View>
+        <HostDashboardSkeleton />
       </SafeAreaView>
     );
   }
@@ -334,7 +329,6 @@ const HostDashboardScreen = () => {
         <DashboardGreeting
           userName={dashboardData.userName}
           planType={dashboardData.plan}
-          onUpgradePress={handleUpgradePlan}
         />
 
         {/* Stats Cards */}
@@ -344,6 +338,8 @@ const HostDashboardScreen = () => {
           pendingBalance={dashboardData.pendingBalance}
           totalBookings={dashboardData.totalBookings}
           totalListings={dashboardData.totalListings}
+          hostRating={dashboardData.hostRating}
+          hostRatingCount={dashboardData.hostRatingCount}
         />
 
         {/* Quick Action Cards */}

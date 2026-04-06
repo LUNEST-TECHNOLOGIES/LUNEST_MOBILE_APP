@@ -40,11 +40,33 @@ class ConfigService {
 
   /**
    * Synchronous version of getBaseURL
-   * Returns cached value if exists, otherwise fallback
+   * Returns cached value if exists, otherwise returns platform-appropriate fallback
    * @returns {string}
    */
   getBaseURLSync() {
-    return this.cachedBaseURL || process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000";
+    // Return cached URL if available
+    if (this.cachedBaseURL) {
+      return this.cachedBaseURL;
+    }
+    
+    // Return env URL if set
+    if (process.env.EXPO_PUBLIC_API_URL) {
+      return process.env.EXPO_PUBLIC_API_URL;
+    }
+    
+    // Platform-specific fallbacks
+    if (Platform.OS === 'android') {
+      // Android emulator special IP
+      return 'http://10.0.2.2:3000';
+    } else if (Platform.OS === 'ios') {
+      // iOS simulator localhost
+      return 'http://127.0.0.1:3000';
+    } else if (Platform.OS === 'web') {
+      return 'http://localhost:3000';
+    }
+    
+    // Production fallback for physical devices
+    return 'https://api.lunest.app';
   }
 
   /**

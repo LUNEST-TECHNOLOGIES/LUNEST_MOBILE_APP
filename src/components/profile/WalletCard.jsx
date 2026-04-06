@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { formatAmount } from '../../utils/currency';
+import Skeleton from '../common/Skeleton';
 
 /**
  * Download/Add Icon
@@ -148,6 +149,7 @@ const WalletCard = ({
   onWithdraw,
   onViewTransactions,
   onCopyAccount,
+  isLoading = false,
 }) => {
   const { width } = useWindowDimensions();
   const containerWidth = Math.min(width - 40, 400);
@@ -212,17 +214,28 @@ const WalletCard = ({
       <View style={styles.balanceRow}>
         <View style={styles.balanceContainer}>
           <Text style={styles.currencySymbol}>{currency}</Text>
-          <Text style={styles.balanceAmount}>
-            {isBalanceVisible ? formatBalance(balance) : '****'}
-          </Text>
+          {isLoading ? (
+            <Skeleton width={100} height={24} style={{ borderRadius: 8 }} />
+          ) : (
+            <Text style={styles.balanceAmount}>
+              {isBalanceVisible ? formatBalance(balance) : '****'}
+            </Text>
+          )}
         </View>
         <TouchableOpacity 
           style={styles.accountNumber}
           onPress={handleCopyAccount}
           activeOpacity={0.7}
+          disabled={isLoading}
         >
-          <Text style={styles.accountText}>#{accountNumber}</Text>
-          <CopyIcon size={17} />
+          {isLoading ? (
+            <Skeleton width={80} height={16} />
+          ) : (
+            <>
+              <Text style={styles.accountText}>#{accountNumber}</Text>
+              <CopyIcon size={17} />
+            </>
+          )}
         </TouchableOpacity>
       </View>
 

@@ -2,20 +2,20 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as React from "react";
 import {
-    Alert,
-    Image,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    useWindowDimensions,
-    View,
+  Alert,
+  Image,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  useWindowDimensions,
+  View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import ArrowLeftIcon from "../../assets/icons/bookings/arrow-left.svg";
 import CalendarIcon from "../../assets/icons/vuesax/outline/calendar.svg";
 import profileService from "../../services/profileService";
@@ -24,6 +24,7 @@ const SelectBookingDetailsScreen = () => {
   const router = useRouter();
   const { width: screenWidth } = useWindowDimensions();
   const params = useLocalSearchParams();
+  const insets = useSafeAreaInsets();
 
   // Get property info from params
   const listingId = params.listingId;
@@ -52,20 +53,21 @@ const SelectBookingDetailsScreen = () => {
     const priceNum = Number(propertyPrice) || 0;
     const depositNum = Number(propertySecurityDeposit) || 0;
     const serviceChargeNum = Number(propertyServiceCharge) || 0;
-    let nights = 1;
-
+    let durationCount = 1;
     if (checkInDate && checkOutDate) {
-      const start = new Date(checkInDate);
-      const end = new Date(checkOutDate);
-      const diffMs = Math.max(
-        0,
-        end.setHours(0, 0, 0, 0) - start.setHours(0, 0, 0, 0),
-      );
-      nights = Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+      if (pricingPeriod.toLowerCase() === "night") {
+        const start = new Date(checkInDate);
+        const end = new Date(checkOutDate);
+        const diffMs = Math.max(0, end.setHours(0, 0, 0, 0) - start.setHours(0, 0, 0, 0));
+        durationCount = Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+      } else if (pricingPeriod.toLowerCase() === "month") {
+        durationCount = Math.max(1, monthsBetween(checkInDate, checkOutDate));
+      } else if (pricingPeriod.toLowerCase() === "year") {
+        durationCount = Math.max(1, yearsBetween(checkInDate, checkOutDate));
+      }
     }
 
-    const baseAmount =
-      pricingPeriod.toLowerCase() === "night" ? priceNum * nights : priceNum;
+    const baseAmount = priceNum * durationCount;
 
     // Guest Subtotal = Rent + Service Charge + Security Deposit
     const guestSubtotal = baseAmount + serviceChargeNum + depositNum;
@@ -83,7 +85,7 @@ const SelectBookingDetailsScreen = () => {
     const total = +(guestSubtotal + appCharge).toFixed(2);
 
     return {
-      nights,
+      durationCount,
       baseAmount,
       serviceCharge: serviceChargeNum,
       guestFee,
@@ -249,10 +251,10 @@ const SelectBookingDetailsScreen = () => {
         (end.setHours(0, 0, 0, 0) - start.setHours(0, 0, 0, 0)) /
           (1000 * 60 * 60 * 24),
       );
-      if (diffDays < 0)
+      if (diffDays <= 0)
         return {
           valid: false,
-          message: "Check-out date cannot be before check-in date.",
+          message: "Minimum booking is 1 night. Check-out date must be after check-in date.",
         };
       return { valid: true };
     }
@@ -295,14 +297,17 @@ const SelectBookingDetailsScreen = () => {
 
   const handleAndroidDateChange = (event, selectedDate) => {
     // Android DateTimePicker
+    const currentMode = showDatePicker; // Capture current mode before clearing
     setShowDatePicker(null);
+    
     if (event?.type === "dismissed") {
       return;
     }
-    if (selectedDate && showDatePicker) {
-      if (showDatePicker === "checkin") {
+    
+    if (selectedDate && currentMode) {
+      if (currentMode === "checkin") {
         setCheckInDate(selectedDate);
-      } else if (showDatePicker === "checkout") {
+      } else if (currentMode === "checkout") {
         setCheckOutDate(selectedDate);
       }
     }
@@ -490,14 +495,15 @@ const SelectBookingDetailsScreen = () => {
                     {pricingPeriod ? ` / ${pricingPeriod}` : ""}
                   </Text>
                 </View>
-                {pricingPeriod.toLowerCase() === "night" && (
-                  <View style={styles.breakdownRow}>
-                    <Text style={styles.breakdownLabel}>Nights</Text>
-                    <Text style={styles.breakdownValue}>
-                      {breakdown.nights}
-                    </Text>
-                  </View>
-                )}
+                <View style={styles.breakdownRow}>
+                  <Text style={styles.breakdownLabel}>
+                    {pricingPeriod.toLowerCase() === "night" ? "Nights" : 
+                     pricingPeriod.toLowerCase() === "month" ? "Months" : "Years"}
+                  </Text>
+                  <Text style={styles.breakdownValue}>
+                    {breakdown.durationCount}
+                  </Text>
+                </View>
                 <View style={styles.breakdownRow}>
                   <Text style={styles.breakdownLabel}>Base Amount</Text>
                   <Text style={styles.breakdownValue}>
@@ -558,32 +564,38 @@ const SelectBookingDetailsScreen = () => {
                   <CalendarIcon width={20} height={20} />
                 </View>
                 <View style={styles.dateContainer}>
-                  <Pressable
-                    style={styles.dateField}
-                    onPress={() => setShowDatePicker("checkin")}
-                  >
-                    <Text
-                      style={[
-                        styles.dateLabel,
-                        !checkInDate && styles.placeholderText,
-                      ]}
+                  <View style={styles.dateFieldWrapper}>
+                    <Text style={styles.dateFieldLabel}>Check in</Text>
+                    <Pressable
+                      style={styles.dateField}
+                      onPress={() => setShowDatePicker("checkin")}
                     >
-                      {checkInDate ? formatDate(checkInDate) : "Check-in"}
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    style={styles.dateField}
-                    onPress={() => setShowDatePicker("checkout")}
-                  >
-                    <Text
-                      style={[
-                        styles.dateLabel,
-                        !checkOutDate && styles.placeholderText,
-                      ]}
+                      <Text
+                        style={[
+                          styles.dateLabel,
+                          !checkInDate && styles.placeholderText,
+                        ]}
+                      >
+                        {checkInDate ? formatDate(checkInDate) : "Select date"}
+                      </Text>
+                    </Pressable>
+                  </View>
+                  <View style={styles.dateFieldWrapper}>
+                    <Text style={styles.dateFieldLabel}>Check out</Text>
+                    <Pressable
+                      style={styles.dateField}
+                      onPress={() => setShowDatePicker("checkout")}
                     >
-                      {checkOutDate ? formatDate(checkOutDate) : "Check-out"}
-                    </Text>
-                  </Pressable>
+                      <Text
+                        style={[
+                          styles.dateLabel,
+                          !checkOutDate && styles.placeholderText,
+                        ]}
+                      >
+                        {checkOutDate ? formatDate(checkOutDate) : "Select date"}
+                      </Text>
+                    </Pressable>
+                  </View>
                 </View>
               </View>
 
@@ -604,25 +616,31 @@ const SelectBookingDetailsScreen = () => {
           </ScrollView>
         </KeyboardAvoidingView>
 
-        <Pressable
+        <View
           style={[
-            styles.buttonStyle2,
             styles.buttonContainer,
-            !isBookingAvailable() && styles.buttonDisabled,
+            { paddingBottom: Math.max(insets.bottom, 20) }
           ]}
-          onPress={handleContinueBooking}
-          disabled={!isBookingAvailable()}
         >
-          <Text
+          <Pressable
             style={[
-              styles.button,
-              styles.text3Typo,
-              !isBookingAvailable() && styles.buttonTextDisabled,
+              styles.buttonStyle2,
+              !isBookingAvailable() && styles.buttonDisabled,
             ]}
+            onPress={handleContinueBooking}
+            disabled={!isBookingAvailable()}
           >
-            Continue to Booking
-          </Text>
-        </Pressable>
+            <Text
+              style={[
+                styles.button,
+                styles.text3Typo,
+                !isBookingAvailable() && styles.buttonTextDisabled,
+              ]}
+            >
+              Continue to Booking
+            </Text>
+          </Pressable>
+        </View>
 
         <Modal
           visible={showBookingTypeDropdown}
@@ -717,10 +735,7 @@ const SelectBookingDetailsScreen = () => {
             }
             mode="date"
             display="default"
-            onChange={(event, date) => {
-              handleDatePickerClose();
-              if (date) handleDateChange(date);
-            }}
+            onChange={handleAndroidDateChange}
             minimumDate={new Date()}
           />
         )}
@@ -877,6 +892,7 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 16,
     paddingVertical: 20,
+    paddingBottom: 120, // Extra space for fixed button
     gap: 20,
   },
   section: {
@@ -1003,6 +1019,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 12,
   },
+  dateFieldWrapper: {
+    flex: 1,
+  },
+  dateFieldLabel: {
+    fontSize: 11,
+    fontWeight: "500",
+    color: "#7C7C7C",
+    marginBottom: 4,
+  },
   dateField: {
     flex: 1,
     borderWidth: 1,
@@ -1034,19 +1059,23 @@ const styles = StyleSheet.create({
     textAlignVertical: "top",
   },
   buttonContainer: {
-    justifyContent: "center",
-    alignItems: "center",
-    flexDirection: "row",
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "#fff",
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: "#eee",
   },
   buttonStyle2: {
-    marginHorizontal: 20,
-    marginBottom: 16,
-    marginTop: 20,
     borderRadius: 25,
     backgroundColor: "#010135",
     height: 54,
     justifyContent: "center",
     alignItems: "center",
+    width: "100%",
   },
   button: {
     lineHeight: 16,

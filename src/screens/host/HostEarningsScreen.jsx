@@ -22,6 +22,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 import authService from "../../services/authService";
 import configService from "../../services/configService";
+import { HostEarningsSkeleton } from "../../components/skeletons";
 
 const TrendUpIcon = ({ size = 20, color = "#4CAF50" }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -352,13 +353,7 @@ const HostEarningsScreen = () => {
   if (loading && !refreshing) {
     return (
       <SafeAreaView style={styles.container} edges={["top"]}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Earnings</Text>
-        </View>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#4F46E5" />
-          <Text style={styles.loadingText}>Loading earnings...</Text>
-        </View>
+        <HostEarningsSkeleton />
       </SafeAreaView>
     );
   }

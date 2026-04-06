@@ -8,6 +8,7 @@
 import authService from "./authService";
 import listingService from "./listingService";
 import storageService from "./storageService";
+import logService from "./logService";
 
 const DRAFTS_KEY_PREFIX = "listingDrafts_";
 
@@ -46,8 +47,10 @@ class DraftListingService {
   async saveDraft(listingData) {
     // Stage 1: Absolute defensive entry
     if (!listingData || typeof listingData !== 'object') {
+      const errorMsg = "Invalid draft data: data is null or not an object";
       console.error("❌ [DraftListingService] Invalid listingData provided:", listingData);
-      throw new Error("Invalid draft data: data is null or not an object");
+      logService.logError(errorMsg, { data: typeof listingData });
+      throw new Error(errorMsg);
     }
 
     try {
@@ -90,11 +93,13 @@ class DraftListingService {
 
       // Stage 5: Background Database Sync (Heavily Guarded)
       // We don't await this to keep the UI snappy, but we catch all errors
+      logService.logInfo("Saving draft locally", { draftId: resolvedDraftId });
       this.syncToDatabase(draftToSave).catch(err => {
         console.warn("⚠️ [DraftListingService] Background sync failed:", err.message);
+        logService.logError("Draft background sync failed", { draftId: resolvedDraftId, message: err.message });
       });
-
-      return resolvedDraftId;
+      
+      return draftToSave;
     } catch (error) {
       console.error("❌ [DraftListingService] CRITICAL save error:", error);
       throw error;
@@ -117,9 +122,14 @@ class DraftListingService {
     syncingDrafts.add(draftData.draftId);
 
     try {
-      const result = await listingService.saveDraftToDatabase(draftData);
+      // Ensure isDraft is explicitly set to true for sync
+      const result = await listingService.saveDraftToDatabase({
+        ...draftData,
+        isDraft: true,
+      });
       if (result.success) {
         console.log("✅ Draft synced to database:", draftData.draftId);
+        logService.logInfo("Draft synced to database", { draftId: draftData.draftId });
         if (
           result.draft &&
           result.draft._id &&
@@ -133,7 +143,13 @@ class DraftListingService {
             );
             if (existingIndex >= 0) {
               // Store the MongoDB _id but preserve the local draftId for routing continuity
-              drafts[existingIndex]._id = result.draft._id;
+              const updatedDraft = {
+                ...drafts[existingIndex],
+                _id: result.draft._id,
+                // Ensure synchronization of any fields updated by server (like defaults)
+                ...(result.draft.propertyName ? { propertyName: result.draft.propertyName } : {}),
+              };
+              drafts[existingIndex] = updatedDraft;
               await storageService.setItem(draftsKey, drafts);
               console.log(
                 "🔄 Local draft appended with MongoDB ID:",

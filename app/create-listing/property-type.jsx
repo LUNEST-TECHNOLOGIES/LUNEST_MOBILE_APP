@@ -356,7 +356,11 @@ const PropertyType = () => {
   };
 
   const handleBack = () => {
-    router.back();
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace("/create-listing");
+    }
   };
 
   const handleNext = () => {

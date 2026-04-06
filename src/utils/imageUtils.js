@@ -12,6 +12,11 @@ export const resolveImageUrl = async (path, baseUrl = null) => {
   if (!path || path === "null" || path === "undefined") return null;
 
   let stringPath = typeof path === 'object' && path?.url ? path.url : String(path);
+  
+  // Reject paths that contain "undefined" after string conversion
+  if (stringPath === "undefined" || stringPath.includes("/undefined")) {
+    return null;
+  }
 
   // Strip hardcoded localhost / local network IPs for backend attachments if they match private IP patterns
   const isOutdatedHost = (url) => {
@@ -64,6 +69,11 @@ export const resolveImageUrlSync = (path, baseUrl) => {
   if (!path || path === "null" || path === "undefined") return null;
 
   let stringPath = typeof path === 'object' && path?.url ? path.url : String(path);
+  
+  // Reject paths that contain "undefined" after string conversion
+  if (stringPath === "undefined" || stringPath.includes("/undefined")) {
+    return null;
+  }
 
   // Strip hardcoded localhost / local network IPs for backend attachments if they match private IP patterns
   const isLocalOrPrivateIP = (url) => {
@@ -77,10 +87,11 @@ export const resolveImageUrlSync = (path, baseUrl) => {
   if (stringPath.startsWith("http") && stringPath.includes("/uploads/") && isLocalOrPrivateIP(stringPath)) {
     const uploadIndex = stringPath.indexOf("/uploads/");
     stringPath = stringPath.substring(uploadIndex);
+    console.log(`[ImageUtils] Stripped outdated host, new path: ${stringPath}`);
   }
 
-  // If it's already a full URL or no baseUrl, return it
-  if (stringPath.startsWith("http") || !baseUrl) {
+  // If it's already a full URL, return it
+  if (stringPath.startsWith("http")) {
     return stringPath;
   }
 
@@ -94,8 +105,19 @@ export const resolveImageUrlSync = (path, baseUrl) => {
     return Platform.OS === 'web' ? null : stringPath;
   }
 
+  // If we have a path but no baseUrl, try to get it from configService
+  if (!baseUrl) {
+    baseUrl = configService.getBaseURLSync();
+    if (!baseUrl) {
+      console.warn(`[ImageUtils] No baseUrl available for path: ${stringPath}`);
+      return null;
+    }
+  }
+
   const cleanBase = baseUrl.replace(/\/$/, "");
   const cleanPath = stringPath.startsWith("/") ? stringPath : `/${stringPath}`;
 
-  return `${cleanBase}${cleanPath}`;
+  const finalUrl = `${cleanBase}${cleanPath}`;
+  console.log(`[ImageUtils] Constructed URL: base="${cleanBase}" + path="${cleanPath}" = "${finalUrl.substring(0, 80)}..."`);
+  return finalUrl;
 };

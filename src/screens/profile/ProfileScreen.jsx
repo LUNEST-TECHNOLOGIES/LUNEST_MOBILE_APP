@@ -29,6 +29,7 @@ import { USER_MODES, useUserMode } from "../../context";
 import axiosInstance from "../../lib/axiosInstance";
 import authService from "../../services/authService";
 import logService from "../../services/logService";
+import LogoutModal from "../../components/common/LogoutModal";
 
 
 
@@ -92,6 +93,13 @@ const ProfileScreen = ({ isHostMode: isHostModeProp = false }) => {
     refreshHostStatus,
   } = useUserMode();
   const [isRefreshingState, setIsRefreshingState] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [isLogoutModalVisible, setIsLogoutModalVisible] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // DETERMINE MODE
   const isInHostMode = isHostModeProp || currentMode === USER_MODES.HOST;
@@ -427,47 +435,37 @@ const ProfileScreen = ({ isHostMode: isHostModeProp = false }) => {
       id: "logout",
       icon: "logout",
       title: "Logout",
-      onPress: async () => {
-        const performLogout = async () => {
-          try {
-            if (resetUserMode) {
-              await resetUserMode();
-            }
-            await authService.logout();
-            // Reset all profile-related state to initial values
-            setHostApplicationStatus(HOST_APPLICATION_STATUS.NONE);
-            setHostApplicationStatus(HOST_APPLICATION_STATUS.NONE);
-            setIsVerified(false);
-            router.replace("/login");
-          } catch (error) {
-            console.error("Logout error:", error);
-            if (Platform.OS === "web") {
-              window.alert("Failed to logout. Please try again.");
-            } else {
-              Alert.alert("Error", "Failed to logout. Please try again.");
-            }
-          }
-        };
-
-        if (Platform.OS === "web") {
-          // Use window.confirm for web
-          if (window.confirm("Are you sure you want to logout?")) {
-            await performLogout();
-          }
-        } else {
-          // Use Alert for mobile
-          Alert.alert("Logout", "Are you sure you want to logout?", [
-            { text: "Cancel", style: "cancel" },
-            {
-              text: "Logout",
-              style: "destructive",
-              onPress: performLogout,
-            },
-          ]);
-        }
+      onPress: () => {
+        setIsLogoutModalVisible(true);
       },
     },
   ];
+
+  const confirmLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      if (resetUserMode) {
+        await resetUserMode();
+      }
+      await authService.logout();
+      // Clear TanStack Query cache
+      queryClient.clear();
+      setIsLogoutModalVisible(false);
+      // Reset all profile-related state to initial values
+      setHostApplicationStatus(HOST_APPLICATION_STATUS.NONE);
+      setIsVerified(false);
+      router.replace("/login");
+    } catch (error) {
+      console.error("Logout error:", error);
+      if (Platform.OS === "web") {
+        window.alert("Failed to logout. Please try again.");
+      } else {
+        Alert.alert("Error", "Failed to logout. Please try again.");
+      }
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
 
   const handleEditProfile = () => {
     router.push("/personal-info-edit");
@@ -504,6 +502,10 @@ const ProfileScreen = ({ isHostMode: isHostModeProp = false }) => {
   };
 
   // (Optional: handle unexpected data error)
+  if (!mounted || (isLoadingData && !isRefreshingState)) {
+    return <ProfileSkeleton />;
+  }
+
   if (!isLoadingData && !profileData && !walletInfo) {
      handleManualRefresh();
   }
@@ -515,6 +517,13 @@ const ProfileScreen = ({ isHostMode: isHostModeProp = false }) => {
         visible={isSwitching}
         targetMode={switchingTarget}
         onCancel={handleCancelSwitch}
+      />
+
+      <LogoutModal
+        visible={isLogoutModalVisible}
+        onCancel={() => setIsLogoutModalVisible(false)}
+        onConfirm={confirmLogout}
+        isLoading={isLoggingOut}
       />
 
       {/* Header */}

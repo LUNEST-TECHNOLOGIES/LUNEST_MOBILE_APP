@@ -21,7 +21,7 @@ import {
     TouchableWithoutFeedback,
     View,
 } from "react-native";
-import DateTimePickerModal from "react-native-modal-datetime-picker";
+import UnifiedDatePicker from "../../components/common/UnifiedDatePicker";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 import authService from "../../services/authService";
@@ -778,27 +778,27 @@ const TransactionHistoryScreen = () => {
             </Text>
           </TouchableOpacity>
 
-          <DateTimePickerModal
-            isVisible={showFromPicker}
-            mode="date"
-            date={fromDate}
-            onConfirm={(date) => {
+          <UnifiedDatePicker
+            visible={showFromPicker}
+            value={fromDate}
+            onClose={() => setShowFromPicker(false)}
+            onChange={(date) => {
               setFromDate(date);
               setShowFromPicker(false);
             }}
-            onCancel={() => setShowFromPicker(false)}
+            title="Start Date"
             maximumDate={new Date()}
           />
 
-          <DateTimePickerModal
-            isVisible={showToPicker}
-            mode="date"
-            date={toDate}
-            onConfirm={(date) => {
+          <UnifiedDatePicker
+            visible={showToPicker}
+            value={toDate}
+            onClose={() => setShowToPicker(false)}
+            onChange={(date) => {
               setToDate(date);
               setShowToPicker(false);
             }}
-            onCancel={() => setShowToPicker(false)}
+            title="End Date"
             maximumDate={new Date()}
           />
         </View>

@@ -3,6 +3,7 @@
  */
 
 import { Ionicons } from "@expo/vector-icons";
+import { useQueryClient } from "@tanstack/react-query";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -27,6 +28,7 @@ const PayWithWalletScreen = () => {
   const [walletBalance, setWalletBalance] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
+  const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
   const [user, setUser] = useState(null);
   const [walletAccountNumber, setWalletAccountNumber] = useState("");
@@ -186,6 +188,10 @@ const PayWithWalletScreen = () => {
             },
           });
 
+          // Refresh global wallet balance queries across the app
+          await queryClient.invalidateQueries({ queryKey: ["walletInfo"] });
+          await queryClient.invalidateQueries({ queryKey: ["userProfile"] });
+
           // Refresh user profile to get updated wallet balance
           await authService.fetchProfile();
           
@@ -225,6 +231,10 @@ const PayWithWalletScreen = () => {
         if (result.success) {
           // Generate reference code
           refCode = result.booking?.referenceCode || generateRefCode();
+
+          // Refresh global wallet balance queries across the app
+          await queryClient.invalidateQueries({ queryKey: ["walletInfo"] });
+          await queryClient.invalidateQueries({ queryKey: ["userProfile"] });
 
           // Refresh user profile to get updated wallet balance
           await authService.fetchProfile();

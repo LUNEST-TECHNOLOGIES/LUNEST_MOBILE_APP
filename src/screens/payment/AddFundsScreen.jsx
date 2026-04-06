@@ -2,7 +2,8 @@
  * AddFundsScreen - Add money to wallet via Paystack
  */
 import * as Linking from "expo-linking";
-import { useRouter } from "expo-router";
+import { useQueryClient } from "@tanstack/react-query";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { useEffect, useState } from "react";
 import {
@@ -53,9 +54,11 @@ const PRESET_AMOUNTS = [1000, 2000, 5000, 10000, 20000, 50000];
 
 const AddFundsScreen = () => {
   const router = useRouter();
+  const params = useLocalSearchParams();
 
   const [amount, setAmount] = useState("");
   const [loading, setLoading] = useState(false);
+  const queryClient = useQueryClient();
   const [toast, setToast] = useState({
     visible: false,
     message: "",
@@ -68,17 +71,51 @@ const AddFundsScreen = () => {
       const token = await apiClient.getAuthToken();
       if (!token) {
         // Show message and redirect
-        setToast({
-          visible: true,
-          message: "Please login to add funds.",
-          type: "error",
-        });
+        showToast("Please login to add funds.", "error");
         setTimeout(() => {
           router.replace("/login");
         }, 1200);
       }
     })();
   }, []);
+
+  // Handle Paystack callback on web
+  useEffect(() => {
+    if (params?.status && params?.reference) {
+      console.log("[AddFunds] Callback detected:", params.status, params.reference);
+      handleVerifyPayment(params.reference);
+      
+      // Clear params from URL
+      router.setParams({ status: null, reference: null });
+    }
+  }, [params?.status, params?.reference]);
+
+  const handleVerifyPayment = async (reference) => {
+    setLoading(true);
+    showToast("Verifying payment...", "info");
+
+    try {
+      const verifyResult = await paymentService.verifyPayment(reference);
+      console.log("[AddFunds] Verify result:", verifyResult);
+
+      if (verifyResult.status === "COMPLETED" || verifyResult.status === "success") {
+        showToast(`${formatCurrency(Number(amount) || 0)} added to your wallet!`, "success");
+        await queryClient.invalidateQueries({ queryKey: ["walletInfo"] });
+        await queryClient.invalidateQueries({ queryKey: ["userProfile"] });
+        
+        setTimeout(() => {
+          router.back();
+        }, 2000);
+      } else {
+        showToast("Payment not successful. Status: " + verifyResult.status, "error");
+      }
+    } catch (error) {
+      console.error("[AddFunds] Verify error:", error);
+      showToast("Verification failed. Please check your history.", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const showToast = (message, type = "success") => {
     setToast({ visible: true, message, type });
@@ -138,10 +175,13 @@ const AddFundsScreen = () => {
       }
 
       // Create deep link callback URL for Paystack to redirect back to the app
-      // On web, we don't need a deep link callback
       let callbackUrl;
-      if (Platform.OS !== "web") {
-        // Use a more reliable callback URL that includes the reference
+      if (Platform.OS === "web") {
+        // On web, use the current origin and path
+        callbackUrl = window.location.origin + window.location.pathname;
+        console.log("[AddFunds] Web Callback URL:", callbackUrl);
+      } else {
+        // Use a more reliable callback URL for deep linking
         callbackUrl = Linking.createURL("payment-callback", {
           queryParams: {
             type: "wallet_funding",
@@ -149,7 +189,7 @@ const AddFundsScreen = () => {
             email: email,
           },
         });
-        console.log("[AddFunds] Callback URL:", callbackUrl);
+        console.log("[AddFunds] Mobile Callback URL:", callbackUrl);
       }
 
       console.log("[AddFunds] Initializing payment:", {
@@ -165,7 +205,7 @@ const AddFundsScreen = () => {
         {
           type: "WALLET_FUNDING",
           description: `Add ${formatCurrency(numericAmount)} to wallet`,
-          ...(callbackUrl && { callback_url: callbackUrl }),
+          callback_url: callbackUrl,
         },
       );
 
@@ -178,88 +218,31 @@ const AddFundsScreen = () => {
         // Store payment reference for fallback verification
         const paymentReference = paymentData.reference;
 
-        let result;
+        if (Platform.OS === "web") {
+          // On web, redirect CURRENT window instead of opening a new tab
+          // This ensures the callback returns to the same app instance
+          window.location.href = paymentData.authorization_url;
+          return;
+        }
 
-        try {
-          if (Platform.OS === "web") {
-            // On web, use openBrowserAsync
-            result = await WebBrowser.openBrowserAsync(
-              paymentData.authorization_url,
-            );
-          } else {
-            // On native, use openAuthSessionAsync with fallback handling
-            result = await WebBrowser.openAuthSessionAsync(
-              paymentData.authorization_url,
-              callbackUrl, // This is the return URL if deep linking works
-            );
-          }
+        // On native, use openAuthSessionAsync with fallback handling
+        let result = await WebBrowser.openAuthSessionAsync(
+          paymentData.authorization_url,
+          callbackUrl, // This is the return URL if deep linking works
+        );
 
-          console.log("[AddFunds] Browser result:", result);
+        console.log("[AddFunds] Browser result:", result);
 
-          // Check if the result indicates successful deep link (type: 'success')
-          if (result.type === "success") {
-            console.log(
-              "[AddFunds] Deep link successful, payment callback handled",
-            );
-            // The payment-callback screen will handle verification
-            return;
-          }
-        } catch (browserError) {
-          console.error("[AddFunds] Browser error:", browserError);
-          showToast("Payment window closed unexpectedly", "error");
-          setLoading(false);
+        // Check if the result indicates successful deep link (type: 'success')
+        if (result.type === "success") {
+          console.log("[AddFunds] Deep link successful, payment callback handled");
+          // The payment-callback screen or our useEffect will handle verification
           return;
         }
 
         // Fallback: Always verify payment after browser closes
-        // This ensures we always check payment status regardless of how the browser closed
         console.log("[AddFunds] Browser closed, verifying payment status...");
-        showToast("Checking payment status...", "info");
-
-        try {
-          const verifyResult =
-            await paymentService.verifyPayment(paymentReference);
-
-          console.log("[AddFunds] Verify result:", verifyResult);
-
-          if (
-            verifyResult.status === "COMPLETED" ||
-            verifyResult.status === "success"
-          ) {
-            showToast(
-              `${formatCurrency(numericAmount)} added to your wallet!`,
-              "success",
-            );
-            // Refresh wallet balance or navigate back
-            setTimeout(() => {
-              router.back();
-            }, 2000);
-          } else if (verifyResult.status === "PENDING") {
-            showToast(
-              "Payment is being processed. Please check your transaction history.",
-              "info",
-            );
-            setTimeout(() => {
-              router.back();
-            }, 2000);
-          } else if (verifyResult.status === "CANCELED") {
-            showToast("Payment was canceled.", "info");
-            setTimeout(() => {
-              router.back();
-            }, 2000);
-          } else {
-            showToast("Payment was not completed. Please try again.", "error");
-          }
-        } catch (verifyError) {
-          console.error("[AddFunds] Verify error:", verifyError);
-          showToast(
-            "Unable to verify payment status. Please check your transaction history.",
-            "error",
-          );
-        }
-
-        // Always reset loading state and allow user to try again
-        setLoading(false);
+        handleVerifyPayment(paymentReference);
       } else {
         showToast("Failed to initialize payment", "error");
       }

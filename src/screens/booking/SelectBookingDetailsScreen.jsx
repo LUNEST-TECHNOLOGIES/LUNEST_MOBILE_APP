@@ -1,4 +1,3 @@
-import DateTimePicker from "@react-native-community/datetimepicker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as React from "react";
 import {
@@ -19,6 +18,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import ArrowLeftIcon from "../../assets/icons/bookings/arrow-left.svg";
 import CalendarIcon from "../../assets/icons/vuesax/outline/calendar.svg";
 import profileService from "../../services/profileService";
+import UnifiedDatePicker from "../../components/common/UnifiedDatePicker";
 
 const SelectBookingDetailsScreen = () => {
   const router = useRouter();
@@ -284,44 +284,11 @@ const SelectBookingDetailsScreen = () => {
     return { valid: true };
   };
 
-  const handleDateChange = (date) => {
-    // iOS DatePickerIOS passes date directly
-    if (date && showDatePicker) {
-      if (showDatePicker === "checkin") {
-        setCheckInDate(date);
-      } else if (showDatePicker === "checkout") {
-        setCheckOutDate(date);
-      }
-    }
-  };
-
-  const handleAndroidDateChange = (event, selectedDate) => {
-    // Android DateTimePicker
-    const currentMode = showDatePicker; // Capture current mode before clearing
-    setShowDatePicker(null);
-    
-    if (event?.type === "dismissed") {
-      return;
-    }
-    
-    if (selectedDate && currentMode) {
-      if (currentMode === "checkin") {
-        setCheckInDate(selectedDate);
-      } else if (currentMode === "checkout") {
-        setCheckOutDate(selectedDate);
-      }
-    }
-  };
-
-  const handleDatePickerClose = () => {
-    if (Platform.OS === "ios") {
-      setShowDatePicker(null);
-    }
-  };
+  // Date handlers removed in favor of UnifiedDatePicker
 
   return (
     <SafeAreaView style={styles.requestFormScreen2} edges={["top"]}>
-      <>
+      <View style={{ flex: 1 }}>
         <KeyboardAvoidingView
           style={{ flex: 1 }}
           behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -689,56 +656,16 @@ const SelectBookingDetailsScreen = () => {
           </View>
         </Modal>
 
-        {Platform.OS === "ios" && showDatePicker && (
-          <Modal
-            visible={showDatePicker !== null}
-            transparent
-            animationType="slide"
-          >
-            <View style={styles.iosDatePickerContainer}>
-              <View style={styles.iosDatePickerHeader}>
-                <Pressable onPress={handleDatePickerClose}>
-                  <Text style={styles.cancelButton}>Cancel</Text>
-                </Pressable>
-                <Text style={styles.datePickerTitle}>
-                  Select{" "}
-                  {showDatePicker === "checkin" ? "Check-in" : "Check-out"} Date
-                </Text>
-                <Pressable onPress={handleDatePickerClose}>
-                  <Text style={styles.doneButton}>Done</Text>
-                </Pressable>
-              </View>
-              <DateTimePicker
-                value={
-                  showDatePicker === "checkin"
-                    ? checkInDate || new Date()
-                    : checkOutDate || new Date()
-                }
-                onChange={(event, date) => {
-                  if (date) handleDateChange(date);
-                }}
-                mode="date"
-                display="spinner"
-                textColor="#010135"
-                minimumDate={new Date()}
-              />
-            </View>
-          </Modal>
-        )}
-
-        {Platform.OS === "android" && showDatePicker && (
-          <DateTimePicker
-            value={
-              showDatePicker === "checkin"
-                ? checkInDate || new Date()
-                : checkOutDate || new Date()
-            }
-            mode="date"
-            display="default"
-            onChange={handleAndroidDateChange}
-            minimumDate={new Date()}
-          />
-        )}
+        {/* Unified Date Picker for all platforms */}
+        <UnifiedDatePicker
+          visible={showDatePicker !== null}
+          value={showDatePicker === "checkin" ? checkInDate : checkOutDate}
+          onClose={() => setShowDatePicker(null)}
+          onChange={onDatePickerChange}
+          title={showDatePicker === "checkin" ? "Select Check-in Date" : "Select Check-out Date"}
+          minimumDate={new Date()}
+        />
+        
         {/* Phone Number Required Modal */}
         <Modal
           visible={showPhoneModal}
@@ -823,7 +750,7 @@ const SelectBookingDetailsScreen = () => {
             </View>
           </View>
         </Modal>
-      </>
+      </View>
     </SafeAreaView>
   );
 };

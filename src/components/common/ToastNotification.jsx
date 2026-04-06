@@ -113,11 +113,16 @@ const ToastNotification = ({
   duration = 3000,
   onHide,
 }) => {
+  const [mounted, setMounted] = useState(false);
   const translateY = useRef(new Animated.Value(-100)).current;
   const opacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    if (visible) {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (visible && mounted) {
       // Show toast
       Animated.parallel([
         Animated.timing(translateY, {
@@ -158,7 +163,7 @@ const ToastNotification = ({
     });
   };
 
-  if (!visible) return null;
+  if (!mounted || !visible) return null;
 
   const config = getConfig(type);
 

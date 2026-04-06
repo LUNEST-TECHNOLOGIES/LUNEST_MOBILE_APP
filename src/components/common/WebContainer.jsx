@@ -2,11 +2,18 @@ import React from 'react';
 import { View, Platform, StyleSheet, Text, useWindowDimensions, TouchableOpacity } from 'react-native';
 
 const WebContainer = ({ children }) => {
+  const [mounted, setMounted] = React.useState(false);
   const { width } = useWindowDimensions();
   const isWeb = Platform.OS === 'web';
   const isDesktop = isWeb && width > 480;
 
-  if (!isWeb) {
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Standard fix for React Hydration Error #418: 
+  // Wait until client mount before applying platform-specific or window-dependent layout.
+  if (!isWeb || !mounted) {
     return <>{children}</>;
   }
 

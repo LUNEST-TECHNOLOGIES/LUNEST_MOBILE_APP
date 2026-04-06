@@ -43,6 +43,11 @@ const BookingSummary = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [fetchedBooking, setFetchedBooking] = useState(null);
   const [isFetchingBooking, setIsFetchingBooking] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Toast notifications
   const [toastVisible, setToastVisible] = useState(false);
@@ -1181,6 +1186,8 @@ const BookingSummary = () => {
     const random = Math.random().toString(36).substring(2, 8);
     return `LUN${timestamp}${random}`.toUpperCase();
   };
+
+  if (!mounted) return null;
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>

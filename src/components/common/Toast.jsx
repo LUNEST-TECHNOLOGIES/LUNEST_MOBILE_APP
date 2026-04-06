@@ -43,11 +43,16 @@ const Toast = ({
   duration = 3000,
   onHide 
 }) => {
+  const [mounted, setMounted] = React.useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(-100)).current;
 
   useEffect(() => {
-    if (visible) {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (visible && mounted) {
       // Show animation
       Animated.parallel([
         Animated.timing(fadeAnim, {
@@ -91,7 +96,7 @@ const Toast = ({
     });
   };
 
-  if (!visible) return null;
+  if (!mounted || !visible) return null;
 
   const getIcon = () => {
     switch (type) {

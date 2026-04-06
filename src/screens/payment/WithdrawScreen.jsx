@@ -3,6 +3,7 @@
  */
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
+import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -40,6 +41,7 @@ const BackIcon = ({ size = 24, color = "black" }) => (
 
 const WithdrawScreen = () => {
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   const [amount, setAmount] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
@@ -214,6 +216,10 @@ const WithdrawScreen = () => {
       );
 
       if (result.status === "PENDING") {
+        // Refresh global wallet balance queries across the app
+        await queryClient.invalidateQueries({ queryKey: ["walletInfo"] });
+        await queryClient.invalidateQueries({ queryKey: ["userProfile"] });
+
         // Refresh balance immediately
         await fetchWalletBalance();
         

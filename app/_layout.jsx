@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import WebContainer from "../src/components/common/WebContainer";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Alert, View } from "react-native";
@@ -137,186 +138,188 @@ export default function RootLayout() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        <UserModeProvider>
-          <AccountStatusProvider>
-            <SafeAreaProvider>
-              {isLoading ? (
-                <View
-                  style={{
-                    flex: 1,
-                    justifyContent: "center",
-                    alignItems: "center",
-                    backgroundColor: "#FFFFFF",
-                  }}
-                >
-                  <ActivityIndicator size="large" color="#010135" />
-                </View>
-              ) : (
-                <Stack
-                  screenOptions={{
-                    headerShown: false,
-                    detachInactiveScreens: false,
-                  }}
-                >
-                  <Stack.Screen
-                    name="index"
-                    options={{
-                      headerShown: false,
+      <WebContainer>
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <UserModeProvider>
+            <AccountStatusProvider>
+              <SafeAreaProvider>
+                {isLoading ? (
+                  <View
+                    style={{
+                      flex: 1,
+                      justifyContent: "center",
+                      alignItems: "center",
+                      backgroundColor: "#FFFFFF",
                     }}
-                  />
-                  <Stack.Screen
-                    name="onboarding"
-                    options={{
+                  >
+                    <ActivityIndicator size="large" color="#010135" />
+                  </View>
+                ) : (
+                  <Stack
+                    screenOptions={{
                       headerShown: false,
+                      detachInactiveScreens: false,
                     }}
-                  />
-                  <Stack.Screen
-                    name="signup"
-                    options={{
-                      headerShown: false,
-                    }}
-                  />
-                  <Stack.Screen
-                    name="forgot-password"
-                    options={{
-                      headerShown: false,
-                    }}
-                  />
-                  <Stack.Screen
-                    name="verify-code"
-                    options={{
-                      headerShown: false,
-                    }}
-                  />
-                  <Stack.Screen
-                    name="reset-password"
-                    options={{
-                      headerShown: false,
-                    }}
-                  />
-                  <Stack.Screen
-                    name="login"
-                    options={{
-                      headerShown: false,
-                    }}
-                  />
-                  <Stack.Screen name="(tabs)" options={{ gestureEnabled: false }} />
-                  <Stack.Screen
-                    name="(host-tabs)"
-                    options={{ gestureEnabled: false }}
-                  />
-                  <Stack.Screen
-                    name="+not-found"
-                    options={{
-                      headerShown: false,
-                    }}
-                  />
-                  <Stack.Screen
-                    name="landlord-request"
-                    options={{
-                      presentation: "card",
-                      headerShown: false,
-                    }}
-                  />
-                  <Stack.Screen
-                    name="host-request-pending"
-                    options={{
-                      presentation: "card",
-                      headerShown: false,
-                    }}
-                  />
-                  <Stack.Screen
-                    name="property-details"
-                    options={{
-                      presentation: "card",
-                      headerShown: false,
-                    }}
-                  />
-                  <Stack.Screen
-                    name="select-booking-details"
-                    options={{
-                      presentation: "card",
-                      headerShown: false,
-                    }}
-                  />
-                  <Stack.Screen
-                    name="booking-summary"
-                    options={{
-                      presentation: "card",
-                      headerShown: false,
-                    }}
-                  />
-                  <Stack.Screen
-                    name="booking-confirmation"
-                    options={{
-                      presentation: "transparentModal",
-                      headerShown: false,
-                      animationEnabled: true,
-                    }}
-                  />
-                  <Stack.Screen
-                    name="pay-with-wallet"
-                    options={{
-                      presentation: "card",
-                      headerShown: false,
-                    }}
-                  />
-                  <Stack.Screen
-                    name="transaction-detail"
-                    options={{
-                      presentation: "card",
-                      headerShown: false,
-                    }}
-                  />
-                  <Stack.Screen
-                    name="full-details"
-                    options={{
-                      presentation: "card",
-                      headerShown: false,
-                    }}
-                  />
-                  <Stack.Screen
-                    name="host-information"
-                    options={{
-                      presentation: "card",
-                      headerShown: false,
-                    }}
-                  />
-                  <Stack.Screen
-                    name="personal-info-edit"
-                    options={{
-                      presentation: "card",
-                      headerShown: false,
-                    }}
-                  />
-                  <Stack.Screen
-                    name="referrals"
-                    options={{
-                      presentation: "card",
-                      headerShown: false,
-                    }}
-                  />
-                  <Stack.Screen
-                    name="modal"
-                    options={{
-                      presentation: "modal",
-                      headerShown: false,
-                    }}
-                  />
-                </Stack>
-              )}
-            </SafeAreaProvider>
-          </AccountStatusProvider>
-        </UserModeProvider>
-        <ToastNotification
-          visible={toastVisible}
-          message={toastConfig.message}
-          type={toastConfig.type}
-          duration={toastConfig.duration}
-          onHide={() => setToastVisible(false)}
-        />
-      </GestureHandlerRootView>
+                  >
+                    <Stack.Screen
+                      name="index"
+                      options={{
+                        headerShown: false,
+                      }}
+                    />
+                    <Stack.Screen
+                      name="onboarding"
+                      options={{
+                        headerShown: false,
+                      }}
+                    />
+                    <Stack.Screen
+                      name="signup"
+                      options={{
+                        headerShown: false,
+                      }}
+                    />
+                    <Stack.Screen
+                      name="forgot-password"
+                      options={{
+                        headerShown: false,
+                      }}
+                    />
+                    <Stack.Screen
+                      name="verify-code"
+                      options={{
+                        headerShown: false,
+                      }}
+                    />
+                    <Stack.Screen
+                      name="reset-password"
+                      options={{
+                        headerShown: false,
+                      }}
+                    />
+                    <Stack.Screen
+                      name="login"
+                      options={{
+                        headerShown: false,
+                      }}
+                    />
+                    <Stack.Screen name="(tabs)" options={{ gestureEnabled: false }} />
+                    <Stack.Screen
+                      name="(host-tabs)"
+                      options={{ gestureEnabled: false }}
+                    />
+                    <Stack.Screen
+                      name="+not-found"
+                      options={{
+                        headerShown: false,
+                      }}
+                    />
+                    <Stack.Screen
+                      name="landlord-request"
+                      options={{
+                        presentation: "card",
+                        headerShown: false,
+                      }}
+                    />
+                    <Stack.Screen
+                      name="host-request-pending"
+                      options={{
+                        presentation: "card",
+                        headerShown: false,
+                      }}
+                    />
+                    <Stack.Screen
+                      name="property-details"
+                      options={{
+                        presentation: "card",
+                        headerShown: false,
+                      }}
+                    />
+                    <Stack.Screen
+                      name="select-booking-details"
+                      options={{
+                        presentation: "card",
+                        headerShown: false,
+                      }}
+                    />
+                    <Stack.Screen
+                      name="booking-summary"
+                      options={{
+                        presentation: "card",
+                        headerShown: false,
+                      }}
+                    />
+                    <Stack.Screen
+                      name="booking-confirmation"
+                      options={{
+                        presentation: "transparentModal",
+                        headerShown: false,
+                        animationEnabled: true,
+                      }}
+                    />
+                    <Stack.Screen
+                      name="pay-with-wallet"
+                      options={{
+                        presentation: "card",
+                        headerShown: false,
+                      }}
+                    />
+                    <Stack.Screen
+                      name="transaction-detail"
+                      options={{
+                        presentation: "card",
+                        headerShown: false,
+                      }}
+                    />
+                    <Stack.Screen
+                      name="full-details"
+                      options={{
+                        presentation: "card",
+                        headerShown: false,
+                      }}
+                    />
+                    <Stack.Screen
+                      name="host-information"
+                      options={{
+                        presentation: "card",
+                        headerShown: false,
+                      }}
+                    />
+                    <Stack.Screen
+                      name="personal-info-edit"
+                      options={{
+                        presentation: "card",
+                        headerShown: false,
+                      }}
+                    />
+                    <Stack.Screen
+                      name="referrals"
+                      options={{
+                        presentation: "card",
+                        headerShown: false,
+                      }}
+                    />
+                    <Stack.Screen
+                      name="modal"
+                      options={{
+                        presentation: "modal",
+                        headerShown: false,
+                      }}
+                    />
+                  </Stack>
+                )}
+              </SafeAreaProvider>
+            </AccountStatusProvider>
+          </UserModeProvider>
+          <ToastNotification
+            visible={toastVisible}
+            message={toastConfig.message}
+            type={toastConfig.type}
+            duration={toastConfig.duration}
+            onHide={() => setToastVisible(false)}
+          />
+        </GestureHandlerRootView>
+      </WebContainer>
     </QueryClientProvider>
   );
 }

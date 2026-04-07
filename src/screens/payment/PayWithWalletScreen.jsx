@@ -120,8 +120,15 @@ const PayWithWalletScreen = () => {
   };
 
   const handleAddFunds = () => {
-    // Navigate to add funds screen
-    router.push("/add-funds");
+    // Navigate to add funds screen with booking context
+    router.push({
+      pathname: "/add-funds",
+      params: {
+        ...params,
+        returnUrl: "/pay-with-wallet",
+        fromBooking: "true"
+      }
+    });
   };
 
   const handleChangePaymentMethod = () => {

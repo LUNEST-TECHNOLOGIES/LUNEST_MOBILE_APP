@@ -24,6 +24,7 @@ import {
   SwitchToHostButton,
   WalletCard,
 } from "../../components/profile";
+import { ProfileSkeleton } from "../../components/skeletons";
 import { HOST_APPLICATION_STATUS } from "../../components/profile/SwitchToHostButton";
 import { USER_MODES, useUserMode } from "../../context";
 import axiosInstance from "../../lib/axiosInstance";
@@ -130,6 +131,8 @@ const ProfileScreen = ({ isHostMode: isHostModeProp = false }) => {
       const response = await axiosInstance.get("/v1/wallet/balance");
       return response.data.body;
     },
+    staleTime: 0, // Always consider wallet data stale to ensure fresh fetches
+    refetchOnWindowFocus: true, // Specifically useful for web after returning from Paystack
   });
 
   const { data: listingsCount = 0 } = useQuery({

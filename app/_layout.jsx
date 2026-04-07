@@ -308,16 +308,16 @@ export default function RootLayout() {
                     />
                   </Stack>
                 )}
+                <ToastNotification
+                  visible={toastVisible}
+                  message={toastConfig.message}
+                  type={toastConfig.type}
+                  duration={toastConfig.duration}
+                  onHide={() => setToastVisible(false)}
+                />
               </SafeAreaProvider>
             </AccountStatusProvider>
           </UserModeProvider>
-          <ToastNotification
-            visible={toastVisible}
-            message={toastConfig.message}
-            type={toastConfig.type}
-            duration={toastConfig.duration}
-            onHide={() => setToastVisible(false)}
-          />
         </GestureHandlerRootView>
       </WebContainer>
     </QueryClientProvider>

@@ -30,10 +30,20 @@ const UnifiedDatePicker = ({
   title = "Select Date",
 }) => {
   const [mounted, setMounted] = useState(false);
+  const [viewDate, setViewDate] = useState(value || new Date());
+  const [selectedDate, setSelectedDate] = useState(value);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Update internal state if prop value changes (for web)
+  useEffect(() => {
+    if (value && Platform.OS === "web") {
+      setSelectedDate(value);
+      setViewDate(value);
+    }
+  }, [value]);
 
   // Hydration safety: Don't render anything until mounted on the client
   if (!mounted) return null;
@@ -42,46 +52,130 @@ const UnifiedDatePicker = ({
   if (Platform.OS === "web") {
     if (!visible) return null;
 
-    // Convert Date object to YYYY-MM-DD for input[type="date"]
-    const formatDateForInput = (d) => {
-      if (!d) return "";
-      const year = d.getFullYear();
-      const month = String(d.getMonth() + 1).padStart(2, "0");
-      const day = String(d.getDate()).padStart(2, "0");
-      return `${year}-${month}-${day}`;
+    const daysOfWeek = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+    const months = [
+      "January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December"
+    ];
+
+    const year = viewDate.getFullYear();
+    const month = viewDate.getMonth();
+
+    const firstDayOfMonth = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+    const navigateMonth = (direction) => {
+      const nextDate = new Date(year, month + direction, 1);
+      setViewDate(nextDate);
     };
 
-    const handleWebChange = (e) => {
-      const newDate = new Date(e.target.value);
-      if (!isNaN(newDate.getTime())) {
+    const isSameDay = (d1, d2) => {
+      if (!d1 || !d2) return false;
+      return (
+        d1.getFullYear() === d2.getFullYear() &&
+        d1.getMonth() === d2.getMonth() &&
+        d1.getDate() === d2.getDate()
+      );
+    };
+
+    const isDateDisabled = (d) => {
+      if (!minimumDate) return false;
+      const checkDate = new Date(d);
+      checkDate.setHours(0, 0, 0, 0);
+      const minDate = new Date(minimumDate);
+      minDate.setHours(0, 0, 0, 0);
+      return checkDate < minDate;
+    };
+
+    const handleDateClick = (day) => {
+      const newDate = new Date(year, month, day);
+      if (!isDateDisabled(newDate)) {
+        setSelectedDate(newDate);
         onChange(newDate);
+        onClose();
       }
+    };
+
+    const renderCalendarDays = () => {
+      const days = [];
+      // Empty cells for days before the first day of the month
+      for (let i = 0; i < firstDayOfMonth; i++) {
+        days.push(<View key={`empty-${i}`} style={styles.webDayCell} />);
+      }
+
+      // Day cells
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dateObj = new Date(year, month, day);
+        const isSelected = isSameDay(dateObj, selectedDate);
+        const isDisabled = isDateDisabled(dateObj);
+        const isToday = isSameDay(dateObj, new Date());
+
+        days.push(
+          <TouchableOpacity
+            key={day}
+            style={[
+              styles.webDayCell,
+              isSelected && styles.webDaySelected,
+              isDisabled && styles.webDayDisabled,
+              isToday && !isSelected && styles.webDayToday,
+            ]}
+            onPress={() => handleDateClick(day)}
+            disabled={isDisabled}
+          >
+            <Text style={[
+              styles.webDayText,
+              isSelected && styles.webDayTextSelected,
+              isDisabled && styles.webDayTextDisabled,
+              isToday && !isSelected && styles.webDayTextToday,
+            ]}>
+              {day}
+            </Text>
+          </TouchableOpacity>
+        );
+      }
+      return days;
     };
 
     return (
       <Modal transparent visible={visible} animationType="fade">
         <Pressable style={styles.webOverlay} onPress={onClose}>
           <View style={styles.webPickerContainer} onStartShouldSetResponder={() => true}>
-            <Text style={styles.webPickerTitle}>{title}</Text>
-            <input
-              type={mode === "date" ? "date" : "datetime-local"}
-              defaultValue={formatDateForInput(value || new Date())}
-              min={formatDateForInput(minimumDate)}
-              onChange={handleWebChange}
-              style={{
-                width: "100%",
-                padding: "12px",
-                fontSize: "16px",
-                borderRadius: "8px",
-                border: "1px solid #E5E5E5",
-                marginTop: "12px",
-                outline: "none",
-                fontFamily: "inherit",
-              }}
-            />
-            <TouchableOpacity style={styles.webDoneBtn} onPress={onClose}>
-              <Text style={styles.webDoneBtnText}>Done</Text>
-            </TouchableOpacity>
+            <View style={styles.webPickerHeader}>
+              <Text style={styles.webPickerTitle}>{title}</Text>
+              <TouchableOpacity onPress={onClose} style={styles.webCloseIcon}>
+                <Text style={{ fontSize: 20, color: "#999" }}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.webCalendarNav}>
+              <TouchableOpacity onPress={() => navigateMonth(-1)} style={styles.webNavBtn}>
+                <Text style={styles.webNavBtnText}>‹</Text>
+              </TouchableOpacity>
+              <Text style={styles.webCurrentMonth}>
+                {months[month]} {year}
+              </Text>
+              <TouchableOpacity onPress={() => navigateMonth(1)} style={styles.webNavBtn}>
+                <Text style={styles.webNavBtnText}>›</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.webWeekdaysRow}>
+              {daysOfWeek.map((d) => (
+                <Text key={d} style={styles.webWeekdayText}>
+                  {d}
+                </Text>
+              ))}
+            </View>
+
+            <View style={styles.webDaysGrid}>
+              {renderCalendarDays()}
+            </View>
+
+            <View style={styles.webFooter}>
+              <TouchableOpacity style={styles.webCancelBtn} onPress={onClose}>
+                <Text style={styles.webCancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </Pressable>
       </Modal>
@@ -143,36 +237,121 @@ const styles = StyleSheet.create({
   // Web Styles
   webOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
+    backgroundColor: "rgba(0,0,0,0.4)",
     justifyContent: "center",
     alignItems: "center",
-    padding: 20,
+    cursor: "default",
   },
   webPickerContainer: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: 20,
+    padding: 24,
     width: "100%",
-    maxWidth: 400,
-    elevation: 5,
+    maxWidth: 350,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  webPickerHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 20,
   },
   webPickerTitle: {
     fontSize: 18,
     fontWeight: "700",
     color: "#010135",
-    marginBottom: 4,
   },
-  webDoneBtn: {
-    backgroundColor: "#010135",
-    paddingVertical: 12,
-    borderRadius: 8,
+  webCloseIcon: {
+    padding: 4,
+  },
+  webCalendarNav: {
+    flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
-    marginTop: 20,
+    marginBottom: 16,
   },
-  webDoneBtnText: {
+  webNavBtn: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: "#F5F5F7",
+  },
+  webNavBtnText: {
+    fontSize: 18,
+    color: "#010135",
+    fontWeight: "600",
+  },
+  webCurrentMonth: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#010135",
+  },
+  webWeekdaysRow: {
+    flexDirection: "row",
+    marginBottom: 8,
+  },
+  webWeekdayText: {
+    flex: 1,
+    textAlign: "center",
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#999",
+    textTransform: "uppercase",
+  },
+  webDaysGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+  },
+  webDayCell: {
+    width: `${100 / 7}%`,
+    aspectRatio: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    borderRadius: 8,
+    marginVertical: 2,
+  },
+  webDayText: {
+    fontSize: 14,
+    color: "#010135",
+  },
+  webDaySelected: {
+    backgroundColor: "#010135",
+  },
+  webDayTextSelected: {
     color: "#FFFFFF",
     fontWeight: "700",
-    fontSize: 16,
+  },
+  webDayToday: {
+    backgroundColor: "#F0F0FF",
+  },
+  webDayTextToday: {
+    color: "#010135",
+    fontWeight: "700",
+  },
+  webDayDisabled: {
+    opacity: 0.3,
+  },
+  webDayTextDisabled: {
+    color: "#CCC",
+  },
+  webFooter: {
+    marginTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: "#F5F5F5",
+    paddingTop: 16,
+    alignItems: "flex-end",
+  },
+  webCancelBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  webCancelBtnText: {
+    color: "#666",
+    fontSize: 14,
+    fontWeight: "500",
   },
   // iOS Styles
   iosDatePickerContainer: {

@@ -128,6 +128,9 @@ const SelectBookingDetailsScreen = () => {
   const handleGoBack = () => {
     if (router.canGoBack()) {
       router.back();
+    } else {
+      // Fallback for web if there's no navigation history
+      router.push("/");
     }
   };
 
@@ -282,6 +285,17 @@ const SelectBookingDetailsScreen = () => {
     }
 
     return { valid: true };
+  };
+
+  const onDatePickerChange = (selectedDate) => {
+    if (selectedDate) {
+      if (showDatePicker === "checkin") {
+        setCheckInDate(selectedDate);
+      } else if (showDatePicker === "checkout") {
+        setCheckOutDate(selectedDate);
+      }
+    }
+    setShowDatePicker(null);
   };
 
   // Date handlers removed in favor of UnifiedDatePicker

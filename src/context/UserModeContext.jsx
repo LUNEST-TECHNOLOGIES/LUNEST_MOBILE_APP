@@ -363,15 +363,34 @@ export const UserModeProvider = ({ children }) => {
 
   return (
     <UserModeContext.Provider value={value}>
-      {!isLoading && children}
+      {children}
     </UserModeContext.Provider>
   );
 };
 
 export const useUserMode = () => {
   const context = useContext(UserModeContext);
+  
   if (context === undefined) {
-    throw new Error("useUserMode must be used within a UserModeProvider");
+    // If the error persists after refreshes, this usually points to module duplication in Metro
+    console.warn("⚠️ [UserMode] useUserMode called outside of a Provider or Context instance mismatch!");
+    
+    // Return a stable fallback value to prevent "undefined of" crashes
+    return {
+      currentMode: USER_MODES.GUEST,
+      mode: USER_MODES.GUEST,
+      isGuest: true,
+      isHostMode: false,
+      isHost: false,
+      isLoading: true,
+      isSwitching: false,
+      switchToGuest: async () => false,
+      switchToHost: async () => false,
+      toggleMode: async () => false,
+      syncMode: async () => false,
+      refreshHostStatus: async () => false,
+      resetUserMode: async () => false,
+    };
   }
   return context;
 };

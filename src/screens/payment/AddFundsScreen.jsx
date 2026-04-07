@@ -100,9 +100,35 @@ const AddFundsScreen = () => {
 
       if (verifyResult.status === "COMPLETED" || verifyResult.status === "success") {
         showToast(`${formatCurrency(Number(amount) || 0)} added to your wallet!`, "success");
-        await queryClient.invalidateQueries({ queryKey: ["walletInfo"] });
-        await queryClient.invalidateQueries({ queryKey: ["userProfile"] });
         
+        // Ensure ALL wallet/profile related queries are marked as stale and refetched
+        await queryClient.refetchQueries({ queryKey: ["walletInfo"], type: "all" });
+        await queryClient.refetchQueries({ queryKey: ["userProfile"], type: "all" });
+        
+        // Smart redirection for Web
+        if (Platform.OS === "web") {
+          const storedContext = localStorage.getItem("lunest_payment_context");
+          if (storedContext) {
+            try {
+              const { returnUrl, params: savedParams } = JSON.parse(storedContext);
+              localStorage.removeItem("lunest_payment_context");
+              
+              if (returnUrl) {
+                console.log("[AddFunds] Redirecting to stored context:", returnUrl, savedParams);
+                setTimeout(() => {
+                  router.replace({
+                    pathname: returnUrl,
+                    params: savedParams
+                  });
+                }, 1500);
+                return;
+              }
+            } catch (e) {
+              console.error("[AddFunds] Failed to parse stored context:", e);
+            }
+          }
+        }
+
         setTimeout(() => {
           router.back();
         }, 2000);
@@ -219,8 +245,14 @@ const AddFundsScreen = () => {
         const paymentReference = paymentData.reference;
 
         if (Platform.OS === "web") {
-          // On web, redirect CURRENT window instead of opening a new tab
-          // This ensures the callback returns to the same app instance
+          // On web, persist the context so it survives the full-page redirect
+          const context = {
+            returnUrl: params.returnUrl,
+            params: { ...params, status: null, reference: null } // Exclude callback-specific params
+          };
+          localStorage.setItem("lunest_payment_context", JSON.stringify(context));
+          
+          // Redirect CURRENT window to Paystack
           window.location.href = paymentData.authorization_url;
           return;
         }

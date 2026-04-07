@@ -1,5 +1,6 @@
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
+import * as FileSystem from 'expo-file-system';
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {

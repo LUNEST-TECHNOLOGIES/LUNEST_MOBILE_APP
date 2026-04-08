@@ -1250,9 +1250,8 @@ const HostListingsScreen = () => {
         );
       }
 
-      // Generate a consistent draft ID based on the listing ID only (no timestamp)
-      // This ensures we don't create multiple drafts when editing the same listing
-      const editDraftId = `edit_${listing.id}`;
+      // This ensures we update the existing record instead of creating a "clone"
+      const editDraftId = listing.id;
 
       // Parse property images
       let photosList = [];
@@ -1461,9 +1460,8 @@ const HostListingsScreen = () => {
         );
       }
 
-      // Generate a consistent draft ID based on the listing ID only (no timestamp)
-      // This ensures we don't create multiple drafts when editing the same listing
-      const editDraftId = `edit_${listing.id}`;
+      // This ensures we update the existing record instead of creating a "clone"
+      const editDraftId = listing.id;
 
       // Parse property images - handle both string URLs and image objects
       let photosList = [];

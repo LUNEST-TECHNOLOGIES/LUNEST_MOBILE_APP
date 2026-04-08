@@ -63,6 +63,7 @@ const HomeScreen = () => {
   const queryClient = useQueryClient();
   const { triggerHaptic } = usePremiumUI();
   const lastNotificationFetchTimeRef = useRef(0);
+  const isForcedRefreshRef = useRef(false);
   const NOTIF_COOLDOWN = 60000; // 1 minute
 
   // ── Infinite Explore Listings (React Query) ──
@@ -76,18 +77,26 @@ const HomeScreen = () => {
     refetch: onRefresh,
   } = useInfiniteQuery({
     queryKey: ["exploreListings", activeCategory],
-    queryFn: ({ pageParam = 1 }) => fetchExploreListingsRaw(pageParam),
+    queryFn: ({ pageParam = 1 }) => {
+      const isRefresh = isForcedRefreshRef.current && pageParam === 1;
+      if (pageParam === 1) isForcedRefreshRef.current = false; // Reset after use
+      return fetchExploreListingsRaw(pageParam, isRefresh);
+    },
     initialPageParam: 1,
-    getNextPageParam: (lastPage, allPages) => {
-      // Backend returns empty array if no more listings
-      return lastPage.length === 10 ? allPages.length + 1 : undefined;
+    getNextPageParam: (lastPage) => {
+      // Use backend pagination metadata to decide if there's more
+      const pagination = lastPage.pagination;
+      if (pagination && pagination.hasNext) {
+        return pagination.currentPage + 1;
+      }
+      return undefined;
     },
     staleTime: 5 * 60_000, // 5 minutes
   });
 
   // Flatten pages into a single array for FlashList
   const safeExploreListings = useMemo(() => {
-    return explorePages?.pages.flatMap((page) => page) || [];
+    return explorePages?.pages.flatMap((page) => page.listings || []) || [];
   }, [explorePages]);
 
   // Handle category filtering locally if needed, but we prefer server-side
@@ -575,6 +584,8 @@ const HomeScreen = () => {
 
   // Pull to refresh — delegates explore listings to the cached hook
   const handleRefresh = useCallback(async () => {
+    console.log("[HomeScreen] Pull-to-refresh triggered (Forced)");
+    isForcedRefreshRef.current = true;
     fetchUserLocation(true);
     fetchNotificationCount(true);
     await onRefresh();
@@ -584,8 +595,8 @@ const HomeScreen = () => {
    * Raw fetcher for explore listings — used by useInfiniteQuery.
    * Returns the transformed array for a specific page.
    */
-  async function fetchExploreListingsRaw(page = 1) {
-    console.log(`[HomeScreen] Fetching explore listings (Page: ${page}, Category: ${activeCategory})`);
+  async function fetchExploreListingsRaw(page = 1, refresh = false) {
+    console.log(`[HomeScreen] Fetching explore listings (Page: ${page}, Category: ${activeCategory}, Refresh: ${refresh})`);
     const baseURL = await configService.getBaseURL();
 
     const convertImageUrl = (image) => {
@@ -597,12 +608,15 @@ const HomeScreen = () => {
     if (activeCategory && activeCategory !== "all") {
       filters.propertyType = activeCategory;
     }
-
-    const listings = await listingService.fetchPaginatedListings({
+    const result = await listingService.fetchPaginatedListings({
       page,
       limit: 10,
+      refresh,
       ...filters
     });
+
+    const listings = result.listings || [];
+    const pagination = result.pagination || {};
 
     if (listings && listings.length > 0) {
       const transformedListings = listings.map((listing) => {
@@ -701,11 +715,11 @@ const HomeScreen = () => {
       console.log("[HomeScreen] Loaded", transformedListings.length, "explore listings");
       // Load bookmarks in background — don't block the return
       loadBookmarkStatuses(transformedListings);
-      return transformedListings;
+      return { listings: transformedListings, pagination };
     }
 
     console.log("[HomeScreen] No listings available");
-    return [];
+    return { listings: [], pagination: {} };
   }
 
   const handleNotificationPress = () => {

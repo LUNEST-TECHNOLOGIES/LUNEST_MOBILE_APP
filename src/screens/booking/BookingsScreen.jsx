@@ -565,7 +565,7 @@ const BookingsScreen = () => {
         ) : (
           <EmptyBookingState 
             type={activeTab}
-            onAction={() => router.push("index")}
+            onAction={() => router.push("/")}
           />
         )}
         {/* Bottom spacing for nav bar */}

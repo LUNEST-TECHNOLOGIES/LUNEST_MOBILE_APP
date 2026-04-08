@@ -62,7 +62,7 @@ const EmptyBookingState = ({ type, onAction }) => {
           title: "No upcoming bookings",
           subtitle: "Start exploring properties and make your first booking!",
           buttonText: "Explore Now",
-          onPress: () => router.replace("/(tabs)"),
+          onPress: () => router.replace("/"),
         };
       case "completed":
         return {
@@ -70,7 +70,7 @@ const EmptyBookingState = ({ type, onAction }) => {
           title: "No completed bookings",
           subtitle: "Your completed bookings will appear here.",
           buttonText: "Explore Now",
-          onPress: () => router.replace("/(tabs)"),
+          onPress: () => router.replace("/"),
         };
       case "canceled":
       case "cancelled":
@@ -87,7 +87,7 @@ const EmptyBookingState = ({ type, onAction }) => {
           title: `No ${type} bookings`,
           subtitle: `You don't have any ${type} bookings yet.`,
           buttonText: "Explore Now",
-          onPress: () => router.replace("/(tabs)"),
+          onPress: () => router.replace("/"),
         };
     }
   };

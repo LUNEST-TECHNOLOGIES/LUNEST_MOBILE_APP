@@ -177,26 +177,26 @@ class ListingService {
 
   /**
    * Fetch listings with pagination support (React Query friendly)
-   * @param {Object} params - { page, limit, ...filters }
+   * @param {Object} params - { page, limit, refresh, ...filters }
    * @returns {Promise<Array>} List of listings
    */
-  async fetchPaginatedListings({ page = 1, limit = 10, ...filters } = {}) {
-    console.log(`[ListingService] Fetching paginated listings (Page: ${page}, Limit: ${limit})`);
+  async fetchPaginatedListings({ page = 1, limit = 10, refresh = false, ...filters } = {}) {
+    console.log(`[ListingService] Fetching paginated listings (Page: ${page}, Limit: ${limit}, Refresh: ${refresh})`);
     try {
       const response = await axiosInstance.get("/v1/listings/paginated", {
         params: {
           ...filters,
           page,
-          limit
+          limit,
+          refresh: refresh ? 'true' : 'false'
         }
       });
 
       // Backend returns PaginatedResponse structure: { listings: [], pagination: {}, filters: {} }
       if (response.data && response.data.success) {
-        // Return only the listings array to maintain compatibility with existing UI
-        return response.data.body?.listings || [];
+        return response.data.body || { listings: [], pagination: {} };
       }
-      return [];
+      return { listings: [], pagination: {} };
     } catch (error) {
       console.error("[ListingService] Error in fetchPaginatedListings:", error);
       throw error; // Let React Query handle the error

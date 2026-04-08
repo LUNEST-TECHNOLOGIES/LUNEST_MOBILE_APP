@@ -29,8 +29,6 @@ import ArrowRightIcon from "../../assets/icons/arrow-right.svg";
 import ArrowLeftIcon from "../../assets/icons/bookings/arrow-left.svg";
 import CircleInfoIcon from "../../assets/icons/circle-info.svg";
 import CircleInfo2Icon from "../../assets/icons/circle-info2.svg";
-import Component1Icon from "../../assets/icons/Component 1.svg";
-import DoneV2Icon from "../../assets/icons/done-v2.svg";
 import EllipseAvatar from "../../assets/icons/Ellipse 10.svg";
 import ShareIcon from "../../assets/icons/share.svg";
 import ShieldTickIcon from "../../assets/icons/shield-tick.svg";
@@ -50,9 +48,9 @@ import { fetchHostData } from "../../services/hostService";
 import listingService from "../../services/listingService";
 import locationService from "../../services/locationService";
 import profileService from "../../services/profileService";
+import { getAmenityIcon } from "../../utils/amenityIcons";
 import { formatCurrency } from "../../utils/currency";
 import { resolveImageUrlSync } from "../../utils/imageUtils";
-import { getAmenityIcon } from "../../utils/amenityIcons";
 
 // House rules ID to label mapping (aligned with availability.jsx HOUSE_RULES)
 const HOUSE_RULES_MAP = {

@@ -42,6 +42,7 @@ const BookingSummary = () => {
   const [couponDiscount, setCouponDiscount] = useState(0);
   const [couponApplied, setCouponApplied] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isInitializingPayment, setIsInitializingPayment] = useState(false);
   const [fetchedBooking, setFetchedBooking] = useState(null);
   const [isFetchingBooking, setIsFetchingBooking] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -964,6 +965,7 @@ const BookingSummary = () => {
       ) {
         // Paystack/Card payment - Use Paystack checkout
         try {
+          setIsInitializingPayment(true);
           // Get user email
           const email = user?.email || user?.emailAddress;
           if (!email) {
@@ -1017,6 +1019,7 @@ const BookingSummary = () => {
               bookingType: bookingSummary.property.bookingType,
               checkIn: bookingSummary.property.checkIn,
               checkOut: bookingSummary.property.checkOut,
+              listingId: params?.listingId,
             };
 
             if (Platform.OS === "web") {
@@ -1178,6 +1181,7 @@ const BookingSummary = () => {
       showToast(errorMsg, TOAST_TYPE.ERROR);
     } finally {
       setIsProcessing(false);
+      setIsInitializingPayment(false);
     }
   };
 
@@ -1650,6 +1654,21 @@ const BookingSummary = () => {
           </View>
         )}
 
+        {/* Initializing Payment Overlay */}
+        {isInitializingPayment && (
+          <View style={styles.processingOverlay}>
+            <View style={styles.processingCard}>
+              <ActivityIndicator size="large" color="#192DFF" />
+              <Text style={styles.processingText}>
+                Proceeding to Secure Payment...
+              </Text>
+              <Text style={styles.processingSubtext}>
+                Please wait while we set up your checkout session.
+              </Text>
+            </View>
+          </View>
+        )}
+
         {/* Toast Notification */}
         <ToastNotification
           visible={toastVisible}
@@ -2059,9 +2078,16 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   processingText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#374151",
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#010135",
+    marginTop: 8,
+  },
+  processingSubtext: {
+    fontSize: 12,
+    color: "#666",
+    textAlign: "center",
+    marginTop: 4,
   },
 });
 

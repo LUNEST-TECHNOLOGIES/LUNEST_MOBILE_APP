@@ -4,6 +4,7 @@
  */
 
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import debounce from "lodash.debounce";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -28,6 +29,8 @@ import MapView, { Marker, PROVIDER_GOOGLE } from "../../src/components/MapViewWr
 import { APP_CONFIG } from "../../src/config/appConfig";
 import { useDraftListing } from "../../src/hooks/useDraftListing";
 import draftListingService from "../../src/services/draftListingService";
+import locationService from "../../src/services/locationService";
+import { ActivityIndicator } from "react-native";
 
 // Close X Icon - with explicit dimensions for web
 const CloseIcon = ({ size = 24, color = "#000000" }) => (
@@ -321,6 +324,64 @@ const Location = () => {
 
 
 
+
+  const handleUseCurrentLocation = async () => {
+    try {
+      setDetectingLocation(true);
+      const location = await locationService.getCurrentLocationWithAddress();
+      
+      if (location && location.address) {
+        const addr = location.address;
+        const lat = location.coords.latitude;
+        const lon = location.coords.longitude;
+        
+        // Construct a clean street address
+        const streetPart = [addr.streetNumber, addr.street].filter(Boolean).join(" ");
+        const finalAddress = streetPart || addr.name || addr.fullAddress;
+        
+        setAddress(finalAddress);
+        setCity(addr.city || city);
+        setState(addr.region || state);
+        setPostalCode(addr.postalCode || postalCode);
+        setCountry(addr.country || "Nigeria");
+        setPropertyCoords({ lat, lon });
+        
+        // Sync the search input text
+        if (googlePlacesRef.current) {
+          googlePlacesRef.current.setAddressText(finalAddress);
+        }
+        
+        // Save to draft
+        updateLocation({
+          address: finalAddress,
+          city: addr.city || city,
+          state: addr.region || state,
+          postalCode: addr.postalCode || postalCode,
+          country: addr.country || "Nigeria",
+          latitude: lat,
+          longitude: lon,
+        });
+        
+        // Animate map
+        if (mapRef.current) {
+          mapRef.current.animateToRegion({
+            latitude: lat,
+            longitude: lon,
+            latitudeDelta: 0.005,
+            longitudeDelta: 0.005,
+          }, 1000);
+        }
+      } else {
+        Alert.alert("Location Error", "Could not detect your current location. Please ensure location services are enabled.");
+      }
+    } catch (error) {
+      console.error("[Location] Error detecting location:", error);
+      Alert.alert("Error", "An error occurred while trying to get your location.");
+    } finally {
+      setDetectingLocation(false);
+    }
+  };
+
   const addLandmark = () => {
     if (landmarks.length < 5) {
       const newLandmarks = [...landmarks, ""];
@@ -507,6 +568,22 @@ const Location = () => {
                   Where is your property located?
                 </Text>
               </View>
+
+              {/* Current Location Helper */}
+              <Pressable 
+                style={styles.currentLocationButton} 
+                onPress={handleUseCurrentLocation}
+                disabled={detectingLocation}
+              >
+                {detectingLocation ? (
+                  <ActivityIndicator size="small" color="#010135" />
+                ) : (
+                  <Ionicons name="location-outline" size={16} color="#010135" />
+                )}
+                <Text style={styles.currentLocationText}>
+                  {detectingLocation ? "Detecting..." : "Use my current location"}
+                </Text>
+              </Pressable>
 
               {/* Address Input - Unified Search Only */}
               <View style={{ marginBottom: 20 }}>
@@ -1277,6 +1354,22 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     color: "#666666",
     lineHeight: 14,
+  },
+  currentLocationButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F0F2FF",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginBottom: 16,
+    alignSelf: "flex-start",
+    gap: 6,
+  },
+  currentLocationText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#010135",
   },
 });
 

@@ -224,9 +224,49 @@ const BookingConfirmationScreen = () => {
           setBooking(result.booking);
         }
       })
-      .catch(() => {})
+      .catch((err) => {
+        console.error("[BookingConfirmation] Initial fetch error:", err);
+      })
       .finally(() => setLoading(false));
   }, [bookingId]);
+
+  // Polling logic for PENDING bookings
+  useEffect(() => {
+    let pollingInterval;
+    const isPending = statusLower === "pending" || statusLower === "pending_payment";
+
+    if (isPending && bookingId && booking) {
+      console.log(`[BookingConfirmation] Starting status polling for ${bookingId} (Current: ${statusLower})`);
+      
+      pollingInterval = setInterval(async () => {
+        try {
+          const result = await bookingService.fetchBookingById(bookingId);
+          if (result?.success && result?.booking) {
+            const newStatus = (result.booking.status || "").toLowerCase();
+            if (newStatus !== statusLower) {
+              console.log(`[BookingConfirmation] Status changed: ${statusLower} -> ${newStatus}`);
+              setBooking(result.booking);
+              
+              // If it's now confirmed, we can stop polling
+              if (newStatus === "confirmed" || newStatus === "completed") {
+                clearInterval(pollingInterval);
+                showToastMessage("Booking confirmed successfully!", TOAST_TYPE.SUCCESS);
+              }
+            }
+          }
+        } catch (error) {
+          console.warn("[BookingConfirmation] Polling error:", error);
+        }
+      }, 5000); // Poll every 5 seconds
+    }
+
+    return () => {
+      if (pollingInterval) {
+        clearInterval(pollingInterval);
+        console.log("[BookingConfirmation] Polling stopped");
+      }
+    };
+  }, [bookingId, statusLower, !!booking]);
 
   // Helper: get value from fetched booking or route params
   const val = (bookingKey, paramKey, fallback = "-") => {
@@ -455,6 +495,9 @@ const BookingConfirmationScreen = () => {
         encoding: FileSystem.EncodingType.Base64,
       });
       const logoSrc = `data:image/png;base64,${logoBase64}`;
+      
+      const cautionStatusText = (booking?.securityDepositResolution?.status || "HELD").replace(/_/g, " ");
+      const cautionStatusGuestText = (booking?.securityDepositResolution?.status || "HELD/REFUNDABLE").replace(/_/g, " ");
 
       const confirmationHtml = `
         <html>
@@ -495,13 +538,13 @@ const BookingConfirmationScreen = () => {
                 ? `
               <div class="row"><span class="label">Rent + Service Fee:</span><span class="value">₦${formatCurrency(rentFee)}</span></div>
               <div class="row"><span class="label">Host/Landlord Fee (incl. VAT):</span><span class="value">- ₦${formatCurrency(hostAppCharge)}</span></div>
-              <div class="row"><span class="label">Caution Fee:</span><span class="value">₦${formatCurrency(securityDeposit)} (${(booking?.securityDepositResolution?.status || "HELD").replace(/_/g, " ")})</span></div>
+              <div class="row"><span class="label">Caution Fee:</span><span class="value">₦${formatCurrency(securityDeposit)} (${cautionStatusText})</span></div>
               <div class="total-row"><span class="total-label">Your Earnings:</span><span class="total-value">₦${formatCurrency(rentFee - hostAppCharge)}</span></div>
             `
                 : `
               <div class="row"><span class="label">Rent Fee:</span><span class="value">₦${formatCurrency(rentFee)}</span></div>
               <div class="row"><span class="label">Service Charge:</span><span class="value">₦${formatCurrency(serviceCharge)}</span></div>
-              <div class="row"><span class="label">Caution Fee:</span><span class="value">₦${formatCurrency(securityDeposit)} (${(booking?.securityDepositResolution?.status || "HELD/REFUNDABLE").replace(/_/g, " ")})</span></div>
+              <div class="row"><span class="label">Caution Fee:</span><span class="value">₦${formatCurrency(securityDeposit)} (${cautionStatusGuestText})</span></div>
               ${couponApplied && couponDiscount > 0 ? `
                 <div class="row"><span class="label" style="color: #2E7D32;">Discount (${couponCode}):</span><span class="value" style="color: #2E7D32;">- ₦${formatCurrency(couponDiscount)}</span></div>
               ` : ""}

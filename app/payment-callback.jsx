@@ -22,6 +22,7 @@ import bookingService from "../src/services/bookingService";
 import paymentService from "../src/services/paymentService";
 import notificationService from "../src/services/notificationService";
 import { TOAST_TYPE } from "../src/components/common/ToastNotification";
+import { ActivityIndicator, Modal } from "react-native";
 
 export default function PaymentCallbackScreen() {
   const router = useRouter();
@@ -31,6 +32,7 @@ export default function PaymentCallbackScreen() {
   const [message, setMessage] = useState("Verifying your payment...");
   const [reference, setReference] = useState(null);
   const [retryCount, setRetryCount] = useState(0);
+  const [isFinalizingBooking, setIsFinalizingBooking] = useState(false);
   const [animation] = useState(new Animated.Value(0));
 
   // Animation for processing indicator
@@ -158,16 +160,23 @@ export default function PaymentCallbackScreen() {
           
           if (Platform.OS === "web") {
             storedContext = localStorage.getItem("lunest_payment_context");
-            if (storedContext) localStorage.removeItem("lunest_payment_context");
           } else {
             storedContext = await AsyncStorage.getItem("lunest_payment_context");
-            if (storedContext) await AsyncStorage.removeItem("lunest_payment_context");
           }
 
           if (storedContext) {
             const context = JSON.parse(storedContext);
             
+            // Clean up context after successful use or final abandonment handling
+            const cleanupContext = async () => {
+                if (Platform.OS === "web") {
+                    localStorage.removeItem("lunest_payment_context");
+                } else {
+                    await AsyncStorage.removeItem("lunest_payment_context");
+                }
+            };
             if (context.type === "BOOKING" && context.bookingData) {
+              setIsFinalizingBooking(true);
               setStatus("processing");
               setMessage("Finalizing your booking...");
               
@@ -178,24 +187,21 @@ export default function PaymentCallbackScreen() {
                 setMessage("Booking confirmed! Redirecting you now...");
                 notificationService.showSuccess("Booking finalized successfully!");
                 
+                // --- WEB REDIRECTION FIX ---
+                // On Web, passing massive params in router.replace can cause 404/Not-Found flashes.
+                // We pass only the essential bookingId and let the confirmation screen fetch the rest.
                 router.replace({
                   pathname: "/booking-confirmation",
                   params: {
+                    bookingId: bookingResult.booking?._id || context.bookingData?._id,
                     status: "Confirmed",
-                    propertyName: context.propertyName,
-                    location: context.location,
-                    coverImage: context.coverImage,
-                    bookingType: context.bookingType,
-                    checkIn: context.checkIn,
-                    checkOut: context.checkOut,
-                    paymentMethod: "Card",
-                    total: `₦${(context.bookingData.priceBreakdown?.guestTotal || 0).toLocaleString()}`,
-                    refCode: bookingResult.booking?.referenceCode || ref,
-                    bookingId: bookingResult.booking?._id,
+                    propertyName: context.propertyName // Keep title for immediate display
                   }
                 });
+                await cleanupContext();
                 return;
               } else {
+                setIsFinalizingBooking(false);
                 throw new Error(bookingResult.message || "Failed to finalize booking");
               }
             } else if (context.type === "WALLET_FUNDING") {
@@ -208,6 +214,7 @@ export default function PaymentCallbackScreen() {
               queryClient.refetchQueries({ queryKey: ["userProfile"], type: "all" });
               
               navigateAfterDelay("/(tabs)/profile", 2000);
+              await cleanupContext();
               return;
             }
           }
@@ -231,11 +238,11 @@ export default function PaymentCallbackScreen() {
       } else if (result.status === "ABANDONED") {
         setStatus("error");
         setMessage("Payment was abandoned. If you intended to pay, please try again.");
-        navigateAfterDelay(Platform.OS === 'web' ? "/profile" : "/(tabs)/profile", 4000);
+        handleFailureRedirection();
       } else if (result.status === "FAILED") {
         setStatus("error");
         setMessage("Payment was not successful. Please try again or contact support.");
-        navigateAfterDelay(Platform.OS === 'web' ? "/profile" : "/(tabs)/profile", 4000);
+        handleFailureRedirection();
       } else {
         setStatus("error");
         setMessage(result.message || "Payment verification failed. Please contact support if funds were deducted.");
@@ -253,6 +260,36 @@ export default function PaymentCallbackScreen() {
       }
     }
   }, [retryCount, router]);
+
+  const handleFailureRedirection = async () => {
+    try {
+      let storedContext = null;
+      if (Platform.OS === "web") {
+        storedContext = localStorage.getItem("lunest_payment_context");
+      } else {
+        storedContext = await AsyncStorage.getItem("lunest_payment_context");
+      }
+
+      if (storedContext) {
+        const context = JSON.parse(storedContext);
+        if (context.type === "BOOKING" && context.listingId) {
+          setMessage(prev => prev + " Redirecting you back to the booking page...");
+          setTimeout(() => {
+            router.replace({
+              pathname: "/property-details",
+              params: { listingId: context.listingId }
+            });
+          }, 3000);
+          return;
+        }
+      }
+    } catch (e) {
+      console.warn("[PaymentCallback] Failure redirect error:", e);
+    }
+    
+    // Default fallback
+    navigateAfterDelay(Platform.OS === 'web' ? "/profile" : "/(tabs)/profile", 4000);
+  };
 
   const handleRetry = () => {
     if (reference) {
@@ -332,6 +369,23 @@ export default function PaymentCallbackScreen() {
           </TouchableOpacity>
         )}
       </View>
+
+      {/* Confirming Booking Modal (Overlay) */}
+      <Modal
+        visible={isFinalizingBooking}
+        transparent={true}
+        animationType="fade"
+      >
+        <View style={styles.confirmModalOverlay}>
+          <View style={styles.confirmModalContent}>
+            <ActivityIndicator size="large" color="#010135" />
+            <Text style={styles.confirmModalTitle}>Confirming Booking</Text>
+            <Text style={styles.confirmModalText}>
+              Please do not refresh or close this page. We are finalizing your reservation...
+            </Text>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -432,5 +486,39 @@ const styles = StyleSheet.create({
     color: "#246BFD",
     fontSize: 16,
     fontWeight: "600",
+  },
+  // New Modal Styles
+  confirmModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  confirmModalContent: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    padding: 32,
+    alignItems: "center",
+    width: "100%",
+    maxWidth: 340,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 15,
+    elevation: 10,
+  },
+  confirmModalTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#010135",
+    marginTop: 20,
+    marginBottom: 8,
+  },
+  confirmModalText: {
+    fontSize: 14,
+    color: "#666666",
+    textAlign: "center",
+    lineHeight: 20,
   },
 });

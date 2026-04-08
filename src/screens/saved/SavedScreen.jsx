@@ -41,8 +41,9 @@ const SavedScreen = () => {
     refetch,
   } = useQuery({
     queryKey: ["bookmarks"],
-    queryFn: async () => {
-      const result = await bookmarkService.fetchBookmarks();
+    queryFn: async ({ queryKey }) => {
+      const [_key, options] = queryKey;
+      const result = await bookmarkService.fetchBookmarks(options || {});
       return result.success ? result.bookmarks : [];
     },
     staleTime: 5 * 60_000,
@@ -76,8 +77,18 @@ const SavedScreen = () => {
     },
   });
 
-  const handleRefresh = () => {
-    refetch();
+  const handleRefresh = async () => {
+    try {
+      const result = await bookmarkService.fetchBookmarks({ refresh: true });
+      if (result.success) {
+        queryClient.setQueryData(["bookmarks"], result.bookmarks);
+      }
+    } catch (error) {
+      console.error("[SavedScreen] Refresh error:", error);
+    } finally {
+      // refetch will still trigger the background loading state for UI feedback
+      refetch();
+    }
   };
 
   const handleRemoveBookmark = (bookmarkId, listingTitle) => {

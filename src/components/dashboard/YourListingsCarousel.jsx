@@ -8,12 +8,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useRef, useState } from "react";
 import {
-    Dimensions,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View,
+  Dimensions,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 import ShieldTickIcon from "../../assets/icons/shield-tick.svg";
 import configService from "../../services/configService";

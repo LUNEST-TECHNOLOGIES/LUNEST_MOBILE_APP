@@ -14,9 +14,9 @@ const AMENITY_ICONS = {
   "coffee maker": "cafe",
   
   // Bathroom / Hygiene
-  bath: "water",
-  bathroom: "water",
-  shower: "water",
+  bath: "shower-outline",
+  bathroom: "shower-outline",
+  shower: "shower-outline",
   "washing machine": "sync",
   laundry: "shirt",
   "iron": "id-card", // fallback

@@ -101,7 +101,7 @@ class BookmarkService {
     }
   }
 
-  async fetchBookmarks() {
+  async fetchBookmarks(options = {}) {
     try {
       await this.initialize();
       const token = await authService.getToken();
@@ -110,7 +110,12 @@ class BookmarkService {
         return { success: false, bookmarks: [] };
       }
 
-      const response = await fetch(this.baseURL + "/v1/bookmarks/bookmark", {
+      let url = this.baseURL + "/v1/bookmarks/bookmark";
+      if (options.refresh) {
+        url += "?refresh=true";
+      }
+
+      const response = await fetch(url, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

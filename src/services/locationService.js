@@ -83,14 +83,14 @@ class LocationService {
             // Enhanced acquisition: Try getCurrentPositionAsync with timeout or fallback to getLastKnownPosition
             let location = null;
             try {
-                // Set a 10s timeout for high accuracy location
+                // Set a 30s timeout for high accuracy location to handle slow GPS/emulator
                 location = await Promise.race([
                     Location.getCurrentPositionAsync({
                         accuracy: options.accuracy || Location.Accuracy.Balanced,
                         ...options,
                     }),
                     new Promise((_, reject) => 
-                        setTimeout(() => reject(new Error('Location request timed out')), 10000)
+                        setTimeout(() => reject(new Error('Location request timed out')), 30000)
                     )
                 ]);
             } catch (posError) {
@@ -105,8 +105,10 @@ class LocationService {
             }
 
             this.lastLocation = {
-                latitude: location.coords.latitude,
-                longitude: location.coords.longitude,
+                coords: {
+                    latitude: location.coords.latitude,
+                    longitude: location.coords.longitude,
+                },
                 accuracy: location.coords.accuracy,
                 timestamp: location.timestamp,
             };
@@ -126,18 +128,30 @@ class LocationService {
      * @returns {Promise<Object|null>} Address object
      */
     async getAddressFromCoordinates(latitude, longitude) {
+        // Validation: Ensure we have valid coordinates before proceeding
+        if (latitude == null || longitude == null || isNaN(latitude) || isNaN(longitude)) {
+            console.warn('⚠️ [LocationService] Invalid coordinates provided to reverse geocode:', { latitude, longitude });
+            return null;
+        }
+
         try {
-            console.log('🗺️ [LocationService] Reverse geocoding...');
+            console.log(`🗺️ [LocationService] Reverse geocoding: ${latitude}, ${longitude}...`);
 
             // 1. Try Expo/Native Reverse Geocoding first
             let addresses = [];
             try {
-                addresses = await Location.reverseGeocodeAsync({
-                    latitude,
-                    longitude,
-                });
+                // Set a 5s timeout for reverse geocoding to avoid long hangs on Android
+                addresses = await Promise.race([
+                    Location.reverseGeocodeAsync({
+                        latitude,
+                        longitude,
+                    }),
+                    new Promise((_, reject) => 
+                        setTimeout(() => reject(new Error('Reverse geocoding timed out')), 5000)
+                    )
+                ]);
             } catch (err) {
-                console.warn('⚠️ [LocationService] Native reverse geocoding failed:', err.message);
+                console.warn('⚠️ [LocationService] Native reverse geocoding failed or timed out:', err.message);
             }
 
             if (addresses && addresses.length > 0) {
@@ -237,8 +251,8 @@ class LocationService {
             if (!location) return null;
 
             const address = await this.getAddressFromCoordinates(
-                location.latitude,
-                location.longitude
+                location.coords?.latitude,
+                location.coords?.longitude
             );
 
             return {
@@ -268,7 +282,13 @@ class LocationService {
             }
 
             console.log('🗺️ [LocationService] Forward geocoding:', address);
-            const results = await Location.geocodeAsync(address);
+            // Set a 10s timeout for geocoding to prevent infinite hangs
+            const results = await Promise.race([
+                Location.geocodeAsync(address),
+                new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('Geocoding request timed out')), 10000)
+                )
+            ]);
 
             if (results && results.length > 0) {
                 const coords = {

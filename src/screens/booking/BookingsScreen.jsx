@@ -155,6 +155,7 @@ const BookingsScreen = () => {
             id,
             createdAt: booking.createdAt,
             propertyName:
+              listing.propertyTitle ||
               listing.propertyName ||
               listing.title ||
               listing.name ||
@@ -562,11 +563,9 @@ const BookingsScreen = () => {
             </View>
           ))
         ) : (
-          <EmptyState 
-            title={`No ${activeTab} Bookings`}
-            message={`You don't have any bookings in the ${activeTab.toLowerCase()} category yet.`}
-            buttonTitle="Explore Properties"
-            onPress={() => router.push("/(tabs)/index")}
+          <EmptyBookingState 
+            type={activeTab}
+            onAction={() => router.push("index")}
           />
         )}
         {/* Bottom spacing for nav bar */}

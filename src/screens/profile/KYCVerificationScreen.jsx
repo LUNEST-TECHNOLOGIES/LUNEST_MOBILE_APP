@@ -125,8 +125,17 @@ const KYCVerificationScreen = () => {
     } catch (error) {
       const errorMsg = error.message || "Could not verify identity.";
       console.error("[KYC] Verification error:", errorMsg);
-      
-      if (errorMsg.includes("not found")) {
+
+      // Check for duplicate NIN error (409 Conflict or MongoDB Duplicate Key string)
+      if (
+        error.status === 409 || 
+        error.status === 400 && errorMsg.toLowerCase().includes("already associated") ||
+        errorMsg.toLowerCase().includes("duplicate") || 
+        errorMsg.toLowerCase().includes("already been verified") ||
+        errorMsg.toLowerCase().includes("plan executor")
+      ) {
+        showToast("This NIN has already been verified on another account.", TOAST_TYPE.ERROR);
+      } else if (errorMsg.includes("not found")) {
         showToast("NIN record not found. Please check the number and try again.", TOAST_TYPE.ERROR);
       } else if (errorMsg.includes("match")) {
         showToast("Facial match failed. Ensure your face is clear and well-lit.", TOAST_TYPE.ERROR);

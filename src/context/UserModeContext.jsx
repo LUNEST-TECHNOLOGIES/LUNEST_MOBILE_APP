@@ -36,6 +36,7 @@ export const UserModeProvider = ({ children }) => {
   const [mode, setMode] = useState(USER_MODES.GUEST);
   const [isLoading, setIsLoading] = useState(true);
   const [isSwitching, setIsSwitching] = useState(false); // Loading state during mode switch
+  const [targetMode, setTargetMode] = useState(null); // Mode we are switching to
   const [isHost, setIsHost] = useState(false); // Whether user has host privileges
   const [userId, setUserId] = useState(null); // Current user ID for storage
 
@@ -188,6 +189,7 @@ export const UserModeProvider = ({ children }) => {
     if (modeRef.current === USER_MODES.GUEST) return true;
     try {
       setIsSwitching(true);
+      setTargetMode(USER_MODES.GUEST);
       console.log("🔄 [UserMode] Switching to GUEST mode...");
 
       // OPTIMISTIC UPDATE: Set mode and save preference immediately
@@ -216,6 +218,7 @@ export const UserModeProvider = ({ children }) => {
       prefetchGuestData().finally(() => {
         clearTimeout(safetyTimeout);
         setIsSwitching(false);
+        setTargetMode(null);
       });
 
       console.log("✅ [UserMode] Optimistic switch to GUEST mode initiated");
@@ -236,6 +239,7 @@ export const UserModeProvider = ({ children }) => {
     if (modeRef.current === USER_MODES.HOST) return true;
     try {
       setIsSwitching(true);
+      setTargetMode(USER_MODES.HOST);
       console.log("🔄 [UserMode] Switching to HOST mode...");
 
       // OPTIMISTIC UPDATE: Set mode and save preference immediately
@@ -263,6 +267,7 @@ export const UserModeProvider = ({ children }) => {
       prefetchHostData().finally(() => {
         clearTimeout(safetyTimeout);
         setIsSwitching(false);
+        setTargetMode(null);
       });
 
       console.log("✅ [UserMode] Optimistic switch to HOST mode initiated");
@@ -342,6 +347,11 @@ export const UserModeProvider = ({ children }) => {
     await AsyncStorage.removeItem(LAST_SIDE_KEY);
     return true;
   }, []);
+  
+  const cancelSwitch = useCallback(() => {
+    setIsSwitching(false);
+    setTargetMode(null);
+  }, []);
 
   const value = {
     currentMode: mode,
@@ -351,6 +361,7 @@ export const UserModeProvider = ({ children }) => {
     isHost, // Whether user CAN be a host
     isLoading,
     isSwitching, // Loading state during mode switch
+    targetMode,
     switchToGuest,
     switchToHost,
     toggleMode,
@@ -359,6 +370,7 @@ export const UserModeProvider = ({ children }) => {
     resetUserMode,
     prefetchGuestData,
     prefetchHostData,
+    cancelSwitch,
   };
 
   return (

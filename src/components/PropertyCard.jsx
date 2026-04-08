@@ -2,14 +2,15 @@ import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
 import {
   Dimensions,
-  ImageBackground,
   Pressable,
   StyleSheet,
   Text,
   View,
 } from "react-native";
+import { Image } from "expo-image";
 import configService from "../services/configService";
 import { resolveImageUrlSync } from "../utils/imageUtils";
+import { getAmenityIcon } from "../utils/amenityIcons";
 import PropertyRating from "./ui/PropertyRating";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -54,20 +55,6 @@ const PropertyCard = ({
 }) => {
   const [favorite, setFavorite] = useState(isFavorite);
   const [imageError, setImageError] = useState(false);
-
-  // Debug log to verify props
-  useEffect(() => {
-    console.log("[PropertyCard] Props received:", {
-      id,
-      hasImage: !!image,
-      imageType: typeof image,
-      imageUri: image?.uri?.substring(0, 30),
-      rating,
-      bedrooms,
-      bathrooms,
-      amenitiesCount: amenities?.length || 0,
-    });
-  }, [id, image, rating, bedrooms, bathrooms, amenities]);
 
   // Sync internal state with prop when it changes (e.g., from bookmarkMap updates)
   useEffect(() => {
@@ -132,57 +119,50 @@ const PropertyCard = ({
       onPress={onPress}
     >
       {/* Property Image - Only render if image exists */}
-      {getImageSource() ? (
-        <ImageBackground
-          source={getImageSource()}
-          style={styles.imageBackground}
-          imageStyle={styles.image}
-          resizeMode="cover"
-          onError={() => setImageError(true)}
-        >
-          {/* Booked Status Badge overlaying the image */}
-          {status === "BOOKED" && (
-            <View style={styles.bookedBadgeContainer}>
-              <Text style={styles.bookedBadgeText}>
-                {bookedUntil
-                  ? `Booked till ${new Date(bookedUntil).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
-                  : "Booked"}
-              </Text>
-            </View>
-          )}
+      <View style={styles.imageBackground}>
+        {getImageSource() ? (
+          <Image
+            source={getImageSource()}
+            style={styles.image}
+            contentFit="cover"
+            priority="high"
+            transition={200}
+            cachePolicy="memory-disk"
+            placeholder={{ uri: "https://via.placeholder.com/200x150/F3F4F6/9CA3AF?text=Lunest" }}
+            onError={() => setImageError(true)}
+          />
+        ) : (
+          <View style={[styles.image, styles.noImageContainer]}>
+             <Ionicons name="image-outline" size={30} color="#BDC3C7" />
+          </View>
+        )}
 
-          {/* Favorite Button with Semi-transparent Background */}
-          <View style={styles.favoriteContainer}>
-            <Pressable
-              style={styles.favoriteButton}
-              onPress={handleFavoritePress}
-            >
-              <Ionicons
-                name={favorite ? "heart" : "heart-outline"}
-                size={18}
-                color={favorite ? "#FF5A5F" : "#FFFFFF"}
-              />
-            </Pressable>
+        {/* Overlay Content */}
+        {/* Booked Status Badge overlaying the image */}
+        {status === "BOOKED" && (
+          <View style={styles.bookedBadgeContainer}>
+            <Text style={styles.bookedBadgeText}>
+              {bookedUntil
+                ? `Booked till ${new Date(bookedUntil).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
+                : "Booked"}
+            </Text>
           </View>
-        </ImageBackground>
-      ) : (
-        /* No Image State - Gray background with favorite button only */
-        <View style={[styles.imageBackground, styles.noImageContainer]}>
-          {/* Favorite Button even when no image */}
-          <View style={styles.favoriteContainer}>
-            <Pressable
-              style={styles.favoriteButton}
-              onPress={handleFavoritePress}
-            >
-              <Ionicons
-                name={favorite ? "heart" : "heart-outline"}
-                size={18}
-                color={favorite ? "#FF5A5F" : "#FFFFFF"}
-              />
-            </Pressable>
-          </View>
+        )}
+
+        {/* Favorite Button with Semi-transparent Background */}
+        <View style={styles.favoriteContainer}>
+          <Pressable
+            style={styles.favoriteButton}
+            onPress={handleFavoritePress}
+          >
+            <Ionicons
+              name={favorite ? "heart" : "heart-outline"}
+              size={18}
+              color={favorite ? "#FF5A5F" : "#FFFFFF"}
+            />
+          </Pressable>
         </View>
-      )}
+      </View>
 
       {/* Property Details */}
       <View style={styles.detailsContainer}>
@@ -201,32 +181,28 @@ const PropertyCard = ({
         <View style={styles.propertyDetailsRow}>
           {Number(bedrooms) > 0 && (
             <View style={styles.detailItem}>
-              <Ionicons name="bed-outline" size={10} color="#7C7C7C" />
-              <Text style={styles.detailText}>{bedrooms} Bed</Text>
+              <Ionicons name="bed-outline" size={12} color="#4B5563" />
+              <Text style={styles.detailText}>{bedrooms} Bedroom</Text>
             </View>
           )}
           {Number(bathrooms) > 0 && (
             <View style={styles.detailItem}>
-              <Ionicons name="water-outline" size={10} color="#7C7C7C" />
-              <Text style={styles.detailText}>{bathrooms} Bath</Text>
+              <Ionicons name="water-outline" size={12} color="#4B5563" />
+              <Text style={styles.detailText}>{bathrooms} Bathroom</Text>
             </View>
           )}
-          {amenities && amenities.length > 0 && (
-            <View style={styles.detailItem}>
-              <Ionicons name="home-outline" size={10} color="#7C7C7C" />
-              <Text style={styles.detailText} numberOfLines={1}>
-                {(() => {
-                  const amenity = amenities[0];
-                  if (!amenity) return "";
-                  if (typeof amenity === "string") return amenity;
-                  if (typeof amenity === "object") {
-                    return amenity.label || amenity.name || amenity.value || "Amenity";
-                  }
-                  return String(amenity);
-                })()}
-              </Text>
-            </View>
-          )}
+          
+          {/* Key Amenities (Show first 1) */}
+          {Array.isArray(amenities) && amenities.slice(0, 1).map((amenity, index) => {
+             const label = typeof amenity === 'object' ? (amenity.label || amenity.name || "") : String(amenity);
+             if (!label) return null;
+             return (
+               <View key={index} style={styles.detailItem}>
+                 <Ionicons name={getAmenityIcon(label)} size={12} color="#4B5563" />
+                 <Text style={styles.detailText}>{label}</Text>
+               </View>
+             );
+          })}
         </View>
 
         <View style={styles.bottomRow}>
@@ -274,7 +250,11 @@ const styles = StyleSheet.create({
     width: "100%",
     height: CARD_HEIGHT * 0.6,
     overflow: "hidden",
-    backgroundColor: "#F5F5F5", // Clean neutral background for empty states
+    backgroundColor: "#F5F5F5",
+    position: "relative",
+  },
+  image: {
+    ...StyleSheet.absoluteFillObject,
   },
   noImageContainer: {
     backgroundColor: "#E8E8E8", // Gray background when no image
@@ -346,17 +326,21 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    marginTop: 2,
+    marginTop: 4,
     marginBottom: 4,
+    flexWrap: 'wrap',
   },
   detailItem: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 2,
+    gap: 4,
+    // Removed background and padding as per user request
+    paddingVertical: 2,
   },
   detailText: {
     fontSize: 10,
-    color: "#7C7C7C",
+    fontWeight: '600',
+    color: "#4B5563",
   },
   bottomRow: {
     flexDirection: "row",

@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Alert, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { AccountStatusProvider, UserModeProvider } from "../src/context";
+import { AccountStatusProvider, UserModeProvider, useUserMode } from "../src/context";
 import { useReferralTracker } from "../src/hooks/useReferralTracker";
 import apiClient from "../src/services/apiClient";
 import authService from "../src/services/authService";
@@ -13,6 +13,7 @@ import notificationService from "../src/services/notificationService";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "../src/lib/queryClient";
 import ToastNotification, { TOAST_TYPE } from "../src/components/common/ToastNotification";
+import { ModeSwitchingOverlay } from "../src/components/shared";
 
 // Verify env is loaded
 console.log("[App] Environment Check:");
@@ -62,6 +63,8 @@ export default function RootLayout() {
       segments[0] === "reset-password";
     const inTabs = segments[0] === "(tabs)";
     const inHostTabs = segments[0] === "(host-tabs)";
+    const isPaymentCallback = segments[0] === "payment-callback";
+    const isAddFunds = segments[0] === "add-funds";
 
     // Let the index page handle initial routing
     if (inIndex) return;
@@ -90,8 +93,8 @@ export default function RootLayout() {
           }
           // Redirect to login (not onboarding) for returning users
           router.replace("/login");
-        } else if (!inOnboarding && !inAuth) {
-          // Not on onboarding or auth screens, go to onboarding for new users
+        } else if (!inOnboarding && !inAuth && !isPaymentCallback && !isAddFunds) {
+          // Not on onboarding, auth, or payment screens, go to onboarding for new users
           router.replace("/onboarding");
         }
       }
@@ -143,6 +146,7 @@ export default function RootLayout() {
           <UserModeProvider>
             <AccountStatusProvider>
               <SafeAreaProvider>
+                <GlobalOverlayManager />
                 {isLoading ? (
                   <View
                     style={{
@@ -306,6 +310,20 @@ export default function RootLayout() {
                         headerShown: false,
                       }}
                     />
+                    <Stack.Screen
+                      name="payment-callback"
+                      options={{
+                        headerShown: false,
+                        gestureEnabled: false,
+                      }}
+                    />
+                    <Stack.Screen
+                      name="add-funds"
+                      options={{
+                        presentation: "card",
+                        headerShown: false,
+                      }}
+                    />
                   </Stack>
                 )}
                 <ToastNotification
@@ -321,5 +339,21 @@ export default function RootLayout() {
         </GestureHandlerRootView>
       </WebContainer>
     </QueryClientProvider>
+  );
+}
+
+/**
+ * Manages global overlays like mode switching
+ * Resides inside Providers to access context
+ */
+function GlobalOverlayManager() {
+  const { isSwitching, targetMode, cancelSwitch } = useUserMode();
+  
+  return (
+    <ModeSwitchingOverlay 
+      visible={isSwitching} 
+      targetMode={targetMode} 
+      onCancel={cancelSwitch}
+    />
   );
 }

@@ -52,6 +52,7 @@ import locationService from "../../services/locationService";
 import profileService from "../../services/profileService";
 import { formatCurrency } from "../../utils/currency";
 import { resolveImageUrlSync } from "../../utils/imageUtils";
+import { getAmenityIcon } from "../../utils/amenityIcons";
 
 // House rules ID to label mapping (aligned with availability.jsx HOUSE_RULES)
 const HOUSE_RULES_MAP = {
@@ -687,7 +688,7 @@ const PropertyDetailsScreen = () => {
     if (!listing) {
       return {
         id: listingId,
-        title: "Listing",
+        title: "",
         images: [],
         amenities: [],
         features: [],
@@ -711,7 +712,7 @@ const PropertyDetailsScreen = () => {
     return {
       id: listing._id || listing.id,
       _id: listing._id || listing.id,
-      title: listing.propertyTitle || listing.propertyName || "Listing",
+      title: listing.propertyTitle || listing.propertyName || "",
       address: listing.address || listing.propertyLocation?.fullAddress || "",
       propertyType: listing.propertyType || "Apartment",
       location: (() => {
@@ -753,12 +754,15 @@ const PropertyDetailsScreen = () => {
       features: [
         {
           label: `${listing.bedrooms || 0} Bedroom${listing.bedrooms !== 1 ? "s" : ""}`,
+          icon: "bed"
         },
         {
           label: `${listing.guests || 0} Guest${listing.guests !== 1 ? "s" : ""}`,
+          icon: "people"
         },
         {
           label: `${listing.bathrooms || 0} Bathroom${listing.bathrooms !== 1 ? "s" : ""}`,
+          icon: "water"
         },
         ...(listing.furnishing
           ? [
@@ -766,15 +770,14 @@ const PropertyDetailsScreen = () => {
                 label: String(listing.furnishing)
                   .replace(/_/g, " ")
                   .replace(/\b\w/g, (l) => l.toUpperCase()),
+                icon: "home"
               },
             ]
           : []),
-        { label: listing.instantBooking ? "Instant Booking" : "Contact Host" },
-        ...(Array.isArray(listing.amenities)
-          ? listing.amenities
-              .slice(0, 2)
-              .map((a) => ({ label: formatAmenity(a) }))
-          : []),
+        { 
+          label: listing.instantBooking ? "Instant Booking" : "Contact Host",
+          icon: "flash"
+        },
       ],
       amenities: (Array.isArray(listing.amenities)
         ? listing.amenities
@@ -1095,6 +1098,10 @@ const PropertyDetailsScreen = () => {
     setIsHeaderFixed(scrollOffset > 50);
   };
 
+  const renderSkeleton = () => {
+    return <PropertyDetailsSkeleton />;
+  };
+
   // Get image URLs for the viewer (string URIs)
   const getImageUrlsForViewer = () => {
     return propertyData.images
@@ -1287,7 +1294,11 @@ const PropertyDetailsScreen = () => {
             .filter(Boolean) // Remove any null/undefined values
             .map((regulation, index) => (
               <View key={index} style={styles.regulationRow}>
-                <View style={styles.regulationDot} />
+                <Ionicons 
+                  name="checkmark-circle-outline" 
+                  size={16} 
+                  color="#192DFF" 
+                />
                 <Text style={styles.regulationText}>
                   {String(regulation || "")}
                 </Text>
@@ -1314,7 +1325,11 @@ const PropertyDetailsScreen = () => {
             <View style={styles.landmarkContainer}>
               {landmarks.map((landmark, index) => (
                 <View key={index} style={styles.landmarkRow}>
-                  <View style={styles.landmarkDot} />
+                  <Ionicons 
+                    name="location-outline" 
+                    size={16} 
+                    color="#192DFF" 
+                  />
                   <Text style={styles.landmarkText}>{String(landmark || "")}</Text>
                 </View>
               ))}
@@ -1569,100 +1584,105 @@ const PropertyDetailsScreen = () => {
         </Pressable>
       </View>
 
-      <ScrollView
-        ref={scrollViewRef}
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-        onScroll={handleMainScroll}
-        scrollEventThrottle={16}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            tintColor="#192DFF"
-          />
-        }
-      >
-        {/* Image Carousel */}
-        <View style={styles.carouselWrapper}>{renderImageCarousel()}</View>
-
-        {/* Property Info */}
-        <View style={styles.propertyInfoSection}>
-          {/* Title and Share */}
-          <View style={styles.titleRow}>
-            <Text style={styles.title}>{propertyData.title}</Text>
-            <Pressable onPress={handleShare}>
-              <ShareIcon width={20} height={20} />
-            </Pressable>
-          </View>
-
-          {/* Location - Clickable */}
-          <Pressable
-            onPress={handleLocationPress}
-            style={({ pressed }) => [
-              styles.locationPressable,
-              pressed && styles.locationPressed,
-            ]}
-          >
-            <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
-              <View style={styles.locationIconContainer}>
-                <Ionicons name="location-sharp" size={14} color="#192DFF" />
-              </View>
-              <Text 
-                style={styles.location}
-                numberOfLines={1}
-                ellipsizeMode="tail"
-              >
-                {propertyData.location}
-              </Text>
-            </View>
-          </Pressable>
-
-          {/* Availability */}
-          <View
-            style={[
-              styles.availabilityRow,
-              propertyData.isUnavailable && styles.bookedAvailabilityRow,
-            ]}
-          >
-            <TimeIcon
-              width={16}
-              height={16}
-              color={propertyData.isUnavailable ? "#FF3B30" : "#192DFF"}
+      {loading ? (
+        renderSkeleton()
+      ) : (
+        <ScrollView
+          ref={scrollViewRef}
+          style={styles.scrollView}
+          showsVerticalScrollIndicator={false}
+          onScroll={handleMainScroll}
+          scrollEventThrottle={16}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor="#192DFF"
             />
-            <Text
-              style={[
-                styles.availabilityText,
-                propertyData.isUnavailable && styles.bookedAvailabilityText,
+          }
+        >
+          {/* Image Carousel */}
+          <View style={styles.carouselWrapper}>{renderImageCarousel()}</View>
+
+          {/* Property Info */}
+          <View style={styles.propertyInfoSection}>
+            {/* Title and Share */}
+            <View style={styles.titleRow}>
+              <Text style={styles.title}>{propertyData.title}</Text>
+              <Pressable onPress={handleShare}>
+                <ShareIcon width={20} height={20} />
+              </Pressable>
+            </View>
+
+            {/* Location - Clickable */}
+            <Pressable
+              onPress={handleLocationPress}
+              style={({ pressed }) => [
+                styles.locationPressable,
+                pressed && styles.locationPressed,
               ]}
             >
-              {propertyData.status === "BOOKED" &&
-              propertyData.bookingExpiryDate
-                ? `Booked till ${new Date(propertyData.bookingExpiryDate).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" })}`
-                : propertyData.status === "BOOKED"
-                  ? "Currently Booked"
-                  : propertyData.isPaused
-                    ? "Currently Unavailable"
-                    : propertyData.available
-                      ? "Available"
-                      : "Unavailable"}
-            </Text>
-          </View>
+              <View
+                style={{ flexDirection: "row", alignItems: "center", flex: 1 }}
+              >
+                <View style={styles.locationIconContainer}>
+                  <Ionicons name="location-sharp" size={14} color="#192DFF" />
+                </View>
+                <Text
+                  style={styles.location}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  {propertyData.location}
+                </Text>
+              </View>
+            </Pressable>
 
-          {/* Price Section */}
-          <View style={styles.priceSection}>
-            <View style={styles.priceRow}>
-              <Text style={styles.price}>{propertyData.price}</Text>
-              <Text style={styles.priceType}>{propertyData.priceType}</Text>
+            {/* Availability */}
+            <View
+              style={[
+                styles.availabilityRow,
+                propertyData.isUnavailable && styles.bookedAvailabilityRow,
+              ]}
+            >
+              <TimeIcon
+                width={16}
+                height={16}
+                color={propertyData.isUnavailable ? "#FF3B30" : "#192DFF"}
+              />
+              <Text
+                style={[
+                  styles.availabilityText,
+                  propertyData.isUnavailable && styles.bookedAvailabilityText,
+                ]}
+              >
+                {propertyData.status === "BOOKED" &&
+                propertyData.bookingExpiryDate
+                  ? `Booked till ${new Date(propertyData.bookingExpiryDate).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" })}`
+                  : propertyData.status === "BOOKED"
+                    ? "Currently Booked"
+                    : propertyData.isPaused
+                      ? "Currently Unavailable"
+                      : propertyData.available
+                        ? "Available"
+                        : "Unavailable"}
+              </Text>
             </View>
-            <Text style={styles.rentalType}>{propertyData.rentalType}</Text>
 
-            {/* Caution fee and service charge removed as per user request (visible in full details) */}
-          </View>
+            {/* Price Section */}
+            <View style={styles.priceSection}>
+              <View style={styles.priceRow}>
+                <Text style={styles.price}>{propertyData.price}</Text>
+                <Text style={styles.priceType}>{propertyData.priceType}</Text>
+              </View>
+              <Text style={styles.rentalType}>{propertyData.rentalType}</Text>
 
-          {/* Price Note */}
-          <View style={styles.priceNoteContainer}>
-            <CircleInfoIcon width={16} height={16} />
+              {/* Caution fee and service charge removed as per user request (visible in full details) */}
+            </View>
+
+            {/* Price Note */}
+            <View style={styles.priceNoteContainer}>
+              <CircleInfoIcon width={16} height={16} />
             <Text style={styles.priceNote}>{propertyData.priceNote}</Text>
           </View>
 
@@ -1698,7 +1718,11 @@ const PropertyDetailsScreen = () => {
           >
             {propertyData.features.map((feature, index) => (
               <View key={index} style={styles.whatYouGetBox}>
-                <DoneV2Icon width={16} height={16} />
+                <Ionicons 
+                  name={feature.icon || "checkmark-circle"} 
+                  size={18} 
+                  color="#192DFF" 
+                />
                 <Text style={styles.whatYouGetText}>{feature.label}</Text>
               </View>
             ))}
@@ -1708,11 +1732,17 @@ const PropertyDetailsScreen = () => {
         {/* Key Amenities Section */}
         <View style={styles.keyAmenitiesSection}>
           <Text style={styles.sectionTitle}>Key Amenities</Text>
-          <View style={styles.amenitiesContainer}>
+          <View style={styles.amenitiesGrid}>
             {propertyData.amenities.map((amenity, index) => (
-              <View key={index} style={styles.amenityRow}>
-                <Component1Icon width={16} height={16} />
-                <Text style={styles.amenityText}>
+              <View key={index} style={styles.amenityGridItem}>
+                <View style={styles.amenityIconCircle}>
+                   <Ionicons 
+                     name={getAmenityIcon(amenity)} 
+                     size={20} 
+                     color="#010135" 
+                   />
+                </View>
+                <Text style={styles.amenityGridText}>
                   {amenity.replace(/^custom_/, "").replace(/_/g, " ")}
                 </Text>
               </View>
@@ -1852,6 +1882,7 @@ const PropertyDetailsScreen = () => {
         {/* Spacer */}
         <View style={styles.bottomSpacer} />
       </ScrollView>
+      )}
 
       {/* Fixed Book Button */}
       <View style={[styles.bookButtonContainer, { paddingBottom: Math.max(insets.bottom, 20) }]}>
@@ -2650,38 +2681,59 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     paddingVertical: 10,
-    backgroundColor: "#0E2F5D",
-    borderRadius: 15,
+    backgroundColor: "#F3F4F6", // Light friendly professional background
+    borderRadius: 16,
     justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
   },
   whatYouGetText: {
     fontSize: 12,
-    fontWeight: "600",
-    color: "#FFFFFF",
+    fontWeight: "700",
+    color: "#010135",
   },
   keyAmenitiesSection: {
     padding: 20,
     borderBottomWidth: 1,
     borderBottomColor: "#F5F5F5",
   },
-  amenitiesContainer: {
+  amenitiesGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginTop: 12,
     gap: 12,
   },
-  amenityRow: {
+  amenityGridItem: {
+    width: "48%", // 2 columns minus gap
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    backgroundColor: "#F9FAFB",
+    padding: 12,
+    borderRadius: 16,
+    gap: 12,
+    borderWidth: 1,
+    borderColor: "#F3F4F6",
   },
-  amenityIcon: {
-    color: "#192DFF",
-    fontSize: 14,
-    fontWeight: "bold",
+  amenityIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: "#FFFFFF",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  amenityText: {
-    fontSize: 14,
-    color: "#444",
+  amenityGridText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#374151",
+    flex: 1,
   },
   regulationsSection: {
     padding: 20,
@@ -2695,36 +2747,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-  },
-  regulationDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: "#192DFF",
-  },
-  regulationText: {
-    fontSize: 14,
-    color: "#444",
-  },
-  landmarkSection: {
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F5F5F5",
-  },
-  landmarkContainer: {
-    marginBottom: 16,
-    gap: 8,
-  },
-  landmarkRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  landmarkDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: "#192DFF",
   },
   landmarkText: {
     fontSize: 14,

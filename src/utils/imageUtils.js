@@ -87,7 +87,6 @@ export const resolveImageUrlSync = (path, baseUrl) => {
   if (stringPath.startsWith("http") && stringPath.includes("/uploads/") && isLocalOrPrivateIP(stringPath)) {
     const uploadIndex = stringPath.indexOf("/uploads/");
     stringPath = stringPath.substring(uploadIndex);
-    console.log(`[ImageUtils] Stripped outdated host, new path: ${stringPath}`);
   }
 
   // If it's already a full URL, return it
@@ -118,6 +117,5 @@ export const resolveImageUrlSync = (path, baseUrl) => {
   const cleanPath = stringPath.startsWith("/") ? stringPath : `/${stringPath}`;
 
   const finalUrl = `${cleanBase}${cleanPath}`;
-  console.log(`[ImageUtils] Constructed URL: base="${cleanBase}" + path="${cleanPath}" = "${finalUrl.substring(0, 80)}..."`);
   return finalUrl;
 };

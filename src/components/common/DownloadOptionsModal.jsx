@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Platform, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const DownloadOptionsModal = ({ 
   visible, 
@@ -29,42 +29,59 @@ const DownloadOptionsModal = ({
           <View style={styles.optionsContainer}>
             {/* Save Image */}
             <TouchableOpacity 
-              style={[styles.optionButton, styles.primaryButton]} 
+              style={[styles.optionButton, styles.primaryButton, loading && { opacity: 0.7 }]} 
               onPress={() => {
                 onClose();
-                // Short delay to allow modal to close before capturing
                 setTimeout(() => onSaveImage && onSaveImage(), 500);
               }}
               disabled={loading}
             >
-              <Ionicons name="image-outline" size={20} color="#FFFFFF" />
-              <Text style={styles.primaryButtonText}>Save as Image</Text>
+              {loading ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <>
+                  <Ionicons name="image-outline" size={20} color="#FFFFFF" />
+                  <Text style={styles.primaryButtonText}>Save as Image</Text>
+                </>
+              )}
             </TouchableOpacity>
 
             {/* Download Receipt */}
             <TouchableOpacity 
-              style={[styles.optionButton, styles.secondaryButton]} 
+              style={[styles.optionButton, styles.secondaryButton, loading && { opacity: 0.7 }]} 
               onPress={() => {
                 onClose();
                 setTimeout(() => onDownloadReceipt && onDownloadReceipt(), 500);
               }}
               disabled={loading}
             >
-              <Ionicons name="document-text-outline" size={20} color="#010135" />
-              <Text style={styles.secondaryButtonText}>Download Receipt (PDF)</Text>
+              {loading ? (
+                <ActivityIndicator size="small" color="#010135" />
+              ) : (
+                <>
+                  <Ionicons name="document-text-outline" size={20} color="#010135" />
+                  <Text style={styles.secondaryButtonText}>Download Receipt (PDF)</Text>
+                </>
+              )}
             </TouchableOpacity>
 
              {/* Download Agreement */}
              <TouchableOpacity 
-              style={[styles.optionButton, styles.secondaryButton]} 
+              style={[styles.optionButton, styles.secondaryButton, loading && { opacity: 0.7 }]} 
               onPress={() => {
                 onClose();
                 setTimeout(() => onDownloadAgreement && onDownloadAgreement(), 500);
               }}
               disabled={loading}
             >
-              <Ionicons name="reader-outline" size={20} color="#010135" />
-              <Text style={styles.secondaryButtonText}>Rental Agreement</Text>
+              {loading ? (
+                <ActivityIndicator size="small" color="#010135" />
+              ) : (
+                <>
+                  <Ionicons name="reader-outline" size={20} color="#010135" />
+                  <Text style={styles.secondaryButtonText}>Rental Agreement</Text>
+                </>
+              )}
             </TouchableOpacity>
           </View>
         </View>

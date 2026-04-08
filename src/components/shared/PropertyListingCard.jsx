@@ -1,13 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
-import { useCallback, useEffect, useRef, useState, memo } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import {
-    Dimensions,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View,
+  Dimensions,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 import ShieldTickIcon from "../../assets/icons/shield-tick.svg";
 import configService from "../../services/configService";
@@ -127,34 +127,61 @@ const PropertyListingCard = ({
     return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
   };
 
-  const formatAmenities = () => {
-    // Start with bedroom and bathroom counts, then add up to 1 more amenity (total 3)
+  const getIconForItem = (item, isAmenity = false) => {
+    const lower = item.toLowerCase();
+    if (lower.includes("bedroom")) return "bed-outline";
+    if (lower.includes("bathroom")) return "water-outline";
+    if (isAmenity) {
+       const { getAmenityIcon } = require("../../utils/amenityIcons");
+       const icon = getAmenityIcon(item);
+       return icon.endsWith("-outline") ? icon : `${icon}-outline`;
+    }
+    return "apps-outline";
+  };
+
+  const renderAmenityItems = () => {
     const displayItems = [];
 
-    // Add bedroom count first
     if (bedrooms > 0) {
-      displayItems.push(`${bedrooms} Bedroom${bedrooms > 1 ? "s" : ""}`);
+      displayItems.push({
+        label: `${bedrooms} Bedroom${bedrooms > 1 ? "s" : ""}`,
+        icon: "bed-outline"
+      });
     }
 
-    // Add bathroom count second
     if (bathrooms > 0) {
-      displayItems.push(`${bathrooms} Bathroom${bathrooms > 1 ? "s" : ""}`);
+      displayItems.push({
+        label: `${bathrooms} Bath${bathrooms > 1 ? "s" : ""}`,
+        icon: "water-outline"
+      });
     }
 
-    // Filter out bedroom/bathroom from amenities to avoid duplicates
     const excludeKeywords = ["bedroom", "bathroom", "bed", "bath"];
     const filteredAmenities = amenities.filter((amenity) => {
-      const lowerAmenity = amenity.toLowerCase();
+      const label = typeof amenity === 'object' ? (amenity.label || amenity.name || "") : String(amenity);
+      const lowerAmenity = label.toLowerCase();
       return !excludeKeywords.some((keyword) => lowerAmenity.includes(keyword));
     });
 
-    // Add remaining amenities up to 3 total items
     const remainingSlots = 3 - displayItems.length;
     if (remainingSlots > 0) {
-      displayItems.push(...filteredAmenities.slice(0, remainingSlots));
+       filteredAmenities.slice(0, remainingSlots).forEach(amenity => {
+         const label = typeof amenity === 'object' ? (amenity.label || amenity.name || "") : String(amenity);
+         const { getAmenityIcon } = require("../../utils/amenityIcons");
+         let icon = getAmenityIcon(label);
+         if (!icon.endsWith("-outline") && icon !== "apps-outline") {
+           icon = `${icon}-outline`;
+         }
+         displayItems.push({ label, icon });
+       });
     }
 
-    return displayItems.map((item) => `• ${item}`).join("  ");
+    return displayItems.map((item, index) => (
+      <View key={index} style={styles.amenityItem}>
+        <Ionicons name={item.icon} size={12} color="#656565" />
+        <Text style={styles.amenityLabel}>{item.label}</Text>
+      </View>
+    ));
   };
 
   return (
@@ -216,7 +243,9 @@ const PropertyListingCard = ({
                   ]}
                   contentFit="cover"
                   transition={200}
+                  priority={index === 0 ? "high" : "normal"}
                   cachePolicy="memory-disk"
+                  placeholder={{ uri: "https://via.placeholder.com/400x300/F3F4F6/9CA3AF?text=Lunest" }}
                 />
                 {isVideo && (
                   <View style={styles.videoIndicatorOverlay}>
@@ -332,7 +361,7 @@ const PropertyListingCard = ({
 
         {/* Amenities Row */}
         <View style={styles.amenitiesContainer}>
-          <Text style={styles.amenitiesText}>{formatAmenities()}</Text>
+          {renderAmenityItems()}
         </View>
       </View>
       </View>
@@ -522,8 +551,17 @@ const styles = StyleSheet.create({
   },
   amenitiesContainer: {
     width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    flexWrap: "wrap",
   },
-  amenitiesText: {
+  amenityItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  amenityLabel: {
     fontSize: 12,
     fontWeight: "500",
     color: "#656565",

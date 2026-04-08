@@ -56,9 +56,12 @@ const WithdrawScreen = () => {
   const [walletBalance, setWalletBalance] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const [toast, setToast] = useState({ visible: false, message: "", type: "success" });
+  const [showProcessingModal, setShowProcessingModal] = useState(false);
 
   // Use a ref to track the last verified combination to prevent redundant calls (429 errors)
   const lastVerifiedKey = useRef("");
+
+  const isInsufficient = Number(amount) > walletBalance;
 
   // Refresh wallet balance when screen comes into focus
   useFocusEffect(
@@ -206,6 +209,7 @@ const WithdrawScreen = () => {
     }
 
     setLoading(true);
+    setShowProcessingModal(true);
 
     try {
       const result = await paymentService.initializeWithdrawal(
@@ -215,30 +219,34 @@ const WithdrawScreen = () => {
         accountName
       );
 
-      if (result.status === "PENDING") {
-        // Refresh global wallet balance queries across the app
+      if (result.status === "PENDING" || result.status === "SUCCESS") {
+        // Refresh global wallet balance
         await queryClient.invalidateQueries({ queryKey: ["walletInfo"] });
         await queryClient.invalidateQueries({ queryKey: ["userProfile"] });
 
-        // Refresh balance immediately
-        await fetchWalletBalance();
-        
-        // Success Toast
-        showToast("Withdrawal initiated successfully", "success");
-        
-        // Show success screen
-        setWithdrawalDetails({
-          amount: numericAmount,
-          bankName: selectedBank.name,
-          accountNumber,
-          accountName,
-          reference: result.reference || result.transferCode || null,
-        });
-        setWithdrawalSuccess(true);
+        // Success transition delay for a "satisfying" feel
+        setTimeout(() => {
+          setShowProcessingModal(false);
+          setWithdrawalDetails({
+            amount: numericAmount,
+            bankName: selectedBank.name,
+            accountNumber,
+            accountName,
+            reference: result.reference || result.transferCode || null,
+          });
+          setWithdrawalSuccess(true);
+          
+          // Auto-redirect to wallet after 12 seconds
+          setTimeout(() => {
+            // Updated redirection to a valid tab route to avoid 404
+            router.replace(Platform.OS === 'web' ? "/profile" : "/(tabs)/profile");
+          }, 12000);
+        }, 2000); // Slightly longer processing for "perceived quality"
       }
     } catch (error) {
       console.error("[Withdraw] Error:", error);
-      showToast(error.message || "Failed to process withdrawal", "error");
+      setShowProcessingModal(false);
+      showToast(error?.message || "Failed to process withdrawal", "error");
     } finally {
       setLoading(false);
     }
@@ -247,21 +255,21 @@ const WithdrawScreen = () => {
   // Render withdrawal success screen
   if (withdrawalSuccess && withdrawalDetails) {
     return (
-      <SafeAreaView style={styles.container} edges={["top"]}>
+      <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
         <View style={styles.successScreen}>
           {/* Success Icon */}
           <View style={styles.successIconContainer}>
             <View style={styles.successIconOuter}>
               <View style={styles.successIconInner}>
-                <Ionicons name="checkmark" size={40} color="#FFFFFF" />
+                <Ionicons name="sparkles" size={40} color="#FFFFFF" />
               </View>
             </View>
           </View>
 
           {/* Success Title */}
-          <Text style={styles.successTitle}>Withdrawal Initiated!</Text>
+          <Text style={styles.successTitle}>Transfer Initiated! 💸</Text>
           <Text style={styles.successSubtitle}>
-            Your withdrawal is being processed and will arrive in your bank account shortly.
+            Your money is on its way to your bank account.
           </Text>
 
           {/* Amount */}
@@ -332,7 +340,7 @@ const WithdrawScreen = () => {
 
             <TouchableOpacity
               style={styles.successSecondaryButton}
-              onPress={() => router.back()}
+              onPress={() => router.replace(Platform.OS === 'web' ? "/profile" : "/(tabs)/profile")}
             >
               <Text style={styles.successSecondaryButtonText}>Back to Wallet</Text>
             </TouchableOpacity>
@@ -363,7 +371,7 @@ const WithdrawScreen = () => {
   );
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
+    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
       {/* Toast */}
       <Toast
         visible={toast.visible}
@@ -418,8 +426,20 @@ const WithdrawScreen = () => {
 
           {/* Amount Input */}
           <View style={styles.inputSection}>
-            <Text style={styles.inputLabel}>Amount to Withdraw</Text>
-            <View style={styles.amountInputContainer}>
+            <Text
+              style={[
+                styles.inputLabel,
+                isInsufficient && { color: "#DC2626" },
+              ]}
+            >
+              Amount to Withdraw
+            </Text>
+            <View
+              style={[
+                styles.amountInputContainer,
+                isInsufficient && { borderColor: "#DC2626", backgroundColor: "#FFF5F5" },
+              ]}
+            >
               <Text style={styles.currencySymbol}>₦</Text>
               <TextInput
                 style={styles.amountInput}
@@ -431,7 +451,12 @@ const WithdrawScreen = () => {
                 maxLength={12}
               />
             </View>
-            <Text style={styles.inputHint}>Minimum: ₦100</Text>
+            <View style={styles.inputFooter}>
+              <Text style={styles.inputHint}>Minimum: ₦100</Text>
+              {isInsufficient && (
+                <Text style={styles.errorText}>Insufficient balance</Text>
+              )}
+            </View>
           </View>
 
           {/* Bank Selection */}
@@ -510,17 +535,19 @@ const WithdrawScreen = () => {
           <TouchableOpacity
             style={[
               styles.withdrawButton,
-              (!amount || !accountName || Number(amount) < 100) &&
+              (!amount || !accountName || Number(amount) < 100 || isInsufficient) &&
                 styles.withdrawButtonDisabled,
             ]}
             onPress={handleWithdraw}
-            disabled={loading || !amount || !accountName || Number(amount) < 100}
+            disabled={loading || !amount || !accountName || Number(amount) < 100 || isInsufficient}
           >
             {loading ? (
               <ActivityIndicator color="#FFFFFF" size="small" />
             ) : (
               <Text style={styles.withdrawButtonText}>
-                {amount && Number(amount) >= 100 && accountName
+                {isInsufficient
+                  ? "Insufficient Balance"
+                  : amount && Number(amount) >= 100 && accountName
                   ? `Withdraw ${formatCurrency(Number(amount))}`
                   : "Enter Details"}
               </Text>
@@ -528,6 +555,23 @@ const WithdrawScreen = () => {
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+
+      {/* Processing Modal */}
+      <Modal
+        visible={showProcessingModal}
+        transparent={true}
+        animationType="fade"
+      >
+        <View style={styles.processingModalOverlay}>
+          <View style={styles.processingModalContent}>
+            <ActivityIndicator size="large" color="#192DFF" />
+            <Text style={styles.processingModalTitle}>Processing Withdrawal</Text>
+            <Text style={styles.processingModalText}>
+              Please wait while we secure your transaction...
+            </Text>
+          </View>
+        </View>
+      </Modal>
 
       {/* Bank Selection Modal */}
       <Modal
@@ -672,7 +716,17 @@ const styles = StyleSheet.create({
   inputHint: {
     fontSize: 12,
     color: "#666",
+  },
+  inputFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginTop: 6,
+  },
+  errorText: {
+    fontSize: 12,
+    color: "#DC2626",
+    fontWeight: "600",
   },
   bankSelector: {
     flexDirection: "row",
@@ -821,6 +875,38 @@ const styles = StyleSheet.create({
   bankItemText: {
     fontSize: 16,
     color: "#333",
+  },
+  // Processing Modal styles
+  processingModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.7)", // Darker for more focus
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  processingModalContent: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 24,
+    padding: 40, // More breathing room
+    alignItems: "center",
+    width: "85%", // Slightly wider
+    maxWidth: 400,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.15,
+    shadowRadius: 15,
+    elevation: 10,
+  },
+  processingModalTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#111827",
+    marginTop: 20,
+    marginBottom: 8,
+  },
+  processingModalText: {
+    fontSize: 14,
+    color: "#6B7280",
+    textAlign: "center",
   },
   // Success Screen styles
   successScreen: {

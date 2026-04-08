@@ -546,15 +546,41 @@ const BookingConfirmationScreen = () => {
   // Capture as Image and Share
   const captureAndSaveImage = async () => {
     if (Platform.OS === "web") {
-      Alert.alert(
-        "Not Supported",
-        "Saving as image is currently available on the mobile app only.",
-      );
+      try {
+        setIsCapturing(true);
+        const { toPng } = require('html-to-image');
+        
+        // viewRef.current on react-native-web is the DOM element
+        if (viewRef.current) {
+          const dataUrl = await toPng(viewRef.current, { 
+            backgroundColor: '#FFFFFF',
+            cacheBust: true,
+            style: {
+              borderRadius: '0px' // Ensure clean capture
+            }
+          });
+          
+          const link = document.createElement('a');
+          link.download = `Lunest-Booking-${refCode}.png`;
+          link.href = dataUrl;
+          link.click();
+          
+          showToastMessage("Booking image downloaded!");
+        } else {
+          throw new Error("Capture reference not found");
+        }
+      } catch (error) {
+        console.error("[WebCapture] Error:", error);
+        Alert.alert("Error", "Failed to download image on web. Please use a modern browser.");
+      } finally {
+        setIsCapturing(false);
+        setShowDownloadOptions(false);
+      }
       return;
     }
+
     try {
       setIsCapturing(true);
-
       // Brief delay to allow React to re-render without buttons
       setTimeout(async () => {
         try {

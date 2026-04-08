@@ -8,6 +8,7 @@ import ListItem from "../../components/ListItem";
 import OrderedList from "../../components/OrderedList";
 import authService from "../../services/authService";
 import referralService from "../../services/referralService";
+import ReferralSuccessModal from "../../components/common/ReferralSuccessModal";
 
 /**
  * Back Arrow Icon - Same style as Payment Settings
@@ -46,6 +47,7 @@ const Referrals = () => {
     points: 0,
     records: []
   });
+  const [isSuccessModalVisible, setIsSuccessModalVisible] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -118,7 +120,7 @@ const Referrals = () => {
         if (result.success) {
             setReferralCode(result.referralCode);
             setLinkGenerated(true);
-            Alert.alert("Success", "Referral link generated!");
+            setIsSuccessModalVisible(true);
             
             // Refresh user profile in background to sync local storage
             authService.fetchProfile();
@@ -168,6 +170,14 @@ const Referrals = () => {
       <View style={styles.backgroundContainer}>
          <ReferralBackground width={width} height={height} style={styles.backgroundImage} />
       </View>
+
+      <ReferralSuccessModal
+        visible={isSuccessModalVisible}
+        onClose={() => setIsSuccessModalVisible(false)}
+        onCopy={handleCopyCode}
+        onShare={handleShareLink}
+        referralCode={referralCode}
+      />
 
       <View style={styles.header}>
         <Pressable onPress={handleGoBack} style={styles.backButton}>

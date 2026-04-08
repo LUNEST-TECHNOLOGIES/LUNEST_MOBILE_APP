@@ -12,6 +12,8 @@ const EmptyState = ({
   icon: IconComponent,
   buttonTitle,
   onPress,
+  secondaryButtonTitle,
+  onSecondaryPress,
 }) => {
   const handlePress = () => {
     if (onPress) onPress();
@@ -32,16 +34,28 @@ const EmptyState = ({
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.message}>{message}</Text>
 
-      {/* Optional CTA Button */}
-      {buttonTitle && (
-        <TouchableOpacity 
-          onPress={handlePress}
-          style={styles.button}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.buttonText}>{buttonTitle}</Text>
-        </TouchableOpacity>
-      )}
+      {/* Optional CTA Buttons */}
+      <View style={styles.buttonContainer}>
+        {buttonTitle && (
+          <TouchableOpacity 
+            onPress={handlePress}
+            style={styles.button}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.buttonText}>{buttonTitle}</Text>
+          </TouchableOpacity>
+        )}
+
+        {secondaryButtonTitle && (
+          <TouchableOpacity 
+            onPress={onSecondaryPress}
+            style={styles.secondaryButton}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.secondaryButtonText}>{secondaryButtonTitle}</Text>
+          </TouchableOpacity>
+        )}
+      </View>
     </View>
   );
 };
@@ -85,6 +99,24 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
+    fontFamily: 'Aeonik-Bold',
+  },
+  buttonContainer: {
+    alignItems: 'center',
+    gap: 12,
+  },
+  secondaryButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#010135',
+    borderRadius: 30,
+  },
+  secondaryButtonText: {
+    color: '#010135',
+    fontSize: 15,
+    fontWeight: '600',
     fontFamily: 'Aeonik-Bold',
   },
 });

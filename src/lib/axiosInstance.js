@@ -1,6 +1,9 @@
 import axios from "axios";
 import authService from "../services/authService";
 import configService from "../services/configService";
+import notificationService from "../services/notificationService";
+import { TOAST_TYPE } from "../components/common/ToastNotification";
+import { navigateToLogin } from "../utils/navigationUtils";
 
 /**
  * Global Axios Instance
@@ -40,6 +43,8 @@ axiosInstance.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+let isRedirectingToLogin = false;
+
 // Response Interceptor: Standard Error Handling
 axiosInstance.interceptors.response.use(
   (response) => response,
@@ -48,8 +53,25 @@ axiosInstance.interceptors.response.use(
     const url = error.config?.url || 'unknown';
     
     // Global 401 handler
-    if (status === 401) {
-      console.warn("[Axios] Unauthorized - redirecting logic may be needed");
+    if (status === 401 && !isRedirectingToLogin) {
+      isRedirectingToLogin = true;
+      console.warn("[Axios] Unauthorized - clearing session and redirecting");
+      
+      // Notify user
+      notificationService.notify({
+        message: "Session expired. Please login again.",
+        type: TOAST_TYPE.WARNING,
+      });
+
+      // Clear session and redirect
+      authService.logout().then(() => {
+        isRedirectingToLogin = false;
+        navigateToLogin();
+      }).catch(err => {
+        isRedirectingToLogin = false;
+        console.error("[Axios] Logout failed during 401 handle:", err);
+        navigateToLogin(); // Still try to redirect
+      });
     }
     
     // Rate limit detection (429 Too Many Requests)

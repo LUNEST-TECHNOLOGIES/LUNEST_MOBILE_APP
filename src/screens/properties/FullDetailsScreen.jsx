@@ -17,7 +17,6 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import ArrowLeftIcon from "../../assets/icons/bookings/arrow-left.svg";
 import CircleInfo2Icon from "../../assets/icons/circle-info2.svg";
-import Component1Icon from "../../assets/icons/Component 1.svg";
 import DoneV2Icon from "../../assets/icons/done-v2.svg";
 import EllipseAvatar from "../../assets/icons/Ellipse 10.svg";
 import ShieldTickIcon from "../../assets/icons/shield-tick.svg";
@@ -26,11 +25,13 @@ import ImageViewerModal from "../../components/modals/ImageViewerModal";
 import ReviewFeedbackModal from "../../components/modals/ReviewFeedbackModal";
 import VerifiedInfoOverlay from "../../components/modals/VerifiedInfoOverlay";
 import bookingService from "../../services/bookingService";
+import Skeleton from "../../components/common/Skeleton";
 import configService from "../../services/configService";
 import { fetchHostData } from "../../services/hostService";
 import listingService from "../../services/listingService";
 import { formatCurrency } from "../../utils/currency";
 import { resolveImageUrlSync } from "../../utils/imageUtils";
+import { getAmenityIcon } from "../../utils/amenityIcons";
 
 // House rules ID to label mapping (aligned with availability.jsx HOUSE_RULES)
 const HOUSE_RULES_MAP = {
@@ -607,7 +608,7 @@ const FullDetailsScreen = () => {
     () => ({
       id: listing?._id || listingId,
       title:
-        listing?.propertyName || listing?.propertyTitle || "Property Details",
+        listing?.propertyName || listing?.propertyTitle || "",
       location: getLocationString(),
       price: formatPrice(listing?.price || listing?.propertyPrice?.price),
       priceType: formatPricingPeriod(listing?.pricingPeriod),
@@ -822,7 +823,11 @@ const FullDetailsScreen = () => {
         <View style={styles.amenitiesContainer}>
           {propertyData.amenities.map((amenity, index) => (
             <View key={index} style={styles.amenityRow}>
-              <Component1Icon width={16} height={16} />
+              <Ionicons 
+                name={getAmenityIcon(amenity)} 
+                size={20} 
+                color="#010135" 
+              />
               <Text style={styles.amenityText}>{amenity}</Text>
             </View>
           ))}
@@ -841,7 +846,11 @@ const FullDetailsScreen = () => {
         <View style={styles.regulationsContainer}>
           {propertyData.regulations.map((regulation, index) => (
             <View key={index} style={styles.regulationRow}>
-              <View style={styles.regulationDot} />
+              <Ionicons 
+                name="checkmark-circle-outline" 
+                size={16} 
+                color="#192DFF" 
+              />
               <Text style={styles.regulationText}>{regulation}</Text>
             </View>
           ))}
@@ -860,7 +869,11 @@ const FullDetailsScreen = () => {
         <View style={styles.landmarkContainer}>
           {propertyData.landmarks.map((landmark, index) => (
             <View key={index} style={styles.landmarkRow}>
-              <View style={styles.landmarkDot} />
+              <Ionicons 
+                name="location-outline" 
+                size={16} 
+                color="#192DFF" 
+              />
               <Text style={styles.landmarkText}>{landmark}</Text>
             </View>
           ))}
@@ -1052,6 +1065,56 @@ const FullDetailsScreen = () => {
     );
   };
 
+  const renderSkeleton = () => {
+    return (
+      <View style={styles.skeletonContainer}>
+        {/* Title & Location Skeleton */}
+        <View style={styles.propertyInfoSection}>
+          <Skeleton width="70%" height={24} style={{ marginBottom: 12 }} />
+          <Skeleton width="40%" height={16} style={{ marginBottom: 16 }} />
+          <Skeleton width="30%" height={24} style={{ marginBottom: 16 }} />
+          <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
+             <Skeleton width={100} height={28} borderRadius={6} />
+             <Skeleton width={100} height={28} borderRadius={6} />
+          </View>
+        </View>
+
+        {/* Tab Skeleton */}
+        <View style={[styles.tabsContainer, { borderBottomWidth: 0 }]}>
+          <Skeleton width="45%" height={40} borderRadius={0} />
+          <Skeleton width="45%" height={40} borderRadius={0} />
+        </View>
+
+        {/* Media Slider Skeleton */}
+        <View style={{ paddingHorizontal: 16, marginTop: 16 }}>
+          <Skeleton width="100%" height={280} borderRadius={16} />
+        </View>
+
+        {/* Description Skeleton */}
+        <View style={styles.descriptionSection}>
+          <Skeleton width="40%" height={20} style={{ marginBottom: 12 }} />
+          <Skeleton width="100%" height={16} style={{ marginBottom: 8 }} />
+          <Skeleton width="100%" height={16} style={{ marginBottom: 8 }} />
+          <Skeleton width="100%" height={16} style={{ marginBottom: 8 }} />
+          <Skeleton width="60%" height={16} />
+        </View>
+
+        {/* Amenities Skeleton */}
+        <View style={styles.keyAmenitiesSection}>
+          <Skeleton width="50%" height={20} style={{ marginBottom: 16 }} />
+          <View style={{ gap: 16 }}>
+            {[1, 2, 3, 4].map((i) => (
+              <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                <Skeleton width={24} height={24} borderRadius={12} />
+                <Skeleton width="40%" height={16} />
+              </View>
+            ))}
+          </View>
+        </View>
+      </View>
+    );
+  };
+
   const insets = useSafeAreaInsets();
 
   return (
@@ -1074,9 +1137,7 @@ const FullDetailsScreen = () => {
       </View>
 
       {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#192DFF" />
-        </View>
+        renderSkeleton()
       ) : listing ? (
         <View style={{ flex: 1 }}>
           <ScrollView
@@ -1408,6 +1469,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#FFFFFF",
   },
+  skeletonContainer: {
+    flex: 1,
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
@@ -1625,12 +1689,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 12,
   },
-  regulationDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: "#E74C3C",
-  },
   regulationText: {
     fontSize: 12,
     color: "#292929",
@@ -1649,12 +1707,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-  },
-  landmarkDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: "#010135",
   },
   landmarkText: {
     fontSize: 12,

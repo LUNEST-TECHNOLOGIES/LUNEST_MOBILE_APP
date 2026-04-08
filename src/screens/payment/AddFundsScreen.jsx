@@ -2,6 +2,7 @@
  * AddFundsScreen - Add money to wallet via Paystack
  */
 import * as Linking from "expo-linking";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
@@ -18,7 +19,7 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 import Toast from "../../components/common/Toast";
 import apiClient from "../../services/apiClient";
@@ -52,12 +53,16 @@ const PaystackIcon = ({ size = 24 }) => (
 
 const PRESET_AMOUNTS = [1000, 2000, 5000, 10000, 20000, 50000];
 
+// Necessary for auth session redirects on Web and some mobile platforms
+WebBrowser.maybeCompleteAuthSession();
+
 const AddFundsScreen = () => {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const insets = useSafeAreaInsets();
 
   const [amount, setAmount] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState({ active: false, message: "" });
   const queryClient = useQueryClient();
   const [toast, setToast] = useState({
     visible: false,
@@ -81,25 +86,32 @@ const AddFundsScreen = () => {
 
   // Handle Paystack callback on web
   useEffect(() => {
-    if (params?.status && params?.reference) {
-      console.log("[AddFunds] Callback detected:", params.status, params.reference);
-      handleVerifyPayment(params.reference);
-      
-      // Clear params from URL
-      router.setParams({ status: null, reference: null });
-    }
-  }, [params?.status, params?.reference]);
+    (async () => {
+      try {
+        const ref = params?.reference || params?.trxref;
+        if (ref && ref !== "null" && ref !== "undefined") {
+          console.log("[AddFunds] Callback detected with reference:", ref);
+          await handleVerifyPayment(ref);
+          
+          // Clear ALL potential params from URL to prevent loop on refresh
+          router.setParams({ status: null, reference: null, trxref: null });
+        }
+      } catch (err) {
+        console.error("[AddFunds] Mount verification failed:", err);
+        setLoading({ active: false, message: "" });
+      }
+    })();
+  }, [params?.status, params?.reference, params?.trxref]);
 
   const handleVerifyPayment = async (reference) => {
-    setLoading(true);
-    showToast("Verifying payment...", "info");
+    setLoading({ active: true, message: "Verifying your transaction..." });
 
     try {
       const verifyResult = await paymentService.verifyPayment(reference);
       console.log("[AddFunds] Verify result:", verifyResult);
 
       if (verifyResult.status === "COMPLETED" || verifyResult.status === "success") {
-        showToast(`${formatCurrency(Number(amount) || 0)} added to your wallet!`, "success");
+        showToast(`₦${(Number(amount) || 0).toLocaleString()} added to your wallet successfully!`, "success");
         
         // Ensure ALL wallet/profile related queries are marked as stale and refetched
         await queryClient.refetchQueries({ queryKey: ["walletInfo"], type: "all" });
@@ -129,17 +141,27 @@ const AddFundsScreen = () => {
           }
         }
 
+        // Smart redirection for Web & Native
         setTimeout(() => {
-          router.back();
-        }, 2000);
+          if (params.returnUrl) {
+            router.replace(params.returnUrl);
+          } else if (router.canGoBack()) {
+            router.back();
+          } else {
+            // Default fallback if no history (common on Web redirects)
+            // Use '/wallet' for Web compatibility, folder-based for Native
+            router.replace(Platform.OS === 'web' ? "/wallet" : "/(tabs)/wallet");
+          }
+        }, 2500);
       } else {
         showToast("Payment not successful. Status: " + verifyResult.status, "error");
       }
     } catch (error) {
       console.error("[AddFunds] Verify error:", error);
-      showToast("Verification failed. Please check your history.", "error");
+      const errorMessage = error.message || "Verification failed. Please check your history.";
+      showToast(errorMessage, "error");
     } finally {
-      setLoading(false);
+      setLoading({ active: false, message: "" });
     }
   };
 
@@ -184,7 +206,7 @@ const AddFundsScreen = () => {
       return;
     }
 
-    setLoading(true);
+    setLoading({ active: true, message: "Preparing secure payment..." });
 
     try {
       // Get user email from authService
@@ -196,15 +218,15 @@ const AddFundsScreen = () => {
 
       if (!email) {
         showToast("Please update your profile with an email address", "error");
-        setLoading(false);
+        setLoading({ active: false, message: "" });
         return;
       }
 
       // Create deep link callback URL for Paystack to redirect back to the app
       let callbackUrl;
       if (Platform.OS === "web") {
-        // On web, use the current origin and path
-        callbackUrl = window.location.origin + window.location.pathname;
+        // On web, use the dedicated payment-callback route
+        callbackUrl = window.location.origin + "/payment-callback";
         console.log("[AddFunds] Web Callback URL:", callbackUrl);
       } else {
         // Use a more reliable callback URL for deep linking
@@ -225,6 +247,7 @@ const AddFundsScreen = () => {
       });
 
       // Initialize payment with Paystack
+      setLoading({ active: true, message: "Connecting to Paystack..." });
       const paymentData = await paymentService.initializePayment(
         numericAmount,
         email,
@@ -244,24 +267,41 @@ const AddFundsScreen = () => {
         // Store payment reference for fallback verification
         const paymentReference = paymentData.reference;
 
-        if (Platform.OS === "web") {
-          // On web, persist the context so it survives the full-page redirect
+          // PERSIST CONTEXT
           const context = {
+            type: "WALLET_FUNDING",
             returnUrl: params.returnUrl,
             params: { ...params, status: null, reference: null } // Exclude callback-specific params
           };
-          localStorage.setItem("lunest_payment_context", JSON.stringify(context));
-          
-          // Redirect CURRENT window to Paystack
-          window.location.href = paymentData.authorization_url;
-          return;
-        }
 
-        // On native, use openAuthSessionAsync with fallback handling
-        let result = await WebBrowser.openAuthSessionAsync(
-          paymentData.authorization_url,
-          callbackUrl, // This is the return URL if deep linking works
-        );
+          if (Platform.OS === "web") {
+            localStorage.setItem("lunest_payment_context", JSON.stringify(context));
+            window.location.href = paymentData.authorization_url;
+            return; // Stop here on web to avoid triggering popup blockers
+          } else {
+            await AsyncStorage.setItem("lunest_payment_context", JSON.stringify(context));
+            // Proceed to browser open...
+          }
+
+        // On native, use openAuthSessionAsync with multi-layer fallback
+        let result;
+        try {
+          console.log("[AddFunds] Attempting openAuthSessionAsync...");
+          result = await WebBrowser.openAuthSessionAsync(
+            paymentData.authorization_url,
+            callbackUrl,
+          );
+        } catch (browserError) {
+          console.warn("[AddFunds] openAuthSessionAsync failed, trying openBrowserAsync:", browserError);
+          try {
+            result = await WebBrowser.openBrowserAsync(paymentData.authorization_url);
+          } catch (secondError) {
+            console.error("[AddFunds] openBrowserAsync failed, using Linking.openURL:", secondError);
+            // The ultimate "un-stuck" fallback
+            await Linking.openURL(paymentData.authorization_url);
+            return; // Exit early as Linking.openURL doesn't return a result
+          }
+        }
 
         console.log("[AddFunds] Browser result:", result);
 
@@ -281,8 +321,10 @@ const AddFundsScreen = () => {
     } catch (error) {
       console.error("[AddFunds] Error:", error);
       showToast(error.message || "Failed to process payment", "error");
+      setLoading({ active: false, message: "" });
     } finally {
-      setLoading(false);
+      // Note: We don't always clear loading here if we redirected, but it's safe to ensure it's off
+      setLoading(prev => ({ ...prev, active: false }));
     }
   };
 
@@ -394,16 +436,19 @@ const AddFundsScreen = () => {
         </ScrollView>
 
         {/* Pay Button */}
-        <View style={styles.buttonContainer}>
+        <View style={[
+          styles.buttonContainer, 
+          { paddingBottom: Math.max(insets.bottom, 16) }
+        ]}>
           <TouchableOpacity
             style={[
               styles.payButton,
               (!amount || Number(amount) < 100) && styles.payButtonDisabled,
             ]}
             onPress={handlePayWithPaystack}
-            disabled={loading || !amount || Number(amount) < 100}
+            disabled={loading.active || !amount || Number(amount) < 100}
           >
-            {loading ? (
+            {loading.active ? (
               <ActivityIndicator color="#FFFFFF" size="small" />
             ) : (
               <Text style={styles.payButtonText}>
@@ -415,6 +460,16 @@ const AddFundsScreen = () => {
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+
+      {/* Loading Overlay */}
+      {loading.active && (
+        <View style={styles.loadingOverlay}>
+          <View style={styles.loadingCard}>
+            <ActivityIndicator size="large" color="#192DFF" />
+            <Text style={styles.loadingText}>{loading.message || "Please wait..."}</Text>
+          </View>
+        </View>
+      )}
     </SafeAreaView>
   );
 };
@@ -586,6 +641,7 @@ const styles = StyleSheet.create({
     right: 0,
     paddingHorizontal: 20,
     paddingVertical: 16,
+    paddingBottom: Platform.OS === 'android' ? 24 : 16, // Fallback for old android
     backgroundColor: "#FFFFFF",
     borderTopWidth: 1,
     borderTopColor: "#F5F5F5",
@@ -603,6 +659,32 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
     color: "#FFFFFF",
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 9999,
+  },
+  loadingCard: {
+    backgroundColor: "#FFFFFF",
+    padding: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    width: "80%",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  loadingText: {
+    marginTop: 20,
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#333333",
+    textAlign: "center",
   },
 });
 

@@ -162,6 +162,27 @@ const TransactionDetailScreen = () => {
   const handleSaveImage = async () => {
     try {
       setIsDownloading(true);
+      
+      if (Platform.OS === "web") {
+        const { toPng } = require('html-to-image');
+        // On web, viewShotRef.current points to the DOM node
+        if (viewShotRef.current) {
+          const dataUrl = await toPng(viewShotRef.current, {
+            backgroundColor: "#FFFFFF",
+            cacheBust: true,
+          });
+
+          const link = document.createElement("a");
+          link.download = `Receipt-${transactionData.transactionId}.png`;
+          link.href = dataUrl;
+          link.click();
+          
+          setConfirmationMessage("Receipt image downloaded successfully.");
+          setConfirmationVisible(true);
+        }
+        return;
+      }
+
       if (viewShotRef.current) {
         const uri = await captureRef(viewShotRef, {
           format: "png",
@@ -186,6 +207,7 @@ const TransactionDetailScreen = () => {
       Alert.alert("Error", "Failed to save receipt image.");
     } finally {
       setIsDownloading(false);
+      setModalVisible(false); // Ensure modal closes
     }
   };
 

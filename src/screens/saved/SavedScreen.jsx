@@ -120,14 +120,21 @@ const SavedScreen = () => {
     }).format(price);
   };
 
-  const renderEmptyState = () => (
-    <EmptyState 
-      title="No Saved Properties"
-      message="Properties you save while exploring will appear here for easy access."
-      buttonTitle="Explore Properties"
-      onPress={() => router.push("/(tabs)/index")}
-    />
-  );
+  const renderEmptyState = () => {
+    const isRecent = activeTab === "recent";
+    return (
+      <EmptyState
+        title={isRecent ? "No Recently Viewed" : "No Saved Properties"}
+        message={
+          isRecent
+            ? "Properties you view while exploring will appear here for easy access."
+            : "Properties you save while exploring will appear here for easy access."
+        }
+        buttonTitle="Explore Properties"
+        onPress={() => router.replace("/(tabs)")}
+      />
+    );
+  };
 
   const renderBookmarkItem = ({ item, index }) => {
     const listing = item.listing;
@@ -194,13 +201,20 @@ const SavedScreen = () => {
               <View style={styles.bookedStatusIndicator} />
             )}
           </View>
-          <Text style={styles.listingLocation} numberOfLines={1}>
-            {address}
-          </Text>
-          <Text style={styles.listingFeatures}>
-            • {listing.bedrooms || 0} Bedroom • {listing.bathrooms || 0}{" "}
-            Bathroom
-          </Text>
+          <View style={styles.featuresRow}>
+            <View style={styles.featureItem}>
+              <Ionicons name="bed" size={12} color="#6B7280" />
+              <Text style={styles.listingFeatures}>
+                {listing.bedrooms || 0} Bedroom
+              </Text>
+            </View>
+            <View style={styles.featureItem}>
+              <Ionicons name="water" size={12} color="#6B7280" />
+              <Text style={styles.listingFeatures}>
+                {listing.bathrooms || 0} Bathroom
+              </Text>
+            </View>
+          </View>
           <View style={styles.priceRow}>
             <View>
               <Text style={styles.price}>
@@ -279,7 +293,7 @@ const SavedScreen = () => {
       </View>
 
       <FlatList
-        data={bookmarks}
+        data={activeTab === "saved" ? bookmarks : []}
         renderItem={renderBookmarkItem}
         keyExtractor={(item) => item._id}
         numColumns={2}
@@ -486,6 +500,17 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: "700",
     textTransform: "uppercase",
+  },
+  featuresRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginTop: 2,
+  },
+  featureItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
   },
   titleRowSmall: {
     flexDirection: "row",

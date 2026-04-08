@@ -62,7 +62,7 @@ class ConfigService {
       // iOS simulator localhost
       return 'http://127.0.0.1:3000';
     } else if (Platform.OS === 'web') {
-      return 'http://localhost:3000';
+      return 'https://api.lunest.app';
     }
     
     // Production fallback for physical devices
@@ -83,7 +83,7 @@ class ConfigService {
     if (Platform.OS === "web" && envURL && envURL.includes("192.168.")) {
        const isCurrentHostLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
        if (isCurrentHostLocal) {
-         console.log("🌐 [ConfigService] Web on localhost detected. Using localhost:3000 instead of LAN IP to avoid PNA issues.");
+         console.log("🌐 [ConfigService] Web on localhost detected. Using http://localhost:3000 instead of LAN IP to avoid PNA issues.");
          return "http://localhost:3000";
        }
     }
@@ -100,10 +100,18 @@ class ConfigService {
 
     // Web platform fallback if no env URL
     if (Platform.OS === "web") {
+      if (
+        typeof window !== "undefined" &&
+        (window.location.hostname === "localhost" ||
+          window.location.hostname === "127.0.0.1")
+      ) {
+        console.log("🌐 [ConfigService] Web on localhost detected. Using http://localhost:3000.");
+        return "http://localhost:3000";
+      }
       console.log(
-        "🌐 [ConfigService] Web platform detected - using localhost:3000 fallback",
+        "🌐 [ConfigService] Web platform detected - using https://api.lunest.app production fallback",
       );
-      return "http://localhost:3000";
+      return "https://api.lunest.app";
     }
     if (Platform.OS === "android") {
       return await this.detectAndroidURL();

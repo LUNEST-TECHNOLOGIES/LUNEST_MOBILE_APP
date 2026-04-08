@@ -31,51 +31,9 @@ import axiosInstance from "../../lib/axiosInstance";
 import authService from "../../services/authService";
 import logService from "../../services/logService";
 import LogoutModal from "../../components/common/LogoutModal";
+import VerificationRequiredModal from "../../components/common/VerificationRequiredModal";
 
 
-
-/**
- * Mode Switching Loading Overlay
- * Shows during mode switch while data is being loaded
- */
-const ModeSwitchingOverlay = ({ visible, targetMode, onCancel }) => {
-  const [showCancel, setShowCancel] = useState(false);
-
-  useEffect(() => {
-    let timer;
-    if (visible) {
-      setShowCancel(false);
-      timer = setTimeout(() => setShowCancel(true), 5000);
-    }
-    return () => clearTimeout(timer);
-  }, [visible]);
-
-  return (
-    <Modal transparent visible={visible} animationType="fade">
-      <View style={styles.switchingOverlay}>
-        <View style={styles.switchingContainer}>
-          <ActivityIndicator size="large" color="#007BFF" />
-          <Text style={styles.switchingTitle}>
-            Switching to {targetMode} Mode
-          </Text>
-          <Text style={styles.switchingSubtitle}>
-            Loading your personalized data...
-          </Text>
-
-          {showCancel && (
-            <TouchableOpacity 
-              style={styles.cancelButton} 
-              onPress={onCancel}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.cancelButtonText}>Cancel and Go Back</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
-    </Modal>
-  );
-};
 
 /**
  * Profile Screen
@@ -97,13 +55,15 @@ const ProfileScreen = ({ isHostMode: isHostModeProp = false }) => {
   const [mounted, setMounted] = useState(false);
   const [isLogoutModalVisible, setIsLogoutModalVisible] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isVerificationModalVisible, setIsVerificationModalVisible] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // DETERMINE MODE
-  const isInHostMode = isHostModeProp || currentMode === USER_MODES.HOST;
+  // DETERMINE MODE - prioritizes the prop from the route (Guest tab vs Host tab)
+  // This ensures the visual state always matches the navigation context
+  const isInHostMode = isHostModeProp !== undefined ? isHostModeProp : currentMode === USER_MODES.HOST;
   const queryClient = useQueryClient();
 
   // 1. DATA FETCHING (TanStack Query)
@@ -175,7 +135,6 @@ const ProfileScreen = ({ isHostMode: isHostModeProp = false }) => {
     HOST_APPLICATION_STATUS.NONE,
   );
   const [isVerified, setIsVerified] = useState(false);
-  const [switchingTarget, setSwitchingTarget] = useState("Guest");
 
   // Sync server data to local display status
   useEffect(() => {
@@ -251,7 +210,6 @@ const ProfileScreen = ({ isHostMode: isHostModeProp = false }) => {
     
     try {
       if (isInHostMode) {
-        setSwitchingTarget("Guest");
         const success = await switchToGuest();
         if (success) {
           router.replace("/(tabs)");
@@ -262,7 +220,6 @@ const ProfileScreen = ({ isHostMode: isHostModeProp = false }) => {
       } else {
         // Require approved host application OR existing host status to switch to host mode
         if (isHost || hostApplicationStatus === HOST_APPLICATION_STATUS.APPROVED) {
-          setSwitchingTarget("Host");
           const success = await switchToHost();
           if (success) {
             // Add a small delay for Android stabilization
@@ -286,17 +243,12 @@ const ProfileScreen = ({ isHostMode: isHostModeProp = false }) => {
   // Double Protect: Manual Cancel Handler
   const handleCancelSwitch = () => {
     console.log("🛑 [ProfileScreen] Manual switch cancel triggered");
-    // Reset UserMode context switching state if it has a way to force reset
-    // Even if not, clearing the overlay locally allows the user to continue
-    if (resetUserMode) {
-        // Use reset as a proxy for clearing stuck states if needed, 
-        // but primarily we trust the Context's own safety timeout added earlier.
+    if (cancelSwitch) {
+        cancelSwitch();
     }
     
     // Forcing a re-render/logic skip by refreshing the whole screen state
     handleManualRefresh();
-    // The Context's safety timeout will handle the actual isSwitching variable,
-    // but we can also trigger a silent error to break the sync if possible.
     Alert.alert("Switch Cancelled", "The mode switch was cancelled. You can try again.");
   };
 
@@ -494,11 +446,7 @@ const ProfileScreen = ({ isHostMode: isHostModeProp = false }) => {
   const handleStartHosting = () => {
     // Check if user is verified before allowing host application
     if (!isVerified) {
-      Alert.alert(
-        "Verification Required",
-        "Please verify your account before applying to become a host. Complete your KYC verification first.",
-        [{ text: "OK" }],
-      );
+      setIsVerificationModalVisible(true);
       return;
     }
     router.push("/landlord-request");
@@ -515,18 +463,20 @@ const ProfileScreen = ({ isHostMode: isHostModeProp = false }) => {
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
-      {/* Mode Switching Loading Overlay */}
-      <ModeSwitchingOverlay
-        visible={isSwitching}
-        targetMode={switchingTarget}
-        onCancel={handleCancelSwitch}
-      />
-
       <LogoutModal
         visible={isLogoutModalVisible}
         onCancel={() => setIsLogoutModalVisible(false)}
         onConfirm={confirmLogout}
         isLoading={isLoggingOut}
+      />
+
+      <VerificationRequiredModal
+        visible={isVerificationModalVisible}
+        onClose={() => setIsVerificationModalVisible(false)}
+        onVerify={() => {
+          setIsVerificationModalVisible(false);
+          router.push("/kyc-verification");
+        }}
       />
 
       {/* Header */}
@@ -746,33 +696,6 @@ const styles = StyleSheet.create({
     marginTop: 2,
     fontWeight: "500",
   },
-  switchingContainer: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 20,
-    padding: 32,
-    alignItems: "center",
-    marginHorizontal: 40,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
-    elevation: 10,
-  },
-  switchingTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-
-    color: "#000000",
-    marginTop: 16,
-    textAlign: "center",
-  },
-  switchingSubtitle: {
-    fontSize: 14,
-
-    color: "#666666",
-    marginTop: 8,
-    textAlign: "center",
-  },
   // Loading state styles
   loadingContainer: {
     flex: 1,
@@ -785,30 +708,6 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   // Switching overlay styles
-  switchingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-    zIndex: 999,
-  },
-  switchingCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    padding: 32,
-    alignItems: "center",
-    gap: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  switchingText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#010135",
-  },
   versionContainer: {
     alignItems: "center",
     paddingVertical: 20,

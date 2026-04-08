@@ -36,7 +36,7 @@ const networkErrorHandler = NetworkErrorHandler;
  */
 const getDefaultBaseURL = () => {
   if (Platform.OS === "web") {
-    return "http://localhost:3000";
+    return "https://api.lunest.app";
   }
   // For mobile, prefer ENV or localhost as fallback
   return process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000";
@@ -1104,16 +1104,21 @@ class AuthService {
       } catch (error) {
         console.error("Token refresh failed:", error);
         
-        // If refresh fails with 401 (Unauthorized/User not found), 
-        // we must clear all auth state and user data to force a re-login
-        // and prevent the app from being stuck in a broken authenticated state
-        await this._clearTokens();
-        try {
-          // Also clear user data to ensure UI updates and redirects to login
-          await storageService.removeItem(STORAGE_KEYS.USER_DATA);
-          console.log("[AuthService] Auth state and user data cleared due to refresh failure");
-        } catch (storageError) {
-          console.error("[AuthService] Failed to clear user data during refresh failure:", storageError);
+        // Only clear tokens if the refresh is explicitly rejected by the server (401, 403, 400, 404)
+        // This prevents logging out users during temporary network glitches
+        const isAuthError = error.status === 401 || error.status === 403 || error.status === 400 || error.status === 404;
+        
+        if (isAuthError) {
+          console.warn("[AuthService] Clearing tokens due to definitive auth failure:", error.status);
+          await this._clearTokens();
+          try {
+            await storageService.removeItem(STORAGE_KEYS.USER_DATA);
+            console.log("[AuthService] Auth state and user data cleared");
+          } catch (storageError) {
+            console.error("[AuthService] Failed to clear user data:", storageError);
+          }
+        } else {
+          console.log("[AuthService] Refresh failed due to non-auth error (e.g. network). Keeping tokens.");
         }
         
         return false;

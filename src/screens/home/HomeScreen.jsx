@@ -176,14 +176,15 @@ const HomeScreen = () => {
         console.log("📍 [HomeScreen] Location display:", displayLocation);
 
         // Store coordinates for top picks filtering (distance calculation)
-        if (locationData.coords && locationData.coords.latitude && locationData.coords.longitude) {
+        const coords = locationData.coords || (locationData.latitude ? locationData : null);
+        if (coords && coords.latitude && coords.longitude) {
           setUserCoordinates({
-            latitude: locationData.coords.latitude,
-            longitude: locationData.coords.longitude,
+            latitude: coords.latitude,
+            longitude: coords.longitude,
           });
           console.log(
             "📍 [HomeScreen] Coordinates set:",
-            `${locationData.coords.latitude.toFixed(4)}, ${locationData.coords.longitude.toFixed(4)}`,
+            `${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}`,
           );
         } else {
           console.warn("⚠️ [HomeScreen] No device coordinates available, using city fallback...");
@@ -664,7 +665,7 @@ const HomeScreen = () => {
             combinedMedia.length > 0
               ? combinedMedia
               : [require("../../assets/images/prop_image.png")],
-          title: listing.propertyName || listing.propertyTitle || "Untitled",
+          title: listing.propertyTitle || listing.propertyName || "Untitled",
           location: buildLocationString(),
           price: listing.propertyPrice?.price || listing.price || 0,
           currency: (() => {
@@ -998,8 +999,11 @@ const HomeScreen = () => {
     <EmptyState 
       title="No Properties Found"
       message="We couldn't find any listings matching your current filters. Try adjusting them to see more options."
-      buttonTitle="Clear All Filters"
-      onPress={clearAllFilters}
+      buttonTitle="See all listings"
+      onPress={() => {
+        setActiveCategory("all");
+        clearAllFilters();
+      }}
     />
   );
 
@@ -1094,9 +1098,15 @@ const HomeScreen = () => {
              ) : (
                <EmptyState 
                  title="No Listings Near You"
-                 message="Your current location didn't return any nearby properties. Search for a different area to find a place."
+                 message={`We couldn't find anything in ${userLocation}. Try searching a nearby area or browse all available properties.`}
                  buttonTitle="Change Location"
                  onPress={handleLocationPress}
+                 secondaryButtonTitle="See All Listings"
+                 onSecondaryPress={() => {
+                   console.log("[HomeScreen] User chose to see all listings");
+                   setUserLocation("Nigeria");
+                   fetchTopPicksListings(null);
+                 }}
                />
              )
           ) : null

@@ -1,5 +1,6 @@
 import { differenceInDays, format, parse } from "date-fns";
 import * as Linking from "expo-linking";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { useEffect, useState } from "react";
@@ -993,12 +994,39 @@ const BookingSummary = () => {
 
           if (paymentResult.authorization_url) {
             // Create callback URL for deep linking back to app
-            const callbackUrl = Linking.createURL("payment-callback", {
-              queryParams: {
-                type: "booking_payment",
-                amount: displayTotal.toString(),
-              },
-            });
+            let callbackUrl;
+            if (Platform.OS === "web") {
+              // Standardize web callback URL
+              callbackUrl = window.location.origin + "/payment-callback";
+            } else {
+              callbackUrl = Linking.createURL("payment-callback", {
+                queryParams: {
+                  type: "booking_payment",
+                  amount: displayTotal.toString(),
+                },
+              });
+            }
+
+            // PERSIST CONTEXT
+            const paymentContext = {
+              type: "BOOKING",
+              bookingData: bookingData,
+              propertyName: bookingSummary.property.title,
+              location: bookingSummary.property.location,
+              coverImage: bookingSummary.property.coverImage || "",
+              bookingType: bookingSummary.property.bookingType,
+              checkIn: bookingSummary.property.checkIn,
+              checkOut: bookingSummary.property.checkOut,
+            };
+
+            if (Platform.OS === "web") {
+              localStorage.setItem("lunest_payment_context", JSON.stringify(paymentContext));
+              window.location.href = paymentResult.authorization_url;
+              return; // Stop here on web to avoid triggering popup blockers
+            } else {
+              await AsyncStorage.setItem("lunest_payment_context", JSON.stringify(paymentContext));
+              // Proceed to browser open...
+            }
 
             // Open Paystack checkout with auth session for better deep linking
             const browserResult = await WebBrowser.openAuthSessionAsync(

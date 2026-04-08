@@ -5,21 +5,28 @@
  */
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useState } from "react";
 import {
   Animated,
   Easing,
+  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
   View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import bookingService from "../src/services/bookingService";
 import paymentService from "../src/services/paymentService";
+import notificationService from "../src/services/notificationService";
+import { TOAST_TYPE } from "../src/components/common/ToastNotification";
 
 export default function PaymentCallbackScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const queryClient = useQueryClient();
   const [status, setStatus] = useState("processing");
   const [message, setMessage] = useState("Verifying your payment...");
   const [reference, setReference] = useState(null);
@@ -50,9 +57,21 @@ export default function PaymentCallbackScreen() {
   useEffect(() => {
     console.log("[PaymentCallback] Params:", params);
 
-    const callbackStatus = params.status;
-    const ref = params.reference || params.trxref || params.ref;
+    // Normalize parameters correctly
+    const callbackStatus = (params.status || params.event || "").toLowerCase();
+    
+    // Web fallback for reference extraction if params are empty (can happen on initial mount)
+    let ref = params.reference || params.trxref || params.ref || params.transaction_id;
+    
+    if (!ref && Platform.OS === 'web') {
+      const urlParams = new URLSearchParams(window.location.search);
+      ref = urlParams.get('reference') || urlParams.get('trxref');
+      console.log("[PaymentCallback] Web Fallback Ref:", ref);
+    }
+    
     setReference(ref);
+
+    console.log("[PaymentCallback] Normalized:", { callbackStatus, ref });
 
     if (callbackStatus) {
       console.log("[PaymentCallback] Using status from callback:", callbackStatus);
@@ -60,9 +79,18 @@ export default function PaymentCallbackScreen() {
       switch (callbackStatus) {
         case "success":
         case "completed":
+        case "processed":
           setStatus("success");
           setMessage("Payment successful! Your transaction has been completed.");
-          navigateAfterDelay("/(tabs)/wallet", 3000);
+          // ... rest of success handling
+          // Trigger global toast for extra confirmation
+          notificationService.showSuccess("Payment completed successfully!");
+          
+          // Ensure wallet balance and profile are updated across the app
+          queryClient.refetchQueries({ queryKey: ["walletInfo"], type: "all" });
+          queryClient.refetchQueries({ queryKey: ["userProfile"], type: "all" });
+          
+          navigateAfterDelay(Platform.OS === 'web' ? "/wallet" : "/(tabs)/wallet", 3000);
           break;
         case "pending":
           setStatus("info");
@@ -102,18 +130,112 @@ export default function PaymentCallbackScreen() {
       setStatus("processing");
       setMessage("Verifying payment with our servers...");
       
+      // Small Delay for backend to catch up with gateway callback (important for some gateways)
+      if (retryCount === 0) {
+        await new Promise(resolve => setTimeout(resolve, 800));
+      }
+
       console.log("[PaymentCallback] Verifying payment:", ref);
       const result = await paymentService.verifyPayment(ref);
       console.log("[PaymentCallback] Verification result:", result);
 
       if (result.status === "COMPLETED" || result.status === "success") {
+        // --- CONTEXT RECOVERY LOGIC ---
+        
+        // 1. Check for 'type' in params (Directly passed via Linking.createURL on Native)
+        if (params.type === "WALLET_FUNDING") {
+          setStatus("success");
+          setMessage("Wallet funding successful! Your balance will be updated momentarily.");
+          const amountDisplay = params.amount ? `₦${params.amount}` : "Funds";
+          notificationService.show(`${amountDisplay} added to your wallet successfully`, TOAST_TYPE.SUCCESS);
+          navigateAfterDelay("/(tabs)/profile", 2000);
+          return;
+        }
+
+        // 2. Check for stored context (Booking/Funding)
+        try {
+          let storedContext = null;
+          
+          if (Platform.OS === "web") {
+            storedContext = localStorage.getItem("lunest_payment_context");
+            if (storedContext) localStorage.removeItem("lunest_payment_context");
+          } else {
+            storedContext = await AsyncStorage.getItem("lunest_payment_context");
+            if (storedContext) await AsyncStorage.removeItem("lunest_payment_context");
+          }
+
+          if (storedContext) {
+            const context = JSON.parse(storedContext);
+            
+            if (context.type === "BOOKING" && context.bookingData) {
+              setStatus("processing");
+              setMessage("Finalizing your booking...");
+              
+              const bookingResult = await bookingService.createBooking(context.bookingData);
+              
+              if (bookingResult.success) {
+                setStatus("success");
+                setMessage("Booking confirmed! Redirecting you now...");
+                notificationService.showSuccess("Booking finalized successfully!");
+                
+                router.replace({
+                  pathname: "/booking-confirmation",
+                  params: {
+                    status: "Confirmed",
+                    propertyName: context.propertyName,
+                    location: context.location,
+                    coverImage: context.coverImage,
+                    bookingType: context.bookingType,
+                    checkIn: context.checkIn,
+                    checkOut: context.checkOut,
+                    paymentMethod: "Card",
+                    total: `₦${(context.bookingData.priceBreakdown?.guestTotal || 0).toLocaleString()}`,
+                    refCode: bookingResult.booking?.referenceCode || ref,
+                    bookingId: bookingResult.booking?._id,
+                  }
+                });
+                return;
+              } else {
+                throw new Error(bookingResult.message || "Failed to finalize booking");
+              }
+            } else if (context.type === "WALLET_FUNDING") {
+              setStatus("success");
+              setMessage("Wallet funded successfully! Redirecting...");
+              notificationService.showSuccess("Wallet funding successful!");
+              
+              // Ensure wallet balance and profile are updated across the app
+              queryClient.refetchQueries({ queryKey: ["walletInfo"], type: "all" });
+              queryClient.refetchQueries({ queryKey: ["userProfile"], type: "all" });
+              
+              navigateAfterDelay("/(tabs)/profile", 2000);
+              return;
+            }
+          }
+        } catch (ctxError) {
+          console.error("[PaymentCallback] Context recovery error:", ctxError);
+        }
+
         setStatus("success");
-        setMessage("Payment verified successfully! Your wallet has been funded.");
-        navigateAfterDelay("/(tabs)/wallet", 3000);
+        setMessage("Payment verified successfully!");
+        notificationService.showSuccess("Payment verified!");
+        
+        // Ensure wallet balance and profile are updated across the app
+        queryClient.refetchQueries({ queryKey: ["walletInfo"], type: "all" });
+        queryClient.refetchQueries({ queryKey: ["userProfile"], type: "all" });
+        
+        navigateAfterDelay(Platform.OS === 'web' ? "/profile" : "/(tabs)/profile", 3000);
       } else if (result.status === "PENDING") {
         setStatus("info");
         setMessage("Payment is still being processed. Please check back in a few minutes.");
-        navigateAfterDelay("/(tabs)/wallet", 4000);
+        navigateAfterDelay(Platform.OS === 'web' ? "/profile" : "/(tabs)/profile", 4000);
+      } else if (result.status === "ABANDONED") {
+        setStatus("error");
+        setMessage("Payment was abandoned. If you intended to pay, please try again.");
+        navigateAfterDelay(Platform.OS === 'web' ? "/profile" : "/(tabs)/profile", 4000);
+      } else if (result.status === "FAILED") {
+        setStatus("error");
+        setMessage("Payment was not successful. Please try again or contact support.");
+        navigateAfterDelay(Platform.OS === 'web' ? "/profile" : "/(tabs)/profile", 4000);
       } else {
         setStatus("error");
         setMessage(result.message || "Payment verification failed. Please contact support if funds were deducted.");
@@ -140,7 +262,7 @@ export default function PaymentCallbackScreen() {
   };
 
   const handleGoToWallet = () => {
-    router.replace("/(tabs)/wallet");
+    router.replace(Platform.OS === 'web' ? "/wallet" : "/(tabs)/wallet");
   };
 
   const renderIcon = () => {

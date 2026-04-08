@@ -183,15 +183,18 @@ class ListingService {
   async fetchPaginatedListings({ page = 1, limit = 10, ...filters } = {}) {
     console.log(`[ListingService] Fetching paginated listings (Page: ${page}, Limit: ${limit})`);
     try {
-      const response = await axiosInstance.post("/v1/listings", {
-        ...filters,
-        page,
-        limit
+      const response = await axiosInstance.get("/v1/listings/paginated", {
+        params: {
+          ...filters,
+          page,
+          limit
+        }
       });
 
-      // Backend returns CallBack.body structure: { success: true, body: [...], message: "..." }
+      // Backend returns PaginatedResponse structure: { listings: [], pagination: {}, filters: {} }
       if (response.data && response.data.success) {
-        return response.data.body || [];
+        // Return only the listings array to maintain compatibility with existing UI
+        return response.data.body?.listings || [];
       }
       return [];
     } catch (error) {

@@ -24,9 +24,16 @@ const detectAPIURL = () => {
     return envURL;
   }
 
-  // Web fallback if no ENV override
+  // Web fallback - detect if running on localhost to hit local backend
   if (Platform.OS === "web") {
-    return "http://localhost:3000";
+    if (
+      typeof window !== "undefined" &&
+      (window.location.hostname === "localhost" ||
+        window.location.hostname === "127.0.0.1")
+    ) {
+      return "http://localhost:3000";
+    }
+    return "https://api.lunest.app";
   }
 
   // Fallback for development
@@ -82,12 +89,15 @@ class APIClient {
    */
   async getAuthToken() {
     try {
-      // Use secure storage with same key as authService
-      const token = await secureStorageService.getSecureItem(AUTH_TOKEN_KEY);
+      // Use authService.getToken() instead of direct secure storage access
+      // authService.getToken() handles automatic refresh before expiry
+      const authService = require("./authService").default;
+      const token = await authService.getToken();
       return token;
     } catch (error) {
-      console.error("Error getting auth token:", error);
-      return null;
+      console.error("[APIClient] Error getting auth token via authService:", error);
+      // Fallback to direct storage if authService fails or isn't available
+      return await secureStorageService.getSecureItem(AUTH_TOKEN_KEY);
     }
   }
 

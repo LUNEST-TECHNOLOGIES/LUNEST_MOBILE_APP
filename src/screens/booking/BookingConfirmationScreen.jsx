@@ -487,14 +487,29 @@ const BookingConfirmationScreen = () => {
 
   // Generate PDF (Booking Confirmation)
   const generateConfirmationPDF = async () => {
+    // expo-print/Sharing is only available on native (iOS/Android)
+    if (Platform.OS === "web") {
+      Alert.alert("Not Supported", "PDF download is not available on web. Please use 'Save as Image' instead.");
+      return;
+    }
+
     try {
-      // Load Logo
-      const asset = Asset.fromModule(logoImage);
-      await asset.downloadAsync();
-      const logoBase64 = await FileSystem.readAsStringAsync(asset.localUri, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
-      const logoSrc = `data:image/png;base64,${logoBase64}`;
+      // Load Logo (non-blocking — PDF will render without logo if this fails)
+      let logoSrc = "";
+      try {
+        const asset = Asset.fromModule(logoImage);
+        await asset.downloadAsync();
+        if (asset.localUri) {
+          const logoBase64 = await FileSystem.readAsStringAsync(asset.localUri, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+          logoSrc = `data:image/png;base64,${logoBase64}`;
+        } else {
+          console.warn("[BookingConfirmation] Logo asset localUri is null, proceeding without logo");
+        }
+      } catch (logoError) {
+        console.warn("[BookingConfirmation] Logo loading failed, proceeding without logo:", logoError.message);
+      }
       
       const cautionStatusText = (booking?.securityDepositResolution?.status || "HELD").replace(/_/g, " ");
       const cautionStatusGuestText = (booking?.securityDepositResolution?.status || "HELD/REFUNDABLE").replace(/_/g, " ");
@@ -523,7 +538,7 @@ const BookingConfirmationScreen = () => {
             </style>
           </head>
           <body>
-            <div class="header-logo"><img src="${logoSrc}" alt="Lunest Logo" /></div>
+            ${logoSrc ? `<div class="header-logo"><img src="${logoSrc}" alt="Lunest Logo" /></div>` : `<div class="header-logo"><h2 style="color: #010135;">LUNEST</h2></div>`}
             <h1>Booking Confirmation</h1>
             <div class="status"><span class="badge" style="background-color: ${badgeColor.bg}; color: ${badgeColor.text}">${status}</span></div>
             <div class="row"><span class="label">Property name:</span><span class="value">${propertyName}</span></div>
@@ -581,8 +596,8 @@ const BookingConfirmationScreen = () => {
         mimeType: "application/pdf",
       });
     } catch (e) {
-      console.warn("Confirmation PDF generation failed:", e);
-      Alert.alert("Error", "Failed to generate PDF");
+      console.error("[BookingConfirmation] PDF generation failed:", e);
+      Alert.alert("Error", `Failed to generate PDF: ${e.message || "Unknown error"}`);
     }
   };
 

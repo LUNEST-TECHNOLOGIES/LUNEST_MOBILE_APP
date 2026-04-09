@@ -38,7 +38,8 @@ import { MapView, Marker, PROVIDER_GOOGLE } from "../../components/MapViewWrappe
 import ImageViewerModal from "../../components/modals/ImageViewerModal";
 import ReviewFeedbackModal from "../../components/modals/ReviewFeedbackModal";
 import VerifiedInfoOverlay from "../../components/modals/VerifiedInfoOverlay";
-import { PropertyDetailsSkeleton, SkeletonPlaceholder } from "../../components/skeletons";
+import PropertyDetailsSkeleton from "../../components/skeletons/PropertyDetailsSkeleton";
+import SkeletonPlaceholder from "../../components/skeletons/SkeletonPlaceholder";
 import { useProgressiveLoading } from "../../hooks/useDelayedLoading";
 import authService from "../../services/authService";
 import bookingService from "../../services/bookingService";

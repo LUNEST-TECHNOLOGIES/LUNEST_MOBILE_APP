@@ -401,11 +401,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default {
-  PropertyListingCardSkeleton,
-  HorizontalPropertySkeleton,
-  CompactPropertySkeleton,
-  PropertyListSkeleton,
-  HorizontalListSkeleton,
-  GridListSkeleton,
-};
+

@@ -45,6 +45,7 @@ import authService from "../../services/authService";
 import bookingService from "../../services/bookingService";
 import configService from "../../services/configService";
 import { resolveImageUrlSync } from "../../utils/imageUtils";
+import { downloadFile, saveRefAsImage } from "../../utils/downloadUtils";
 
 // Banner image
 const bannerImage = require("../../assets/images/Frame 1618873475.png");
@@ -602,29 +603,19 @@ const BookingConfirmationScreen = () => {
     }
   };
 
-  // Capture as Image and Share
+  // --- Image Capture & Save (Universal) ---
   const captureAndSaveImage = async () => {
-    if (Platform.OS === "web") {
+    if (Platform.OS === 'web') {
       try {
         setIsCapturing(true);
-        const { toPng } = require('html-to-image');
+        const dataUrl = await captureRef(viewRef, {
+          format: 'png',
+          quality: 1,
+          result: 'data-uri'
+        });
         
-        // viewRef.current on react-native-web is the DOM element
-        if (viewRef.current) {
-          const dataUrl = await toPng(viewRef.current, { 
-            backgroundColor: '#FFFFFF',
-            cacheBust: true,
-            style: {
-              borderRadius: '0px' // Ensure clean capture
-            }
-          });
-          
-          const link = document.createElement('a');
-          link.download = `Lunest-Booking-${refCode}.png`;
-          link.href = dataUrl;
-          link.click();
-          
-          showToastMessage("Booking image downloaded!");
+        if (dataUrl) {
+          await saveRefAsImage(dataUrl, `Lunest-Booking-${refCode}.png`);
         } else {
           throw new Error("Capture reference not found");
         }
@@ -647,15 +638,7 @@ const BookingConfirmationScreen = () => {
             format: "png",
             quality: 1,
           });
-
-          if (await Sharing.isAvailableAsync()) {
-            await Sharing.shareAsync(localUri, {
-              mimeType: "image/png",
-              dialogTitle: "Save Booking Confirmation",
-            });
-          } else {
-            Alert.alert("Success", "Screenshot captured locally.");
-          }
+          await saveRefAsImage(localUri, `Booking_Confirmation_${refCode}.png`);
         } catch (innerError) {
           console.warn("Capture failed:", innerError);
           Alert.alert("Error", "Failed to capture image");
@@ -671,12 +654,6 @@ const BookingConfirmationScreen = () => {
     }
   };
 
-  // Handle Download Button Press
-  const handleDownload = () => {
-    setShowDownloadOptions(true);
-  };
-
-  // Helper Data for Agreement Download
   const handleAgreementDownload = async () => {
     const statusLower = (
       params.status ||
@@ -688,53 +665,43 @@ const BookingConfirmationScreen = () => {
     if (!allowedStatuses.includes(statusLower)) {
       Alert.alert(
         "Download Restricted",
-        "Rental agreements are only available for confirmed, ongoing, or completed bookings. Please complete your payment to access the agreement.",
+        "Rental agreements are only available for confirmed, ongoing, or completed bookings.",
       );
       return;
     }
 
+    setLoading(true);
     try {
-      setLoading(true);
       const result = await bookingService.fetchRentalAgreement(bookingId);
-
-      if (!result.success) {
-        Alert.alert(
-          "Error",
-          result.message || "Failed to fetch rental agreement.",
-        );
-        return;
-      }
-
-      const { url } = result;
-
-      if (Platform.OS === "web") {
-        Linking.openURL(url);
-        return;
-      }
-
-      const filename = `Rental_Agreement_${refCode}.pdf`;
-      const fileUri = FileSystem.documentDirectory + filename;
-
-      const downloadRes = await FileSystem.downloadAsync(url, fileUri);
-
-      if (downloadRes.status !== 200) {
-        Alert.alert("Error", "Failed to download agreement.");
-        return;
-      }
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(downloadRes.uri, {
-          mimeType: "application/pdf",
-          UTI: "com.adobe.pdf",
-          dialogTitle: "Download Rental Agreement",
-        });
+      if (result.success && result.url) {
+        await downloadFile(result.url, `Agreement_${refCode}.pdf`, "application/pdf");
       } else {
-        Alert.alert("Success", "Agreement downloaded to documents.");
+        throw new Error(result.message || "Failed to fetch agreement from server");
       }
     } catch (e) {
       console.warn("Agreement download error:", e);
-      Alert.alert("Error", "Failed to download rental agreement: " + e.message);
+      Alert.alert("Error", "Failed to download agreement: " + e.message);
     } finally {
       setLoading(false);
+      setShowDownloadOptions(false);
+    }
+  };
+
+  const handleReceiptDownload = async () => {
+    setLoading(true);
+    try {
+      const result = await bookingService.fetchReceipt(bookingId);
+      if (result.success && result.url) {
+        await downloadFile(result.url, `Receipt_${refCode}.pdf`, "application/pdf");
+      } else {
+        throw new Error(result.message || "Failed to fetch receipt from server");
+      }
+    } catch (e) {
+      console.warn("Receipt download error:", e);
+      Alert.alert("Error", "Failed to download receipt: " + e.message);
+    } finally {
+      setLoading(false);
+      setShowDownloadOptions(false);
     }
   };
 
@@ -1867,7 +1834,7 @@ const BookingConfirmationScreen = () => {
         visible={showDownloadOptions}
         onClose={() => setShowDownloadOptions(false)}
         onSaveImage={captureAndSaveImage}
-        onDownloadReceipt={generateConfirmationPDF}
+        onDownloadReceipt={handleReceiptDownload}
         onDownloadAgreement={handleAgreementDownload}
       />
 

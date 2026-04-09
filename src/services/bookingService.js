@@ -736,6 +736,47 @@ class BookingService {
   }
 
   /**
+   * Fetch receipt URL for a booking
+   * @param {string} bookingId
+   * @returns {Promise<Object>} { success, url }
+   */
+  async fetchReceipt(bookingId) {
+    console.log("🧾 [BookingService] Fetching receipt for:", bookingId);
+    if (!bookingId) return { success: false, message: "Booking ID required" };
+
+    try {
+      const token = await authService.getToken();
+      if (!token) return { success: false, message: "Authentication required" };
+
+      const response = await apiClient.get(
+        `/v1/bookings/${bookingId}/receipt`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+
+      const data =
+        (response && response.body) || (response && response.data) || response;
+
+      if (data && data.url) {
+        // Prepend base URL if relative path
+        const fullUrl = data.url.startsWith("http")
+          ? data.url
+          : `${apiClient.baseURL}/${data.url}`;
+
+        return { success: true, url: fullUrl };
+      }
+      return { success: false, message: "Receipt not available" };
+    } catch (error) {
+      console.error("❌ [BookingService] Error fetching receipt:", error);
+      return {
+        success: false,
+        message: error.message || "Failed to fetch receipt",
+      };
+    }
+  }
+
+  /**
    * Check if the current user has a completed booking for a listing
    * @param {string} listingId
    * @returns {Promise<boolean>}

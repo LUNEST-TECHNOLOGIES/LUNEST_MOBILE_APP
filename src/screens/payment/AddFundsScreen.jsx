@@ -259,61 +259,80 @@ const AddFundsScreen = () => {
       );
 
       if (paymentData.authorization_url) {
-        console.log(
-          "[AddFunds] Opening Paystack:",
-          paymentData.authorization_url,
-        );
+        // CLEAN & VALIDATE URL
+        const authUrl = (paymentData.authorization_url || "").trim();
+        if (!authUrl.startsWith("http")) {
+          throw new Error("Invalid payment URL received from server");
+        }
+
+        console.log("[AddFunds] Opening Paystack:", authUrl);
 
         // Store payment reference for fallback verification
         const paymentReference = paymentData.reference;
 
-          // PERSIST CONTEXT
-          const context = {
-            type: "WALLET_FUNDING",
-            returnUrl: params.returnUrl,
-            params: { ...params, status: null, reference: null } // Exclude callback-specific params
-          };
+        // PERSIST CONTEXT
+        const context = {
+          type: "WALLET_FUNDING",
+          returnUrl: params.returnUrl,
+          params: { ...params, status: null, reference: null },
+        };
 
-          if (Platform.OS === "web") {
-            localStorage.setItem("lunest_payment_context", JSON.stringify(context));
-            window.location.href = paymentData.authorization_url;
-            return; // Stop here on web to avoid triggering popup blockers
-          } else {
-            await AsyncStorage.setItem("lunest_payment_context", JSON.stringify(context));
-            // Proceed to browser open...
-          }
+        if (Platform.OS === "web") {
+          localStorage.setItem("lunest_payment_context", JSON.stringify(context));
+          window.location.href = authUrl;
+          return;
+        } else {
+          await AsyncStorage.setItem(
+            "lunest_payment_context",
+            JSON.stringify(context),
+          );
+        }
 
-        // On native, use openAuthSessionAsync with multi-layer fallback
+        // On native, use direct Linking for Android as it is more robust for external intents
+        // openAuthSessionAsync can sometimes trigger "Permission Denial" on custom Android builds
+        if (Platform.OS === "android") {
+            try {
+                console.log("[AddFunds] Android detected, using direct Linking for reliability");
+                const supported = await Linking.canOpenURL(authUrl);
+                if (supported) {
+                    await Linking.openURL(authUrl);
+                    // Start verification loop since we don't get a result from Linking
+                    setTimeout(() => handleVerifyPayment(paymentReference), 2000);
+                    return;
+                }
+            } catch (linkError) {
+                console.error("[AddFunds] Direct linking failed, falling back to WebBrowser:", linkError);
+            }
+        }
+
+        // Standard Expo approach for iOS or Fallback
         let result;
         try {
           console.log("[AddFunds] Attempting openAuthSessionAsync...");
-          result = await WebBrowser.openAuthSessionAsync(
-            paymentData.authorization_url,
-            callbackUrl,
-          );
+          result = await WebBrowser.openAuthSessionAsync(authUrl, callbackUrl);
         } catch (browserError) {
-          console.warn("[AddFunds] openAuthSessionAsync failed, trying openBrowserAsync:", browserError);
+          console.warn(
+            "[AddFunds] openAuthSessionAsync failed, trying Linking.openURL:",
+            browserError,
+          );
           try {
-            result = await WebBrowser.openBrowserAsync(paymentData.authorization_url);
+            await Linking.openURL(authUrl);
+            return;
           } catch (secondError) {
-            console.error("[AddFunds] openBrowserAsync failed, using Linking.openURL:", secondError);
-            // The ultimate "un-stuck" fallback
-            await Linking.openURL(paymentData.authorization_url);
-            return; // Exit early as Linking.openURL doesn't return a result
+            console.error("[AddFunds] All redirect methods failed:", secondError);
+            showToast("Could not open payment browser. Please try again.", "error");
+            return;
           }
         }
 
         console.log("[AddFunds] Browser result:", result);
 
-        // Check if the result indicates successful deep link (type: 'success')
         if (result.type === "success") {
-          console.log("[AddFunds] Deep link successful, payment callback handled");
-          // The payment-callback screen or our useEffect will handle verification
+          console.log("[AddFunds] Deep link successful");
           return;
         }
 
         // Fallback: Always verify payment after browser closes
-        console.log("[AddFunds] Browser closed, verifying payment status...");
         handleVerifyPayment(paymentReference);
       } else {
         showToast("Failed to initialize payment", "error");

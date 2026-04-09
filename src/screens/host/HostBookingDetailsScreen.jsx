@@ -46,6 +46,7 @@ import ReviewFeedbackModal from "../../components/modals/ReviewFeedbackModal";
 import bookingService from "../../services/bookingService";
 import configService from "../../services/configService";
 import { resolveImageUrlSync } from "../../utils/imageUtils";
+import { downloadFile, saveRefAsImage } from "../../utils/downloadUtils";
 
 const logoImage = require("../../assets/images/LUNEST PNG 1 1.png"); // New Import
 
@@ -561,26 +562,18 @@ const HostBookingDetailsScreen = () => {
   const handleDownloadReceipt = async () => {
     setIsDownloading(true);
     try {
-      // Load Logo
-      const asset = Asset.fromModule(logoImage);
-      await asset.downloadAsync();
-      const logoBase64 = await FileSystem.readAsStringAsync(asset.localUri, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
-      const logoSrc = `data:image/png;base64,${logoBase64}`;
-
-      const html = generateReceiptHTML(logoSrc);
-      const { uri } = await Print.printToFileAsync({ html, base64: false });
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(uri, { mimeType: "application/pdf" });
+      const result = await bookingService.fetchReceipt(bookingId);
+      if (result.success && result.url) {
+        await downloadFile(result.url, `Receipt_${bookingRefCode}.pdf`, "application/pdf");
       } else {
-        Alert.alert("Downloaded", "Receipt saved.");
+        throw new Error(result.message || "Failed to fetch receipt from server");
       }
     } catch (e) {
       console.error("[Download] Receipt error:", e);
-      Alert.alert("Error", "Failed to generate receipt.");
+      Alert.alert("Error", "Failed to download receipt: " + e.message);
     } finally {
       setIsDownloading(false);
+      setShowDownloadOptions(false);
     }
   };
 
@@ -597,57 +590,24 @@ const HostBookingDetailsScreen = () => {
     setIsDownloading(true);
     try {
       const result = await bookingService.fetchRentalAgreement(bookingId);
-
-      if (!result.success) {
-        Alert.alert(
-          "Error",
-          result.message || "Failed to fetch rental agreement from server.",
-        );
-        return;
-      }
-
-      const { url } = result;
-
-      if (Platform.OS === "web") {
-        Linking.openURL(url);
-        return;
-      }
-
-      // Mobile: Download and Share
-      const filename = `Rental_Agreement_${bookingRefCode}.pdf`;
-      const fileUri = `${FileSystem.documentDirectory}${filename}`;
-
-      const downloadRes = await FileSystem.downloadAsync(url, fileUri);
-
-      if (downloadRes.status !== 200) {
-        Alert.alert("Error", "Failed to download agreement.");
-        return;
-      }
-
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(downloadRes.uri, {
-          mimeType: "application/pdf",
-          UTI: "com.adobe.pdf",
-          dialogTitle: "Download Rental Agreement",
-        });
+      if (result.success && result.url) {
+        await downloadFile(result.url, `Agreement_${bookingRefCode}.pdf`, "application/pdf");
       } else {
-        Alert.alert("Downloaded", "Agreement saved to documents.");
+        throw new Error(result.message || "Failed to fetch agreement from server");
       }
     } catch (e) {
       console.error("[Download] Agreement error:", e);
       Alert.alert("Error", "Failed to fetch agreement: " + e.message);
     } finally {
       setIsDownloading(false);
+      setShowDownloadOptions(false);
     }
   };
 
   const handleDownloadImage = async () => {
-    if (Platform.OS === "web") {
-      Alert.alert(
-        "Not Supported",
-        "Saving as image is currently available on the mobile app only.",
-      );
-      return;
+    if (!viewRef.current) {
+        Alert.alert("Error", "Booking summary view is not ready.");
+        return;
     }
     setIsDownloading(true);
     try {
@@ -655,16 +615,13 @@ const HostBookingDetailsScreen = () => {
         format: "png",
         quality: 1,
       });
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(uri, { mimeType: "image/png" });
-      } else {
-        Alert.alert("Saved", "Image saved to gallery.");
-      }
+      await saveRefAsImage(uri, `Booking_Summary_${bookingRefCode}.png`);
     } catch (e) {
       console.error("[Download] Image capture error:", e);
-      Alert.alert("Error", "Failed to save image.");
+      Alert.alert("Error", "Failed to generate image summary.");
     } finally {
       setIsDownloading(false);
+      setShowDownloadOptions(false);
     }
   };
 

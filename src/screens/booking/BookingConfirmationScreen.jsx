@@ -398,6 +398,8 @@ const BookingConfirmationScreen = () => {
     reserved: { bg: "rgba(33, 150, 243, 0.15)", text: "#1976d2" },
     expired: { bg: "rgba(244, 67, 54, 0.1)", text: "#c62828" },
     ongoing: { bg: "rgba(255, 152, 0, 0.2)", text: "#ef6c00" },
+    failed: { bg: "rgba(244, 67, 54, 0.2)", text: "#c62828" },
+    pending_payment: { bg: "rgba(255, 193, 7, 0.2)", text: "#f57f17" },
   };
 
   // Status-specific icon for the hero banner
@@ -415,6 +417,7 @@ const BookingConfirmationScreen = () => {
         return <ReservedIcon width={36} height={36} />;
       case "ongoing":
         return <ConfettiIcon width={40} height={40} />;
+      case "failed":
       case "expired":
         return <CancelIcon width={36} height={36} />;
       default:
@@ -437,6 +440,8 @@ const BookingConfirmationScreen = () => {
         return "Enjoy Your Stay!";
       case "cancelled":
         return "Your Booking is Cancelled";
+      case "failed":
+        return "Payment Failed";
       case "expired":
         return "Reservation Expired";
       default:
@@ -459,6 +464,8 @@ const BookingConfirmationScreen = () => {
         return "Your stay is currently active. Let us know if you need anything!";
       case "cancelled":
         return "This booking has been cancelled. Contact support for any questions.";
+      case "failed":
+        return params.error || "Something went wrong with your payment. Please try again to secure your booking.";
       case "expired":
         return "Your reservation time has expired. Please make a new booking.";
       default:
@@ -1699,6 +1706,23 @@ const BookingConfirmationScreen = () => {
                   </Text>
                 </Pressable>
               </>
+            ) : statusLower === "failed" ? (
+                <>
+                  <Pressable
+                    style={[styles.primaryButton, styles.buttonFlex]}
+                    onPress={handleContinueToPayment}
+                  >
+                    <Text style={styles.primaryButtonText}>
+                      Retry Payment
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    style={[styles.outlineButton, styles.buttonFlex, { marginLeft: 10 }]}
+                    onPress={handleGoHome}
+                  >
+                    <Text style={styles.outlineButtonText}>Go Home</Text>
+                  </Pressable>
+                </>
             ) : statusLower === "ongoing" && !isHostView ? (
               <>
                 <Pressable

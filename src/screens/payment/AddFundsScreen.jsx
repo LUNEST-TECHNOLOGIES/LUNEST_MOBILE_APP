@@ -255,6 +255,7 @@ const AddFundsScreen = () => {
           type: "WALLET_FUNDING",
           description: `Add ${formatCurrency(numericAmount)} to wallet`,
           callback_url: callbackUrl,
+          origin: "mobile", // Explicitly track origin for backend redirection
         },
       );
 

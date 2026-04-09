@@ -981,6 +981,7 @@ const BookingSummary = () => {
               type: "BOOKING",
               listingId: params?.listingId,
               description: `Booking for ${bookingSummary.property.title}`,
+              origin: "mobile", // Explicitly track origin for backend redirection
             },
           );
 

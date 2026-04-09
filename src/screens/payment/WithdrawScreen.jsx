@@ -216,7 +216,8 @@ const WithdrawScreen = () => {
         numericAmount,
         selectedBank.code,
         accountNumber,
-        accountName
+        accountName,
+        "mobile" // origin
       );
 
       if (result.status === "PENDING" || result.status === "SUCCESS") {

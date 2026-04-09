@@ -78,13 +78,39 @@ export default function PaymentCallbackScreen() {
     if (callbackStatus) {
       console.log("[PaymentCallback] Using status from callback:", callbackStatus);
       
+      const type = (params.type || "").toLowerCase();
+      const bookingId = params.bookingId;
+
+      if (type === 'booking' && bookingId) {
+        console.log("[PaymentCallback] Booking redirect detected:", { bookingId, status: callbackStatus });
+        
+        // Ensure UI reflects the status
+        if (callbackStatus === 'success') {
+            setStatus("success");
+            setMessage("Payment successful! Finalizing your booking...");
+        } else {
+            setStatus("error");
+            setMessage(params.message || "Payment was not successful.");
+        }
+
+        // Route to BookingConfirmationScreen which handles both success and fail
+        router.replace({
+            pathname: "/booking-confirmation",
+            params: {
+                bookingId: bookingId,
+                status: callbackStatus === 'success' ? 'Confirmed' : 'Failed',
+                error: params.message || ""
+            }
+        });
+        return;
+      }
+
       switch (callbackStatus) {
         case "success":
         case "completed":
         case "processed":
           setStatus("success");
           setMessage("Payment successful! Your transaction has been completed.");
-          // ... rest of success handling
           // Trigger global toast for extra confirmation
           notificationService.showSuccess("Payment completed successfully!");
           
@@ -92,15 +118,24 @@ export default function PaymentCallbackScreen() {
           queryClient.refetchQueries({ queryKey: ["walletInfo"], type: "all" });
           queryClient.refetchQueries({ queryKey: ["userProfile"], type: "all" });
           
-          navigateAfterDelay(Platform.OS === 'web' ? "/wallet" : "/(tabs)/wallet", 3000);
+          if (ref) {
+            verifyPayment(ref);
+          } else {
+            navigateAfterDelay(Platform.OS === 'web' ? "/profile" : "/(tabs)/profile", 3000);
+          }
           break;
         case "pending":
           setStatus("info");
           setMessage("Payment is being processed. We'll update your wallet shortly.");
-          navigateAfterDelay("/(tabs)/wallet", 4000);
+          if (ref) {
+            verifyPayment(ref);
+          } else {
+            navigateAfterDelay("/(tabs)/wallet", 4000);
+          }
           break;
         case "failed":
         case "error":
+        case "cancelled":
           setStatus("error");
           setMessage(params.message || "Payment could not be completed. Please try again.");
           break;

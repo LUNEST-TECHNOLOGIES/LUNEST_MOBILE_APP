@@ -120,11 +120,12 @@ class PaymentService {
    * @param {string} accountName - Account holder name
    * @returns {Promise<{reference: string, amount: number, status: string}>}
    */
-  async initializeWithdrawal(amount, bankCode, accountNumber, accountName) {
+  async initializeWithdrawal(amount, bankCode, accountNumber, accountName, origin = "mobile") {
     try {
       console.log("[PaymentService] Initializing withdrawal:", {
         amount,
         accountNumber,
+        origin
       });
 
       const response = await apiClient.post("/v1/payments/withdraw", {
@@ -132,6 +133,7 @@ class PaymentService {
         bank_code: bankCode,
         account_number: accountNumber,
         account_name: accountName,
+        origin,
       });
 
       if (response.success) {

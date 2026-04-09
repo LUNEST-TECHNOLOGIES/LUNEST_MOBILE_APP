@@ -104,6 +104,11 @@ export const resolveImageUrlSync = (path, baseUrl) => {
     return Platform.OS === 'web' ? null : stringPath;
   }
 
+  const isS3Path = stringPath.includes("reviews/") || 
+                   stringPath.includes("listings/") || 
+                   stringPath.includes("avatars/") || 
+                   stringPath.includes("applications/");
+
   // If we have a path but no baseUrl, try to get it from configService
   if (!baseUrl) {
     baseUrl = configService.getBaseURLSync();
@@ -113,9 +118,17 @@ export const resolveImageUrlSync = (path, baseUrl) => {
     }
   }
 
+  const cfUrl = configService.getCloudFrontURLSync();
   const cleanBase = baseUrl.replace(/\/$/, "");
-  const cleanPath = stringPath.startsWith("/") ? stringPath : `/${stringPath}`;
+  
+  // Smart routing: Use CloudFront for S3-based paths in production
+  if (isS3Path && cfUrl && !cleanBase.includes("localhost") && !cleanBase.includes("10.0.2.2")) {
+    const pathWithoutUploads = stringPath.replace(/^\/uploads\//, "").replace(/^uploads\//, "").replace(/^\//, "");
+    const finalUrl = `${cfUrl.replace(/\/$/, "")}/${pathWithoutUploads}`;
+    return finalUrl;
+  }
 
+  const cleanPath = stringPath.startsWith("/") ? stringPath : `/${stringPath}`;
   const finalUrl = `${cleanBase}${cleanPath}`;
   return finalUrl;
 };

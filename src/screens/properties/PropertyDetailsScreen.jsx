@@ -426,15 +426,12 @@ const PropertyDetailsScreen = () => {
         if (currentUser && currentUser.success && currentUser.data?._id) {
           const myBookingsRes = await bookingService.fetchGuestBookings();
           if (myBookingsRes.success && myBookingsRes.bookings) {
-            const completedUnreviewed = myBookingsRes.bookings.find(
+            const completedBooking = myBookingsRes.bookings.find(
               (b) =>
                 (b.listing?._id === listingId || b.listing === listingId) &&
-                b.status === "COMPLETED" &&
-                (!b.guestReview ||
-                  !b.guestReview.rating ||
-                  b.guestReview.rating === 0),
+                b.status === "COMPLETED"
             );
-            setUserHasBooked(!!completedUnreviewed);
+            setUserHasBooked(!!completedBooking);
           }
         }
       } catch (error) {
@@ -530,8 +527,11 @@ const PropertyDetailsScreen = () => {
         setShowReviewModal(false);
         setReviewRating(0);
         setIsPostingReview(false);
+        
         // Refresh listing data to show new rating/review
-        handleRefresh();
+        queryClient.invalidateQueries(["listing", listingId]);
+        queryClient.invalidateQueries(["listings"]); // Invalidate the home screen list
+        handleRefresh(); // Force local refetch
       } else {
         Alert.alert("Error", result.message || "Failed to post review");
         setIsPostingReview(false);

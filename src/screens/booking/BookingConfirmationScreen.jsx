@@ -230,44 +230,6 @@ const BookingConfirmationScreen = () => {
       .finally(() => setLoading(false));
   }, [bookingId]);
 
-  // Polling logic for PENDING bookings
-  useEffect(() => {
-    let pollingInterval;
-    const isPending = statusLower === "pending" || statusLower === "pending_payment";
-
-    if (isPending && bookingId && booking) {
-      console.log(`[BookingConfirmation] Starting status polling for ${bookingId} (Current: ${statusLower})`);
-      
-      pollingInterval = setInterval(async () => {
-        try {
-          const result = await bookingService.fetchBookingById(bookingId);
-          if (result?.success && result?.booking) {
-            const newStatus = (result.booking.status || "").toLowerCase();
-            if (newStatus !== statusLower) {
-              console.log(`[BookingConfirmation] Status changed: ${statusLower} -> ${newStatus}`);
-              setBooking(result.booking);
-              
-              // If it's now confirmed, we can stop polling
-              if (newStatus === "confirmed" || newStatus === "completed") {
-                clearInterval(pollingInterval);
-                showToastMessage("Booking confirmed successfully!", TOAST_TYPE.SUCCESS);
-              }
-            }
-          }
-        } catch (error) {
-          console.warn("[BookingConfirmation] Polling error:", error);
-        }
-      }, 5000); // Poll every 5 seconds
-    }
-
-    return () => {
-      if (pollingInterval) {
-        clearInterval(pollingInterval);
-        console.log("[BookingConfirmation] Polling stopped");
-      }
-    };
-  }, [bookingId, statusLower, !!booking]);
-
   // Helper: get value from fetched booking or route params
   const val = (bookingKey, paramKey, fallback = "-") => {
     if (booking?.[bookingKey] !== undefined && booking?.[bookingKey] !== null) {
@@ -387,6 +349,45 @@ const BookingConfirmationScreen = () => {
     guestTotal,
     propertyAddress: propertyAddress.substring(0, 50) + '...'
   });
+
+  // Polling logic for PENDING bookings
+  useEffect(() => {
+    let pollingInterval;
+    const isPending = statusLower === "pending" || statusLower === "pending_payment";
+
+    if (isPending && bookingId && booking) {
+      console.log(`[BookingConfirmation] Starting status polling for ${bookingId} (Current: ${statusLower})`);
+      
+      pollingInterval = setInterval(async () => {
+        try {
+          const result = await bookingService.fetchBookingById(bookingId);
+          if (result?.success && result?.booking) {
+            const newStatus = (result.booking.status || "").toLowerCase();
+            if (newStatus !== statusLower) {
+              console.log(`[BookingConfirmation] Status changed: ${statusLower} -> ${newStatus}`);
+              setBooking(result.booking);
+              
+              // If it's now confirmed, we can stop polling
+              if (newStatus === "confirmed" || newStatus === "completed") {
+                clearInterval(pollingInterval);
+                showToastMessage("Booking confirmed successfully!", TOAST_TYPE.SUCCESS);
+              }
+            }
+          }
+        } catch (error) {
+          console.warn("[BookingConfirmation] Polling error:", error);
+        }
+      }, 5000); // Poll every 5 seconds
+    }
+
+    return () => {
+      if (pollingInterval) {
+        clearInterval(pollingInterval);
+        console.log("[BookingConfirmation] Polling stopped");
+      }
+    };
+  }, [bookingId, statusLower, !!booking]);
+  
   // Status badge color
   const statusColors = {
     confirmed: { bg: "rgba(49, 235, 61, 0.3)", text: "#2e7d32" },

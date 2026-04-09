@@ -12,6 +12,7 @@ class ConfigService {
   constructor() {
     this.isInitialized = false;
     this.cachedBaseURL = null;
+    this.cachedCloudFrontURL = null;
   }
 
   /**
@@ -67,6 +68,20 @@ class ConfigService {
     
     // Production fallback for physical devices
     return 'https://api.lunest.app';
+  }
+  
+  /**
+   * Get the CloudFront CDN URL
+   * @returns {string}
+   */
+  getCloudFrontURLSync() {
+    if (this.cachedCloudFrontURL) {
+      return this.cachedCloudFrontURL;
+    }
+    
+    const url = process.env.EXPO_PUBLIC_CLOUDFRONT_URL || 'https://d1eoci8rrogdfp.cloudfront.net';
+    this.cachedCloudFrontURL = url;
+    return url;
   }
 
   /**

@@ -21,6 +21,7 @@ import * as ImageUtils from "../../utils/imageUtils";
 
 
 import EmptyState from "../../components/common/EmptyState";
+import ListingSkeleton from "../../components/common/ListingSkeleton";
 
 const SavedScreen = () => {
   const router = useRouter();
@@ -32,6 +33,12 @@ const SavedScreen = () => {
   useEffect(() => {
     configService.getBaseURL().then(setBaseURL);
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      refetch();
+    }, [refetch])
+  );
 
   // ── Data Fetching (React Query) ──
   const {
@@ -46,7 +53,8 @@ const SavedScreen = () => {
       const result = await bookmarkService.fetchBookmarks(options || {});
       return result.success ? result.bookmarks : [];
     },
-    staleTime: 5 * 60_000,
+    staleTime: 0,
+    refetchOnMount: true,
   });
 
   // ── Mutation for Removing Bookmark ──
@@ -247,14 +255,15 @@ const SavedScreen = () => {
     );
   };
 
-  if (loading) {
+  if (loading && !refreshing && bookmarks.length === 0) {
     return (
       <SafeAreaView style={styles.container} edges={["top"]}>
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Saved</Text>
         </View>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#192DFF" />
+        <View style={{ padding: 20 }}>
+          <ListingSkeleton />
+          <ListingSkeleton />
         </View>
       </SafeAreaView>
     );

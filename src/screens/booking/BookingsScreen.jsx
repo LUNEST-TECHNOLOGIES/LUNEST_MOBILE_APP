@@ -29,6 +29,7 @@ import {
     BookingCard,
     BookingsHeader,
     EmptyBookingState,
+    BookingSkeleton,
 } from "../../components/booking";
 
 // Import Host Profile Modal
@@ -236,7 +237,7 @@ const BookingsScreen = () => {
   } = useCachedFetch(
     "bookings:guestBookings",
     fetchBookingsRaw,
-    { revalidateOnFocus: true, staleTTL: 30_000 },
+    { revalidateOnFocus: true, staleTTL: 5_000 },
   );
 
   const safeBookings = bookings || [];
@@ -518,14 +519,15 @@ const BookingsScreen = () => {
   // Wrap getBookingsForTab to use safeBookings
 
   // Show loading state
-  if (loading) {
+  if (loading && !refreshing) {
     return (
       <SafeAreaView style={styles.container} edges={["top"]}>
         <BookingsHeader activeTab={activeTab} onTabPress={handleTabPress} />
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#4F46E5" />
-          <Text style={styles.loadingText}>Loading your bookings...</Text>
-        </View>
+        <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+          <BookingSkeleton />
+          <BookingSkeleton />
+          <BookingSkeleton />
+        </ScrollView>
       </SafeAreaView>
     );
   }

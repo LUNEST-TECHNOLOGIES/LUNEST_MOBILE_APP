@@ -1294,29 +1294,33 @@ const FullDetailsScreen = () => {
                               review.text ||
                               "No feedback provided"}
                           </Text>
-                          {review.images && review.images.length > 0 && (
-                            <ScrollView
-                              horizontal
-                              showsHorizontalScrollIndicator={false}
-                              style={{ marginTop: 8 }}
-                            >
-                              {review.images.map((img, imgIdx) => (
-                                <Image
-                                  key={imgIdx}
-                                  source={{ uri: convertImageUrl(img) }}
-                                  style={{
-                                    width: 70,
-                                    height: 70,
-                                    borderRadius: 8,
-                                    marginRight: 8,
-                                  }}
-                                  contentFit="cover"
-                                  cachePolicy="disk"
-                                  transition={200}
-                                />
-                              ))}
-                            </ScrollView>
-                          )}
+                          {(() => {
+                            const reviewImages = parseImages(review.images);
+                            if (reviewImages.length === 0) return null;
+                            return (
+                              <ScrollView
+                                horizontal
+                                showsHorizontalScrollIndicator={false}
+                                style={{ marginTop: 8 }}
+                              >
+                                {reviewImages.map((img, imgIdx) => (
+                                  <Image
+                                    key={imgIdx}
+                                    source={{ uri: convertImageUrl(img) }}
+                                    style={{
+                                      width: 70,
+                                      height: 70,
+                                      borderRadius: 8,
+                                      marginRight: 8,
+                                    }}
+                                    contentFit="cover"
+                                    cachePolicy="disk"
+                                    transition={200}
+                                  />
+                                ))}
+                              </ScrollView>
+                            );
+                          })()}
                         </View>
                       ))
                     ) : (

@@ -396,6 +396,9 @@ const PropertyDetailsScreen = () => {
           if (hostResult.success && hostResult.avatar) {
             setHostCurrentAvatar(hostResult.avatar);
           }
+          if (hostResult.success && hostResult.hostData?.hostRating) {
+            setHostCurrentRating(hostResult.hostData.hostRating);
+          }
 
           // Fetch host listings count
           const listingsResult = await listingService.fetchAllListings({
@@ -1771,9 +1774,9 @@ const PropertyDetailsScreen = () => {
 
           {/* Reviews List */}
           <View style={styles.reviewsContainer}>
-            {listing?.reviews && listing.reviews.length > 0 ? (
-              listing.reviews.map((review, index) => (
-                <View key={review.id || index} style={styles.reviewCard}>
+            {listingReviews && listingReviews.length > 0 ? (
+              listingReviews.map((review, index) => (
+                <View key={review.id || index || `review-${index}`} style={styles.reviewCard}>
                   <View style={styles.reviewHeader}>
                     <View style={styles.reviewerInfo}>
                       {review.reviewer?.avatar &&

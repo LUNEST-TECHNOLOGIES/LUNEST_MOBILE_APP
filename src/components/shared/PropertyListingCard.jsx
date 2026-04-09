@@ -242,10 +242,12 @@ const PropertyListingCard = ({
                     styles.slideImageStyle,
                   ]}
                   contentFit="cover"
-                  transition={200}
+                  transition={300}
                   priority={index === 0 ? "high" : "normal"}
                   cachePolicy="memory-disk"
-                  placeholder={{ uri: "https://via.placeholder.com/400x300/F3F4F6/9CA3AF?text=Lunest" }}
+                  recyclingKey={typeof imageSource === 'number' ? String(imageSource) : imageSource?.uri}
+                  placeholder="|rF?hV%2WCj[ayj[a|j[ayjtOG9F%2JCj[ayj[ayjtjtF%2JCj[ayj[ayjtjtF%2JCj[ayj[ayjtjtF%2JCj[ayj[ayjt"
+                  placeholderContentFit="cover"
                 />
                 {isVideo && (
                   <View style={styles.videoIndicatorOverlay}>

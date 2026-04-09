@@ -142,6 +142,20 @@ const PayWithWalletScreen = () => {
     });
   };
 
+  const renderProcessingOverlay = () => {
+    if (!isProcessing) return null;
+
+    return (
+      <View style={styles.processingOverlay}>
+        <View style={styles.processingCard}>
+          <ActivityIndicator size="large" color="#010135" />
+          <Text style={styles.processingTitle}>Processing Booking</Text>
+          <Text style={styles.processingSubtitle}>Please wait while we confirm your stay at {propertyName}...</Text>
+        </View>
+      </View>
+    );
+  };
+
   const handleProceedToPayment = useCallback(async () => {
     if (walletBalance < amount) {
       Alert.alert(
@@ -213,7 +227,6 @@ const PayWithWalletScreen = () => {
         }
       } else {
         // Create new booking with wallet payment
-        // Send hostTotal to backend - backend calculates guest total (hostTotal + 5%)
         const bookingData = {
           listing: listingId,
           type: bookingType?.toUpperCase() || "DAILY",
@@ -226,7 +239,7 @@ const PayWithWalletScreen = () => {
           checkOut: checkOut,
           paymentMethod: "WALLET",
           totalAmount: {
-            price: hostTotal, // Send host total - backend adds 5% for guest
+            price: hostTotal,
             currency: "NGN",
           },
           bookedBy: currentUser?._id || currentUser?.id,
@@ -238,16 +251,6 @@ const PayWithWalletScreen = () => {
         if (result.success) {
           // Generate reference code
           refCode = result.booking?.referenceCode || generateRefCode();
-
-          // Refresh global wallet balance queries across the app
-          await queryClient.invalidateQueries({ queryKey: ["walletInfo"] });
-          await queryClient.invalidateQueries({ queryKey: ["userProfile"] });
-
-          // Refresh user profile to get updated wallet balance
-          await authService.fetchProfile();
-          
-          // Refresh local wallet balance
-          await fetchWalletBalance();
 
           // Navigate to booking confirmation
           router.replace({
@@ -261,9 +264,19 @@ const PayWithWalletScreen = () => {
               paymentMethod: "Wallet",
               total: formatCurrency(amount),
               refCode: refCode,
-              bookingId: result.booking?._id,
+              bookingId: result.booking?._id || result.booking?.id,
             },
           });
+
+          // Refresh global wallet balance queries across the app
+          await queryClient.invalidateQueries({ queryKey: ["walletInfo"] });
+          await queryClient.invalidateQueries({ queryKey: ["userProfile"] });
+
+          // Refresh user profile to get updated wallet balance
+          await authService.fetchProfile();
+          
+          // Refresh local wallet balance
+          await fetchWalletBalance();
         } else {
           Alert.alert(
             "Payment Failed",
@@ -293,6 +306,9 @@ const PayWithWalletScreen = () => {
     propertyName,
     fromReservation,
     bookingId,
+    hostTotal,
+    queryClient,
+    fetchWalletBalance,
   ]);
 
   const generateRefCode = () => {
@@ -416,6 +432,7 @@ const PayWithWalletScreen = () => {
           )}
         </Pressable>
       </View>
+      {renderProcessingOverlay()}
     </SafeAreaView>
   );
 };
@@ -615,6 +632,38 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
     color: "#FFF",
+  },
+  processingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(255, 255, 255, 0.85)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 1000,
+  },
+  processingCard: {
+    backgroundColor: "#FFFFFF",
+    padding: 30,
+    borderRadius: 20,
+    alignItems: "center",
+    width: "80%",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    elevation: 5,
+  },
+  processingTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#000",
+    marginTop: 20,
+  },
+  processingSubtitle: {
+    fontSize: 14,
+    color: "#6B7280",
+    textAlign: "center",
+    marginTop: 10,
+    lineHeight: 20,
   },
 });
 

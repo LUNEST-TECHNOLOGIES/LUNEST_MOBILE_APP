@@ -3,6 +3,8 @@ export { default as BookingsHeader } from './BookingsHeader';
 export { default as BookingCard } from './BookingCard';
 export { default as StatusBadge } from './StatusBadge';
 export { default as EmptyBookingState } from './EmptyBookingState';
+export { default as BookingSkeleton } from './BookingSkeleton';
+
 
 // Confirmation components
 export { default as BookingConfirmationHeader } from './confirmation/BookingConfirmationHeader';

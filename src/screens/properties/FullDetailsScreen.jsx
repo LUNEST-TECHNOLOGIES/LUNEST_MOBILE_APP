@@ -648,7 +648,7 @@ const FullDetailsScreen = () => {
         totalListings: hostTotalListings || 0,
         rating: hostCurrentRating || listing?.hostInfo?.hostRating || null,
         isVerified: listing?.hostInfo?.hostApplicationStatus === "APPROVED",
-        avatar: convertImageUrl(hostCurrentAvatar || listing?.hostInfo?.avatar),
+        avatar: convertImageUrl(hostCurrentAvatar || listing?.hostInfo?.avatar || listing?.host?.avatar) || require("../../assets/images/no-image.png"),
       },
       averageRating: listing?.averageRating || 0,
       ratingCount: listing?.ratingCount || 0,
@@ -760,7 +760,7 @@ const FullDetailsScreen = () => {
           ? propertyData.propertyImages
           : [
               {
-                uri: "https://via.placeholder.com/400x300?text=No+Image",
+                uri: require("../../assets/images/no-image.png"),
                 type: "image",
               },
             ];
@@ -1002,64 +1002,71 @@ const FullDetailsScreen = () => {
         <View style={styles.reviewsContainer}>
           {(Array.isArray(propertyData.reviews) ? propertyData.reviews : [])
             .slice(0, 3)
-            .map((review, index) => (
-              <View key={index} style={styles.reviewCard}>
-                <View
-                  style={{
-                    flexDirection: "row",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginBottom: 4,
-                  }}
-                >
-                  {renderStars(review.rating)}
-                  <Text style={styles.reviewAuthor}>
-                    {review.reviewedAt
-                      ? new Date(review.reviewedAt).toLocaleDateString(
-                          "en-US",
-                          { month: "short", day: "numeric", year: "numeric" },
-                        )
-                      : "Recently"}
+            .map((review, index) => {
+              const allReviewImages = [
+                ...parseImages(review.images),
+                ...parseImages(review.guestReview?.images)
+              ];
+              const reviewRating = review.rating || review.guestReview?.rating;
+              
+              return (
+                <View key={index} style={styles.reviewCard}>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginBottom: 4,
+                    }}
+                  >
+                    {renderStars(reviewRating)}
+                    <Text style={styles.reviewAuthor}>
+                      {review.reviewedAt || review.guestReview?.reviewedAt
+                        ? new Date(review.reviewedAt || review.guestReview?.reviewedAt).toLocaleDateString(
+                            "en-US",
+                            { month: "short", day: "numeric", year: "numeric" },
+                          )
+                        : "Recently"}
+                    </Text>
+                  </View>
+                  <Text style={styles.reviewText}>
+                    "{review.feedback || review.guestReview?.feedback || review.text || "No feedback provided"}"
                   </Text>
-                </View>
-                <Text style={styles.reviewText}>
-                  "{review.feedback || review.text || "No feedback provided"}"
-                </Text>
-                {(() => {
-                  const reviewImages = parseImages(review.images);
-                  if (reviewImages.length === 0) return null;
-                  return (
+                  {allReviewImages.length > 0 && (
                     <ScrollView
                       horizontal
                       showsHorizontalScrollIndicator={false}
                       style={{ marginTop: 8 }}
                     >
-                      {reviewImages.map((img, imgIdx) => (
-                        <Image
-                          key={imgIdx}
-                          source={{ uri: convertImageUrl(img) }}
-                          style={{
-                            width: 60,
-                            height: 60,
-                            borderRadius: 6,
-                            marginRight: 6,
-                          }}
-                        />
-                      ))}
+                      {allReviewImages.map((img, imgIdx) => {
+                        const imgUrl = convertImageUrl(img) || require("../../assets/images/no-image.png");
+                        return (
+                          <Image
+                            key={imgIdx}
+                            source={typeof imgUrl === 'string' ? { uri: imgUrl } : imgUrl}
+                            style={{
+                              width: 60,
+                              height: 60,
+                              borderRadius: 6,
+                              marginRight: 6,
+                            }}
+                          />
+                        );
+                      })}
                     </ScrollView>
-                  );
-                })()}
-                <Text style={styles.reviewAuthor}>
-                  —{" "}
-                  {maskGuestName(
-                    review.reviewer?.fullName ||
-                      review.author?.fullName ||
-                      review.author ||
-                      "Anonymous",
                   )}
-                </Text>
-              </View>
-            ))}
+                  <Text style={styles.reviewAuthor}>
+                    —{" "}
+                    {maskGuestName(
+                      review.reviewer?.fullName ||
+                        review.author?.fullName ||
+                        review.bookedBy?.fullName ||
+                        "Anonymous",
+                    )}
+                  </Text>
+                </View>
+              );
+            })}
         </View>
       </View>
     );
@@ -1276,53 +1283,61 @@ const FullDetailsScreen = () => {
                   </Text>
                   <View style={styles.reviewsList}>
                     {propertyData.reviews && propertyData.reviews.length > 0 ? (
-                      propertyData.reviews.map((review, index) => (
-                        <View key={index} style={styles.reviewCardItem}>
-                          <View>
-                            <Text style={styles.reviewAuthor}>
-                              {maskGuestName(review.reviewer?.fullName)}
+                      propertyData.reviews.map((review, index) => {
+                        const allReviewImages = [
+                          ...parseImages(review.images),
+                          ...parseImages(review.guestReview?.images)
+                        ];
+                        const reviewRating = review.rating || review.guestReview?.rating;
+                        const reviewFeedback = review.feedback || review.guestReview?.feedback || review.text || "No feedback provided";
+                        const reviewerName = review.reviewer?.fullName || review.bookedBy?.fullName || "Anonymous";
+                        const reviewDateStr = formatReviewDate(review.reviewedAt || review.guestReview?.reviewedAt);
+
+                        return (
+                          <View key={index} style={styles.reviewCardItem}>
+                            <View>
+                              <Text style={styles.reviewAuthor}>
+                                {maskGuestName(reviewerName)}
+                              </Text>
+                              <Text style={styles.reviewDate}>
+                                {reviewDateStr}
+                              </Text>
+                            </View>
+                            <View style={{ marginBottom: 6 }}>
+                              {renderStars(reviewRating)}
+                            </View>
+                            <Text style={styles.reviewTextTab}>
+                              {reviewFeedback}
                             </Text>
-                            <Text style={styles.reviewDate}>
-                              {formatReviewDate(review.reviewedAt)}
-                            </Text>
-                          </View>
-                          <View style={{ marginBottom: 6 }}>
-                            {renderStars(review.rating)}
-                          </View>
-                          <Text style={styles.reviewTextTab}>
-                            {review.feedback ||
-                              review.text ||
-                              "No feedback provided"}
-                          </Text>
-                          {(() => {
-                            const reviewImages = parseImages(review.images);
-                            if (reviewImages.length === 0) return null;
-                            return (
+                            {allReviewImages.length > 0 && (
                               <ScrollView
                                 horizontal
                                 showsHorizontalScrollIndicator={false}
                                 style={{ marginTop: 8 }}
                               >
-                                {reviewImages.map((img, imgIdx) => (
-                                  <Image
-                                    key={imgIdx}
-                                    source={{ uri: convertImageUrl(img) }}
-                                    style={{
-                                      width: 70,
-                                      height: 70,
-                                      borderRadius: 8,
-                                      marginRight: 8,
-                                    }}
-                                    contentFit="cover"
-                                    cachePolicy="disk"
-                                    transition={200}
-                                  />
-                                ))}
+                                {allReviewImages.map((img, imgIdx) => {
+                                  const imgUrl = convertImageUrl(img) || require("../../assets/images/no-image.png");
+                                  return (
+                                    <Image
+                                      key={imgIdx}
+                                      source={typeof imgUrl === 'string' ? { uri: imgUrl } : imgUrl}
+                                      style={{
+                                        width: 70,
+                                        height: 70,
+                                        borderRadius: 8,
+                                        marginRight: 8,
+                                      }}
+                                      contentFit="cover"
+                                      cachePolicy="disk"
+                                      transition={200}
+                                    />
+                                  );
+                                })}
                               </ScrollView>
-                            );
-                          })()}
-                        </View>
-                      ))
+                            )}
+                          </View>
+                        );
+                      })
                     ) : (
                       <Text style={styles.noReviewsText}>
                         No reviews yet. Be the first to leave a review!

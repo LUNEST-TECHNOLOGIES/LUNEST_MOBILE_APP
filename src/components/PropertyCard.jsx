@@ -128,7 +128,8 @@ const PropertyCard = ({
             priority="high"
             transition={200}
             cachePolicy="memory-disk"
-            placeholder={{ uri: "https://via.placeholder.com/200x150/F3F4F6/9CA3AF?text=Lunest" }}
+            placeholder={require("../assets/images/no-image.png")}
+
             onError={() => setImageError(true)}
           />
         ) : (

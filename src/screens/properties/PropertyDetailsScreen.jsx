@@ -638,7 +638,7 @@ const PropertyDetailsScreen = () => {
     if (!listing) {
       return [
         {
-          uri: "https://via.placeholder.com/400x300?text=No+Image",
+          uri: require("../../assets/images/no-image.png"),
           type: "image",
         },
       ];
@@ -663,7 +663,7 @@ const PropertyDetailsScreen = () => {
     
     return processedImages.length > 0 ? processedImages : [
       {
-        uri: "https://via.placeholder.com/400x300?text=No+Image",
+        uri: require("../../assets/images/no-image.png"),
         type: "image",
       },
     ];
@@ -1237,7 +1237,13 @@ const PropertyDetailsScreen = () => {
                 />
               </View>
             ) : (
-              <EllipseAvatar width={60} height={60} style={styles.hostAvatar} />
+                <View style={styles.hostAvatarContainer}>
+                    <Image
+                        source={require("../../assets/images/no-image.png")}
+                        style={styles.hostAvatarImage}
+                        contentFit="cover"
+                    />
+                </View>
             )}
 
             <View style={styles.hostInfo}>
@@ -1820,7 +1826,10 @@ const PropertyDetailsScreen = () => {
 
                   {/* Review Images */}
                   {(() => {
-                    const reviewImages = parseImages(review.images);
+                    const reviewImages = [
+                        ...parseImages(review.images),
+                        ...parseImages(review.guestReview?.images)
+                    ];
                     if (reviewImages.length === 0) return null;
                     return (
                       <ScrollView
@@ -1828,25 +1837,28 @@ const PropertyDetailsScreen = () => {
                         showsHorizontalScrollIndicator={false}
                         style={styles.reviewImagesScroll}
                       >
-                        {reviewImages.map((img, imgIdx) => (
-                          <TouchableOpacity
-                            key={imgIdx}
-                            onPress={() => {
-                              const viewerImages = reviewImages.map((url) =>
-                                convertImageUrl(url),
-                              );
-                              handleImagePress(imgIdx, viewerImages);
-                            }}
-                          >
-                            <Image
-                              source={{ uri: convertImageUrl(img) }}
-                              style={styles.reviewImageThumb}
-                              contentFit="cover"
-                              cachePolicy="disk"
-                              transition={200}
-                            />
-                          </TouchableOpacity>
-                        ))}
+                        {reviewImages.map((img, imgIdx) => {
+                          const resolvedImg = convertImageUrl(img) || require("../../assets/images/no-image.png");
+                          return (
+                            <TouchableOpacity
+                              key={imgIdx}
+                              onPress={() => {
+                                const viewerImages = reviewImages.map((url) =>
+                                  convertImageUrl(url)
+                                ).filter(Boolean);
+                                handleImagePress(imgIdx, viewerImages);
+                              }}
+                            >
+                              <Image
+                                source={typeof resolvedImg === 'string' ? { uri: resolvedImg } : resolvedImg}
+                                style={styles.reviewImageThumb}
+                                contentFit="cover"
+                                cachePolicy="disk"
+                                transition={200}
+                              />
+                            </TouchableOpacity>
+                          );
+                        })}
                       </ScrollView>
                     );
                   })()}

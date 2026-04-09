@@ -20,6 +20,7 @@ import { fetchHostData } from "../../services/hostService";
 import listingService from "../../services/listingService";
 import { smartFormatPrice } from "../../utils/formatters";
 import { resolveImageUrlSync } from "../../utils/imageUtils";
+import Skeleton from "../../components/common/Skeleton";
 
 const HostInformation = () => {
   const router = useRouter();
@@ -79,7 +80,7 @@ const HostInformation = () => {
   const [hostData, setHostData] = useState(null);
   const [hostListings, setHostListings] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [baseURL, setBaseURL] = useState("");
+  const [baseURL, setBaseURL] = useState(configService.getBaseURLSync() || "https://api.lunest.app");
   const [hostCurrentAvatar, setHostCurrentAvatar] = useState(null);
   const [hostReviews, setHostReviews] = useState([]);
 
@@ -219,6 +220,38 @@ const HostInformation = () => {
     loadHostData();
   }, [listingId, hostId, loadHostData]);
 
+  const renderSkeleton = () => (
+    <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <View style={styles.hostDetailsSection}>
+        <View style={styles.hostHeaderRow}>
+          <Skeleton width={70} height={70} variant="circle" style={{ marginRight: 16 }} />
+          <View style={styles.hostInfoContainer}>
+            <Skeleton width="80%" height={20} style={{ marginBottom: 8 }} />
+            <Skeleton width="60%" height={15} style={{ marginBottom: 8 }} />
+            <Skeleton width="40%" height={15} />
+          </View>
+        </View>
+      </View>
+      <View style={styles.tabsContainer}>
+        {[1, 2, 3].map(i => (
+          <View key={i} style={styles.tab}>
+            <Skeleton width={60} height={15} />
+          </View>
+        ))}
+      </View>
+      <View style={styles.tabContent}>
+        <Skeleton width="50%" height={20} style={{ marginBottom: 15 }} />
+        <Skeleton width="100%" height={80} style={{ marginBottom: 20 }} />
+        <Skeleton width="40%" height={20} style={{ marginBottom: 15 }} />
+        {[1, 2, 3].map(i => (
+          <View key={i} style={{ marginBottom: 15 }}>
+            <Skeleton width="100%" height={40} />
+          </View>
+        ))}
+      </View>
+    </ScrollView>
+  );
+
 
 
   const renderStars = (rating) => {
@@ -248,10 +281,7 @@ const HostInformation = () => {
       </View>
 
       {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#192DFF" />
-          <Text style={styles.loadingText}>Loading host information...</Text>
-        </View>
+        renderSkeleton()
       ) : hostData ? (
         <>
           <ScrollView
@@ -267,7 +297,7 @@ const HostInformation = () => {
                       ? { uri: convertImageUrl(hostCurrentAvatar) }
                       : hostData.avatar && convertImageUrl(hostData.avatar)
                         ? { uri: convertImageUrl(hostData.avatar) }
-                        : require("../../assets/images/prop_image.png")
+                        : require("../../assets/images/no-image.png")
                   }
                   style={styles.profileImage}
                   contentFit="cover"
@@ -428,12 +458,11 @@ const HostInformation = () => {
                         return (
                           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 10 }}>
                             {allReviewImages.map((img, imgIdx) => {
-                              const imgUrl = convertImageUrl(img);
-                              if (!imgUrl) return null;
+                              const imgUrl = convertImageUrl(img) || require("../../assets/images/no-image.png");
                               return (
                                 <Image 
                                   key={imgIdx} 
-                                  source={{ uri: imgUrl }} 
+                                  source={typeof imgUrl === 'string' ? { uri: imgUrl } : imgUrl}
                                   style={styles.reviewImageThumb} 
                                   contentFit="cover"
                                   cachePolicy="disk"

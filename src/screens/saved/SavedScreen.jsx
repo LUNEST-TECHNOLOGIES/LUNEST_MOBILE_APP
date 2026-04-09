@@ -34,12 +34,6 @@ const SavedScreen = () => {
     configService.getBaseURL().then(setBaseURL);
   }, []);
 
-  useFocusEffect(
-    useCallback(() => {
-      refetch();
-    }, [refetch])
-  );
-
   // ── Data Fetching (React Query) ──
   const {
     data: bookmarks = [],
@@ -56,6 +50,12 @@ const SavedScreen = () => {
     staleTime: 0,
     refetchOnMount: true,
   });
+
+  useFocusEffect(
+    useCallback(() => {
+      refetch();
+    }, [refetch])
+  );
 
   // ── Mutation for Removing Bookmark ──
   const removeBookmarkMutation = useMutation({

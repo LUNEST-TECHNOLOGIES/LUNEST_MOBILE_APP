@@ -24,6 +24,7 @@ import bookingService from "../src/services/bookingService";
 import paymentService from "../src/services/paymentService";
 import notificationService from "../src/services/notificationService";
 import { TOAST_TYPE } from "../src/components/common/ToastNotification";
+import { useRef } from "react";
 
 export default function PaymentCallbackScreen() {
   const router = useRouter();
@@ -36,6 +37,7 @@ export default function PaymentCallbackScreen() {
   const [isFinalizingBooking, setIsFinalizingBooking] = useState(false);
   const [showRetryButton, setShowRetryButton] = useState(false);
   const [animation] = useState(new Animated.Value(0));
+  const hasProcessedRef = useRef(false);
 
   // Animation for processing indicator
   useEffect(() => {
@@ -133,9 +135,11 @@ export default function PaymentCallbackScreen() {
         queryClient.refetchQueries({ queryKey: ["userProfile"] });
         queryClient.refetchQueries({ queryKey: ["transactions"] });
 
+        // Change main status to success immediately upon payment verification
+        setStatus("success");
+
         // 1. Check for 'type' in params
         if (params.type === "WALLET_FUNDING" || params.type === "wallet_funding") {
-          setStatus("success");
           setMessage("Transaction Verified! Funds added to your wallet.");
           const amountDisplay = params.amount ? `₦${params.amount}` : "Funds";
           notificationService.show(`${amountDisplay} added to your wallet successfully`, TOAST_TYPE.SUCCESS);
@@ -163,14 +167,13 @@ export default function PaymentCallbackScreen() {
 
             if (context.type === "BOOKING" && context.bookingId) {
               setIsFinalizingBooking(true);
-              setStatus("processing");
-              setMessage("Verifying your booking...");
+              // Maintain success status but update message for booking finalization
+              setMessage("Payment Confirmed! Finalizing your booking...");
               
               const verifyBooking = await bookingService.fetchBookingById(context.bookingId);
               
               if (verifyBooking.success && (['CONFIRMED', 'SUCCESS', 'ONGOING'].includes(verifyBooking.booking?.status))) {
-                setStatus("success");
-                setMessage("Transaction Verified! Booking confirmed.");
+                setMessage("Payment Confirmed! Booking finalized.");
                 notificationService.showSuccess("Booking finalized successfully!");
                 
                 router.replace({
@@ -184,8 +187,7 @@ export default function PaymentCallbackScreen() {
                 await cleanupContext();
                 return;
               } else {
-                setStatus("success");
-                setMessage("Transaction Verified! Finalizing reservation details...");
+                setMessage("Payment Confirmed! Updating reservation details...");
                 
                 setTimeout(() => {
                   router.replace({
@@ -202,7 +204,6 @@ export default function PaymentCallbackScreen() {
                 return;
               }
             } else if (context.type === "WALLET_FUNDING") {
-              setStatus("success");
               const isBookingReturn = context.returnUrl?.includes("pay-with-wallet");
               setMessage(isBookingReturn ? "Wallet funded! Returning to your booking..." : "Wallet funded! Returning to your profile...");
               
@@ -219,7 +220,6 @@ export default function PaymentCallbackScreen() {
           console.error("[PaymentCallback] Context recovery error:", ctxError);
         }
 
-        setStatus("success");
         setMessage("Payment verified successfully! Redirecting...");
         navigateAfterDelay(DEFAULT_PROFILE_ROUTE, 2500);
       } else if (result.status === "PENDING") {
@@ -246,6 +246,9 @@ export default function PaymentCallbackScreen() {
 
   useEffect(() => {
     const processCallback = async () => {
+      if (hasProcessedRef.current) return;
+      hasProcessedRef.current = true;
+      
       console.log("[PaymentCallback] Params:", params);
       const callbackStatus = (params.status || params.event || "").toLowerCase();
       let ref = params.reference || params.trxref || params.ref || params.transaction_id;
@@ -362,14 +365,7 @@ export default function PaymentCallbackScreen() {
         )}
       </View>
 
-      <Modal visible={isFinalizingBooking} transparent={true} animationType="fade">
-        <View style={styles.confirmModalOverlay}>
-          <View style={styles.confirmModalContent}>
-            <ActivityIndicator size="large" color="#010135" />
-            <Text style={styles.confirmModalTitle}>Finalizing Booking</Text>
-          </View>
-        </View>
-      </Modal>
+      {/* Modal removed to prevent UI flicker/glitch during state transition */}
     </SafeAreaView>
   );
 }

@@ -27,12 +27,28 @@ class NotificationService {
     toastService.showSuccess(message, duration);
   }
 
+  success(message, duration) {
+    this.showSuccess(message, duration);
+  }
+
   showError(message, duration) {
     toastService.showError(message, duration);
   }
 
+  error(message, duration) {
+    this.showError(message, duration);
+  }
+
   showWarning(message, duration) {
     toastService.showWarning(message, duration);
+  }
+
+  warning(message, duration) {
+    this.showWarning(message, duration);
+  }
+
+  info(message, duration) {
+    this.show(message, "INFO", duration);
   }
 
   // --- BACKEND NOTIFICATION DATA (Original Implementation) ---

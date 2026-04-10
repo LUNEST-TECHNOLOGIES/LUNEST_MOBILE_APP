@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import WebContainer from "../src/components/common/WebContainer";
-import { Stack, useRouter, useSegments } from "expo-router";
+import { Stack, useRouter, useSegments, useRootNavigationState } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Font from "expo-font";
 import * as SplashScreen from "expo-splash-screen";
@@ -38,6 +38,7 @@ export default function RootLayout() {
   const wasAuthenticated = useRef(false); // Track if user was previously logged in
   const router = useRouter();
   const segments = useSegments();
+  const rootNavigationState = useRootNavigationState();
 
   // Capture referral deep links on app launch
   useReferralTracker();
@@ -74,7 +75,7 @@ export default function RootLayout() {
 
   // Handle navigation based on onboarding and auth status
   useEffect(() => {
-    if (isLoading) return;
+    if (isLoading || !rootNavigationState?.key) return;
 
     const inIndex = segments.length === 0 || segments[0] === "index";
     const inOnboarding = segments[0] === "onboarding";
@@ -124,7 +125,7 @@ export default function RootLayout() {
     };
 
     checkAndNavigate();
-  }, [isLoading, segments, router]);
+  }, [isLoading, segments, router, rootNavigationState?.key]);
 
   // Subscribe to global notifications
   useEffect(() => {

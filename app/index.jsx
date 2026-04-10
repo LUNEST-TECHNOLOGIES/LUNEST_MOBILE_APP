@@ -4,7 +4,7 @@
  */
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useRouter } from "expo-router";
+import { useRouter, useRootNavigationState } from "expo-router";
 import { useEffect } from "react";
 import { ActivityIndicator, View } from "react-native";
 import authService from "../src/services/authService";
@@ -13,10 +13,12 @@ const ONBOARDING_KEY = "@lunest_onboarding_complete";
 
 export default function Index() {
   const router = useRouter();
+  const rootNavigationState = useRootNavigationState();
 
   useEffect(() => {
+    if (!rootNavigationState?.key) return;
     checkAndRedirect();
-  }, []);
+  }, [rootNavigationState?.key]);
 
   const checkAndRedirect = async () => {
     try {

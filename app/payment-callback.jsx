@@ -135,20 +135,7 @@ export default function PaymentCallbackScreen() {
         queryClient.refetchQueries({ queryKey: ["userProfile"] });
         queryClient.refetchQueries({ queryKey: ["transactions"] });
 
-        // Change main status to success immediately upon payment verification
-        setStatus("success");
-
-        // 1. Check for 'type' in params
-        if (params.type === "WALLET_FUNDING" || params.type === "wallet_funding") {
-          setMessage("Transaction Verified! Funds added to your wallet.");
-          const amountDisplay = params.amount ? `₦${params.amount}` : "Funds";
-          notificationService.show(`${amountDisplay} added to your wallet successfully`, TOAST_TYPE.SUCCESS);
-          
-          navigateAfterDelay(DEFAULT_PROFILE_ROUTE, 3000);
-          return;
-        }
-
-        // 2. Check for stored context
+        // 1. Check for stored context (Prioritize redirection context)
         try {
           const storedContext = Platform.OS === "web" 
             ? localStorage.getItem("lunest_payment_context")
@@ -204,10 +191,11 @@ export default function PaymentCallbackScreen() {
                 return;
               }
             } else if (context.type === "WALLET_FUNDING") {
-              const isBookingReturn = context.returnUrl?.includes("pay-with-wallet");
-              setMessage(isBookingReturn ? "Wallet funded! Returning to your booking..." : "Wallet funded! Returning to your profile...");
+              const iBookingReturn = context.returnUrl?.includes("pay-with-wallet");
+              setMessage(iBookingReturn ? "Wallet funded! Returning to your booking..." : "Wallet funded! Returning to your profile...");
               
               if (context.returnUrl) {
+                console.log("[PaymentCallback] Context-driven redirect to:", context.returnUrl);
                 navigateAfterDelay(context.returnUrl, 2500, context.params);
               } else {
                 navigateAfterDelay(DEFAULT_PROFILE_ROUTE, 2500);
@@ -218,6 +206,16 @@ export default function PaymentCallbackScreen() {
           }
         } catch (ctxError) {
           console.error("[PaymentCallback] Context recovery error:", ctxError);
+        }
+
+        // 2. Fallback to param identification if no context is found
+        if (params.type === "WALLET_FUNDING" || params.type === "wallet_funding") {
+          setMessage("Transaction Verified! Funds added to your wallet.");
+          const amountDisplay = params.amount ? `₦${params.amount}` : "Funds";
+          notificationService.show(`${amountDisplay} added to your wallet successfully`, TOAST_TYPE.SUCCESS);
+          
+          navigateAfterDelay(DEFAULT_PROFILE_ROUTE, 3000);
+          return;
         }
 
         setMessage("Payment verified successfully! Redirecting...");

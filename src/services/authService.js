@@ -15,7 +15,6 @@
 
 import { Image as ExpoImage } from "expo-image";
 import { Alert, Platform } from "react-native";
-import { Image as ImageCompressor } from "react-native-compressor";
 import { SECURE_KEYS, STORAGE_KEYS } from "../constants/storageKeys";
 import * as ImageUtils from "../utils/imageUtils";
 import inactivityTimeoutService from "./inactivityTimeoutService";
@@ -24,8 +23,8 @@ import profileService from "./profileService";
 import secureStorageService from "./secureStorageService";
 import storageService from "./storageService";
 import {
-    getUserData as getUserDataShared,
-    setUserData as setUserDataShared,
+  getUserData as getUserDataShared,
+  setUserData as setUserDataShared,
 } from "./userDataService";
 
 const networkErrorHandler = NetworkErrorHandler;
@@ -35,11 +34,8 @@ const networkErrorHandler = NetworkErrorHandler;
  * This is a synchronous fallback - actual URL is set during initialize()
  */
 const getDefaultBaseURL = () => {
-  if (Platform.OS === "web") {
-    return "https://api.lunest.app";
-  }
-  // For mobile, prefer ENV or localhost as fallback
-  return process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000";
+  const url = process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000";
+  return url.replace(/\/$/, "");
 };
 
 const API_BASE_URL = getDefaultBaseURL();
@@ -182,7 +178,8 @@ class AuthService {
   async initialize() {
     try {
       const configService = require("./configService").default;
-      this.baseURL = await configService.getBaseURL();
+      const detectedURL = await configService.getBaseURL();
+      this.baseURL = detectedURL.replace(/\/$/, "");
       console.log("[AuthService] Initialized with baseURL:", this.baseURL);
     } catch (error) {
       console.error("[AuthService] Error during initialization:", error);

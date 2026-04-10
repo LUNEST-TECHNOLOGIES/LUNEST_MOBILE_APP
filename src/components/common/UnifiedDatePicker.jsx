@@ -45,6 +45,13 @@ const UnifiedDatePicker = ({
     }
   }, [value]);
 
+  const [tempDate, setTempDate] = useState(value || new Date());
+
+  const handleIOSDone = () => {
+    onChange(tempDate);
+    onClose();
+  };
+
   // Hydration safety: Don't render anything until mounted on the client
   if (!mounted) return null;
 
@@ -183,6 +190,7 @@ const UnifiedDatePicker = ({
   }
 
   // --- Mobile Implementation (iOS) ---
+
   if (Platform.OS === "ios") {
     return (
       <Modal visible={visible} transparent animationType="slide">
@@ -192,14 +200,14 @@ const UnifiedDatePicker = ({
               <Text style={styles.cancelButton}>Cancel</Text>
             </Pressable>
             <Text style={styles.datePickerTitle}>{title}</Text>
-            <Pressable onPress={onClose}>
+            <Pressable onPress={handleIOSDone}>
               <Text style={styles.doneButton}>Done</Text>
             </Pressable>
           </View>
           <DateTimePicker
-            value={value || new Date()}
+            value={tempDate}
             onChange={(event, date) => {
-              if (date) onChange(date);
+              if (date) setTempDate(date);
             }}
             mode={mode}
             display="spinner"

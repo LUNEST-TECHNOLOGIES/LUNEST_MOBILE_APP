@@ -57,7 +57,7 @@ const ProfileSetupBanner = ({
         <View style={[styles.content, { paddingHorizontal: paddingH }]}> 
           <View style={styles.textContainer}>
             <Text style={[styles.title, { fontSize: titleSize }]}>Finish profile setup</Text>
-            <Text style={[styles.subtitle, { fontSize: subtitleSize }]}>We'll help you get back in.</Text>
+            <Text style={[styles.subtitle, { fontSize: subtitleSize }]}>We&apos;ll help you get back in.</Text>
           </View>
 
           {/* Action Button */}

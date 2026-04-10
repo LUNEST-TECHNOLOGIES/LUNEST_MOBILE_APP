@@ -34,9 +34,20 @@ class ConfigService {
 
     // Auto-detect based on environment
     const detectedURL = await this.detectEnvironmentURL();
-    this.cachedBaseURL = detectedURL;
-    console.log(`[ConfigService] Detected and cached baseURL: ${detectedURL}`);
-    return detectedURL;
+    this.cachedBaseURL = this._cleanURL(detectedURL);
+    console.log(`[ConfigService] Detected and cached baseURL: ${this.cachedBaseURL}`);
+    return this.cachedBaseURL;
+  }
+
+  /**
+   * Helper to remove trailing slashes from URLs
+   * @param {string} url 
+   * @returns {string}
+   * @private
+   */
+  _cleanURL(url) {
+    if (!url || typeof url !== 'string') return url;
+    return url.replace(/\/$/, "");
   }
 
   /**
@@ -52,7 +63,7 @@ class ConfigService {
     
     // Return env URL if set
     if (process.env.EXPO_PUBLIC_API_URL) {
-      return process.env.EXPO_PUBLIC_API_URL;
+      return this._cleanURL(process.env.EXPO_PUBLIC_API_URL);
     }
     
     // Platform-specific fallbacks
@@ -63,11 +74,11 @@ class ConfigService {
       // iOS simulator localhost
       return 'http://127.0.0.1:3000';
     } else if (Platform.OS === 'web') {
-      return 'https://api.lunest.app';
+      return this._cleanURL('https://api.lunest.app');
     }
     
     // Production fallback for physical devices
-    return 'https://api.lunest.app';
+    return this._cleanURL('https://api.lunest.app');
   }
   
   /**
@@ -95,12 +106,20 @@ class ConfigService {
     // Feature: On web, if envURL is a LAN IP but we are on localhost, 
     // we might prefer localhost:3000 to avoid PNA preflight issues 
     // IF the user hasn't explicitly set a custom URL.
-    if (Platform.OS === "web" && envURL && envURL.includes("192.168.")) {
-       const isCurrentHostLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
-       if (isCurrentHostLocal) {
-         console.log("🌐 [ConfigService] Web on localhost detected. Using http://localhost:3000 instead of LAN IP to avoid PNA issues.");
-         return "http://localhost:3000";
-       }
+    // For web development on localhost, ALWAYS prioritize localhost:3000 
+    // to avoid CORS and Private Network Access issues, even if .env says otherwise.
+    if (Platform.OS === "web") {
+      const isCurrentHostLocal =
+        typeof window !== "undefined" &&
+        (window.location.hostname === "localhost" ||
+          window.location.hostname === "127.0.0.1");
+
+      if (isCurrentHostLocal) {
+        console.log(
+          "🌐 [ConfigService] Web on localhost detected. Using http://localhost:3000 to prevent CORS issues."
+        );
+        return "http://localhost:3000";
+      }
     }
 
     if (envURL) {

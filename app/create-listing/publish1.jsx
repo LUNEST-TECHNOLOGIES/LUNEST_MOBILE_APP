@@ -99,8 +99,8 @@ const PUBLISH1 = ({ route }) => {
             Your Listing has been Submitted for Review!
           </Text>
           <Text style={[styles.wereReviewingYour, styles.yourTypo]}>
-            We're reviewing your listing to ensure it meets our quality and
-            safety standards. You'll be notified once it's approved.
+            We&apos;re reviewing your listing to ensure it meets our quality and
+            safety standards. You&apos;ll be notified once it&apos;s approved.
           </Text>
         </View>
 

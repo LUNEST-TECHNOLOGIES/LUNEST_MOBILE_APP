@@ -2,6 +2,7 @@ import * as FileSystem from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import { Platform, Alert } from "react-native";
 import * as Linking from "expo-linking";
+import apiClient from "../services/apiClient";
 
 /**
  * Universal Download Utility
@@ -13,7 +14,8 @@ export const downloadFile = async (url, filename, mimeType = "application/pdf") 
   }
 
   // Ensure URL is absolute for Native
-  const absoluteUrl = url.startsWith('http') ? url : `https://api.lunest.app/${url.startsWith('/') ? url.substring(1) : url}`;
+  const baseURL = apiClient.baseURL || "https://api.lunest.app";
+  const absoluteUrl = url.startsWith('http') ? url : `${baseURL}/${url.startsWith('/') ? url.substring(1) : url}`;
 
   console.log(`[DownloadUtils] Starting download: ${absoluteUrl} (${filename})`);
 

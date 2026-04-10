@@ -1,5 +1,4 @@
-import React from 'react';
-import { StyleSheet, Text, Image, ImageBackground, View } from 'react-native';
+import { Image, ImageBackground, StyleSheet, Text, View } from 'react-native';
 
 const imageFrame = require('../../../assets/icons/bookings/image_frame.svg');
 

@@ -51,7 +51,7 @@ const ReferralSuccessModal = ({
           </View>
 
           {/* Text Content */}
-          <Text style={styles.title}>You're all set! 🎁</Text>
+          <Text style={styles.title}>You&apos;re all set! 🎁</Text>
           <Text style={styles.subtitle}>
             Your referral link is ready. Invite your friends to join Lunest and earn rewards together!
           </Text>

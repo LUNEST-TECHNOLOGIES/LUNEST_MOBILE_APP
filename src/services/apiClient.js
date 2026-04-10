@@ -24,20 +24,9 @@ const detectAPIURL = () => {
     return envURL;
   }
 
-  // Web fallback - detect if running on localhost to hit local backend
-  if (Platform.OS === "web") {
-    if (
-      typeof window !== "undefined" &&
-      (window.location.hostname === "localhost" ||
-        window.location.hostname === "127.0.0.1")
-    ) {
-      return "http://localhost:3000";
-    }
-    return "https://api.lunest.app";
-  }
-
-  // Fallback for development
-  return "http://localhost:3000";
+  // Use environment variable or localhost fallback for all platforms
+  const url = process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000";
+  return url.replace(/\/$/, "");
 };
 
 class APIClient {

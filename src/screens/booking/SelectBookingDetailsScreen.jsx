@@ -20,6 +20,37 @@ import CalendarIcon from "../../assets/icons/vuesax/outline/calendar.svg";
 import profileService from "../../services/profileService";
 import UnifiedDatePicker from "../../components/common/UnifiedDatePicker";
 
+// Utility Helper Functions
+const formatDate = (date) => {
+  if (!date) return "";
+  const d = date instanceof Date ? date : new Date(date);
+  if (isNaN(d.getTime())) return "";
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const monthsBetween = (start, end) => {
+  if (!start || !end) return 0;
+  const s = new Date(start);
+  const e = new Date(end);
+  let months = (e.getFullYear() - s.getFullYear()) * 12 + (e.getMonth() - s.getMonth());
+  if (e.getDate() < s.getDate()) months -= 1;
+  return months;
+};
+
+const yearsBetween = (start, end) => {
+  if (!start || !end) return 0;
+  const s = new Date(start);
+  const e = new Date(end);
+  let years = e.getFullYear() - s.getFullYear();
+  if (e.getMonth() < s.getMonth() || (e.getMonth() === s.getMonth() && e.getDate() < s.getDate())) {
+    years -= 1;
+  }
+  return years;
+};
+
 const SelectBookingDetailsScreen = () => {
   const router = useRouter();
   const { width: screenWidth } = useWindowDimensions();
@@ -199,46 +230,6 @@ const SelectBookingDetailsScreen = () => {
     }
   };
 
-  const formatDate = (date) => {
-    if (!date) return "";
-    
-    // Ensure we have a valid Date object
-    const d = date instanceof Date ? date : new Date(date);
-    if (isNaN(d.getTime())) {
-      console.warn("[SelectBookingDetails] Invalid date:", date);
-      return "";
-    }
-    
-    // Return YYYY-MM-DD format (unambiguous)
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    
-    const formatted = `${year}-${month}-${day}`;
-    console.log("[SelectBookingDetails] formatDate result:", formatted);
-    return formatted;
-  };
-
-  const monthsBetween = (start, end) => {
-    const s = new Date(start);
-    const e = new Date(end);
-    let months =
-      (e.getFullYear() - s.getFullYear()) * 12 + (e.getMonth() - s.getMonth());
-    if (e.getDate() < s.getDate()) months -= 1;
-    return months;
-  };
-
-  const yearsBetween = (start, end) => {
-    const s = new Date(start);
-    const e = new Date(end);
-    let years = e.getFullYear() - s.getFullYear();
-    if (
-      e.getMonth() < s.getMonth() ||
-      (e.getMonth() === s.getMonth() && e.getDate() < s.getDate())
-    )
-      years -= 1;
-    return years;
-  };
 
   const validateBookingPeriod = () => {
     if (!checkInDate || !checkOutDate)

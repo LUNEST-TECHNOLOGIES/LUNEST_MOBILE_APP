@@ -117,42 +117,41 @@ const AddFundsScreen = () => {
         await queryClient.refetchQueries({ queryKey: ["walletInfo"], type: "all" });
         await queryClient.refetchQueries({ queryKey: ["userProfile"], type: "all" });
         
-        // Smart redirection for Web
-        if (Platform.OS === "web") {
-          const storedContext = localStorage.getItem("lunest_payment_context");
-          if (storedContext) {
-            try {
-              const { returnUrl, params: savedParams } = JSON.parse(storedContext);
-              localStorage.removeItem("lunest_payment_context");
-              
-              if (returnUrl) {
-                console.log("[AddFunds] Redirecting to stored context:", returnUrl, savedParams);
-                setTimeout(() => {
-                  router.replace({
-                    pathname: returnUrl,
-                    params: savedParams
-                  });
-                }, 1500);
-                return;
-              }
-            } catch (e) {
-              console.error("[AddFunds] Failed to parse stored context:", e);
-            }
+        // Smart redirection for Web & Native
+        const storedContext = Platform.OS === "web"
+          ? localStorage.getItem("lunest_payment_context")
+          : await AsyncStorage.getItem("lunest_payment_context");
+
+        let context = null;
+        if (storedContext) {
+          try {
+            context = JSON.parse(storedContext);
+          } catch (e) {
+            console.error("[AddFunds] Failed to parse stored context:", e);
           }
         }
 
-        // Smart redirection for Web & Native
         setTimeout(() => {
-          if (params.returnUrl) {
+          if (context?.returnUrl) {
+            console.log("[AddFunds] Redirecting to stored context:", context.returnUrl);
+            router.replace({
+              pathname: context.returnUrl,
+              params: context.params || {}
+            });
+            if (Platform.OS === "web") {
+              localStorage.removeItem("lunest_payment_context");
+            } else {
+              AsyncStorage.removeItem("lunest_payment_context");
+            }
+          } else if (params.returnUrl) {
             router.replace(params.returnUrl);
           } else if (router.canGoBack()) {
             router.back();
           } else {
-            // Default fallback if no history (common on Web redirects)
-            // Use '/wallet' for Web compatibility, folder-based for Native
+            // Default fallback if no history
             router.replace(Platform.OS === 'web' ? "/wallet" : "/(tabs)/wallet");
           }
-        }, 2500);
+        }, 2000);
       } else {
         showToast("Payment not successful. Status: " + verifyResult.status, "error");
       }

@@ -20,6 +20,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import ArrowLeftIcon from "../../assets/icons/bookings/arrow-left.svg";
 import authService from "../../services/authService";
 import bookingService from "../../services/bookingService";
+import notificationService from "../../services/notificationService";
 import { formatCurrency } from "../../utils/currency";
 
 const PayWithWalletScreen = () => {
@@ -54,7 +55,14 @@ const PayWithWalletScreen = () => {
   useFocusEffect(
     useCallback(() => {
       fetchWalletBalance();
-    }, [])
+      
+      // If we just came back from added funds, show success feedback
+      if (params.fromBooking === "true") {
+        notificationService.success("Balance updated! You can now complete your booking.");
+        // Clear param to prevent multi-toasts on subsequent focus
+        router.setParams({ fromBooking: null });
+      }
+    }, [params.fromBooking])
   );
 
   // Handle pull-to-refresh

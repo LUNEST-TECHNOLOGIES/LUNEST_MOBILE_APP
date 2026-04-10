@@ -688,7 +688,7 @@ const LandlordRequestForm = () => {
         {/* Submit Section */}
         <View style={[styles.submitSection, { width: containerWidth }]}>
           <Text style={styles.termsText}>
-            By clicking <Text style={styles.termsBold}>'SUBMIT'</Text> i confirm that the information provided is accurate and i am legally allowed to list this property.
+            By clicking <Text style={styles.termsBold}>&apos;SUBMIT&apos;</Text> i confirm that the information provided is accurate and i am legally allowed to list this property.
           </Text>
 
           <TouchableOpacity

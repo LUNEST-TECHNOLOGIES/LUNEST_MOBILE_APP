@@ -1253,15 +1253,6 @@ const HostBookingDetailsScreen = () => {
         ]}
       >
         <View style={styles.buttonRow}>
-          {status === "PENDING" && (
-            <TouchableOpacity
-              style={styles.confirmBtn}
-              onPress={handleApproveBooking}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.confirmBtnText}>Approve Booking</Text>
-            </TouchableOpacity>
-          )}
 
           <TouchableOpacity
             style={styles.contactBtn}

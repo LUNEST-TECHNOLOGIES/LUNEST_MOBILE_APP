@@ -2,11 +2,11 @@ module.exports = {
   plugins: [
     {
       name: 'preset-default',
-      params: {
-        overrides: {
-          removeViewBox: false,
-        },
-      },
+    },
+    // Move removeViewBox outside of preset-default to avoid configuration warning
+    {
+      name: 'removeViewBox',
+      active: false,
     },
   ],
 };

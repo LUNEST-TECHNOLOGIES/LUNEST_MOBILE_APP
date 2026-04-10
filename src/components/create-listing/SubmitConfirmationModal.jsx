@@ -96,7 +96,7 @@ const SubmitConfirmationModal = ({ visible, onConfirm, onDismiss }) => {
           {/* Confirmation Text */}
           <View style={styles.confirmationBox}>
             <Text style={styles.confirmationText}>
-              I confirm that all information provided is accurate and complete, and I agree to LUNEST's terms and conditions.
+              I confirm that all information provided is accurate and complete, and I agree to LUNEST&apos;s terms and conditions.
             </Text>
           </View>
 

@@ -8,7 +8,8 @@ import networkErrorHandler from './networkErrorHandler';
  */
 class DeviceSessionService {
     constructor() {
-        this.baseURL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+        const url = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+        this.baseURL = url.replace(/\/$/, "");
     }
 
     /**

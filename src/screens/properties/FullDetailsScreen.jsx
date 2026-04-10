@@ -1030,7 +1030,7 @@ const FullDetailsScreen = () => {
                     </Text>
                   </View>
                   <Text style={styles.reviewText}>
-                    "{review.feedback || review.guestReview?.feedback || review.text || "No feedback provided"}"
+                    &quot;{review.feedback || review.guestReview?.feedback || review.text || "No feedback provided"}&quot;
                   </Text>
                   {allReviewImages.length > 0 && (
                     <ScrollView

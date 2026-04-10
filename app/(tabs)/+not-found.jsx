@@ -93,13 +93,13 @@ export default function GuestTabsNotFoundScreen() {
 
         {/* Description */}
         <Text style={styles.description}>
-          This page doesn't exist. Let's get you back on track.
+          This page doesn&apos;t exist. Let&apos;s get you back on track.
         </Text>
 
         {/* Mode indicator */}
         <View style={styles.modeIndicator}>
           <Text style={styles.modeText}>
-            You're in <Text style={styles.modeBold}>Guest Mode</Text>
+            You&apos;re in <Text style={styles.modeBold}>Guest Mode</Text>
           </Text>
         </View>
 

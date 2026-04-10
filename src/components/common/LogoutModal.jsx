@@ -60,7 +60,7 @@ const LogoutModal = ({ visible, onCancel, onConfirm, isLoading = false }) => {
 
                     <Text style={styles.title}>Log Out</Text>
                     <Text style={styles.message}>
-                        Are you sure you want to log out? You'll need to sign in again to access your account.
+                        Are you sure you want to log out? You&apos;ll need to sign in again to access your account.
                     </Text>
 
                     <View style={styles.buttonContainer}>

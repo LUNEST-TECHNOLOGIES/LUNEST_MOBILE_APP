@@ -970,157 +970,128 @@ const BookingSummary = () => {
           const email = user?.email || user?.emailAddress;
           if (!email) {
             showToast("Please update your profile with an email address", TOAST_TYPE.ERROR);
+            setIsInitializingPayment(false);
             return;
           }
 
-          // Initialize Paystack payment
+          // 1. Create booking in PENDING_PAYMENT status first
+          bookingData.status = "PENDING_PAYMENT";
+          const bookingResult = await bookingService.createBooking(bookingData);
+          
+          if (!bookingResult.success) {
+            showToast(bookingResult.message || "Failed to create booking. Please try again.", TOAST_TYPE.ERROR);
+            setIsInitializingPayment(false);
+            return;
+          }
+
+          const bId = bookingResult.booking?._id;
+
+          // 2. Initialize Paystack payment with bookingId in metadata
           const paymentResult = await paymentService.initializePayment(
             displayTotal,
             email,
             {
               type: "BOOKING",
+              bookingId: bId, // Crucial for backend identification
               listingId: params?.listingId,
               description: `Booking for ${bookingSummary.property.title}`,
-              origin: "mobile", // Explicitly track origin for backend redirection
+              origin: "mobile", 
             },
           );
 
-          console.log("[BookingSummary] Paystack payment initialized:", {
-            amount: displayTotal,
-            email: email,
-            reference: paymentResult.reference,
-            hasAuthUrl: !!paymentResult.authorization_url,
-            couponApplied,
-            couponCode,
-            couponDiscount,
-          });
-
-          if (paymentResult.authorization_url) {
-            // Create callback URL for deep linking back to app
-            let callbackUrl;
-            if (Platform.OS === "web") {
-              // Standardize web callback URL
-              callbackUrl = window.location.origin + "/payment-callback";
-            } else {
-              callbackUrl = Linking.createURL("payment-callback", {
-                queryParams: {
-                  type: "booking_payment",
-                  amount: displayTotal.toString(),
-                },
-              });
-            }
-
-            // PERSIST CONTEXT
-            const paymentContext = {
-              type: "BOOKING",
-              bookingData: bookingData,
-              propertyName: bookingSummary.property.title,
-              location: bookingSummary.property.location,
-              coverImage: bookingSummary.property.coverImage || "",
-              bookingType: bookingSummary.property.bookingType,
-              checkIn: bookingSummary.property.checkIn,
-              checkOut: bookingSummary.property.checkOut,
-              listingId: params?.listingId,
-            };
-
-            if (Platform.OS === "web") {
-              localStorage.setItem("lunest_payment_context", JSON.stringify(paymentContext));
-              window.location.href = paymentResult.authorization_url;
-              return; // Stop here on web to avoid triggering popup blockers
-            } else {
-              await AsyncStorage.setItem("lunest_payment_context", JSON.stringify(paymentContext));
-              // Proceed to browser open...
-            }
-
-            // Open Paystack checkout with auth session for better deep linking
-            const browserResult = await WebBrowser.openAuthSessionAsync(
-              paymentResult.authorization_url,
-              callbackUrl,
-            );
-
-            console.log("[BookingSummary] Browser result:", browserResult);
-
-            // Check if deep link was successful
-            if (browserResult.type === "success") {
-              console.log("[BookingSummary] Deep link successful, payment callback handled");
-              // The payment-callback screen will handle verification
-              return;
-            }
-
-            // Fallback: Verify payment after browser closes
-            console.log("[BookingSummary] Browser closed, verifying payment status...");
-
-            // Verify payment after browser closes
-            const verifyResult = await paymentService.verifyPayment(
-              paymentResult.reference,
-            );
-
-            if (verifyResult.status === "COMPLETED") {
-              // Payment successful - create confirmed booking
-              bookingData.status = "CONFIRMED";
-              bookingData.paymentReference = paymentResult.reference;
-
-              const result = existingBookingId
-                ? await bookingService.updateBookingStatus(existingBookingId, "CONFIRMED", {
-                    paymentMethod: paymentData.paymentMethod?.toUpperCase(),
-                    paymentReference: paymentResult.reference,
-                    pricingBreakdown: bookingData.priceBreakdown,
-                    couponCode: bookingData.couponCode,
-                    couponDiscount: bookingData.couponDiscount
-                  })
-                : await bookingService.createBooking(bookingData);
-
-              if (result.success) {
-                // Track coupon usage if a coupon was applied
-                if (couponApplied && couponCode.trim()) {
-                  const referralService = (await import("../../services/referralService")).default;
-                  await referralService.trackCouponUsage(
-                    couponCode.trim(),
-                    result.booking?._id,
-                    couponDiscount
-                  ).catch(err => {
-                    console.warn("[BookingSummary] Failed to track coupon usage:", err);
-                  });
-                }
-
-                router.replace({
-                  pathname: "/booking-confirmation",
-                  params: {
-                    status: "Confirmed",
-                    propertyName: bookingSummary.property.title,
-                    location: bookingSummary.property.location,
-                    coverImage: bookingSummary.property.coverImage || "",
-                    bookingType: bookingSummary.property.bookingType,
-                    checkIn: bookingSummary.property.checkIn,
-                    checkOut: bookingSummary.property.checkOut,
-                    paymentMethod: "Paystack",
-                    total: `₦${displayTotal.toLocaleString()}`,
-                    refCode: result.booking?.referenceCode || generateRefCode(),
-                    bookingId: result.booking?._id,
-                    listingId: params?.listingId,
-                    propertyImage: bookingSummary.property.coverImage || "",
-                    couponApplied: couponApplied ? "true" : "false",
-                    couponCode: couponCode || "",
-                    couponDiscount: couponDiscount.toString(),
-                    subtotalBeforeDiscount: (displayHostTotal + displayAppCharge).toString(),
-                  },
-                });
-              } else {
-                showToast("Booking creation failed after payment. Please contact support.", TOAST_TYPE.ERROR);
-              }
-            } else if (verifyResult.status === "CANCELED") {
-              showToast("Payment was canceled. Please try again.", TOAST_TYPE.INFO);
-            } else {
-              showToast("Your payment is being processed. Please check your bookings.", TOAST_TYPE.INFO);
-            }
-          } else {
+          if (!paymentResult.authorization_url) {
             showToast("Failed to initialize payment. Please try again.", TOAST_TYPE.ERROR);
+            setIsInitializingPayment(false);
+            return;
+          }
+
+          console.log("[BookingSummary] Paystack payment initialized with bookingId:", bId);
+
+          // Create callback URL for deep linking back to app
+          let callbackUrl;
+          if (Platform.OS === "web") {
+            callbackUrl = window.location.origin + "/payment-callback";
+          } else {
+            callbackUrl = Linking.createURL("payment-callback", {
+              queryParams: {
+                type: "booking_payment",
+                bookingId: bId,
+                amount: displayTotal.toString(),
+              },
+            });
+          }
+
+          // PERSIST CONTEXT (Mainly for UI/State persistence)
+          const paymentContext = {
+            type: "BOOKING",
+            bookingId: bId,
+            bookingData: bookingData,
+            propertyName: bookingSummary.property.title,
+            location: bookingSummary.property.location,
+            coverImage: bookingSummary.property.coverImage || "",
+            bookingType: bookingSummary.property.bookingType,
+            checkIn: bookingSummary.property.checkIn,
+            checkOut: bookingSummary.property.checkOut,
+            listingId: params?.listingId,
+          };
+
+          if (Platform.OS === "web") {
+            localStorage.setItem("lunest_payment_context", JSON.stringify(paymentContext));
+            window.location.href = paymentResult.authorization_url;
+            return;
+          } else {
+            await AsyncStorage.setItem("lunest_payment_context", JSON.stringify(paymentContext));
+          }
+
+          // Open Paystack checkout
+          const browserResult = await WebBrowser.openAuthSessionAsync(
+            paymentResult.authorization_url,
+            callbackUrl,
+          );
+
+          console.log("[BookingSummary] Browser result:", browserResult);
+
+          if (browserResult.type === "success") {
+            console.log("[BookingSummary] Deep link successful");
+            return;
+          }
+
+          // Fallback verification
+          const verifyResult = await paymentService.verifyPayment(paymentResult.reference);
+
+          if (verifyResult.status === "COMPLETED") {
+            router.replace({
+              pathname: "/booking-confirmation",
+              params: {
+                status: "Confirmed",
+                propertyName: bookingSummary.property.title,
+                location: bookingSummary.property.location,
+                coverImage: bookingSummary.property.coverImage || "",
+                bookingType: bookingSummary.property.bookingType,
+                checkIn: bookingSummary.property.checkIn,
+                checkOut: bookingSummary.property.checkOut,
+                paymentMethod: "Paystack",
+                total: `₦${displayTotal.toLocaleString()}`,
+                refCode: verifyResult.reference || generateRefCode(),
+                bookingId: bId,
+                listingId: params?.listingId,
+                propertyImage: bookingSummary.property.coverImage || "",
+                couponApplied: couponApplied ? "true" : "false",
+                couponCode: couponCode || "",
+                couponDiscount: couponDiscount.toString(),
+                subtotalBeforeDiscount: (displayHostTotal + displayAppCharge).toString(),
+              },
+            });
+          } else if (verifyResult.status === "CANCELED") {
+            showToast("Payment was canceled.", TOAST_TYPE.INFO);
+          } else {
+            showToast("Your payment is being processed.", TOAST_TYPE.INFO);
           }
         } catch (paystackError) {
           console.error("[BookingSummary] Paystack error:", paystackError);
-          const gatewayMsg = paystackError?.response?.body?.gateway_response;
-          const displayMessage = gatewayMsg || paystackError.message || "Failed to process payment";
-          showToast(displayMessage, TOAST_TYPE.ERROR);
+          showToast(paystackError.message || "Failed to process payment", TOAST_TYPE.ERROR);
+        } finally {
+          setIsInitializingPayment(false);
         }
       } else {
         // Wallet payment - Create booking with CONFIRMED status
@@ -1538,8 +1509,8 @@ const BookingSummary = () => {
                         marginTop: 4,
                       }}
                     >
-                      Your coupon covers the full booking amount. Click "Proceed
-                      to booking" to confirm your reservation instantly.
+                      Your coupon covers the full booking amount. Click &quot;Proceed
+                      to booking&quot; to confirm your reservation instantly.
                     </Text>
                   </View>
                 )}
@@ -2093,3 +2064,4 @@ const styles = StyleSheet.create({
 });
 
 export default BookingSummary;
+

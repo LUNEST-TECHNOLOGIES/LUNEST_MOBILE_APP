@@ -32,6 +32,8 @@ import authService from "../../services/authService";
 import logService from "../../services/logService";
 import LogoutModal from "../../components/common/LogoutModal";
 import VerificationRequiredModal from "../../components/common/VerificationRequiredModal";
+import listingService from "../../services/listingService";
+import bookingService from "../../services/bookingService";
 
 
 
@@ -50,6 +52,7 @@ const ProfileScreen = ({ isHostMode: isHostModeProp = false }) => {
     switchToHost,
     resetUserMode,
     refreshHostStatus,
+    cancelSwitch,
   } = useUserMode();
   const [isRefreshingState, setIsRefreshingState] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -427,7 +430,10 @@ const ProfileScreen = ({ isHostMode: isHostModeProp = false }) => {
   };
 
   const handleAddFunds = () => {
-    router.push("/add-funds");
+    router.push({
+      pathname: "/add-funds",
+      params: { returnUrl: "/profile" }
+    });
   };
 
   const handleWithdraw = () => {

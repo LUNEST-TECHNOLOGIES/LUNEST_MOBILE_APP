@@ -104,13 +104,13 @@ export default function NotFoundScreen() {
 
         {/* Description */}
         <Text style={styles.description}>
-          Oops! The page you're looking for doesn't exist or has been moved.
+          Oops! The page you&apos;re looking for doesn&apos;t exist or has been moved.
         </Text>
 
         {/* Mode indicator */}
         <View style={styles.modeIndicator}>
           <Text style={styles.modeText}>
-            You're currently in <Text style={styles.modeBold}>{modeLabel} Mode</Text>
+            You&apos;re currently in <Text style={styles.modeBold}>{modeLabel} Mode</Text>
           </Text>
         </View>
 

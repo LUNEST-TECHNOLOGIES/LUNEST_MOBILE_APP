@@ -1,6 +1,9 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import WebContainer from "../src/components/common/WebContainer";
 import { Stack, useRouter, useSegments } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import * as Font from "expo-font";
+import * as SplashScreen from "expo-splash-screen";
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Alert, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -25,10 +28,13 @@ console.log(
 
 const ONBOARDING_KEY = "@lunest_onboarding_complete";
 
+// Prevent splash screen from auto-hiding before fonts are loaded
+SplashScreen.preventAutoHideAsync().catch(() => {});
+
 export default function RootLayout() {
+  const [fontsLoaded, setFontsLoaded] = useState(false);
+  const [fontError, setFontError] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const wasAuthenticated = useRef(false); // Track if user was previously logged in
   const router = useRouter();
   const segments = useSegments();
@@ -44,9 +50,26 @@ export default function RootLayout() {
     duration: 3000,
   });
 
-  // Check onboarding and auth status on app launch
+  // Check onboarding and auth status and load fonts on app launch
   useEffect(() => {
-    checkAppStatus();
+    async function prepare() {
+      try {
+        // Load fonts
+        await Font.loadAsync(Ionicons.font);
+        setFontsLoaded(true);
+        
+        // Finalize other app status
+        await checkAppStatus();
+      } catch (e) {
+        console.warn("[RootLayout] Preparation error:", e);
+        setFontError(e);
+        // Still proceed so user isn't stuck on splash
+        setIsLoading(false);
+        setFontsLoaded(true); 
+      }
+    }
+    
+    prepare();
   }, []);
 
   // Handle navigation based on onboarding and auth status
@@ -101,7 +124,7 @@ export default function RootLayout() {
     };
 
     checkAndNavigate();
-  }, [isLoading, segments]);
+  }, [isLoading, segments, router]);
 
   // Subscribe to global notifications
   useEffect(() => {
@@ -125,19 +148,22 @@ export default function RootLayout() {
       // Initialize auth service with dynamic backend URL
       await authService.initialize();
 
+
       // Check onboarding status
       const onboardingValue = await AsyncStorage.getItem(ONBOARDING_KEY);
-      setHasCompletedOnboarding(onboardingValue === "true");
 
       // Check authentication status
-      const loggedIn = await authService.isLoggedIn();
-      setIsAuthenticated(loggedIn);
+      await authService.isLoggedIn();
     } catch (error) {
       console.error("Error checking app status:", error);
     } finally {
       setIsLoading(false);
     }
   };
+
+  if (!fontsLoaded && !fontError) {
+    return null; // Keep splash screen active
+  }
 
   return (
     <QueryClientProvider client={queryClient}>

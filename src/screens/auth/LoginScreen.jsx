@@ -244,7 +244,7 @@ const LoginScreen = ({ onBack, onSignup, onForgotPassword, onLoginSuccess }) => 
           <View style={styles.titleContainer}>
             <Text style={styles.title}>Login</Text>
             <Text style={styles.subtitle}>
-              Welcome back, let's find your perfect stay.
+              Welcome back, let&apos;s find your perfect stay.
             </Text>
           </View>
 
@@ -348,7 +348,7 @@ const LoginScreen = ({ onBack, onSignup, onForgotPassword, onLoginSuccess }) => 
 
           {/* Signup Link */}
           <View style={styles.signupContainer}>
-            <Text style={styles.signupText}>Don't have an account?</Text>
+            <Text style={styles.signupText}>Don&apos;t have an account?</Text>
             <TouchableOpacity onPress={handleSignupPress} activeOpacity={0.7}>
               <Text style={styles.signupLink}> Signup.</Text>
             </TouchableOpacity>

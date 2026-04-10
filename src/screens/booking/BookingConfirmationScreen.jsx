@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { format } from "date-fns";
 import { Asset } from "expo-asset"; // New Import
 import * as FileSystem from "expo-file-system/legacy";
 import * as Print from "expo-print";
@@ -44,8 +45,8 @@ import { DEMO_TERMS } from "../../constants/termsConfig";
 import authService from "../../services/authService";
 import bookingService from "../../services/bookingService";
 import configService from "../../services/configService";
-import { resolveImageUrlSync } from "../../utils/imageUtils";
 import { downloadFile, saveRefAsImage } from "../../utils/downloadUtils";
+import { resolveImageUrlSync } from "../../utils/imageUtils";
 
 // Banner image
 const bannerImage = require("../../assets/images/Frame 1618873475.png");
@@ -378,7 +379,7 @@ const BookingConfirmationScreen = () => {
         } catch (error) {
           console.warn("[BookingConfirmation] Polling error:", error);
         }
-      }, 5000); // Poll every 5 seconds
+      }, 3000); // Poll every 3 seconds for better responsiveness
     }
 
     return () => {

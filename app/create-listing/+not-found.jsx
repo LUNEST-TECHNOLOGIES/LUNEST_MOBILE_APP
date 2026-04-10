@@ -100,7 +100,7 @@ export default function CreateListingNotFoundScreen() {
 
         {/* Description */}
         <Text style={styles.description}>
-          We couldn't find this listing step. Your progress may have been saved as a draft.
+          We couldn&apos;t find this listing step. Your progress may have been saved as a draft.
         </Text>
 
         {/* Action Buttons */}

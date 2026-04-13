@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Image, SafeAreaView, KeyboardAvoidingView, Platform, ActivityIndicator, StyleSheet } from 'react-native';
 import { useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import bookingService from '../../src/services/bookingService';
+import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, withSequence } from 'react-native-reanimated';
 
 /**
  * Manual Agreement Verification Entry Point
@@ -13,6 +14,35 @@ const VerifyIndexPage = () => {
   const [bookingRef, setBookingRef] = useState('');
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState({ visible: false, type: 'error', message: '' });
+  
+  const inputRef = useRef(null);
+  const pulseAnim = useSharedValue(1);
+
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      setTimeout(() => inputRef.current?.focus(), 500);
+    }
+  }, []);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: pulseAnim.value,
+    transform: [{ scale: 1 + (1 - pulseAnim.value) * 0.02 }]
+  }));
+
+  useEffect(() => {
+    if (loading) {
+      pulseAnim.value = withRepeat(
+        withSequence(
+          withTiming(0.7, { duration: 600 }),
+          withTiming(1, { duration: 600 })
+        ),
+        -1,
+        true
+      );
+    } else {
+      pulseAnim.value = withTiming(1);
+    }
+  }, [loading]);
 
   const showToast = (type, message) => {
     setToast({ visible: true, type, message });
@@ -46,7 +76,7 @@ const VerifyIndexPage = () => {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
+    <SafeAreaView className="flex-1 bg-gray-50 lg:bg-slate-200">
       <Stack.Screen options={{ 
         title: 'Verify Agreement',
         headerShown: false
@@ -56,77 +86,93 @@ const VerifyIndexPage = () => {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         className="flex-1"
       >
-        <View className="flex-1 px-8 justify-center items-center">
-          {/* Header Branding */}
-          <View className="mb-12 items-center">
-            <Image 
-              source={require('../../src/assets/images/lunest_logo_main.png')}
-              style={{ width: 180, height: 60, resizeMode: 'contain' }}
-            />
-            <Text className="text-slate-400 font-medium text-center mt-2 px-6">
-              Official Property Agreement Verification Hub
-            </Text>
-          </View>
+        <View className="flex-1 lg:justify-center items-center py-10">
+          <View className="w-full px-8 lg:px-10 lg:max-w-[480px] lg:my-8 lg:rounded-[40px] lg:overflow-hidden lg:shadow-2xl lg:bg-white lg:border lg:border-slate-100">
 
-          {/* Verification Form Card */}
-          <View className="w-full bg-slate-50 rounded-3xl p-8 border border-slate-100 shadow-sm">
-            <View className="items-center mb-6">
-              <View className="w-16 h-16 bg-blue-50 rounded-full items-center justify-center mb-4">
-                <Ionicons name="shield-checkmark" size={32} color="#010135" />
-              </View>
-              <Text className="text-xl font-bold text-slate-900">Verify Document</Text>
-              <Text className="text-slate-500 text-xs text-center mt-2">
-                Enter the reference code (e.g., LNS-XXXXXX) to confirm the authenticity of your rental agreement.
+            {/* Header Branding */}
+            <View className="mb-10 items-center mt-10 lg:mt-0">
+              <Image 
+                source={require('../../src/assets/images/lunest_logo_main.png')}
+                style={{ width: 180, height: 60, resizeMode: 'contain' }}
+              />
+              <Text className="text-slate-400 font-medium text-center mt-3 px-4">
+                Official Property Agreement Verification Hub
               </Text>
             </View>
 
-            <View className="space-y-4">
-              <View>
-                <Text className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Reference Code</Text>
-                <TextInput
-                  className="bg-white border border-slate-200 rounded-2xl px-5 py-4 text-slate-800 font-bold text-base"
-                  placeholder="e.g. LNS-A1B2C3D4"
-                  placeholderTextColor="#94a3b8"
-                  value={bookingRef}
-                  onChangeText={setBookingRef}
-                  autoCapitalize="characters"
-                  autoCorrect={false}
-                  returnKeyType="go"
-                  onSubmitEditing={handleVerify}
-                />
+            {/* Verification Form Card */}
+            <Animated.View 
+              style={animatedStyle}
+              className="w-full bg-white rounded-[32px] p-8 lg:p-10 shadow-lg lg:shadow-none border border-slate-100"
+            >
+              <View className="items-center mb-8">
+                <View className="w-16 h-16 bg-blue-50 rounded-2xl items-center justify-center mb-5 rotate-3">
+                  <Ionicons name="shield-checkmark" size={32} color="#010135" />
+                </View>
+                <Text className="text-2xl font-bold text-slate-900">Verify Document</Text>
+                <Text className="text-slate-500 text-xs text-center mt-3 leading-relaxed">
+                  Enter the reference code (e.g., LNS-XXXXXX) to confirm the authenticity of your rental agreement.
+                </Text>
               </View>
 
-              <TouchableOpacity 
-                onPress={handleVerify}
-                disabled={loading}
-                className={`w-full py-4 rounded-2xl flex-row items-center justify-center ${loading ? 'bg-slate-300' : 'bg-slate-900'}`}
-                activeOpacity={0.8}
-              >
-                {loading ? (
-                  <ActivityIndicator color="white" size="small" />
-                ) : (
-                  <>
-                    <Text className="text-white font-bold text-lg mr-2">Verify Now</Text>
-                    <Ionicons name="arrow-forward" size={20} color="white" />
-                  </>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
+              <View className="space-y-5">
+                <View>
+                  <Text className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Reference Code</Text>
+                  <TextInput
+                    ref={inputRef}
+                    className={`bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 text-slate-800 font-bold text-base ${loading ? 'opacity-50' : 'opacity-100'}`}
+                    placeholder="e.g. LNS-A1B2C3D4"
+                    placeholderTextColor="#94a3b8"
+                    value={bookingRef}
+                    onChangeText={setBookingRef}
+                    autoCapitalize="characters"
+                    autoCorrect={false}
+                    editable={!loading}
+                    returnKeyType="go"
+                    onSubmitEditing={handleVerify}
+                  />
+                </View>
 
-          {/* Help Text */}
-          <TouchableOpacity 
-            onPress={() => router.replace('/')}
-            className="mt-12"
-          >
-            <Text className="text-slate-400 font-bold text-xs uppercase tracking-tighter decoration-slate-400">
-               Return to Lunest Home
-            </Text>
-          </TouchableOpacity>
+                <TouchableOpacity 
+                  onPress={handleVerify}
+                  disabled={loading}
+                  className={`w-full py-4 rounded-2xl flex-row items-center justify-center shadow-md ${loading ? 'bg-slate-300' : 'bg-primary'}`}
+                  activeOpacity={0.8}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="white" size="small" />
+                  ) : (
+                    <>
+                      <Text className="text-white font-bold text-base mr-2">Verify Now</Text>
+                      <Ionicons name="arrow-forward" size={20} color="white" />
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </Animated.View>
+
+            {/* Help/Return links */}
+            <View className="mt-10 mb-10 items-center">
+              <TouchableOpacity 
+                onPress={() => router.replace('/')}
+                className="flex-row items-center bg-white px-6 py-3 rounded-full shadow-sm border border-slate-100"
+              >
+                <Ionicons name="home-outline" size={14} color="#64748b" />
+                <Text className="text-slate-500 font-bold text-[10px] uppercase tracking-widest ml-2">
+                  Return to Lunest Home
+                </Text>
+              </TouchableOpacity>
+              
+              <Text className="mt-8 text-slate-300 text-[9px] uppercase tracking-widest">
+                Protected by Lunest Shield™
+              </Text>
+            </View>
+
+          </View>
         </View>
       </KeyboardAvoidingView>
 
-      {/* Legacy Toast Notification (Matching Project Aesthetic) */}
+      {/* Toast Notification */}
       {toast.visible && (
         <View style={[
           styles.toastContainer,

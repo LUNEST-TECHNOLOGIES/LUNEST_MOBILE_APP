@@ -888,7 +888,149 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 24,
   },
+  // Verification Skeleton Styles
+  verificationHeader: {
+    width: '100%',
+    height: 120,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingBottom: 20,
+  },
+  logoPlaceholder: {
+    width: 120,
+    height: 40,
+    backgroundColor: '#E1E9EE',
+    borderRadius: 8,
+  },
+  statusBadgeSkeleton: {
+    width: 140,
+    height: 24,
+    backgroundColor: '#E1E9EE',
+    borderRadius: 12,
+    marginTop: 12,
+  },
+  verificationCard: {
+    backgroundColor: '#fff',
+    borderRadius: 40,
+    padding: 24,
+    marginHorizontal: 20,
+    marginTop: -24,
+    gap: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  iconSealPlaceholder: {
+    width: 80,
+    height: 80,
+    backgroundColor: '#E6FFFA', // green-50
+    borderRadius: 24,
+    alignSelf: 'center',
+  },
+  titlePlaceholder: {
+    width: 120,
+    height: 24,
+    backgroundColor: '#E1E9EE',
+    borderRadius: 6,
+    alignSelf: 'center',
+  },
+  refBoxSkeleton: {
+    width: '100%',
+    height: 70,
+    backgroundColor: '#E1E9EE',
+    borderRadius: 16,
+  },
+  infoRowSkeleton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  iconCircleSmall: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#E1E9EE',
+  },
+  infoLines: {
+    flex: 1,
+    gap: 6,
+  },
+  labelSmall: {
+    width: 60,
+    height: 10,
+    backgroundColor: '#E1E9EE',
+    borderRadius: 2,
+  },
+  valueSmall: {
+    width: '80%',
+    height: 14,
+    backgroundColor: '#E1E9EE',
+    borderRadius: 4,
+  },
+  proofBoxSkeleton: {
+    height: 120,
+    backgroundColor: '#E1E9EE',
+    borderRadius: 24,
+    marginHorizontal: 32,
+    marginTop: 32,
+  },
 });
+
+/**
+ * VerificationSkeleton - Branded loading state for the verify agreement page
+ */
+export const VerificationSkeleton = () => (
+  <View style={{ flex: 1, backgroundColor: '#f9fafb' }}>
+    <View style={styles.verificationHeader}>
+      <SkeletonPlaceholder>
+        <View style={styles.logoPlaceholder} />
+      </SkeletonPlaceholder>
+      <SkeletonPlaceholder>
+        <View style={styles.statusBadgeSkeleton} />
+      </SkeletonPlaceholder>
+    </View>
+
+    <View style={styles.verificationCard}>
+      <View style={{ gap: 12 }}>
+        <SkeletonPlaceholder>
+          <View style={styles.iconSealPlaceholder} />
+        </SkeletonPlaceholder>
+        <SkeletonPlaceholder>
+          <View style={styles.titlePlaceholder} />
+        </SkeletonPlaceholder>
+      </View>
+
+      <SkeletonPlaceholder>
+        <View style={styles.refBoxSkeleton} />
+      </SkeletonPlaceholder>
+
+      <View style={{ gap: 16 }}>
+        {Array.from({ length: 5 }).map((_, i) => (
+          <View key={i} style={styles.infoRowSkeleton}>
+            <SkeletonPlaceholder>
+              <View style={styles.iconCircleSmall} />
+            </SkeletonPlaceholder>
+            <View style={styles.infoLines}>
+              <SkeletonPlaceholder>
+                <View style={styles.labelSmall} />
+              </SkeletonPlaceholder>
+              <SkeletonPlaceholder>
+                <View style={styles.valueSmall} />
+              </SkeletonPlaceholder>
+            </View>
+          </View>
+        ))}
+      </View>
+    </View>
+
+    <SkeletonPlaceholder>
+      <View style={styles.proofBoxSkeleton} />
+    </SkeletonPlaceholder>
+  </View>
+);
 
 export default {
   BookingFormSkeleton,
@@ -898,4 +1040,5 @@ export default {
   HostDashboardSkeleton,
   HostBookingsSkeleton,
   HostEarningsSkeleton,
+  VerificationSkeleton,
 };

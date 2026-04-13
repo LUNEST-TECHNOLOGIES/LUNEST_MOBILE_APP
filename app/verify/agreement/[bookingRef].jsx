@@ -4,6 +4,8 @@ import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import bookingService from '../../../src/services/bookingService';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../../constants/theme';
+import { VerificationSkeleton } from '../../../src/components/skeletons/ScreenSkeletons';
+import Animated, { FadeIn } from 'react-native-reanimated';
 
 /**
  * Public Agreement Verification Page
@@ -58,12 +60,7 @@ const VerifyAgreementPage = () => {
   );
 
   if (loading) {
-    return (
-      <View className="flex-1 bg-white items-center justify-center">
-        <ActivityIndicator size="large" color="#010135" />
-        <Text className="mt-4 text-slate-500 font-medium">Verifying Agreement...</Text>
-      </View>
-    );
+    return <VerificationSkeleton />;
   }
 
   if (error) {
@@ -88,81 +85,95 @@ const VerifyAgreementPage = () => {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-[#F8FAFC]">
+    <SafeAreaView className="flex-1 bg-gray-50 lg:bg-slate-200">
       <Stack.Screen options={{ 
         title: 'Verify Agreement',
         headerShown: false
       }} />
       
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
-        {/* Header Branding */}
-        <View className="bg-white px-6 pt-12 pb-6 items-center shadow-sm">
-          <Image 
-            source={require('../../../src/assets/images/lunest_logo_main.png')}
-            style={{ width: 140, height: 40, resizeMode: 'contain' }}
-          />
-          <View className="mt-4 flex-row items-center bg-blue-50 px-3 py-1 rounded-full">
-            <Ionicons name="shield-checkmark" size={14} color="#010135" />
-            <Text className="ml-1.5 text-[#010135] font-bold text-[10px] uppercase tracking-tighter">SECURED BY LUNEST</Text>
-          </View>
-        </View>
-
-        {/* Verification Status Card */}
-        <View className="mx-5 -mt-4">
-          <View className="bg-white rounded-3xl p-6 shadow-xl shadow-slate-200 border border-white">
-            <View className="items-center mb-6">
-              <View className="w-16 h-16 bg-green-50 rounded-full items-center justify-center mb-3">
-                <Ionicons name="checkmark-seal" size={32} color="#10b981" />
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 60 }}>
+        <View className="items-center lg:py-10">
+          <View className="w-full lg:max-w-[480px] lg:rounded-[40px] lg:overflow-hidden lg:shadow-2xl lg:bg-white lg:border lg:border-slate-100">
+            {/* Header Branding */}
+            <View className="bg-white px-6 py-8 lg:py-12 items-center shadow-sm lg:rounded-b-[40px]">
+              <Image 
+                source={require('../../../src/assets/images/lunest_logo_main.png')}
+                style={{ width: 140, height: 40, resizeMode: 'contain' }}
+              />
+              <View className="mt-4 flex-row items-center bg-blue-50 px-4 py-1.5 rounded-full">
+                <Ionicons name="shield-checkmark" size={14} color="#010135" />
+                <Text className="ml-2 text-[#010135] font-bold text-[10px] uppercase tracking-widest">SECURED BY LUNEST SHIELD™</Text>
               </View>
-              <Text className="text-2xl font-bold text-slate-900">Verified Agreement</Text>
-              <Text className="text-green-600 font-bold text-xs">Authentic & Legally Binding</Text>
             </View>
 
-            <View className="bg-slate-50 rounded-2xl p-4 mb-6">
-              <Text className="text-[10px] text-slate-400 font-bold uppercase mb-1">Agreement Reference</Text>
-              <Text className="text-lg font-mono font-bold text-slate-800">{data.reference}</Text>
+            {/* Verification Status Card */}
+            <Animated.View 
+              entering={FadeIn.duration(600)}
+              className="px-5 -mt-6"
+            >
+              <View className="bg-white rounded-[40px] p-6 lg:p-10 shadow-xl shadow-slate-200 border border-white">
+                <View className="items-center mb-8">
+                  <View className="w-20 h-20 bg-green-50 rounded-3xl items-center justify-center mb-4 rotate-2">
+                    <Ionicons name="checkmark-seal" size={40} color="#10b981" />
+                  </View>
+                  <Text className="text-3xl font-bold text-slate-900">Verified</Text>
+                  <Text className="text-green-600 font-bold text-xs tracking-wide">Authentic & Legally Binding</Text>
+                </View>
+
+                <View className="bg-slate-50 rounded-2xl p-5 mb-8 border border-slate-100">
+                  <Text className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1.5">Agreement Reference</Text>
+                  <View className="flex-row items-center justify-between">
+                    <Text className="text-xl font-mono font-bold text-slate-800 tracking-tight">{data.reference}</Text>
+                    <Ionicons name="copy-outline" size={16} color="#94a3b8" />
+                  </View>
+                </View>
+
+                <View className="space-y-1">
+                  <InfoRow icon="business" label="Property Title" value={data.property?.title} />
+                  <InfoRow icon="location" label="Location" value={data.property?.location} />
+                  <InfoRow icon="person" label="Host (Landlord)" value={data.participants?.host} />
+                  <InfoRow icon="people" label="Tenant (Guest)" value={data.participants?.tenant} />
+                  <InfoRow icon="calendar" label="Occupation Period" value={`${new Date(data.dates?.checkIn).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })} — ${new Date(data.dates?.checkOut).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`} />
+                  <InfoRow icon="list" label="Document Status" value={data.status} />
+                </View>
+              </View>
+            </Animated.View>
+
+            {/* Technical Proof Footer */}
+            <View className="mx-8 mt-10 p-6 rounded-3xl bg-slate-100/50 border border-dashed border-slate-200">
+              <Text className="text-slate-400 text-[10px] font-bold uppercase mb-4 text-center tracking-widest">Digital Fingerprint & Proof</Text>
+              <View className="space-y-3">
+                <View className="flex-row justify-between">
+                  <Text className="text-slate-500 text-[10px]">Authentication Hash</Text>
+                  <Text className="text-slate-800 text-[10px] font-mono">{data.authentication?.hash}</Text>
+                </View>
+                <View className="flex-row justify-between">
+                  <Text className="text-slate-500 text-[10px]">Issued Date</Text>
+                  <Text className="text-slate-800 text-[10px]">{new Date(data.authentication?.generatedAt).toLocaleString()}</Text>
+                </View>
+                <View className="flex-row justify-between">
+                  <Text className="text-slate-500 text-[10px]">Authority</Text>
+                  <Text className="text-slate-800 text-[10px] font-bold uppercase">{data.authentication?.platform}</Text>
+                </View>
+              </View>
             </View>
 
-            <View className="space-y-1">
-              <InfoRow icon="business" label="Property Title" value={data.property?.title} />
-              <InfoRow icon="location" label="Location" value={data.property?.location} />
-              <InfoRow icon="person" label="Host (Landlord)" value={data.participants?.host} />
-              <InfoRow icon="people" label="Tenant (Guest)" value={data.participants?.tenant} />
-              <InfoRow icon="calendar" label="Occupation Period" value={`${new Date(data.dates?.checkIn).toLocaleDateString()} — ${new Date(data.dates?.checkOut).toLocaleDateString()}`} />
-              <InfoRow icon="list" label="Document Status" value={data.status} />
+            <View className="mx-8 mt-10 mb-8 items-center">
+              <View className="flex-row items-center mb-6 px-4">
+                <Ionicons name="information-circle-outline" size={20} color="#94a3b8" />
+                <Text className="text-slate-400 text-[11px] text-center ml-2 font-medium leading-relaxed">
+                  This secure page confirms that this document corresponds precisely to the LUNEST digital vault record.
+                </Text>
+              </View>
+              
+              <TouchableOpacity 
+                onPress={() => router.replace('/')}
+                className="bg-primary px-10 py-4 rounded-2xl shadow-md"
+              >
+                <Text className="text-white font-bold text-sm tracking-wide">Back to Home</Text>
+              </TouchableOpacity>
             </View>
           </View>
-        </View>
-
-        {/* Technical Proof Footer */}
-        <View className="mx-6 mt-8 p-5 rounded-2xl border border-dashed border-slate-300">
-          <Text className="text-slate-400 text-[10px] font-bold uppercase mb-3 text-center">Digital Fingerprint & Proof</Text>
-          <View className="flex-row justify-between mb-2">
-            <Text className="text-slate-500 text-[9px]">Authentication Hash</Text>
-            <Text className="text-slate-800 text-[9px] font-mono">{data.authentication?.hash}</Text>
-          </View>
-          <View className="flex-row justify-between mb-2">
-            <Text className="text-slate-500 text-[9px]">Issued Date</Text>
-            <Text className="text-slate-800 text-[9px]">{new Date(data.authentication?.generatedAt).toLocaleString()}</Text>
-          </View>
-          <View className="flex-row justify-between">
-            <Text className="text-slate-500 text-[9px]">Authority</Text>
-            <Text className="text-slate-800 text-[9px] font-bold">{data.authentication?.platform}</Text>
-          </View>
-        </View>
-
-        <View className="mx-6 mt-12 mb-8 bg-slate-100 rounded-3xl p-8 items-center border border-slate-200">
-          <Ionicons name="information-circle-outline" size={24} color="#64748b" />
-          <Text className="text-slate-600 text-[11px] text-center mt-3 font-medium leading-relaxed">
-            This verification page serves as proof that the physical document scanned corresponds precisely to the digital record stored in the LUNEST vault. Sensitive details have been masked for privacy.
-          </Text>
-          
-          <TouchableOpacity 
-            onPress={() => router.replace('/')}
-            className="mt-8 border border-slate-300 px-6 py-2 rounded-full"
-          >
-            <Text className="text-slate-600 font-bold text-xs uppercase">Dismiss</Text>
-          </TouchableOpacity>
         </View>
       </ScrollView>
     </SafeAreaView>

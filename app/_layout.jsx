@@ -1,22 +1,23 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import WebContainer from "../src/components/common/WebContainer";
-import { Stack, useRouter, useSegments, useRootNavigationState } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { QueryClientProvider } from "@tanstack/react-query";
 import * as Font from "expo-font";
+import { Stack, useRootNavigationState, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Alert, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import "../global.css";
+import ToastNotification, { TOAST_TYPE } from "../src/components/common/ToastNotification";
+import WebContainer from "../src/components/common/WebContainer";
+import { ModeSwitchingOverlay } from "../src/components/shared";
 import { AccountStatusProvider, UserModeProvider, useUserMode } from "../src/context";
 import { useReferralTracker } from "../src/hooks/useReferralTracker";
+import { queryClient } from "../src/lib/queryClient";
 import apiClient from "../src/services/apiClient";
 import authService from "../src/services/authService";
 import notificationService from "../src/services/notificationService";
-import { QueryClientProvider } from "@tanstack/react-query";
-import { queryClient } from "../src/lib/queryClient";
-import ToastNotification, { TOAST_TYPE } from "../src/components/common/ToastNotification";
-import { ModeSwitchingOverlay } from "../src/components/shared";
 
 // Verify env is loaded
 console.log("[App] Environment Check:");

@@ -14,8 +14,7 @@ import PropertyCard from "../PropertyCard";
 import { HorizontalPropertySkeleton } from "../skeletons";
 import SectionHeader from "./SectionHeader";
 
-// Local property image
-const propImage = require("../../assets/images/prop_image.png");
+
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const CAROUSEL_CARD_WIDTH = 170; // Reduced width for a more compact carousel feel

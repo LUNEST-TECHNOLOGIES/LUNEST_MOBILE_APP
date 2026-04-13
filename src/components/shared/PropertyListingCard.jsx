@@ -43,9 +43,9 @@ const IMAGE_HEIGHT = 346;
 const PropertyListingCard = ({
   id,
   images = [],
-  title = "Spacious 3-Bedroom Duplex",
-  location = "Ikeja, GRA.",
-  price = 1200000,
+  title = "",
+  location = "",
+  price = 0,
   currency = "₦",
   pricingPeriod = "night",
   securityDeposit = 0,
@@ -55,7 +55,7 @@ const PropertyListingCard = ({
   isAvailable = true,
   isFavorite = false,
   status = "AVAILABLE", // Add status prop
-  amenities = ["1 Bedroom", "Free Wifi", "Private Balcony"],
+  amenities = [],
   bedrooms = 0,
   bathrooms = 0,
   onPress,

@@ -4,44 +4,7 @@ import PropertyListingCard from "./PropertyListingCard";
 import SectionHeader from "./SectionHeader";
 
 // Sample data for demonstration
-const SAMPLE_PROPERTIES = [
-  {
-    id: "1",
-    images: [require("../assets/images/prop_image.png")],
-    title: "Spacious 3-Bedroom Duplex",
-    location: "Ikeja, Lagos",
-    price: 1200000,
-    rating: 5.0,
-    isVerified: true,
-    isAvailable: true,
-    isFavorite: false,
-    amenities: ["1 Bedroom", "Free Wifi", "Private Balcony"],
-  },
-  {
-    id: "2",
-    images: [require("../assets/images/prop_image.png")],
-    title: "Modern Apartment",
-    location: "Lekki Phase 1, Lagos",
-    price: 950000,
-    rating: 4.8,
-    isVerified: true,
-    isAvailable: true,
-    isFavorite: true,
-    amenities: ["2 Bedroom", "Pool", "Gym"],
-  },
-  {
-    id: "3",
-    images: [require("../assets/images/prop_image.png")],
-    title: "Luxury Villa",
-    location: "Maitama, Abuja",
-    price: 2500000,
-    rating: null, // Unrated property
-    isVerified: true,
-    isAvailable: false,
-    isFavorite: false,
-    amenities: ["4 Bedroom", "Garden", "Garage"],
-  },
-];
+const SAMPLE_PROPERTIES = [];
 
 const ExploreNowSection = ({
   properties = SAMPLE_PROPERTIES,

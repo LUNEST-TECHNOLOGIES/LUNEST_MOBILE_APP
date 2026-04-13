@@ -273,7 +273,7 @@ const AddFundsScreen = () => {
         // PERSIST CONTEXT
         const context = {
           type: "WALLET_FUNDING",
-          returnUrl: params.returnUrl,
+          returnUrl: params.returnUrl || "/pay-with-wallet", // Fallback to pay-with-wallet if coming from booking flow
           params: { ...params, status: null, reference: null },
         };
 

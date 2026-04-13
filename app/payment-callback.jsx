@@ -214,7 +214,13 @@ export default function PaymentCallbackScreen() {
           const amountDisplay = params.amount ? `₦${params.amount}` : "Funds";
           notificationService.show(`${amountDisplay} added to your wallet successfully`, TOAST_TYPE.SUCCESS);
           
-          navigateAfterDelay(DEFAULT_PROFILE_ROUTE, 3000);
+          const fallbackUrl = params.returnUrl || DEFAULT_PROFILE_ROUTE;
+          const fallbackParams = { ...params };
+          delete fallbackParams.status;
+          delete fallbackParams.reference;
+          delete fallbackParams.trxref;
+
+          navigateAfterDelay(fallbackUrl, 3000, fallbackParams);
           return;
         }
 

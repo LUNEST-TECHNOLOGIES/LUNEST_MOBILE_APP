@@ -736,6 +736,20 @@ class BookingService {
   }
 
   /**
+   * Alias for fetchRentalAgreement (used by Host side)
+   */
+  async fetchHostAgreement(bookingId) {
+    return this.fetchRentalAgreement(bookingId);
+  }
+
+  /**
+   * Alias for fetchRentalAgreement (used by Guest side)
+   */
+  async fetchUserAgreement(bookingId) {
+    return this.fetchRentalAgreement(bookingId);
+  }
+
+  /**
    * Fetch receipt URL for a booking
    * @param {string} bookingId
    * @returns {Promise<Object>} { success, url }

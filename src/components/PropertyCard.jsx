@@ -38,9 +38,9 @@ const CARD_HEIGHT = 180;
 const PropertyCard = ({
   id,
   image,
-  title = "Cozy Apartment",
-  location = "Abuja, Nigeria",
-  price = 45000,
+  title = "",
+  location = "",
+  price = 0,
   currency = "₦",
   rating = null, // Default to null for unrated properties
   isFavorite = false,

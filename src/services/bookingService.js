@@ -990,8 +990,8 @@ class BookingService {
     if (!bookingRef) return { success: false, message: "Reference code required" };
 
     try {
-      // Backend route: /api/v1/booking/verify-agreement/:bookingRef
-      const response = await apiClient.get(`/v1/booking/verify-agreement/${bookingRef}`, { silent: true });
+      // Backend route: /api/v1/bookings/verify-agreement/:bookingRef
+      const response = await apiClient.get(`/v1/bookings/verify-agreement/${bookingRef}`, { silent: true });
       const data = (response && response.body) || (response && response.data) || response;
       
       return {

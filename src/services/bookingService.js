@@ -965,6 +965,33 @@ class BookingService {
       };
     }
   }
+  /**
+   * Publicly verify a rental agreement via reference code
+   * Requires no authentication - used by QR code scanned from PDFs
+   * @param {string} bookingRef - The reference code of the booking
+   * @returns {Promise<Object>} Verification details
+   */
+  async verifyPublicAgreement(bookingRef) {
+    console.log("🛡️ [BookingService] Publicly verifying agreement:", bookingRef);
+    if (!bookingRef) return { success: false, message: "Reference code required" };
+
+    try {
+      // Backend route: /api/v1/booking/verify-agreement/:bookingRef
+      const response = await apiClient.get(`/v1/booking/verify-agreement/${bookingRef}`, { silent: true });
+      const data = (response && response.body) || (response && response.data) || response;
+      
+      return {
+        success: true,
+        data: data
+      };
+    } catch (error) {
+      console.error("❌ [BookingService] Verification error:", error);
+      return {
+        success: false,
+        message: error.message || "Invalid or expired agreement reference."
+      };
+    }
+  }
 }
 
 const bookingService = new BookingService();

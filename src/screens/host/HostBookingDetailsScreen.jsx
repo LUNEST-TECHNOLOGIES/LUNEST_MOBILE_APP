@@ -616,6 +616,7 @@ const HostBookingDetailsScreen = () => {
         const dataUrl = await toPng(viewRef.current, {
           backgroundColor: "#FFFFFF",
           cacheBust: true,
+          includeQueryParams: true,
           pixelRatio: 2,
         });
         await saveRefAsImage(dataUrl, `Booking_Summary_${bookingRefCode}.png`);
@@ -870,6 +871,7 @@ const HostBookingDetailsScreen = () => {
               style={styles.propertyImage}
               resizeMode="cover"
               fadeDuration={0}
+              {...(Platform.OS === 'web' && { crossOrigin: "anonymous" })}
             />
             <View style={styles.propertyInfo}>
               <Text style={styles.propertyName}>{propertyName}</Text>

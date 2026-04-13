@@ -1570,6 +1570,7 @@ const BookingConfirmationScreen = () => {
                           style={styles.reviewImageThumb}
                           contentFit="cover"
                           cachePolicy="disk"
+                          {...(Platform.OS === 'web' && { crossOrigin: "anonymous" })}
                         />
                       ))}
                     </ScrollView>

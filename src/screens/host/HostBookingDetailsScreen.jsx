@@ -372,20 +372,14 @@ const HostBookingDetailsScreen = () => {
     const raw =
       bookedBy?.phoneNumber || bookedBy?.phone || params.guestPhone || "";
     if (!raw || raw === "-") return "-";
+    
     // For confirmed and ongoing bookings, show the full number
     if (status === "CONFIRMED" || status === "ONGOING") return raw;
-    // For completed bookings, mask the phone
-    if (status === "COMPLETED") {
-      if (raw.length > 7) {
-        return `${raw.slice(0, 4)}${"•".repeat(raw.length - 7)}${raw.slice(-3)}`;
-      }
-      return raw;
-    }
-    // For other statuses, mask by default
-    if (raw.length > 7) {
-      return `${raw.slice(0, 4)}${"•".repeat(raw.length - 7)}${raw.slice(-3)}`;
-    }
-    return raw;
+    
+    // Otherwise, mask it (per user request)
+    return raw.length > 7
+      ? `${raw.slice(0, 4)}••••••${raw.slice(-3)}`
+      : "•••••••••••";
   })();
 
   const guestEmail = (() => {
@@ -428,13 +422,18 @@ const HostBookingDetailsScreen = () => {
   const handleContactGuest = () => {
     if (
       (status === "CONFIRMED" || status === "ONGOING") &&
-      guestPhone !== "-"
+      guestPhone !== "-" && guestPhone !== "Hidden until confirmed"
     ) {
-      Linking.openURL(`tel:${guestPhone.replace(/\s/g, "")}`);
+      const telUrl = `tel:${guestPhone.replace(/\s/g, "")}`;
+      if (Platform.OS === 'web') {
+        window.open(telUrl, '_self');
+      } else {
+        Linking.openURL(telUrl);
+      }
     } else {
       Alert.alert(
         "Contact Guest",
-        "Messaging feature is coming soon. Phone contact is available for confirmed bookings.",
+        "Phone contact is available only for confirmed bookings.",
       );
     }
   };

@@ -271,14 +271,9 @@ const BookingCard = ({
 
           {/* Confirmed - Message + Cancel options */}
           {isConfirmed && (
-            <View style={styles.pendingActions}>
-              <TouchableOpacity style={styles.messageButton} onPress={() => onMessage(guestData)}>
-                <ChatIcon width={14} height={17} />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.declineButton} onPress={onCancel}>
-                <CloseIcon size={16} color="#F16363" />
-              </TouchableOpacity>
-            </View>
+             <TouchableOpacity style={styles.messageButton} onPress={() => onMessage(guestData)}>
+               <ChatIcon width={14} height={17} />
+             </TouchableOpacity>
           )}
 
           {/* Ongoing - Message option */}

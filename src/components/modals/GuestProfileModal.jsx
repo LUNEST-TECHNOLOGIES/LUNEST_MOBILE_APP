@@ -68,12 +68,16 @@ const GuestProfileModal = ({
   const {
     name = "Guest Name",
     email = "guest•••••••••@email.com",
-    phone = "+234800••••••0",
+    phoneNumber = "",
+    phone = "", // Legacy field
     rating: initialRating = null,
     isVerified: initialIsVerified = true,
     avatar: initialAvatar = null,
     status = "PENDING", // booking status passed in guest prop
   } = guest;
+
+  const actualPhone = phoneNumber || phone || "";
+  const actualEmail = email || "";
 
   const [avatar, setAvatar] = useState(initialAvatar);
   const [rating, setRating] = useState(initialRating);
@@ -153,26 +157,34 @@ const GuestProfileModal = ({
       ? `${email.substring(0, 4)}•••••••••@${email.split("@")[1]}`
       : email;
 
-  // Show full phone if status is CONFIRMED, COMPLETED, or ONGOING
-  const showFullPhone = ["CONFIRMED", "COMPLETED", "ONGOING"].includes(
+  // Show full phone if status is CONFIRMED or ONGOING (as per instructions)
+  const showFullPhone = ["CONFIRMED", "ONGOING"].includes(
     status?.toUpperCase?.(),
   );
+
+  // Status-based formatting
   const displayPhone = showFullPhone
-    ? phone
-    : phone.length > 6
-      ? `${phone.substring(0, 7)}••••••${phone.slice(-1)}`
-      : phone;
+    ? actualPhone || "No phone provided"
+    : actualPhone.length > 7
+      ? `${actualPhone.substring(0, 4)}••••••${actualPhone.slice(-3)}`
+      : "•••••••••••";
+
+  const displayEmail = showFullPhone
+    ? actualEmail
+    : "•••••••••@email.com";
 
   // Handle phone click - initiate call
   const handlePhonePress = async () => {
-    if (showFullPhone && phone) {
+    if (showFullPhone && actualPhone) {
       try {
-        // Format phone number for dial intent
-        const phoneNumber = phone.replace(/\D/g, ""); // Remove non-digits
-        await Linking.openURL(`tel:${phoneNumber}`);
+        const telUrl = `tel:${actualPhone.replace(/\s+/g, '')}`;
+        if (Platform.OS === 'web') {
+           window.open(telUrl, '_self');
+        } else {
+           await Linking.openURL(telUrl);
+        }
       } catch (error) {
         console.log("Error initiating call:", error);
-        alert("Unable to initiate call. Please check your phone settings.");
       }
     }
   };
@@ -247,7 +259,7 @@ const GuestProfileModal = ({
                     {/* Name, Email, Phone */}
                     <View style={styles.contactInfo}>
                       <Text style={styles.guestName}>{name}</Text>
-                      <Text style={styles.contactText}>{maskedEmail}</Text>
+                      <Text style={styles.contactText}>{displayEmail}</Text>
                       {showFullPhone ? (
                         <TouchableOpacity onPress={handlePhonePress}>
                           <Text style={[styles.contactText, { color: "#6371F1", textDecorationLine: "underline" }]}>

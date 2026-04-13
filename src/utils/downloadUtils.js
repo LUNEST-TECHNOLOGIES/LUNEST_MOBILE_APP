@@ -22,16 +22,35 @@ export const downloadFile = async (url, filename, mimeType = "application/pdf") 
   try {
     // 1. WEB SUPPORT
     if (Platform.OS === "web") {
-      // In web, we can use a direct anchor download or window.open
-      // Better to use an anchor for forced download naming
-      const link = document.createElement('a');
-      link.href = absoluteUrl;
-      link.download = filename;
-      link.target = '_blank';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      return { success: true, platform: 'web' };
+      // In web, fetch the file as a Blob then download to improve Safari compatibility
+      try {
+        const response = await fetch(absoluteUrl);
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const blob = await response.blob();
+        
+        const blobUrl = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Clean up the object URL after a short delay
+        setTimeout(() => window.URL.revokeObjectURL(blobUrl), 100);
+        return { success: true, platform: 'web' };
+      } catch (fetchError) {
+        console.warn("[DownloadUtils] Blob fetch failed, falling back to direct link:", fetchError);
+        // Fallback to direct link if fetch fails (e.g., CORS)
+        const link = document.createElement('a');
+        link.href = absoluteUrl;
+        link.download = filename;
+        link.target = '_blank';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        return { success: true, platform: 'web', method: 'fallback' };
+      }
     }
 
     // 2. IOS SUPPORT (Share Sheet is best)

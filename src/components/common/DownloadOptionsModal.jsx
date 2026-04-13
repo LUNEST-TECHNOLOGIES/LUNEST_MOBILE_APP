@@ -7,7 +7,8 @@ const DownloadOptionsModal = ({
   onSaveImage, 
   onDownloadReceipt, 
   onDownloadAgreement,
-  loading = false
+  loading = false,
+  showAgreement = true
 }) => {
   if (!visible) return null;
 
@@ -66,23 +67,25 @@ const DownloadOptionsModal = ({
             </TouchableOpacity>
 
              {/* Download Agreement */}
-             <TouchableOpacity 
-              style={[styles.optionButton, styles.secondaryButton, loading && { opacity: 0.7 }]} 
-              onPress={() => {
-                onClose();
-                setTimeout(() => onDownloadAgreement && onDownloadAgreement(), 500);
-              }}
-              disabled={loading}
-            >
-              {loading ? (
-                <ActivityIndicator size="small" color="#010135" />
-              ) : (
-                <>
-                  <Ionicons name="reader-outline" size={20} color="#010135" />
-                  <Text style={styles.secondaryButtonText}>Rental Agreement</Text>
-                </>
-              )}
-            </TouchableOpacity>
+             {showAgreement && (
+               <TouchableOpacity 
+                style={[styles.optionButton, styles.secondaryButton, loading && { opacity: 0.7 }]} 
+                onPress={() => {
+                  onClose();
+                  setTimeout(() => onDownloadAgreement && onDownloadAgreement(), 500);
+                }}
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator size="small" color="#010135" />
+                ) : (
+                  <>
+                    <Ionicons name="reader-outline" size={20} color="#010135" />
+                    <Text style={styles.secondaryButtonText}>Rental Agreement</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       </Pressable>

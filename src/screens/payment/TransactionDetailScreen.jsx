@@ -678,6 +678,7 @@ const TransactionDetailScreen = () => {
         onSaveImage={handleSaveImage}
         onDownloadReceipt={handleDownloadPDF}
         loading={isDownloading}
+        showAgreement={false}
       />
 
       <DownloadConfirmationModal

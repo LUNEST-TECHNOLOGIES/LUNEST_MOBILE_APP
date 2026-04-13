@@ -33,7 +33,8 @@ import {
 import { captureRef } from "react-native-view-shot";
 import ArrowLeftIcon from "../../assets/icons/bookings/arrow-left.svg";
 import DownloadIcon from "../../assets/icons/bookings/download.svg";
-import DownloadOptionsModal from "../../components/common/DownloadOptionsModal"; // New Import
+import DownloadOptionsModal from "../../components/common/DownloadOptionsModal";
+import DownloadConfirmationModal from "../../components/common/DownloadConfirmationModal";
 import ToastNotification, {
     TOAST_TYPE,
 } from "../../components/common/ToastNotification";
@@ -97,7 +98,13 @@ const HostBookingDetailsScreen = () => {
   const [isCancelling, setIsCancelling] = useState(false);
   const [resolvedImageUri, setResolvedImageUri] = useState(null);
   const [isDownloading, setIsDownloading] = useState(false);
-  const [showDownloadOptions, setShowDownloadOptions] = useState(false); // New State
+  const [showDownloadOptions, setShowDownloadOptions] = useState(false);
+  const [downloadModalState, setDownloadModalState] = useState({
+    visible: false,
+    type: 'loading',
+    title: 'Downloading...',
+    message: 'Please wait while we prepare your document.'
+  });
   // Review state
   const [reviewRating, setReviewRating] = useState(0);
   const [showReviewModal, setShowReviewModal] = useState(false);
@@ -560,16 +567,33 @@ const HostBookingDetailsScreen = () => {
 
   const handleDownloadReceipt = async () => {
     setIsDownloading(true);
+    setDownloadModalState({
+      visible: true,
+      type: 'loading',
+      title: 'Downloading Receipt...',
+      message: 'Generating your receipt PDF.'
+    });
     try {
       const result = await bookingService.fetchReceipt(bookingId);
       if (result.success && result.url) {
         await downloadFile(result.url, `Receipt_${bookingRefCode}.pdf`, "application/pdf");
+        setDownloadModalState({
+          ...downloadModalState,
+          type: 'success',
+          title: 'Download Complete',
+          message: 'The receipt has been downloaded successfully.'
+        });
       } else {
         throw new Error(result.message || "Failed to fetch receipt from server");
       }
     } catch (e) {
-      console.error("[Download] Receipt error:", e);
-      Alert.alert("Error", "Failed to download receipt: " + e.message);
+      console.warn("Receipt download error:", e);
+      setDownloadModalState({
+        ...downloadModalState,
+        type: 'error',
+        title: 'Download Failed',
+        message: e.message || "An error occurred while downloading the receipt."
+      });
     } finally {
       setIsDownloading(false);
       setShowDownloadOptions(false);
@@ -587,16 +611,33 @@ const HostBookingDetailsScreen = () => {
     }
 
     setIsDownloading(true);
+    setDownloadModalState({
+      visible: true,
+      type: 'loading',
+      title: 'Downloading Agreement...',
+      message: 'Generating your rental agreement PDF.'
+    });
     try {
-      const result = await bookingService.fetchRentalAgreement(bookingId);
+      const result = await bookingService.fetchHostAgreement(bookingId);
       if (result.success && result.url) {
-        await downloadFile(result.url, `Agreement_${bookingRefCode}.pdf`, "application/pdf");
+        await downloadFile(result.url, `Host_Agreement_${bookingRefCode}.pdf`, "application/pdf");
+        setDownloadModalState({
+          ...downloadModalState,
+          type: 'success',
+          title: 'Download Complete',
+          message: 'The agreement has been downloaded successfully.'
+        });
       } else {
         throw new Error(result.message || "Failed to fetch agreement from server");
       }
     } catch (e) {
-      console.error("[Download] Agreement error:", e);
-      Alert.alert("Error", "Failed to fetch agreement: " + e.message);
+      console.warn("Agreement download error:", e);
+      setDownloadModalState({
+        ...downloadModalState,
+        type: 'error',
+        title: 'Download Failed',
+        message: e.message || "An error occurred while downloading the agreement."
+      });
     } finally {
       setIsDownloading(false);
       setShowDownloadOptions(false);
@@ -1324,7 +1365,6 @@ const HostBookingDetailsScreen = () => {
         onToastHide={() => setToastVisible(false)}
       />
 
-      {/* Download Options Modal */}
       <DownloadOptionsModal
         visible={showDownloadOptions}
         onClose={() => setShowDownloadOptions(false)}
@@ -1333,15 +1373,22 @@ const HostBookingDetailsScreen = () => {
         onDownloadAgreement={handleDownloadAgreement}
         loading={isDownloading}
       />
+
+      <DownloadConfirmationModal
+        visible={downloadModalState.visible}
+        onClose={() => setDownloadModalState(prev => ({ ...prev, visible: false }))}
+        title={downloadModalState.title}
+        message={downloadModalState.message}
+        type={downloadModalState.type}
+      />
+
       {/* Toast Notification */}
-      {!showReviewModal && (
-        <ToastNotification
-          visible={toastVisible}
-          type={toastConfig.type}
-          message={toastConfig.message}
-          onHide={() => setToastVisible(false)}
-        />
-      )}
+      <ToastNotification
+        visible={toastVisible}
+        type={toastConfig.type}
+        message={toastConfig.message}
+        onHide={() => setToastVisible(false)}
+      />
 
       {/* ── Caution Fee Dispute Modal ── */}
       <CautionDisputeModal

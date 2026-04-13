@@ -736,7 +736,7 @@ const PropertyDetailsScreen = () => {
       isPaused: listing.status === "PAUSED",
       isUnavailable: listing.status === "BOOKED" || listing.status === "PAUSED",
       status: listing.status,
-      bookingExpiryDate: listing.bookingExpiryDate,
+      bookedUntil: listing.bookedUntil || listing.bookingExpiryDate,
       price: formatCurrency(listing.propertyPrice?.amount || listing.propertyPrice?.price || listing.price || 0),
       priceType: `per ${listing.pricingPeriod || "night"}`,
       rentalType: (() => {
@@ -1665,8 +1665,8 @@ const PropertyDetailsScreen = () => {
                 ]}
               >
                 {propertyData.status === "BOOKED" &&
-                propertyData.bookingExpiryDate
-                  ? `Booked till ${new Date(propertyData.bookingExpiryDate).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" })}`
+                propertyData.bookedUntil
+                  ? `Currently booked till ${new Date(propertyData.bookedUntil).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" })}`
                   : propertyData.status === "BOOKED"
                     ? "Currently Booked"
                     : propertyData.isPaused

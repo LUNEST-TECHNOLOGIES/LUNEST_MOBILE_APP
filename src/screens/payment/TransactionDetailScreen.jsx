@@ -170,12 +170,10 @@ const TransactionDetailScreen = () => {
           const dataUrl = await toPng(viewShotRef.current, {
             backgroundColor: "#FFFFFF",
             cacheBust: true,
+            pixelRatio: 2,
           });
 
-          const link = document.createElement("a");
-          link.download = `Receipt-${transactionData.transactionId}.png`;
-          link.href = dataUrl;
-          link.click();
+          await saveRefAsImage(dataUrl, `Receipt-${transactionData.transactionId}.png`);
           
           setConfirmationMessage("Receipt image downloaded successfully.");
           setConfirmationVisible(true);

@@ -611,6 +611,17 @@ const HostBookingDetailsScreen = () => {
     }
     setIsDownloading(true);
     try {
+      if (Platform.OS === 'web') {
+        const { toPng } = require('html-to-image');
+        const dataUrl = await toPng(viewRef.current, {
+          backgroundColor: "#FFFFFF",
+          cacheBust: true,
+          pixelRatio: 2,
+        });
+        await saveRefAsImage(dataUrl, `Booking_Summary_${bookingRefCode}.png`);
+        return;
+      }
+
       const uri = await captureRef(viewRef, {
         format: "png",
         quality: 1,

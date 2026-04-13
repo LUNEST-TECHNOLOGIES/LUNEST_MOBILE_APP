@@ -616,13 +616,15 @@ const BookingConfirmationScreen = () => {
     if (Platform.OS === 'web') {
       try {
         setIsCapturing(true);
-        const dataUrl = await captureRef(viewRef, {
-          format: 'png',
-          quality: 1,
-          result: 'data-uri'
-        });
+        const { toPng } = require('html-to-image');
         
-        if (dataUrl) {
+        if (viewRef.current) {
+          const dataUrl = await toPng(viewRef.current, {
+            backgroundColor: "#FFFFFF",
+            cacheBust: true,
+            pixelRatio: 2,
+          });
+          
           await saveRefAsImage(dataUrl, `Lunest-Booking-${refCode}.png`);
         } else {
           throw new Error("Capture reference not found");

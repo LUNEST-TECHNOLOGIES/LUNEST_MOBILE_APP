@@ -1,11 +1,10 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, ActivityIndicator, Image, TouchableOpacity, SafeAreaView, Platform } from 'react-native';
-import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
-import bookingService from '../../../src/services/bookingService';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../../../constants/theme';
-import { VerificationSkeleton } from '../../../src/components/skeletons/ScreenSkeletons';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { Image, SafeAreaView, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
+import { VerificationSkeleton } from '../../../src/components/skeletons/ScreenSkeletons';
+import bookingService from '../../../src/services/bookingService';
 
 /**
  * Public Agreement Verification Page
@@ -85,15 +84,18 @@ const VerifyAgreementPage = () => {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50 lg:bg-slate-200">
+    <SafeAreaView className="flex-1 bg-gray-50 lg:bg-slate-200" edges={['top', 'left', 'right']}>
       <Stack.Screen options={{ 
         title: 'Verify Agreement',
         headerShown: false
       }} />
       
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 60 }}>
-        <View className="items-center lg:py-10">
-          <View className="w-full lg:max-w-[480px] lg:rounded-[40px] lg:overflow-hidden lg:shadow-2xl lg:bg-white lg:border lg:border-slate-100">
+      <ScrollView 
+        showsVerticalScrollIndicator={true}
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: 40 }}
+        style={{ flex: 1 }}
+      >
+        <View className="items-center lg:py-10 min-h-full">
             {/* Header Branding */}
             <View className="bg-white px-6 py-8 lg:py-12 items-center shadow-sm lg:rounded-b-[40px]">
               <Image 
@@ -113,8 +115,8 @@ const VerifyAgreementPage = () => {
             >
               <View className="bg-white rounded-[40px] p-6 lg:p-10 shadow-xl shadow-slate-200 border border-white">
                 <View className="items-center mb-8">
-                  <View className="w-20 h-20 bg-green-50 rounded-3xl items-center justify-center mb-4 rotate-2">
-                    <Ionicons name="checkmark-seal" size={40} color="#10b981" />
+                  <View className="w-20 h-20 bg-green-50 rounded-3xl items-center justify-center mb-4">
+                    <Ionicons name="checkmark-circle" size={48} color="#10b981" />
                   </View>
                   <Text className="text-3xl font-bold text-slate-900">Verified</Text>
                   <Text className="text-green-600 font-bold text-xs tracking-wide">Authentic & Legally Binding</Text>

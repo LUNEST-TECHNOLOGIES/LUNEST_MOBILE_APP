@@ -3,23 +3,24 @@
  * Enter property address and location
  */
 
-import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import debounce from "lodash.debounce";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Alert,
-  Keyboard,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableWithoutFeedback,
-  View
+    ActivityIndicator,
+    Alert,
+    Keyboard,
+    KeyboardAvoidingView,
+    Modal,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableWithoutFeedback,
+    View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
@@ -30,7 +31,6 @@ import { APP_CONFIG } from "../../src/config/appConfig";
 import { useDraftListing } from "../../src/hooks/useDraftListing";
 import draftListingService from "../../src/services/draftListingService";
 import locationService from "../../src/services/locationService";
-import { ActivityIndicator } from "react-native";
 
 // Close X Icon - with explicit dimensions for web
 const CloseIcon = ({ size = 24, color = "#000000" }) => (
@@ -335,9 +335,43 @@ const Location = () => {
         const lat = location.coords.latitude;
         const lon = location.coords.longitude;
         
-        // Construct a clean street address
+        // Construct a clean, short street address
+        // Priority: streetNumber + street > subLocality + street > street > name (if short) > formatted (truncated)
+        let finalAddress = "";
+        
         const streetPart = [addr.streetNumber, addr.street].filter(Boolean).join(" ");
-        const finalAddress = streetPart || addr.name || addr.fullAddress;
+        const neighborhoodPart = addr.subLocality || addr.locality || addr.district || "";
+        
+        if (streetPart) {
+          // Best case: we have street number and name
+          finalAddress = streetPart;
+        } else if (neighborhoodPart && addr.street) {
+          // Fallback: neighborhood + street (e.g., "Downtown Main Street")
+          finalAddress = `${neighborhoodPart} ${addr.street}`.trim();
+        } else if (addr.street) {
+          // Fallback: just street name
+          finalAddress = addr.street;
+        } else if (addr.name && addr.name.length < 40 && !addr.name.includes(",")) {
+          // Use name only if it's short and simple (not a full address with commas)
+          finalAddress = addr.name;
+        } else if (addr.formatted && addr.formatted.length < 50) {
+          // Last resort: truncated formatted address
+          finalAddress = addr.formatted.split(",").slice(0, 2).join(", ");
+        } else {
+          // Absolute fallback: build from city/region
+          finalAddress = addr.city || addr.region || "Unknown Location";
+        }
+        
+        // Clean up and limit length
+        finalAddress = finalAddress
+          .replace(/\s+/g, " ")  // Remove extra spaces
+          .replace(/,\s*,/g, ",") // Remove double commas
+          .trim();
+        
+        // Hard limit of 80 characters for display
+        if (finalAddress.length > 80) {
+          finalAddress = finalAddress.substring(0, 77) + "...";
+        }
         
         setAddress(finalAddress);
         setCity(addr.city || city);
@@ -585,13 +619,32 @@ const Location = () => {
                 </Text>
               </Pressable>
 
-              {/* Address Input - Unified Search Only */}
+              {/* Address Input - Search with Manual Edit */}
               <View style={{ marginBottom: 20 }}>
                 <Text style={styles.inputLabel}>Property Address *</Text>
+                
+                {/* Manual Address Edit */}
+                <TextInput
+                  style={[styles.textInput, { marginBottom: 12 }]}
+                  placeholder="Enter address manually or use search below..."
+                  placeholderTextColor="#999999"
+                  value={address}
+                  onChangeText={(text) => {
+                    setAddress(text);
+                    updateLocation({ address: text });
+                  }}
+                  multiline={true}
+                  numberOfLines={2}
+                />
+                
+                <Text style={[styles.inputLabel, { fontSize: 12, color: '#64748b', marginBottom: 8 }]}>
+                  Or search using Google Places:
+                </Text>
+                
                 <View style={styles.addressSearchContainer}>
                   <GooglePlacesAutocomplete
                     ref={googlePlacesRef}
-                    placeholder="Start typing your address..."
+                    placeholder="Search for your address..."
                     fetchDetails={true}
                     onPress={(data, details = null) => {
                     if (details) {

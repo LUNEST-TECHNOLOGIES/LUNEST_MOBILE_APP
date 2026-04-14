@@ -150,6 +150,8 @@ export default function RootLayout() {
       // Initialize auth service with dynamic backend URL
       await authService.initialize();
 
+      // Initialize web notifications (for web platform)
+      await notificationService.initializeWebNotifications();
 
       // Check onboarding status
       const onboardingValue = await AsyncStorage.getItem(ONBOARDING_KEY);

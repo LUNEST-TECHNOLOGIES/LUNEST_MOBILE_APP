@@ -8,15 +8,15 @@ import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  Image,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
+    ActivityIndicator,
+    Alert,
+    Image,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
@@ -26,7 +26,6 @@ import configService from "../../src/services/configService";
 import draftListingService from "../../src/services/draftListingService";
 import imageCompressionService from "../../src/services/imageCompressionService";
 import listingService from "../../src/services/listingService";
-import * as ImageUtils from "../../src/utils/imageUtils";
 
 // Fallback for ActivityIndicator if needed (React 19 / RN 0.81 compatibility)
 const RNActivityIndicator = ActivityIndicator;
@@ -188,22 +187,26 @@ const Photos = () => {
         console.log('📸 [Photos] No photos found in draft or params');
       }
 
-      const resolvedPhotos = await Promise.all(
-        (loadedPhotos || []).map(async (p) => {
-          let uri = null;
-          if (typeof p === "string") uri = p;
-          else if (typeof p === "object" && p !== null) uri = p.url || p.uri;
-
-          if (uri) {
-            return await ImageUtils.resolveImageUrl(uri);
-          }
-          return null;
-        })
-      );
+      // Filter and validate photos - only keep S3 URLs, discard local paths
+      const validPhotos = loadedPhotos.filter(p => {
+        const uri = typeof p === "string" ? p : (p?.url || p?.uri);
+        if (!uri) return false;
+        
+        // Accept: Full HTTP(S) URLs (S3), data URLs (web)
+        // Reject: Local file paths that won't persist
+        const isValidUrl = uri.startsWith('http') || uri.startsWith('data:');
+        const isLocalPath = uri.includes('file://') || uri.includes('documentDirectory') || uri.includes('cache');
+        
+        if (isLocalPath) {
+          console.warn('⚠️ [Photos] Discarding local path (will not persist):', uri.substring(0, 50));
+          return false;
+        }
+        
+        return isValidUrl;
+      });
       
-      const finalPhotos = resolvedPhotos.filter(Boolean);
-      console.log('📝 [Photos] Setting photos state:', finalPhotos.length);
-      setPhotos(finalPhotos);
+      console.log(`📝 [Photos] Valid S3 URLs: ${validPhotos.length}/${loadedPhotos.length}`);
+      setPhotos(validPhotos);
 
       let loadedVideos = [];
       if (draftData?.propertyVideos || draftData?.video) {
@@ -381,39 +384,64 @@ const Photos = () => {
               finalUri = permanentUri;
             }
 
-            // Inline backend upload for immediate URL persistence
-            try {
-              console.log(
-                "📸 [Photos] Automatically uploading image to server...",
-              );
-              const uploadImgRes = await listingService.uploadImages([
-                finalUri,
-              ]);
-              if (
-                uploadImgRes.success &&
-                uploadImgRes.images &&
-                uploadImgRes.images.length > 0
-              ) {
-                const uploadedImg = uploadImgRes.images[0];
-                let serverUrl = uploadedImg.url || uploadedImg;
-                if (typeof serverUrl === "string") {
-                  if (serverUrl.startsWith("/")) {
-                    const baseURL = await configService.getBaseURL();
-                    serverUrl = `${baseURL}${serverUrl}`;
+            // Inline backend upload for immediate URL persistence - REQUIRED for retention
+            let serverUrl = null;
+            let uploadAttempts = 0;
+            const maxUploadAttempts = 3;
+            
+            while (!serverUrl && uploadAttempts < maxUploadAttempts) {
+              uploadAttempts++;
+              try {
+                console.log(
+                  `📸 [Photos] Uploading image to S3 (attempt ${uploadAttempts}/${maxUploadAttempts})...`,
+                );
+                const uploadImgRes = await listingService.uploadImages([finalUri]);
+                
+                if (uploadImgRes.success && uploadImgRes.images && uploadImgRes.images.length > 0) {
+                  const uploadedImg = uploadImgRes.images[0];
+                  let url = uploadedImg.url || uploadedImg;
+                  
+                  if (typeof url === "string") {
+                    // Ensure full URL
+                    if (url.startsWith("/")) {
+                      const baseURL = await configService.getBaseURL();
+                      url = `${baseURL}${url}`;
+                    }
+                    
+                    // Validate it's an S3 URL (contains s3 or our domain)
+                    if (url.includes('s3') || url.includes('lunest') || url.startsWith('http')) {
+                      serverUrl = url;
+                      console.log("✅ [Photos] Image uploaded to S3:", serverUrl);
+                    } else {
+                      throw new Error("Invalid URL format returned from server");
+                    }
                   }
-                  finalUri = serverUrl;
-                  console.log(
-                    "✅ [Photos] Image uploaded successfully:",
-                    finalUri,
-                  );
+                } else {
+                  throw new Error(uploadImgRes.message || "Upload returned no images");
                 }
+              } catch (upErr) {
+                console.warn(
+                  `⚠️ [Photos] Upload attempt ${uploadAttempts} failed:`,
+                  upErr.message || upErr
+                );
+                
+                if (uploadAttempts >= maxUploadAttempts) {
+                  // Show error to user - don't save local URI
+                  Alert.alert(
+                    "Upload Failed",
+                    `Could not upload photo to server after ${maxUploadAttempts} attempts. Please check your connection and try again.`,
+                    [{ text: "OK" }]
+                  );
+                  throw new Error("Failed to upload to S3 after multiple attempts");
+                }
+                
+                // Wait before retry
+                await new Promise(resolve => setTimeout(resolve, 1000 * uploadAttempts));
               }
-            } catch (upErr) {
-              console.warn(
-                "⚠️ [Photos] Instant image upload failed, will retry on review screen:",
-                upErr,
-              );
             }
+
+            // Only use S3 URL, never local URI
+            finalUri = serverUrl || finalUri;
 
             // Add to photos array
             const newPhotos = [...currentPhotos, finalUri].slice(0, 10);

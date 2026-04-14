@@ -2,14 +2,78 @@
  * Notification Service
  * Handles both push-style and in-app notifications
  * UI feedback (Toasts) merged with backend data fetching
+ * Supports both native (Expo) and web (Notification API)
  */
 
+import { Platform } from "react-native";
 import apiClient from "./apiClient";
 import toastService from "./toastService";
 
 class NotificationService {
   constructor() {
     this.listeners = new Set();
+    this.webNotificationsSupported = false;
+    this.webNotificationsEnabled = false;
+    
+    // Check web notification support
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      this.webNotificationsSupported = 'Notification' in window;
+    }
+  }
+
+  /**
+   * Request notification permission (works on both web and native)
+   */
+  async requestPermission() {
+    if (Platform.OS === 'web' && this.webNotificationsSupported) {
+      try {
+        const permission = await Notification.requestPermission();
+        this.webNotificationsEnabled = permission === 'granted';
+        return permission;
+      } catch (error) {
+        console.warn('[NotificationService] Web notification permission error:', error);
+        return 'denied';
+      }
+    }
+    // For native, Expo handles permissions separately
+    return 'granted';
+  }
+
+  /**
+   * Show a native/web push notification
+   */
+  async showPushNotification(title, body, options = {}) {
+    // Always show in-app toast as fallback
+    toastService.show(body, options.type || 'INFO', options.duration || 5000);
+    
+    // Web push notification
+    if (Platform.OS === 'web' && this.webNotificationsSupported && this.webNotificationsEnabled) {
+      try {
+        const notification = new Notification(title, {
+          body,
+          icon: options.icon || '/favicon.ico',
+          badge: options.badge || '/favicon.ico',
+          tag: options.tag || 'lunest-notification',
+          requireInteraction: options.requireInteraction || false,
+          data: options.data || {},
+          ...options,
+        });
+        
+        notification.onclick = () => {
+          window.focus();
+          if (options.onPress) {
+            options.onPress(notification.data);
+          }
+          notification.close();
+        };
+        
+        return notification;
+      } catch (error) {
+        console.warn('[NotificationService] Web notification error:', error);
+      }
+    }
+    
+    return null;
   }
 
   /**
@@ -49,6 +113,43 @@ class NotificationService {
 
   info(message, duration) {
     this.show(message, "INFO", duration);
+  }
+
+  // --- WEB PUSH NOTIFICATIONS ---
+
+  /**
+   * Initialize web notifications on app startup
+   * Call this in your app layout/useEffect
+   */
+  async initializeWebNotifications() {
+    if (Platform.OS === 'web' && this.webNotificationsSupported) {
+      // Check if permission already granted
+      if (Notification.permission === 'granted') {
+        this.webNotificationsEnabled = true;
+        console.log('[NotificationService] Web notifications enabled');
+      } else if (Notification.permission === 'default') {
+        // Optionally auto-request permission
+        // await this.requestPermission();
+      }
+    }
+  }
+
+  /**
+   * Send a booking notification (works on web and native)
+   */
+  async sendBookingNotification(title, message, bookingData = {}) {
+    return this.showPushNotification(title, message, {
+      type: 'SUCCESS',
+      duration: 6000,
+      tag: `booking-${bookingData.bookingId || 'new'}`,
+      data: bookingData,
+      onPress: (data) => {
+        // Navigate to booking details
+        if (data.bookingId && typeof window !== 'undefined') {
+          window.location.href = `/bookings/${data.bookingId}`;
+        }
+      },
+    });
   }
 
   // --- BACKEND NOTIFICATION DATA (Original Implementation) ---

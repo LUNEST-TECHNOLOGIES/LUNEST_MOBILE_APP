@@ -4,12 +4,12 @@
  */
 
 import { Platform } from "react-native";
+import axiosInstance from "../lib/axiosInstance";
 import apiClient from "./apiClient";
 import authService from "./authService";
 import configService from "./configService";
-import NetworkErrorHandler from "./networkErrorHandler";
 import logService from "./logService";
-import axiosInstance from "../lib/axiosInstance";
+import NetworkErrorHandler from "./networkErrorHandler";
 // Listing Status Constants from API Backend
 export const LISTING_STATUSES = {
   PENDING: "PENDING",
@@ -1120,9 +1120,24 @@ class ListingService {
       const userData = await authService.getUserData();
       const hostId = userData?._id || userData?.id;
 
+      // STEP 0: Sanitize ID - Check if we have a temporary/local ID that would cause CastError
+      const existingId = draftData._id || draftData.id;
+      const isTemporaryId = existingId && (
+        String(existingId).startsWith("draft_") || 
+        String(existingId).startsWith("edit_") ||
+        String(existingId).startsWith("remote_")
+      );
+      
+      if (isTemporaryId) {
+        console.log("[ListingService] Detected temporary ID, will use as draftId only:", existingId);
+      }
+
       // SANITIZE PAYLOAD - Ensure types and field names match backend expectations
       // First, remove fields that should not coexist with specific structures
+      // CRITICAL: Exclude _id and id here to prevent CastError on backend
       const {
+        _id,  // eslint-disable-line no-unused-vars
+        id,   // eslint-disable-line no-unused-vars
         photos,
         images: uiImages,
         guestCapacity,
@@ -1140,7 +1155,7 @@ class ListingService {
         ...restOfDraft,
         host: hostId || draftData.host,
         propertyCategory: draftData.category || draftData.propertyCategory || "rental", // Ensure DB alignment
-        draftId: draftData.draftId || String(existingId), // Critical for backend update matching
+        draftId: draftData.draftId || (isTemporaryId ? String(existingId) : existingId), // Critical for backend update matching
         isDraft: true,
         status: "DRAFT",
       };
@@ -1205,16 +1220,11 @@ class ListingService {
         payload.houseRules = JSON.stringify(payload.houseRules, null, 2);
       }
 
-      // If we have an existing ID, but it's a local temporary one, remove it for POST
-      const existingId = draftData._id || draftData.id;
-      const isTemporaryId = existingId && (
-        String(existingId).startsWith("draft_") || 
-        String(existingId).startsWith("edit_") ||
-        String(existingId).startsWith("remote_")
-      );
-
+      // STEP 9: Decide between PATCH (update existing) or POST (create new)
+      // We already determined existingId and isTemporaryId at the start
       let response;
       if (existingId && !isTemporaryId) {
+        // Valid MongoDB ObjectId - update existing draft via PATCH
         console.log("[ListingService] Syncing existing draft via PATCH:", existingId);
         response = await apiClient.patch(
           "/v1/listings/update/" + existingId,
@@ -1222,14 +1232,9 @@ class ListingService {
           { headers: { Authorization: "Bearer " + token } },
         );
       } else {
+        // No ID or temporary ID - create new draft via POST
+        // _id/id already excluded from payload at destructuring
         console.log("[ListingService] Creating brand new draft via POST");
-        // IMPORTANT: Remove temporary string IDs (e.g. "draft_123...") 
-        // to prevent CastError: ObjectId failed on the server
-        if (isTemporaryId) {
-          delete payload._id;
-          delete payload.id;
-          console.log("[ListingService] Stripped temporary IDs from payload:", existingId);
-        }
         
         response = await apiClient.post(
           "/v1/listings/create",

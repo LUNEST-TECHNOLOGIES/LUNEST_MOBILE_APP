@@ -1160,6 +1160,14 @@ class ListingService {
         status: "DRAFT",
       };
 
+      // EXTRA SAFETY: Explicitly remove any _id or id that might have snuck through
+      delete payload._id;
+      delete payload.id;
+      
+      // DEBUG: Log what we're actually sending
+      console.log("[ListingService] Payload keys:", Object.keys(payload));
+      console.log("[ListingService] Has _id?", '_id' in payload, "Has id?", 'id' in payload);
+
       // 1. Map Media Fields (Model expects propertyImages/propertyVideos)
       payload.propertyImages = photos || uiImages || draftData.propertyImages || [];
       payload.propertyVideos = draftData.video || draftData.propertyVideos || [];

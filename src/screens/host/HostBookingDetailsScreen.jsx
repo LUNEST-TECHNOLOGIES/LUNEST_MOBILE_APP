@@ -653,6 +653,13 @@ const HostBookingDetailsScreen = () => {
     // Give time for UI to hide buttons
     setTimeout(async () => {
         try {
+            setDownloadModalState({
+                visible: true,
+                type: 'loading',
+                title: 'Saving Image...',
+                message: 'Preparing your booking summary image.'
+            });
+
             if (Platform.OS === 'web') {
                 const { toPng } = require('html-to-image');
                 const dataUrl = await toPng(viewRef.current, {
@@ -669,9 +676,21 @@ const HostBookingDetailsScreen = () => {
                 });
                 await saveRefAsImage(uri, `Booking_Summary_${bookingRefCode}.png`);
             }
+
+            setDownloadModalState({
+                visible: true,
+                type: 'success',
+                title: 'Image Saved',
+                message: 'The booking summary has been saved successfully.'
+            });
         } catch (e) {
             console.error("[Download] Image capture error:", e);
-            Alert.alert("Error", "Failed to generate image summary.");
+            setDownloadModalState({
+                visible: true,
+                type: 'error',
+                title: 'Capture Failed',
+                message: 'Failed to generate image summary. Please try again.'
+            });
         } finally {
             setIsCapturing(false);
             setIsDownloading(false);

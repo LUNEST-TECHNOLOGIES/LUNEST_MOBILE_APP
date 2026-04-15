@@ -657,14 +657,33 @@ const BookingConfirmationScreen = () => {
       // Brief delay to allow React to re-render without buttons
       setTimeout(async () => {
         try {
+          setDownloadModalState({
+            visible: true,
+            type: 'loading',
+            title: 'Saving Image...',
+            message: 'Preparing your booking confirmation image.'
+          });
+          
           const localUri = await captureRef(viewRef, {
             format: "png",
             quality: 1,
           });
           await saveRefAsImage(localUri, `Booking_Confirmation_${refCode}.png`);
+          
+          setDownloadModalState({
+            visible: true,
+            type: 'success',
+            title: 'Image Saved',
+            message: 'The booking confirmation has been saved to your gallery.'
+          });
         } catch (innerError) {
           console.warn("Capture failed:", innerError);
-          Alert.alert("Error", "Failed to capture image");
+          setDownloadModalState({
+            visible: true,
+            type: 'error',
+            title: 'Capture Failed',
+            message: 'Failed to save the booking confirmation image.'
+          });
         } finally {
           setIsCapturing(false);
           setShowDownloadOptions(false);
@@ -672,7 +691,12 @@ const BookingConfirmationScreen = () => {
       }, 150);
     } catch (e) {
       console.warn("Image capture/save failed:", e);
-      Alert.alert("Error", "Failed to save image");
+      setDownloadModalState({
+        visible: true,
+        type: 'error',
+        title: 'Save Failed',
+        message: 'An unexpected error occurred while saving the image.'
+      });
       setIsCapturing(false);
     }
   };

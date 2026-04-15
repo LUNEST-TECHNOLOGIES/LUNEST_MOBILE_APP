@@ -1,7 +1,6 @@
+import React, { useEffect } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-
-const { width } = Dimensions.get('window');
+import { ActivityIndicator, Dimensions, Modal, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const DownloadConfirmationModal = ({ 
   visible, 
@@ -10,110 +9,157 @@ const DownloadConfirmationModal = ({
   message = "File has been saved successfully.",
   type = "success", // 'success' | 'error' | 'loading'
   onViewFile,
-  viewFileLabel = "View File"
+  viewFileLabel = "View File",
+  autoCloseDelay = 2500, // Auto close after 2.5 seconds by default
 }) => {
-  if (!visible) return null;
+  // ── Auto-Close Logic ──
+  useEffect(() => {
+    let timer;
+    if (visible && type === 'success' && !onViewFile) {
+      timer = setTimeout(() => {
+        onClose();
+      }, autoCloseDelay);
+    }
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [visible, type, onViewFile]);
 
   const getIcon = () => {
     switch (type) {
       case 'success':
-        return { name: 'checkmark-circle', color: '#4CAF50' };
+        return { name: 'checkmark-circle', color: '#10B981' };
       case 'error':
-        return { name: 'alert-circle', color: '#F44336' };
+        return { name: 'alert-circle', color: '#EF4444' };
       case 'loading':
-        return { name: 'cloud-download', color: '#2196F3' }; // Should use ActivityIndicator really, but keeping it simple
+        return { name: 'cloud-download', color: '#6371F1' };
       default:
-        return { name: 'information-circle', color: '#2196F3' };
+        return { name: 'information-circle', color: '#6371F1' };
     }
   };
 
   const icon = getIcon();
+  const isLoading = type === 'loading';
 
   return (
-    <View style={styles.fullscreenOverlay}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+    >
       <View style={styles.overlay}>
         <View style={styles.container}>
-          <View style={styles.iconContainer}>
-            <Ionicons name={icon.name} size={48} color={icon.color} />
+          {/* Top Right Close Icon */}
+          {!isLoading && (
+            <TouchableOpacity 
+              style={styles.headerCloseIcon} 
+              onPress={onClose}
+              hitSlop={15}
+            >
+              <Ionicons name="close" size={22} color="#9CA3AF" />
+            </TouchableOpacity>
+          )}
+
+          <View style={[styles.iconContainer, { backgroundColor: icon.color + '15' }]}>
+            {isLoading ? (
+              <ActivityIndicator size="large" color={icon.color} />
+            ) : (
+              <Ionicons name={icon.name} size={48} color={icon.color} />
+            )}
           </View>
           
           <Text style={styles.title}>{title}</Text>
           <Text style={styles.message}>{message}</Text>
 
           <View style={styles.buttonContainer}>
-            {type === 'success' && onViewFile && (
-              <TouchableOpacity 
-                style={[styles.button, styles.viewButton]} 
-                onPress={onViewFile}
-              >
-                <Text style={styles.viewButtonText}>{viewFileLabel}</Text>
-              </TouchableOpacity>
+            {!isLoading && (
+              <>
+                {type === 'success' && onViewFile && (
+                  <TouchableOpacity 
+                    style={[styles.button, styles.viewButton]} 
+                    onPress={onViewFile}
+                  >
+                    <Text style={styles.viewButtonText}>{viewFileLabel}</Text>
+                  </TouchableOpacity>
+                )}
+                
+                <TouchableOpacity 
+                  style={[styles.button, styles.closeButton]} 
+                  onPress={onClose}
+                >
+                  <Text style={[
+                    styles.buttonText, 
+                    type === 'success' && onViewFile ? styles.closeButtonTextSecondary : {}
+                  ]}>
+                    {type === 'error' ? 'Try Again' : 'Close'}
+                  </Text>
+                </TouchableOpacity>
+              </>
             )}
             
-            <TouchableOpacity 
-              style={[styles.button, styles.closeButton]} 
-              onPress={onClose}
-            >
-              <Text style={[
-                styles.buttonText, 
-                type === 'success' && onViewFile ? styles.closeButtonTextSecondary : {}
-              ]}>
-                Close
-              </Text>
-            </TouchableOpacity>
+            {isLoading && (
+              <Text style={styles.loadingTip}>Please wait a moment...</Text>
+            )}
           </View>
         </View>
       </View>
-    </View>
+    </Modal>
   );
 };
 
 const styles = StyleSheet.create({
-  fullscreenOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'transparent',
-    zIndex: 3000,
-  },
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: 24,
   },
   container: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 24,
+    borderRadius: 24,
+    padding: 32,
     width: '100%',
     maxWidth: 340,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    position: 'relative', // Add this for absolute positioning of child
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.1,
+        shadowRadius: 20,
+      },
+      android: {
+        elevation: 10,
+      },
+    }),
+  },
+  headerCloseIcon: {
+    position: 'absolute',
+    right: 16,
+    top: 16,
+    zIndex: 10,
   },
   iconContainer: {
-    marginBottom: 16,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
   },
   title: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#1A1A1A',
+    color: '#111827',
     marginBottom: 8,
     textAlign: 'center',
   },
   message: {
     fontSize: 14,
-    color: '#666666',
+    color: '#6B7280',
     textAlign: 'center',
     marginBottom: 24,
     lineHeight: 20,
@@ -124,21 +170,21 @@ const styles = StyleSheet.create({
   },
   button: {
     width: '100%',
-    paddingVertical: 12,
-    borderRadius: 12,
+    paddingVertical: 14,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
   viewButton: {
-    backgroundColor: '#007BFF',
+    backgroundColor: '#6371F1',
   },
   closeButton: {
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#F3F4F6',
   },
   buttonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1A1A1A',
+    color: '#111827',
   },
   viewButtonText: {
     fontSize: 16,
@@ -146,7 +192,13 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   closeButtonTextSecondary: {
-    color: '#666666',
+    color: '#6B7280',
+  },
+  loadingTip: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    textAlign: 'center',
+    fontStyle: 'italic',
   }
 });
 

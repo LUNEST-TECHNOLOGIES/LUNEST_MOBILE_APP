@@ -14,6 +14,17 @@ import bookingService from '../../../src/services/bookingService';
 const VerifyAgreementPage = () => {
   const { bookingRef } = useLocalSearchParams();
   const router = useRouter();
+
+  // ── Privacy Utilities ──
+  const maskName = (name) => {
+    if (!name || typeof name !== 'string') return "N/A";
+    return name.split(' ').map(part => {
+      if (part.length <= 2) return part;
+      if (part.length <= 4) return part[0] + '*'.repeat(part.length - 2) + part[part.length - 1];
+      // Show first 2 and last 1, mask the rest
+      return part.substring(0, 2) + '*'.repeat(Math.min(part.length - 3, 5)) + part[part.length - 1];
+    }).join(' ');
+  };
   
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
@@ -133,8 +144,8 @@ const VerifyAgreementPage = () => {
                 <View className="space-y-1">
                   <InfoRow icon="business" label="Property Title" value={data.property?.title} />
                   <InfoRow icon="location" label="Location" value={data.property?.location} />
-                  <InfoRow icon="person" label="Host (Landlord)" value={data.participants?.host} />
-                  <InfoRow icon="people" label="Tenant (Guest)" value={data.participants?.tenant} />
+                  <InfoRow icon="person" label="Host (Landlord)" value={maskName(data.participants?.host)} />
+                  <InfoRow icon="people" label="Tenant (Guest)" value={maskName(data.participants?.tenant)} />
                   <InfoRow icon="calendar" label="Occupation Period" value={`${new Date(data.dates?.checkIn).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })} — ${new Date(data.dates?.checkOut).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`} />
                   <InfoRow icon="list" label="Document Status" value={data.status} />
                 </View>

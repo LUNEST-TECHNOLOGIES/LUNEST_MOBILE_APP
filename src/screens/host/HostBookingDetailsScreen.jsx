@@ -6,11 +6,7 @@
  */
 
 import { Ionicons } from "@expo/vector-icons";
-import { Asset } from "expo-asset";
-import * as FileSystem from "expo-file-system/legacy";
-import * as Print from "expo-print";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import * as Sharing from "expo-sharing";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
     ActivityIndicator,
@@ -33,8 +29,8 @@ import {
 import { captureRef } from "react-native-view-shot";
 import ArrowLeftIcon from "../../assets/icons/bookings/arrow-left.svg";
 import DownloadIcon from "../../assets/icons/bookings/download.svg";
-import DownloadOptionsModal from "../../components/common/DownloadOptionsModal";
 import DownloadConfirmationModal from "../../components/common/DownloadConfirmationModal";
+import DownloadOptionsModal from "../../components/common/DownloadOptionsModal";
 import ToastNotification, {
     TOAST_TYPE,
 } from "../../components/common/ToastNotification";
@@ -42,13 +38,12 @@ import BookingActionModal, {
     BOOKING_ACTION,
 } from "../../components/modals/BookingActionModal";
 import CancelBookingModal from "../../components/modals/CancelBookingModal";
-import CautionActionModal from "../../components/modals/CautionActionModal";
 import CautionDisputeModal from "../../components/modals/CautionDisputeModal";
 import ReviewFeedbackModal from "../../components/modals/ReviewFeedbackModal";
 import bookingService from "../../services/bookingService";
 import configService from "../../services/configService";
-import { resolveImageUrlSync } from "../../utils/imageUtils";
 import { downloadFile, saveRefAsImage } from "../../utils/downloadUtils";
+import { resolveImageUrlSync } from "../../utils/imageUtils";
 
 const logoImage = require("../../assets/images/LUNEST PNG 1 1.png"); // New Import
 
@@ -113,11 +108,10 @@ const HostBookingDetailsScreen = () => {
   const [isResolvingCaution, setIsResolvingCaution] = useState(false);
   const [showCautionDisputeModal, setShowCautionDisputeModal] = useState(false);
   const [cautionDisputeReason, setCautionDisputeReason] = useState("");
-  const [showCautionActionModal, setShowCautionActionModal] = useState(false);
-  const [cautionActionType, setCautionActionType] = useState('RELEASE'); // 'RELEASE' or 'DISPUTE'
   const [showGuestProfileModal, setShowGuestProfileModal] = useState(false);
   const [hasReviewed, setHasReviewed] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [isCapturing, setIsCapturing] = useState(false); // Added missing state for screenshot capture flow
 
   // Modal state for booking actions (confirm/cancel)
   const [showActionModal, setShowActionModal] = useState(false);
@@ -767,35 +761,79 @@ const HostBookingDetailsScreen = () => {
     }
   };
 
-  const handleResolveCautionFee = async (reason = "") => {
-    if (!bookingRefCode) return false;
+  const handleResolveCautionFee = async (action, reason = "") => {
+    if (!bookingRefCode) return;
 
+    if (action === "RELEASE_TO_GUEST") {
+      Alert.alert(
+        "Release Caution Fee",
+        "Are you sure you want to release the caution fee to the guest? This action cannot be undone.",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Confirm Release",
+            onPress: () => executeResolveCautionFee(action, reason),
+            style: "default",
+          },
+        ],
+      );
+    } else {
+      executeResolveCautionFee(action, reason);
+    }
+  };
+
+  const executeResolveCautionFee = async (action, reason = "") => {
     setIsResolvingCaution(true);
     try {
-      const response = await bookingService.resolveCautionFee(
+      const result = await bookingService.resolveCautionFee(
         bookingRefCode,
-        cautionActionType === 'RELEASE' ? "RELEASE_TO_GUEST" : "RAISE_DISPUTE",
-        reason || (cautionActionType === 'RELEASE' ? "Manual release" : "No reason provided")
+        action,
+        reason,
       );
 
-      if (response?.success) {
-        // Refresh booking data
-        await fetchFullBookingDetails();
-        return true;
+      if (result.success) {
+        showToastMessage(
+          `Caution fee ${action === "DISPUTE" ? "dispute submitted" : "released"} successfully!`,
+          TOAST_TYPE.SUCCESS,
+        );
+        // Update local booking state with the mapped status matching backend
+        if (booking) {
+          const statusMap = {
+            RELEASE_TO_GUEST: "RELEASED_TO_GUEST",
+            RELEASE_TO_HOST: "RELEASED_TO_HOST",
+            DISPUTE: "DISPUTED",
+          };
+          setBooking({
+            ...booking,
+            securityDepositResolution: {
+              status: statusMap[action] || action,
+              reason: reason,
+              resolvedAt: new Date(),
+              resolvedBy: "HOST",
+            },
+          });
+        }
+        setShowCautionDisputeModal(false);
+        setCautionDisputeReason("");
       } else {
-        showToastMessage(response?.message || "Failed to resolve caution fee", TOAST_TYPE.ERROR);
-        return false;
+        showToastMessage(
+          result.message || "Failed to resolve caution fee.",
+          TOAST_TYPE.ERROR,
+        );
       }
     } catch (error) {
-      console.error("[HostBookingDetails] Caution resolve error:", error);
-      showToastMessage("An error occurred while resolving caution fee", TOAST_TYPE.ERROR);
-      return false;
+      console.error(
+        "[HostBookingDetails] Caution fee resolution error:",
+        error,
+      );
+      showToastMessage(
+        "An error occurred. Please try again.",
+        TOAST_TYPE.ERROR,
+      );
     } finally {
       setIsResolvingCaution(false);
     }
   };
-
-
 
   // ───── Loading state ─────
 
@@ -1078,16 +1116,13 @@ const HostBookingDetailsScreen = () => {
               </Text>
 
               <View style={styles.cautionFeeActionRow}>
-                  <TouchableOpacity
-                    style={styles.releaseBtn}
-                    onPress={() => {
-                      setCautionActionType('RELEASE');
-                      setShowCautionActionModal(true);
-                    }}
-                    disabled={isResolvingCaution}
-                  >
-                    <Text style={styles.releaseBtnText}>Release to Guest</Text>
-                  </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.releaseBtn}
+                  onPress={() => handleResolveCautionFee("RELEASE_TO_GUEST")}
+                  disabled={isResolvingCaution}
+                >
+                  <Text style={styles.releaseBtnText}>Release to Guest</Text>
+                </TouchableOpacity>
 
                 <TouchableOpacity
                   style={styles.disputeBtnHost}
@@ -1364,35 +1399,18 @@ const HostBookingDetailsScreen = () => {
         onHide={() => setToastVisible(false)}
       />
 
-      {/* Unified Caution Action Modal (Processing & Results) */}
-      <CautionActionModal
-        visible={showCautionActionModal}
-        action={cautionActionType}
-        booking={booking}
-        onConfirm={handleResolveCautionFee}
-        onClose={() => setShowCautionActionModal(false)}
-        initialStep={cautionActionType === 'DISPUTE' ? 2 : 1}
-        initialReason={cautionDisputeReason}
-      />
-
-      {/* ── Caution Fee Dispute Modal (Input Only) ── */}
+      {/* ── Caution Fee Dispute Modal ── */}
       <CautionDisputeModal
         visible={showCautionDisputeModal}
         onClose={() => setShowCautionDisputeModal(false)}
-        onSubmit={(reason) => {
-          setCautionDisputeReason(reason);
-          setCautionActionType('DISPUTE');
-          setShowCautionDisputeModal(false);
-          // Transition to action modal for processing and success
-          setTimeout(() => setShowCautionActionModal(true), 300);
-        }}
+        onSubmit={(reason) => handleResolveCautionFee("DISPUTE", reason)}
         isLoading={isResolvingCaution}
         reason={cautionDisputeReason}
         onReasonChange={setCautionDisputeReason}
         title="Raise Caution Fee Dispute"
         subtitle="Provide clear details about the damages or issues. This will be reviewed by our compliance team within 24-48 hours."
         placeholder="Describe damage (e.g., Broken TV screen, stained rug...)"
-        submitLabel="Submit Dispute"
+        submitLabel="Raise Dispute"
       />
     </SafeAreaView>
   );

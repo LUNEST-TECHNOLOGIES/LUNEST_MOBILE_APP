@@ -154,8 +154,11 @@ const LandlordRequestForm = () => {
   const [selectedPropertyTypes, setSelectedPropertyTypes] = useState([]); // Changed to array for multi-select
   const [customPropertyType, setCustomPropertyType] = useState('');
   const [propertyLocation, setPropertyLocation] = useState('');
-  const [isPropertyManager, setIsPropertyManager] = useState(false);
-  const [ownsProperty, setOwnsProperty] = useState(false);
+  const [hostRole, setHostRole] = useState(''); // 'landlord', 'manager', 'realtor'
+  const [companyName, setCompanyName] = useState('');
+  const [propertyCount, setPropertyCount] = useState('');
+  const [customPropertyCount, setCustomPropertyCount] = useState('');
+  const [isCustomPropertyCount, setIsCustomPropertyCount] = useState(false);
   const [propertyOccupied, setPropertyOccupied] = useState(false);
   const [description, setDescription] = useState('');
   const [propertyImages, setPropertyImages] = useState([]);
@@ -163,6 +166,8 @@ const LandlordRequestForm = () => {
   const [authorizationLetter, setAuthorizationLetter] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPendingModal, setShowPendingModal] = useState(false);
+
+  const PROPERTY_COUNT_RANGES = ['1-5', '6-20', '21-50', '50+', 'Other (Exact number)'];
 
   // Load user data on mount
   useEffect(() => {
@@ -265,8 +270,20 @@ const LandlordRequestForm = () => {
       Alert.alert('Required Field', 'Property Location is required.');
       return;
     }
-    if (!ownsProperty && !isPropertyManager) {
-      Alert.alert('Required Field', 'Please specify if you own the property or if you are an authorised manager.');
+    if (!hostRole) {
+      Alert.alert('Required Field', 'Please select your role (Landlord, Manager or Developer/Realtor).');
+      return;
+    }
+    if (hostRole === 'realtor' && !companyName?.trim()) {
+      Alert.alert('Required Field', 'Company Name is required for Developers/Realtors.');
+      return;
+    }
+    if (!propertyCount) {
+      Alert.alert('Required Field', 'Please select or enter the number of properties.');
+      return;
+    }
+    if (isCustomPropertyCount && !customPropertyCount?.trim()) {
+      Alert.alert('Required Field', 'Please enter the exact number of properties.');
       return;
     }
     if (propertyImages.length === 0) {
@@ -296,8 +313,12 @@ const LandlordRequestForm = () => {
         propertyTypes: selectedPropertyTypes,
         customPropertyType: customPropertyType,
         propertyLocation: propertyLocation,
-        isPropertyManager: isPropertyManager,
-        ownsProperty: ownsProperty,
+        hostRole: hostRole,
+        companyName: hostRole === 'realtor' ? companyName : '',
+        numberOfProperties: isCustomPropertyCount ? customPropertyCount : propertyCount,
+        isPropertyManager: hostRole === 'manager',
+        ownsProperty: hostRole === 'landlord',
+        isDeveloperRealtor: hostRole === 'realtor',
         propertyOccupied: propertyOccupied,
         description: description,
         propertyImages: propertyImages,
@@ -531,36 +552,87 @@ const LandlordRequestForm = () => {
               />
             </View>
 
-            {/* Toggle Options */}
-            <View style={styles.toggleRow}>
-              <Text style={styles.toggleLabel}>Do you own this Property?</Text>
-              <ToggleSwitch
-                value={ownsProperty}
-                onValueChange={(val) => {
-                  setOwnsProperty(val);
-                  if (val) setIsPropertyManager(false);
-                }}
-                size="medium"
-              />
+            {/* Host Role Selection - Trio Replacement */}
+            <View style={styles.roleContainer}>
+                <Text style={styles.fieldLabel}>Who are you? *</Text>
+                <View style={styles.roleOptions}>
+                    <TouchableOpacity 
+                        style={[styles.roleChip, hostRole === 'landlord' && styles.roleChipSelected]}
+                        onPress={() => setHostRole('landlord')}
+                    >
+                        <Text style={[styles.roleChipText, hostRole === 'landlord' && styles.roleChipTextSelected]}>Individual Landlord</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                        style={[styles.roleChip, hostRole === 'manager' && styles.roleChipSelected]}
+                        onPress={() => setHostRole('manager')}
+                    >
+                        <Text style={[styles.roleChipText, hostRole === 'manager' && styles.roleChipTextSelected]}>Authorised Property Manager</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                        style={[styles.roleChip, hostRole === 'realtor' && styles.roleChipSelected]}
+                        onPress={() => setHostRole('realtor')}
+                    >
+                        <Text style={[styles.roleChipText, hostRole === 'realtor' && styles.roleChipTextSelected]}>Property Developer / Realtor</Text>
+                    </TouchableOpacity>
+                </View>
             </View>
 
-            <View style={styles.toggleRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.toggleLabel}>Are you an Authorised Property Manager?</Text>
-                <Text style={styles.toggleSubLabel}>Toggle on if you are managing this for someone else</Text>
-              </View>
-              <ToggleSwitch
-                value={isPropertyManager}
-                onValueChange={(val) => {
-                  setIsPropertyManager(val);
-                  if (val) setOwnsProperty(false);
-                }}
-                size="medium"
-              />
+            {/* Conditional Company Name Field */}
+            {hostRole === 'realtor' && (
+                <View style={[styles.inputContainer, { marginTop: 10 }]}>
+                    <TextInput
+                        style={styles.textInput}
+                        value={companyName}
+                        onChangeText={setCompanyName}
+                        placeholder="Organization / Company Name *"
+                        placeholderTextColor="#656565"
+                    />
+                </View>
+            )}
+
+            {/* Number of Properties Selection */}
+            <View style={[styles.propertyTypeContainer, { marginTop: 20 }]}>
+                <Text style={styles.fieldLabel}>Approx. Number of Properties *</Text>
+                <View style={styles.propertyTypeGrid}>
+                    {PROPERTY_COUNT_RANGES.map((range) => (
+                        <TouchableOpacity
+                            key={range}
+                            style={[
+                                styles.propertyChip, 
+                                propertyCount === range && styles.propertyChipSelected
+                            ]}
+                            onPress={() => {
+                                setPropertyCount(range);
+                                setIsCustomPropertyCount(range.includes('Other'));
+                            }}
+                        >
+                            <Text style={[
+                                styles.propertyChipText, 
+                                propertyCount === range && styles.propertyChipTextSelected
+                            ]}>
+                                {range}
+                            </Text>
+                        </TouchableOpacity>
+                    ))}
+                </View>
+
+                {/* Free form input if 'Other' is selected */}
+                {isCustomPropertyCount && (
+                    <View style={[styles.inputContainer, { marginTop: 10 }]}>
+                        <TextInput
+                            style={styles.textInput}
+                            value={customPropertyCount}
+                            onChangeText={setCustomPropertyCount}
+                            placeholder="Enter exact number of properties *"
+                            placeholderTextColor="#656565"
+                            keyboardType="numeric"
+                        />
+                    </View>
+                )}
             </View>
 
-            <View style={styles.toggleRow}>
-              <Text style={styles.toggleLabel}>Is this Property currently occupied?</Text>
+            <View style={[styles.toggleRow, { marginTop: 10 }]}>
+              <Text style={styles.toggleLabel}>Is this current Property occupied?</Text>
               <ToggleSwitch
                 value={propertyOccupied}
                 onValueChange={setPropertyOccupied}
@@ -1051,6 +1123,34 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: '#010135',
+  },
+  roleContainer: {
+    marginTop: 15,
+    marginBottom: 10,
+  },
+  roleOptions: {
+    gap: 10,
+    marginTop: 12,
+  },
+  roleChip: {
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    borderRadius: 12,
+    backgroundColor: '#F6F6F6',
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+  },
+  roleChipSelected: {
+    backgroundColor: '#010135',
+    borderColor: '#010135',
+  },
+  roleChipText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#656565',
+  },
+  roleChipTextSelected: {
+    color: '#FFFFFF',
   },
 });
 

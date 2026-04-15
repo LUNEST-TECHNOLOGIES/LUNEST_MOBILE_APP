@@ -34,11 +34,12 @@ import DownloadIcon from "../../assets/icons/bookings/download.svg";
 import PendingStatusIcon from "../../assets/icons/bookings/pending-status.svg";
 import ReservedIcon from "../../assets/icons/bookings/reserved.svg";
 import CountdownTimer from "../../components/booking/confirmation/CountdownTimer";
-import DownloadOptionsModal from "../../components/common/DownloadOptionsModal";
 import DownloadConfirmationModal from "../../components/common/DownloadConfirmationModal";
+import DownloadOptionsModal from "../../components/common/DownloadOptionsModal";
 import ToastNotification, {
   TOAST_TYPE,
 } from "../../components/common/ToastNotification";
+import CautionActionModal from "../../components/modals/CautionActionModal";
 import CautionDisputeModal from "../../components/modals/CautionDisputeModal";
 import CheckoutConfirmationModal from "../../components/modals/CheckoutConfirmationModal";
 import ReviewFeedbackModal from "../../components/modals/ReviewFeedbackModal";
@@ -155,6 +156,8 @@ const BookingConfirmationScreen = () => {
   const [isResolvingCaution, setIsResolvingCaution] = useState(false);
   const [showCautionDisputeModal, setShowCautionDisputeModal] = useState(false);
   const [cautionDisputeReason, setCautionDisputeReason] = useState("");
+  const [showCautionActionModal, setShowCautionActionModal] = useState(false);
+  const [cautionActionType, setCautionActionType] = useState('RELEASE'); // 'RELEASE' or 'DISPUTE'
 
   // Toast state
   const [toastVisible, setToastVisible] = useState(false);
@@ -927,74 +930,31 @@ const BookingConfirmationScreen = () => {
     }
   };
 
-  const handleResolveCautionFee = async (action, reason = "") => {
-    if (!refCode) return;
+  const handleResolveCautionFee = async (reason = "") => {
+    if (!bookingId) return false;
 
-    if (action === "RELEASE_TO_GUEST") {
-      Alert.alert(
-        "Release Caution Fee",
-        "Are you sure you want to release the caution fee back to the guest? This action cannot be undone.",
-        [
-          { text: "Cancel", style: "cancel" },
-          {
-            text: "Confirm Release",
-            onPress: () => executeResolveCautionFee(action, reason),
-            style: "default",
-          },
-        ],
-      );
-    } else {
-      executeResolveCautionFee(action, reason);
-    }
-  };
-
-  const executeResolveCautionFee = async (action, reason = "") => {
     setIsResolvingCaution(true);
     try {
-      const result = await bookingService.resolveCautionFee(
-        refCode,
-        action,
-        reason,
-      );
-      if (result.success) {
-        showToastMessage(
-          `Caution fee ${action === "DISPUTE" ? "dispute submitted" : "released"} successfully!`,
-          TOAST_TYPE.SUCCESS,
-        );
-        // Update local booking state
-        if (booking) {
-          const statusMap = {
-            RELEASE_TO_GUEST: "RELEASED_TO_GUEST",
-            RELEASE_TO_HOST: "RELEASED_TO_HOST",
-            DISPUTE: "DISPUTED",
-          };
-          setBooking({
-            ...booking,
-            securityDepositResolution: {
-              status: statusMap[action] || action,
-              reason: reason,
-              resolvedAt: new Date(),
-              resolvedBy: isHostView ? "HOST" : "GUEST",
-            },
-          });
-        }
-        setShowCautionDisputeModal(false);
-        setCautionDisputeReason("");
+      const response = await bookingService.resolveCautionFee({
+        bookingReference: bookingId,
+        action: cautionActionType === 'RELEASE' ? "RELEASE_TO_GUEST" : "RAISE_DISPUTE",
+        reason: reason || (cautionActionType === 'RELEASE' ? "Manual release" : "No reason provided"),
+      });
+
+      if (response?.success) {
+        // Refresh booking data
+        const updated = await bookingService.fetchBookingById(bookingId);
+        if (updated?.success) setBooking(updated.booking);
+        
+        return true;
       } else {
-        showToastMessage(
-          result.message || "Failed to resolve caution fee.",
-          TOAST_TYPE.ERROR,
-        );
+        showToastMessage(response?.message || "Failed to resolve caution fee", TOAST_TYPE.ERROR);
+        return false;
       }
     } catch (error) {
-      console.error(
-        "[BookingConfirmation] Caution fee resolution error:",
-        error,
-      );
-      showToastMessage(
-        "An error occurred. Please try again.",
-        TOAST_TYPE.ERROR,
-      );
+      console.error("[BookingConfirmation] Caution resolve error:", error);
+      showToastMessage("An error occurred while resolving caution fee", TOAST_TYPE.ERROR);
+      return false;
     } finally {
       setIsResolvingCaution(false);
     }
@@ -1400,8 +1360,8 @@ const BookingConfirmationScreen = () => {
           </View>
         </View>
 
-        {/* ── Caution Fee Management (COMPLETED bookings only) ── */}
-        {statusLower === "completed" &&
+        {/* ── Caution Fee Management ── */}
+        {(statusLower === "completed" || statusLower === "confirmed" || statusLower === "ongoing") &&
           securityDeposit > 0 &&
           (booking?.securityDepositResolution?.status === "PENDING" ||
             !booking?.securityDepositResolution) && (
@@ -1412,50 +1372,56 @@ const BookingConfirmationScreen = () => {
               </View>
 
               <Text style={styles.cautionFeeSubtitle}>
-                {isHostView
-                  ? `The caution fee of ₦${securityDeposit.toLocaleString()} is currently held in escrow. Please inspect the property and release the fee if everything is in order, or raise a dispute if there are damages.`
-                  : `Your caution fee of ₦${securityDeposit.toLocaleString()} is currently on hold. It will be automatically refunded within 24-48 hours if no damages are reported by the host.`}
+                {statusLower === "completed"
+                  ? (isHostView
+                    ? `The caution fee of ₦${securityDeposit.toLocaleString()} is currently held in escrow. Please inspect the property and release the fee if everything is in order, or raise a dispute if there are damages.`
+                    : `Your caution fee of ₦${securityDeposit.toLocaleString()} is currently on hold. It will be automatically refunded within 24-48 hours if no damages are reported by the host.`)
+                  : (isHostView
+                    ? `The caution fee of ₦${securityDeposit.toLocaleString()} is currently held securely in escrow. It will be available for management after the guest checks out.`
+                    : `Your caution fee of ₦${securityDeposit.toLocaleString()} is currently held securely in escrow. It will be refunded after check-out, provided no damages are reported.`)
+                }
               </Text>
 
-              {isHostView ? (
-                <View style={styles.cautionActionRow}>
-                  <TouchableOpacity
-                    style={styles.releaseBtn}
-                    onPress={() => handleResolveCautionFee("RELEASE_TO_GUEST")}
-                    disabled={isResolvingCaution}
-                  >
-                    {isResolvingCaution ? (
-                      <ActivityIndicator size="small" color="#fff" />
-                    ) : (
+              {statusLower === "completed" && (
+                isHostView ? (
+                  <View style={styles.cautionActionRow}>
+                    <TouchableOpacity
+                      style={styles.releaseBtn}
+                      onPress={() => {
+                        setCautionActionType('RELEASE');
+                        setShowCautionActionModal(true);
+                      }}
+                      disabled={isResolvingCaution}
+                    >
                       <Text style={styles.releaseBtnText}>
                         Release to Guest
                       </Text>
-                    )}
-                  </TouchableOpacity>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.disputeBtnOutline}
+                      onPress={() => setShowCautionDisputeModal(true)}
+                      disabled={isResolvingCaution}
+                    >
+                      <Text style={styles.disputeBtnTextOutline}>
+                        Raise Dispute
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
                   <TouchableOpacity
                     style={styles.disputeBtnOutline}
                     onPress={() => setShowCautionDisputeModal(true)}
                     disabled={isResolvingCaution}
                   >
-                    <Text style={styles.disputeBtnTextOutline}>
-                      Raise Dispute
-                    </Text>
+                    <Text style={styles.disputeBtnTextOutline}>Raise Dispute</Text>
                   </TouchableOpacity>
-                </View>
-              ) : (
-                <TouchableOpacity
-                  style={styles.disputeBtnOutline}
-                  onPress={() => setShowCautionDisputeModal(true)}
-                  disabled={isResolvingCaution}
-                >
-                  <Text style={styles.disputeBtnTextOutline}>Raise Dispute</Text>
-                </TouchableOpacity>
+                )
               )}
             </View>
           )}
 
         {/* Show resolution status if not pending */}
-        {statusLower === "completed" &&
+        {(statusLower === "completed" || statusLower === "confirmed" || statusLower === "ongoing") &&
           securityDeposit > 0 &&
           booking?.securityDepositResolution?.status &&
           booking?.securityDepositResolution?.status !== "PENDING" && (
@@ -1636,7 +1602,44 @@ const BookingConfirmationScreen = () => {
         )}
       </ScrollView>
 
-      {/* Checkout Confirmation Modal */}
+      {/* Unified Caution Action Modal (Confirmation & Results) */}
+      <CautionActionModal
+        visible={showCautionActionModal}
+        action={cautionActionType}
+        booking={booking}
+        onConfirm={handleResolveCautionFee}
+        onClose={() => setShowCautionActionModal(false)}
+        initialStep={cautionActionType === 'DISPUTE' ? 2 : 1}
+        initialReason={cautionDisputeReason}
+      />
+
+      {/* Dispute Input Modal */}
+      <CautionDisputeModal
+        visible={showCautionDisputeModal}
+        onClose={() => setShowCautionDisputeModal(false)}
+        onSubmit={(reason) => {
+          setCautionDisputeReason(reason);
+          setCautionActionType('DISPUTE');
+          setShowCautionDisputeModal(false);
+          // Transition to action modal for processing and success
+          setTimeout(() => setShowCautionActionModal(true), 300);
+        }}
+        isLoading={isResolvingCaution}
+        reason={cautionDisputeReason}
+        onReasonChange={setCautionDisputeReason}
+        subtitle={
+          isHostView
+            ? "Provide clear details about the damages or issues. This will be reviewed by our compliance team within 24-48 hours."
+            : "If you believe the caution fee was deducted unfairly, provide details about the issue. Our team will review within 24-48 hours."
+        }
+        placeholder={
+          isHostView
+            ? "Describe damage (e.g., Broken TV screen, stained rug...)"
+            : "e.g., Property damage claims are false, item was in good condition, etc."
+        }
+        submitLabel="Submit Dispute"
+      />
+
       <CheckoutConfirmationModal
         visible={showCheckoutModal}
         onClose={() => setShowCheckoutModal(false)}
@@ -1675,27 +1678,7 @@ const BookingConfirmationScreen = () => {
         onHide={() => setToastVisible(false)}
       />
 
-      {/* ── Caution Fee Dispute Modal ── */}
-      <CautionDisputeModal
-        visible={showCautionDisputeModal}
-        onClose={() => setShowCautionDisputeModal(false)}
-        onSubmit={(reason) => handleResolveCautionFee("DISPUTE", reason)}
-        isLoading={isResolvingCaution}
-        reason={cautionDisputeReason}
-        onReasonChange={setCautionDisputeReason}
-        title="Raise Caution Fee Dispute"
-        subtitle={
-          isHostView
-            ? "Provide clear details about the damages or issues. This will be reviewed by our compliance team within 24-48 hours."
-            : "If you believe the caution fee was deducted unfairly, provide details about the issue. Our team will review within 24-48 hours."
-        }
-        placeholder={
-          isHostView
-            ? "Describe damage (e.g., Broken TV screen, stained rug...)"
-            : "e.g., Property damage claims are false, item was in good condition, etc."
-        }
-        submitLabel="Submit Dispute"
-      />
+
 
       {/* Fixed Bottom Section - Hide when capturing */}
       {!isCapturing && (

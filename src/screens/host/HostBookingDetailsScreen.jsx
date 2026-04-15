@@ -42,6 +42,7 @@ import BookingActionModal, {
     BOOKING_ACTION,
 } from "../../components/modals/BookingActionModal";
 import CancelBookingModal from "../../components/modals/CancelBookingModal";
+import CautionActionModal from "../../components/modals/CautionActionModal";
 import CautionDisputeModal from "../../components/modals/CautionDisputeModal";
 import ReviewFeedbackModal from "../../components/modals/ReviewFeedbackModal";
 import bookingService from "../../services/bookingService";
@@ -112,6 +113,8 @@ const HostBookingDetailsScreen = () => {
   const [isResolvingCaution, setIsResolvingCaution] = useState(false);
   const [showCautionDisputeModal, setShowCautionDisputeModal] = useState(false);
   const [cautionDisputeReason, setCautionDisputeReason] = useState("");
+  const [showCautionActionModal, setShowCautionActionModal] = useState(false);
+  const [cautionActionType, setCautionActionType] = useState('RELEASE'); // 'RELEASE' or 'DISPUTE'
   const [showGuestProfileModal, setShowGuestProfileModal] = useState(false);
   const [hasReviewed, setHasReviewed] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -764,79 +767,35 @@ const HostBookingDetailsScreen = () => {
     }
   };
 
-  const handleResolveCautionFee = async (action, reason = "") => {
-    if (!bookingRefCode) return;
+  const handleResolveCautionFee = async (reason = "") => {
+    if (!bookingRefCode) return false;
 
-    if (action === "RELEASE_TO_GUEST") {
-      Alert.alert(
-        "Release Caution Fee",
-        "Are you sure you want to release the caution fee to the guest? This action cannot be undone.",
-        [
-          { text: "Cancel", style: "cancel" },
-          {
-            text: "Confirm Release",
-            onPress: () => executeResolveCautionFee(action, reason),
-            style: "default",
-          },
-        ],
-      );
-    } else {
-      executeResolveCautionFee(action, reason);
-    }
-  };
-
-  const executeResolveCautionFee = async (action, reason = "") => {
     setIsResolvingCaution(true);
     try {
-      const result = await bookingService.resolveCautionFee(
+      const response = await bookingService.resolveCautionFee(
         bookingRefCode,
-        action,
-        reason,
+        cautionActionType === 'RELEASE' ? "RELEASE_TO_GUEST" : "RAISE_DISPUTE",
+        reason || (cautionActionType === 'RELEASE' ? "Manual release" : "No reason provided")
       );
 
-      if (result.success) {
-        showToastMessage(
-          `Caution fee ${action === "DISPUTE" ? "dispute submitted" : "released"} successfully!`,
-          TOAST_TYPE.SUCCESS,
-        );
-        // Update local booking state with the mapped status matching backend
-        if (booking) {
-          const statusMap = {
-            RELEASE_TO_GUEST: "RELEASED_TO_GUEST",
-            RELEASE_TO_HOST: "RELEASED_TO_HOST",
-            DISPUTE: "DISPUTED",
-          };
-          setBooking({
-            ...booking,
-            securityDepositResolution: {
-              status: statusMap[action] || action,
-              reason: reason,
-              resolvedAt: new Date(),
-              resolvedBy: "HOST",
-            },
-          });
-        }
-        setShowCautionDisputeModal(false);
-        setCautionDisputeReason("");
+      if (response?.success) {
+        // Refresh booking data
+        await fetchFullBookingDetails();
+        return true;
       } else {
-        showToastMessage(
-          result.message || "Failed to resolve caution fee.",
-          TOAST_TYPE.ERROR,
-        );
+        showToastMessage(response?.message || "Failed to resolve caution fee", TOAST_TYPE.ERROR);
+        return false;
       }
     } catch (error) {
-      console.error(
-        "[HostBookingDetails] Caution fee resolution error:",
-        error,
-      );
-      showToastMessage(
-        "An error occurred. Please try again.",
-        TOAST_TYPE.ERROR,
-      );
+      console.error("[HostBookingDetails] Caution resolve error:", error);
+      showToastMessage("An error occurred while resolving caution fee", TOAST_TYPE.ERROR);
+      return false;
     } finally {
       setIsResolvingCaution(false);
     }
   };
+
+
 
   // ───── Loading state ─────
 
@@ -1119,13 +1078,16 @@ const HostBookingDetailsScreen = () => {
               </Text>
 
               <View style={styles.cautionFeeActionRow}>
-                <TouchableOpacity
-                  style={styles.releaseBtn}
-                  onPress={() => handleResolveCautionFee("RELEASE_TO_GUEST")}
-                  disabled={isResolvingCaution}
-                >
-                  <Text style={styles.releaseBtnText}>Release to Guest</Text>
-                </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.releaseBtn}
+                    onPress={() => {
+                      setCautionActionType('RELEASE');
+                      setShowCautionActionModal(true);
+                    }}
+                    disabled={isResolvingCaution}
+                  >
+                    <Text style={styles.releaseBtnText}>Release to Guest</Text>
+                  </TouchableOpacity>
 
                 <TouchableOpacity
                   style={styles.disputeBtnHost}
@@ -1402,18 +1364,35 @@ const HostBookingDetailsScreen = () => {
         onHide={() => setToastVisible(false)}
       />
 
-      {/* ── Caution Fee Dispute Modal ── */}
+      {/* Unified Caution Action Modal (Processing & Results) */}
+      <CautionActionModal
+        visible={showCautionActionModal}
+        action={cautionActionType}
+        booking={booking}
+        onConfirm={handleResolveCautionFee}
+        onClose={() => setShowCautionActionModal(false)}
+        initialStep={cautionActionType === 'DISPUTE' ? 2 : 1}
+        initialReason={cautionDisputeReason}
+      />
+
+      {/* ── Caution Fee Dispute Modal (Input Only) ── */}
       <CautionDisputeModal
         visible={showCautionDisputeModal}
         onClose={() => setShowCautionDisputeModal(false)}
-        onSubmit={(reason) => handleResolveCautionFee("DISPUTE", reason)}
+        onSubmit={(reason) => {
+          setCautionDisputeReason(reason);
+          setCautionActionType('DISPUTE');
+          setShowCautionDisputeModal(false);
+          // Transition to action modal for processing and success
+          setTimeout(() => setShowCautionActionModal(true), 300);
+        }}
         isLoading={isResolvingCaution}
         reason={cautionDisputeReason}
         onReasonChange={setCautionDisputeReason}
         title="Raise Caution Fee Dispute"
         subtitle="Provide clear details about the damages or issues. This will be reviewed by our compliance team within 24-48 hours."
         placeholder="Describe damage (e.g., Broken TV screen, stained rug...)"
-        submitLabel="Raise Dispute"
+        submitLabel="Submit Dispute"
       />
     </SafeAreaView>
   );

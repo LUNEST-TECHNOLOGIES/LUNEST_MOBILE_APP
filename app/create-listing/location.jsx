@@ -311,16 +311,7 @@ const Location = () => {
     };
   }, [address, geocodeAddress]);
 
-  // Sync address text to GooglePlacesAutocomplete ref if it changes externally (e.g. from draft)
-  useEffect(() => {
-    if (googlePlacesRef.current && address) {
-       const currentText = googlePlacesRef.current.getAddressText();
-       // Only update if the text is actually different and NOT being typed
-       if (currentText !== address && !Keyboard.isVisible()) {
-          googlePlacesRef.current.setAddressText(address);
-       }
-    }
-  }, [address]);
+
 
 
 
@@ -625,6 +616,58 @@ const Location = () => {
               <View style={{ marginBottom: 20, zIndex: 100 }}>
                 <Text style={styles.inputLabel}>Property Address *</Text>
                 
+                {/* Manual Address Edit - Always Editable */}
+                <View style={{ position: 'relative' }}>
+                  <TextInput
+                    style={[styles.textInput, { 
+                      marginBottom: 12,
+                      paddingRight: address ? 40 : 12, // Space for edit icon when has content
+                      backgroundColor: address ? '#f0f9ff' : '#FAFAFA', // Light blue when filled
+                      borderColor: address ? '#0ea5e9' : '#e5e7eb', // Blue border when filled
+                    }]}
+                    placeholder="Enter address manually, or use options below..."
+                    placeholderTextColor="#999999"
+                    value={address}
+                    onChangeText={(text) => {
+                      setAddress(text);
+                      updateLocation({ address: text });
+                      // Synchronize the text back to Google Places search box if needed
+                      if (googlePlacesRef.current && typeof googlePlacesRef.current.setAddressText === 'function') {
+                         googlePlacesRef.current.setAddressText(text);
+                      }
+                    }}
+                    multiline={true}
+                    numberOfLines={2}
+                    editable={true}
+                    selectTextOnFocus={false}
+                  />
+                  
+                  {/* Edit indicator - shows when address is filled */}
+                  {address && (
+                    <View style={{ 
+                      position: 'absolute', 
+                      right: 12, 
+                      top: 14,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                    }}>
+                      <Text style={{ 
+                        fontSize: 11, 
+                        color: '#0ea5e9', 
+                        marginRight: 4,
+                        fontWeight: '500',
+                      }}>
+                        Tap to edit
+                      </Text>
+                      <Text style={{ fontSize: 14 }}>✏️</Text>
+                    </View>
+                  )}
+                </View>
+                
+                <Text style={[styles.inputLabel, { fontSize: 12, color: '#64748b', marginBottom: 8 }]}>
+                  Or search using Google Places:
+                </Text>
+
                 <View style={[styles.addressSearchContainer, { zIndex: 100 }]}>
                   <GooglePlacesAutocomplete
                     ref={googlePlacesRef}

@@ -6,13 +6,13 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    View
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle, Path } from 'react-native-svg';
@@ -515,7 +515,9 @@ const Amenities = () => {
         <Text style={styles.headerTitle}>Create a Listing</Text>
         <Pressable style={styles.closeButton} onPress={handleClose}>
           <View style={styles.closeButtonBg} />
-          <CloseIcon size={14} color="#000000" />
+          <View style={{ zIndex: 5 }}>
+            <CloseIcon size={14} color="#000000" />
+          </View>
         </Pressable>
       </View>
 
@@ -692,10 +694,12 @@ const styles = StyleSheet.create({
     height: 40,
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 10,
   },
   closeButtonBg: {
     position: 'absolute',
     width: 40,
+    zIndex: 1,
     height: 40,
     borderRadius: 20,
     backgroundColor: '#F5F5F5',

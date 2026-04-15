@@ -176,7 +176,6 @@ const VerifyAgreementPage = () => {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
       </ScrollView>
     </SafeAreaView>
   );

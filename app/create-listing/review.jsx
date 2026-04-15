@@ -3,6 +3,7 @@
  * Review all listing details before submission
  */
 
+import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -23,14 +24,12 @@ import Svg, { Line, Path, Rect } from "react-native-svg";
 import CancelConfirmationModal from "../../src/components/create-listing/CancelConfirmationModal";
 import SubmitConfirmationModal from "../../src/components/create-listing/SubmitConfirmationModal";
 import { useDraftListing } from "../../src/hooks/useDraftListing";
-import draftListingService from "../../src/services/draftListingService";
-import listingService from "../../src/services/listingService";
-import { fetchHostData, getHostAvatarUrl } from "../../src/services/hostService";
 import authService from "../../src/services/authService";
+import draftListingService from "../../src/services/draftListingService";
+import { fetchHostData, getHostAvatarUrl } from "../../src/services/hostService";
+import listingService from "../../src/services/listingService";
 import toastService from "../../src/services/toastService";
-import { Ionicons } from "@expo/vector-icons";
 // Use distinct name to avoid collision with local StarIcon component
-import StarIconSvg from "../../src/assets/icons/star.svg";
 
 // Close X Icon - with explicit dimensions for web
 const CloseIcon = ({ size = 24, color = "#000000" }) => (
@@ -919,7 +918,9 @@ const Review = () => {
         </Text>
         <Pressable style={styles.closeButton} onPress={handleClose}>
           <View style={styles.closeButtonBg} />
-          <CloseIcon size={14} color="#000000" />
+          <View style={{ zIndex: 5 }}>
+            <CloseIcon size={14} color="#000000" />
+          </View>
         </Pressable>
       </View>
 
@@ -1483,6 +1484,7 @@ const styles = StyleSheet.create({
     height: 40,
     justifyContent: "center",
     alignItems: "center",
+    zIndex: 10,
   },
   closeButtonBg: {
     position: "absolute",
@@ -1490,6 +1492,7 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 20,
     backgroundColor: "#F5F5F5",
+    zIndex: 1,
   },
   progressContainer: {
     flexDirection: "row",

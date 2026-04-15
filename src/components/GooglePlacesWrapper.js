@@ -29,7 +29,15 @@ const GooglePlacesAutocompleteWeb = React.forwardRef((props, ref) => {
   // Fetch predictions from Google Places API
   const fetchPredictions = useCallback(async (input) => {
     const key = getApiKey();
-    if (!key || !input || input.length < 2) {
+    console.log('[GooglePlacesWeb] API Key present:', !!key, 'Input:', input);
+    
+    if (!key) {
+      console.error('[GooglePlacesWeb] No API key provided!');
+      setPredictions([]);
+      return;
+    }
+    
+    if (!input || input.length < 2) {
       setPredictions([]);
       return;
     }
@@ -43,19 +51,30 @@ const GooglePlacesAutocompleteWeb = React.forwardRef((props, ref) => {
       const types = props.query?.types || 'address';
       const components = props.query?.components || 'country:ng';
       
+      // Note: Direct API calls from browser may fail due to CORS
+      // You may need to use a proxy or enable Places API in Google Cloud Console
       const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(input)}&types=${types}&components=${components}&key=${key}&sessiontoken=${sessionToken}`;
+      
+      console.log('[GooglePlacesWeb] Fetching:', url.replace(key, '***'));
       
       const response = await fetch(url);
       const data = await response.json();
       
+      console.log('[GooglePlacesWeb] Response status:', data.status);
+      
       if (data.status === 'OK' && data.predictions) {
         setPredictions(data.predictions.slice(0, 5));
         setShowDropdown(true);
+      } else if (data.status === 'REQUEST_DENIED') {
+        console.error('[GooglePlacesWeb] API Error:', data.error_message);
+        // Fallback: show input as-is for manual entry
+        setPredictions([]);
       } else {
         setPredictions([]);
       }
     } catch (error) {
-      console.warn('[GooglePlacesWeb] Fetch error:', error);
+      console.error('[GooglePlacesWeb] Fetch error:', error);
+      // CORS error - fallback to manual entry
       setPredictions([]);
     } finally {
       setLoading(false);
@@ -187,6 +206,15 @@ const GooglePlacesAutocompleteWeb = React.forwardRef((props, ref) => {
       {loading && (
         <View style={{ position: 'absolute', right: 12, top: 12 }}>
           <ActivityIndicator size="small" color="#666" />
+        </View>
+      )}
+
+      {/* Help text for manual entry when API fails */}
+      {query.length >= 2 && !loading && !showDropdown && (
+        <View style={{ marginTop: 4, marginLeft: 4 }}>
+          <Text style={{ fontSize: 12, color: '#6b7280' }}>
+            Type your address manually or check console for API errors
+          </Text>
         </View>
       )}
 

@@ -368,6 +368,7 @@ export const headerStyles = StyleSheet.create({
     height: 40,
     justifyContent: "center",
     alignItems: "center",
+    zIndex: 10,
   },
   closeButtonBg: {
     position: "absolute",
@@ -375,6 +376,7 @@ export const headerStyles = StyleSheet.create({
     height: 40,
     borderRadius: 20,
     backgroundColor: COLORS.gray[100],
+    zIndex: 1,
   },
 });
 

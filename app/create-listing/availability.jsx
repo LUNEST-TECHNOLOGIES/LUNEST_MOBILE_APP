@@ -7,13 +7,13 @@ import { format } from "date-fns";
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
-  Alert,
-  Pressable,
-  ScrollView,
-  Switch,
-  Text,
-  TextInput,
-  View,
+    Alert,
+    Pressable,
+    ScrollView,
+    Switch,
+    Text,
+    TextInput,
+    View,
 } from 'react-native';
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -21,14 +21,14 @@ import Svg, { Path } from 'react-native-svg';
 import Button from '../../src/components/Button';
 import CancelConfirmationModal from '../../src/components/create-listing/CancelConfirmationModal';
 import {
-  baseStyles,
-  footerStyles,
-  headerStyles,
-  infoBoxStyles,
-  progressStyles,
-  scrollStyles,
-  textStyles,
-  toggleStyles
+    baseStyles,
+    footerStyles,
+    headerStyles,
+    infoBoxStyles,
+    progressStyles,
+    scrollStyles,
+    textStyles,
+    toggleStyles
 } from '../../src/constants/styles';
 import { COLORS } from '../../src/constants/theme';
 import { useDraftListing } from '../../src/hooks/useDraftListing';
@@ -300,7 +300,9 @@ const Availability = () => {
         <Text style={headerStyles.title}>Create a Listing</Text>
         <Pressable style={headerStyles.closeButton} onPress={handleClose}>
           <View style={headerStyles.closeButtonBg} />
-          <CloseIcon size={14} color="#000000" />
+          <View style={{ zIndex: 5 }}>
+            <CloseIcon size={14} color="#000000" />
+          </View>
         </Pressable>
       </View>
 

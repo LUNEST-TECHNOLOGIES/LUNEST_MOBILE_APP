@@ -41,6 +41,7 @@ import ToastNotification, {
 } from "../../components/common/ToastNotification";
 import CautionDisputeModal from "../../components/modals/CautionDisputeModal";
 import CheckoutConfirmationModal from "../../components/modals/CheckoutConfirmationModal";
+import CautionActionModal from "../../components/modals/CautionActionModal";
 import ReviewFeedbackModal from "../../components/modals/ReviewFeedbackModal";
 import { DEMO_TERMS } from "../../constants/termsConfig";
 import authService from "../../services/authService";
@@ -61,6 +62,11 @@ const BookingConfirmationScreen = () => {
   const [booking, setBooking] = useState(null);
   const [loading, setLoading] = useState(true);
   const [baseURL, setBaseURL] = useState("");
+
+  // ── Caution Action State ──
+  const [showCautionActionModal, setShowCautionActionModal] = useState(false);
+  const [cautionActionType, setCautionActionType] = useState("RELEASE"); // "RELEASE" or "DISPUTE"
+  const [pendingCautionAction, setPendingCautionAction] = useState(null); // { action, reason }
   
   // ── Derive Coupon Values from Params or Fetch ──
   const pBreakdown = booking?.pricingBreakdown;
@@ -928,24 +934,20 @@ const BookingConfirmationScreen = () => {
   };
 
   const handleResolveCautionFee = async (action, reason = "") => {
-    if (!refCode) return;
-
-    if (action === "RELEASE_TO_GUEST") {
-      Alert.alert(
-        "Release Caution Fee",
-        "Are you sure you want to release the caution fee back to the guest? This action cannot be undone.",
-        [
-          { text: "Cancel", style: "cancel" },
-          {
-            text: "Confirm Release",
-            onPress: () => executeResolveCautionFee(action, reason),
-            style: "default",
-          },
-        ],
-      );
-    } else {
-      executeResolveCautionFee(action, reason);
+    // If not already confirmed via CautionActionModal, intercept and show it
+    if (!showCautionActionModal && action !== "PENDING") {
+      setCautionActionType(action === "DISPUTE" ? "DISPUTE" : "RELEASE");
+      setPendingCautionAction({ action, reason });
+      setShowCautionActionModal(true);
+      
+      // If it was a dispute, we close the dispute input modal first
+      if (action === "DISPUTE") {
+        setShowCautionDisputeModal(false);
+      }
+      return;
     }
+
+    executeResolveCautionFee(action, reason);
   };
 
   const executeResolveCautionFee = async (action, reason = "") => {
@@ -997,6 +999,14 @@ const BookingConfirmationScreen = () => {
       );
     } finally {
       setIsResolvingCaution(false);
+      setShowCautionActionModal(false);
+      setPendingCautionAction(null);
+    }
+  };
+
+  const handleConfirmCautionAction = () => {
+    if (pendingCautionAction) {
+      handleResolveCautionFee(pendingCautionAction.action, pendingCautionAction.reason);
     }
   };
 
@@ -1675,7 +1685,6 @@ const BookingConfirmationScreen = () => {
         onHide={() => setToastVisible(false)}
       />
 
-      {/* ── Caution Fee Dispute Modal ── */}
       <CautionDisputeModal
         visible={showCautionDisputeModal}
         onClose={() => setShowCautionDisputeModal(false)}
@@ -1695,6 +1704,17 @@ const BookingConfirmationScreen = () => {
             : "e.g., Property damage claims are false, item was in good condition, etc."
         }
         submitLabel="Submit Dispute"
+      />
+
+      {/* ── Caution Action Confirmation ── */}
+      <CautionActionModal
+        visible={showCautionActionModal}
+        onClose={() => setShowCautionActionModal(false)}
+        onConfirm={handleConfirmCautionAction}
+        isLoading={isResolvingCaution}
+        type={cautionActionType}
+        amount={securityDeposit}
+        targetName={booking?.bookedBy?.fullName || "the guest"}
       />
 
       {/* Fixed Bottom Section - Hide when capturing */}

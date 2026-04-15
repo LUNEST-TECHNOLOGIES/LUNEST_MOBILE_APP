@@ -628,7 +628,6 @@ const Location = () => {
                 {/* Manual Address Edit - Always Editable */}
                 <View style={{ position: 'relative' }}>
                   <TextInput
-                    ref={(ref) => { this.addressInputRef = ref; }}
                     style={[styles.textInput, { 
                       marginBottom: 12,
                       paddingRight: address ? 40 : 12, // Space for edit icon when has content

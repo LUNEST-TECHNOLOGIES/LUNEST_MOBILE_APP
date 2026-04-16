@@ -292,6 +292,8 @@ class NotificationService {
       booking_confirmed: "checkmark-circle-outline",
       booking_cancelled: "close-circle-outline",
       booking_completed: "star-outline",
+      booking_ongoing: "time-outline",
+      checkout_completed: "log-out-outline",
       payment: "card-outline",
       review: "chatbubble-outline",
       listing_approved: "business-outline",
@@ -300,6 +302,7 @@ class NotificationService {
       host_application: "person-add-outline",
       message: "mail-outline",
       admin_announcement: "megaphone-outline",
+      points_earned: "gift-outline",
       default: "notifications-outline",
     };
     return iconMap[type] || iconMap.default;

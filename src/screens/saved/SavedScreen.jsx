@@ -16,6 +16,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import bookmarkService from "../../services/bookmarkService";
+import listingService from "../../services/listingService";
 import configService from "../../services/configService";
 import * as ImageUtils from "../../utils/imageUtils";
 
@@ -51,10 +52,27 @@ const SavedScreen = () => {
     refetchOnMount: true,
   });
 
+  const {
+    data: recentListings = [],
+    isLoading: recentLoading,
+    refetch: refetchRecent,
+  } = useQuery({
+    queryKey: ["recently-viewed"],
+    queryFn: async () => {
+      const result = await listingService.fetchRecentlyViewed();
+      return result.success ? result.listings : [];
+    },
+    enabled: activeTab === "recent",
+  });
+
   useFocusEffect(
     useCallback(() => {
-      refetch();
-    }, [refetch])
+      if (activeTab === "saved") {
+          refetch();
+      } else {
+          refetchRecent();
+      }
+    }, [refetch, refetchRecent, activeTab])
   );
 
   // ── Mutation for Removing Bookmark ──
@@ -155,12 +173,18 @@ const SavedScreen = () => {
     );
   };
 
-  const renderBookmarkItem = ({ item, index }) => {
-    const listing = item.listing;
+  const renderListItem = ({ item, index }) => {
+    // If it's a bookmark, it has a 'listing' property. 
+    // If it's a recently viewed item, it IS the listing itself.
+    const listing = item.listing || item;
+    
     if (!listing) {
-      console.warn("[SavedScreen] Bookmark item has no listing:", item);
+      console.warn("[SavedScreen] List item has no listing data:", item);
       return null;
     }
+
+    const itemId = item._id; // Use bookmark ID or listing ID
+    const isBookmark = !!item.listing;
 
     const imageError = imageErrors[item._id] || false;
     const imageUrl = !imageError ? getListingImage(listing) : null;
@@ -202,12 +226,14 @@ const SavedScreen = () => {
                 <Text style={styles.bookedBadgeText}>Booked</Text>
               </View>
             )}
-            <Pressable
-              style={styles.bookmarkIcon}
-              onPress={() => handleRemoveBookmark(item._id, title)}
-            >
-              <Ionicons name="heart" size={24} color="#FF0000" />
-            </Pressable>
+            {isBookmark && (
+              <Pressable
+                style={styles.bookmarkIcon}
+                onPress={() => handleRemoveBookmark(itemId, title)}
+              >
+                <Ionicons name="heart" size={24} color="#FF0000" />
+              </Pressable>
+            )}
           </View>
         </Pressable>
 
@@ -313,8 +339,8 @@ const SavedScreen = () => {
       </View>
 
       <FlatList
-        data={activeTab === "saved" ? bookmarks : []}
-        renderItem={renderBookmarkItem}
+        data={activeTab === "saved" ? bookmarks : recentListings}
+        renderItem={renderListItem}
         keyExtractor={(item) => item._id}
         numColumns={2}
         contentContainerStyle={styles.listContent}
@@ -322,8 +348,8 @@ const SavedScreen = () => {
         ListEmptyComponent={renderEmptyState}
         refreshControl={
           <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
+            refreshing={refreshing || (activeTab === "recent" && recentLoading)}
+            onRefresh={activeTab === "saved" ? handleRefresh : refetchRecent}
             colors={["#192DFF"]}
           />
         }

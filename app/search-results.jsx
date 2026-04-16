@@ -5,7 +5,7 @@
 
 import { Ionicons } from "@expo/vector-icons";
 import { FlashList } from "@shopify/flash-list";
-import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 import {
@@ -66,61 +66,34 @@ const SearchResultsScreen = () => {
       
       const baseURL = await configService.getBaseURL();
 
-      // Build filter object for API (Adapting original logic)
-      const apiFilters = {
-        status: { $in: ["AVAILABLE", "BOOKED"] },
+      // NEW: Use the specialized search endpoint for reliable NLP-based results
+      // All filtering logic is now handled server-side for accuracy and performance
+      const payload = {
+        query: searchQuery,
+        location: activeFilters.location,
+        minPrice: activeFilters.minPrice,
+        maxPrice: activeFilters.maxPrice,
+        propertyType: activeFilters.categories?.[0], // Backend expects propertyType
+        bedrooms: activeFilters.bedrooms,
+        bathrooms: activeFilters.bathrooms,
+        guests: activeFilters.guests,
+        amenities: activeFilters.amenities,
+        verifiedOnly: activeFilters.verifiedOnly,
+        furnished: activeFilters.furnished,
+        petFriendly: activeFilters.petFriendly,
+        availability: activeFilters.availability,
+        page: pageParam,
+        limit: 10
       };
 
-      if (searchQuery && searchQuery.trim()) {
-        const trimmedQuery = searchQuery.trim();
-        const searchPatterns = [trimmedQuery];
-        if (trimmedQuery.includes(" ")) {
-          searchPatterns.push(...trimmedQuery.split(/\s+/).filter((w) => w.length >= 2));
-        }
-        const searchConditions = [];
-        searchPatterns.forEach((pattern) => {
-          searchConditions.push(
-            { propertyName: { $regex: pattern, $options: "i" } },
-            { city: { $regex: pattern, $options: "i" } },
-            { state: { $regex: pattern, $options: "i" } },
-            { description: { $regex: pattern, $options: "i" } },
-            { "address.street": { $regex: pattern, $options: "i" } },
-            { "address.city": { $regex: pattern, $options: "i" } },
-            { "address.state": { $regex: pattern, $options: "i" } },
-          );
-        });
-        apiFilters.$or = searchConditions;
-      }
-
-      if (activeFilters.location) apiFilters.city = { $regex: activeFilters.location, $options: "i" };
-      if (activeFilters.minPrice) apiFilters.price = { ...apiFilters.price, $gte: activeFilters.minPrice };
-      if (activeFilters.maxPrice) apiFilters.price = { ...apiFilters.price, $lte: activeFilters.maxPrice };
-      if (activeFilters.categories?.length > 0) apiFilters.propertyType = { $in: activeFilters.categories };
-      if (activeFilters.bedrooms > 0) apiFilters.bedrooms = { $gte: activeFilters.bedrooms };
-      if (activeFilters.bathrooms > 0) apiFilters.bathrooms = { $gte: activeFilters.bathrooms };
-      if (activeFilters.guests > 0) apiFilters.guests = { $gte: activeFilters.guests };
-
-      const result = await listingService.fetchListingsByStatus(apiFilters);
+      const result = await listingService.searchListings(payload);
       
-      if (result?.success && result.listings) {
-        let filteredListings = result.listings;
-
-        // Client-side filtering as per original code
-        if (activeFilters.amenities?.length > 0) {
-          filteredListings = filteredListings.filter((l) =>
-            activeFilters.amenities.every((a) => l.amenities?.includes(a))
-          );
-        }
-        if (activeFilters.verifiedOnly) {
-          filteredListings = filteredListings.filter((l) => l.host?.active || l.host?.hostApplicationStatus === "APPROVED");
-        }
-        if (activeFilters.furnished) {
-          filteredListings = filteredListings.filter((l) => 
-            l.furnishingStatus?.toLowerCase().includes("furnished") || 
-            l.description?.toLowerCase().includes("furnished")
-          );
-        }
-
+      if (result?.success) {
+        // Handle BOTH exact results and suggestions (if exact results are empty)
+        const filteredListings = (result.listings && result.listings.length > 0) 
+          ? result.listings 
+          : (result.suggestions || []);
+          
         // Standardized listing transformation
         return filteredListings.map((listing) => {
           const firstImg = (listing.propertyImages || listing.images || [])[0];
@@ -153,6 +126,8 @@ const SearchResultsScreen = () => {
             host: listing.host || {},
             propertyLocation: listing.propertyLocation || {},
             listingData: listing, // Keep full raw object
+            isSuggestion: result.listings?.length === 0 && result.suggestions?.length > 0,
+            suggestionMessage: result.suggestionMessage
           };
         });
       }
@@ -172,7 +147,7 @@ const SearchResultsScreen = () => {
   const resultCount = listings.length;
 
   // ── Bookmarks Management ──
-  const { data: bookmarkMap = {} } = useInfiniteQuery({
+  const { data: bookmarkMap = {} } = useQuery({
     queryKey: ["bookmarksMap"],
     queryFn: async () => {
       const res = await bookmarkService.fetchBookmarks();

@@ -39,6 +39,8 @@ const TYPE_TO_FILTER = {
   booking_confirmed: "bookings",
   booking_cancelled: "bookings",
   booking_completed: "bookings",
+  booking_ongoing: "bookings",
+  checkout_completed: "bookings",
   payment: "bookings",
   review: "reviews",
   listing_approved: "listings",
@@ -46,6 +48,7 @@ const TYPE_TO_FILTER = {
   new_listing: "listings",
   host_application: "system",
   message: "system",
+  points_earned: "system",
   admin_announcement: "system",
   default: "system",
 };
@@ -60,6 +63,8 @@ const DEFAULT_IMAGES = {
   booking_request: DEFAULT_IMAGE,
   booking_cancelled: DEFAULT_IMAGE,
   booking_completed: DEFAULT_IMAGE,
+  booking_ongoing: DEFAULT_IMAGE,
+  checkout_completed: DEFAULT_IMAGE,
   payment: DEFAULT_IMAGE,
   review: DEFAULT_IMAGE,
   listing_approved: DEFAULT_IMAGE,
@@ -67,6 +72,7 @@ const DEFAULT_IMAGES = {
   new_listing: DEFAULT_IMAGE,
   host_application: DEFAULT_IMAGE,
   message: DEFAULT_IMAGE,
+  points_earned: DEFAULT_IMAGE,
   admin_announcement: DEFAULT_IMAGE,
   default: DEFAULT_IMAGE,
 };
@@ -291,6 +297,8 @@ const NotificationsScreen = () => {
       booking_request: "New Booking Request",
       booking_cancelled: "Booking Cancelled",
       booking_completed: "Stay Completed",
+      booking_ongoing: "Stay Ongoing",
+      checkout_completed: "Checkout Complete",
       review: "New Review",
       new_listing: "New Space Available",
       listing_approved: "Listing Approved",
@@ -298,6 +306,7 @@ const NotificationsScreen = () => {
       payment: "Payment Update",
       admin_announcement: "Announcement",
       message: "New Message",
+      points_earned: "Points Awarded",
     };
     return notification.title || titleMap[notification.type] || "Notification";
   };

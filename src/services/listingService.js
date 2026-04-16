@@ -204,6 +204,69 @@ class ListingService {
   }
 
   /**
+   * Search listings with advanced filters and smart query parsing
+   * @param {Object} payload - { query, city, state, minPrice, maxPrice, category, amenities, page, limit }
+   * @returns {Promise<Object>} Search results
+   */
+  async searchListings(payload = {}) {
+    console.log("[ListingService] Searching listings with payload:", payload);
+    try {
+      // Use the new /search endpoint which handles NLP and advanced filters correctly
+      const response = await apiClient.post("/v1/listings/search", payload);
+      
+      const listings = response?.body?.listings || 
+                       response?.data?.listings || 
+                       response?.body || 
+                       response?.data || 
+                       [];
+
+      return {
+        success: true,
+        listings: Array.isArray(listings) ? listings : [],
+        count: Array.isArray(listings) ? listings.length : 0,
+        pagination: response?.body?.pagination || response?.data?.pagination || {}
+      };
+    } catch (error) {
+      console.error("[ListingService] Error searching listings:", error);
+      const categorized = NetworkErrorHandler.categorizeError(error);
+      return {
+        success: false,
+        listings: [],
+        message: categorized.userMessage || "Search failed",
+        error: categorized.type,
+      };
+    }
+  }
+
+  /**
+   * Fetch recently viewed listings for the authenticated user
+   * @returns {Promise<Object>} Recently viewed listings
+   */
+  async fetchRecentlyViewed() {
+    console.log("[ListingService] Fetching recently viewed listings...");
+    try {
+      const response = await axiosInstance.get("/v1/listings/recently-viewed");
+      
+      const listings = response.data?.body || response.data?.data || response.data || [];
+
+      return {
+        success: true,
+        listings: Array.isArray(listings) ? listings : [],
+        count: Array.isArray(listings) ? listings.length : 0
+      };
+    } catch (error) {
+      console.error("[ListingService] Error fetching recently viewed listings:", error);
+      const categorized = NetworkErrorHandler.categorizeError(error);
+      return {
+        success: false,
+        listings: [],
+        message: categorized.userMessage || "Failed to fetch recently viewed listings",
+        error: categorized.type
+      };
+    }
+  }
+
+  /**
    * Fetch listings with status filtering
    * @param {Object} filters - Filtering options including status
    * @returns {Promise<Object>} Filtered listings

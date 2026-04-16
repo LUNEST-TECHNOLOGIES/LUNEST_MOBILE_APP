@@ -653,28 +653,44 @@ const BookingConfirmationScreen = () => {
     }
 
     try {
+      // 1. Show the downloading modal first
+      setDownloadModalState({
+        visible: true,
+        type: 'loading',
+        title: 'Saving Image...',
+        message: 'Preparing your booking confirmation image.'
+      });
+
+      // 2. Hide UI clutter (buttons/headers)
       setIsCapturing(true);
-      // Brief delay to allow React to re-render without buttons
+
+      // 3. Brief delay to allow React to re-render without buttons
       setTimeout(async () => {
         try {
-          setDownloadModalState({
-            visible: true,
-            type: 'loading',
-            title: 'Saving Image...',
-            message: 'Preparing your booking confirmation image.'
-          });
+          let localUri;
           
-          const localUri = await captureRef(viewRef, {
-            format: "png",
-            quality: 1,
-          });
+          if (Platform.OS === 'web') {
+            const { toPng } = require('html-to-image');
+            localUri = await toPng(viewRef.current, {
+                backgroundColor: "#FFFFFF",
+                cacheBust: true,
+                includeQueryParams: true,
+                pixelRatio: 2,
+            });
+          } else {
+            localUri = await captureRef(viewRef, {
+              format: "png",
+              quality: 1,
+            });
+          }
+          
           await saveRefAsImage(localUri, `Booking_Confirmation_${refCode}.png`);
           
           setDownloadModalState({
             visible: true,
             type: 'success',
             title: 'Image Saved',
-            message: 'The booking confirmation has been saved to your gallery.'
+            message: 'The booking confirmation has been saved successfully.'
           });
         } catch (innerError) {
           console.warn("Capture failed:", innerError);
@@ -682,13 +698,15 @@ const BookingConfirmationScreen = () => {
             visible: true,
             type: 'error',
             title: 'Capture Failed',
-            message: 'Failed to save the booking confirmation image.'
+            message: innerError?.message?.includes('CORS') 
+                ? 'Image server security (CORS) blocked the capture. Please contact support.'
+                : 'Failed to save the booking confirmation image.'
           });
         } finally {
           setIsCapturing(false);
           setShowDownloadOptions(false);
         }
-      }, 150);
+      }, 500); // 500ms delay for UI stability
     } catch (e) {
       console.warn("Image capture/save failed:", e);
       setDownloadModalState({

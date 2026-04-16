@@ -647,56 +647,66 @@ const HostBookingDetailsScreen = () => {
         return;
     }
     
-    setIsDownloading(true);
-    setIsCapturing(true); // Signal to hide buttons
-    
-    // Give time for UI to hide buttons
-    setTimeout(async () => {
-        try {
-            setDownloadModalState({
-                visible: true,
-                type: 'loading',
-                title: 'Saving Image...',
-                message: 'Preparing your booking summary image.'
-            });
+    try {
+        // 1. Show the downloading modal first
+        setDownloadModalState({
+            visible: true,
+            type: 'loading',
+            title: 'Saving Image...',
+            message: 'Preparing your booking summary image.'
+        });
 
-            if (Platform.OS === 'web') {
-                const { toPng } = require('html-to-image');
-                const dataUrl = await toPng(viewRef.current, {
-                    backgroundColor: "#FFFFFF",
-                    cacheBust: true,
-                    includeQueryParams: true,
-                    pixelRatio: 2,
+        // 2. Hide UI clutter (buttons/headers)
+        setIsCapturing(true);
+        setIsDownloading(true);
+        
+        // 3. Brief delay to allow React to re-render without buttons
+        setTimeout(async () => {
+            try {
+                if (Platform.OS === 'web') {
+                    const { toPng } = require('html-to-image');
+                    const dataUrl = await toPng(viewRef.current, {
+                        backgroundColor: "#FFFFFF",
+                        cacheBust: true,
+                        includeQueryParams: true,
+                        pixelRatio: 2,
+                    });
+                    await saveRefAsImage(dataUrl, `Booking_Summary_${bookingRefCode}.png`);
+                } else {
+                    const uri = await captureRef(viewRef, {
+                        format: "png",
+                        quality: 1,
+                    });
+                    await saveRefAsImage(uri, `Booking_Summary_${bookingRefCode}.png`);
+                }
+
+                setDownloadModalState({
+                    visible: true,
+                    type: 'success',
+                    title: 'Image Saved',
+                    message: 'The booking summary has been saved successfully.'
                 });
-                await saveRefAsImage(dataUrl, `Booking_Summary_${bookingRefCode}.png`);
-            } else {
-                const uri = await captureRef(viewRef, {
-                    format: "png",
-                    quality: 1,
+            } catch (e) {
+                console.error("[Download] Image capture error:", e);
+                setDownloadModalState({
+                    visible: true,
+                    type: 'error',
+                    title: 'Capture Failed',
+                    message: e?.message?.includes('CORS')
+                        ? 'Image server security (CORS) prevented the capture. Please contact support.'
+                        : 'Failed to generate image summary. Please try again.'
                 });
-                await saveRefAsImage(uri, `Booking_Summary_${bookingRefCode}.png`);
+            } finally {
+                setIsCapturing(false);
+                setIsDownloading(false);
+                setShowDownloadOptions(false);
             }
-
-            setDownloadModalState({
-                visible: true,
-                type: 'success',
-                title: 'Image Saved',
-                message: 'The booking summary has been saved successfully.'
-            });
-        } catch (e) {
-            console.error("[Download] Image capture error:", e);
-            setDownloadModalState({
-                visible: true,
-                type: 'error',
-                title: 'Capture Failed',
-                message: 'Failed to generate image summary. Please try again.'
-            });
-        } finally {
-            setIsCapturing(false);
-            setIsDownloading(false);
-            setShowDownloadOptions(false);
-        }
-    }, 200);
+        }, 500); // Increased delay for UI stability
+    } catch (outerError) {
+        console.error("[Download] Outer capture error:", outerError);
+        setIsDownloading(false);
+        setIsCapturing(false);
+    }
   };
 
   const handleDownloadPress = () => {

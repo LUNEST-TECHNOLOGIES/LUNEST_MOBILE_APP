@@ -343,8 +343,8 @@ const HostBookingDetailsScreen = () => {
     booking?.listing?.cautionFee ??
     Math.round(totalPrice * 0.025);
 
-  // Taxable amount is typically Rent + Service Charge
-  const hostSubtotal = rentFee + serviceFee;
+  // Taxable amount (for host commission) is strictly the Rent Fee
+  const hostSubtotal = rentFee;
 
   // Host service fee (commission) and its VAT
   const hostFee = breakdown?.hostFee ?? Math.round(hostSubtotal * 0.03);
@@ -536,10 +536,8 @@ const HostBookingDetailsScreen = () => {
         <div class="section">
           <div class="section-title">Host/Landlord Payment Breakdown</div>
           <div class="row"><span class="label">Rent Fee</span><span class="value">₦${rentFee.toLocaleString()}</span></div>
-          <div class="row"><span class="label">Service Charge</span><span class="value">₦${serviceFee.toLocaleString()}</span></div>
-          <div class="row"><span class="label">Subtotal (Earnings)</span><span class="value">₦${(rentFee + serviceFee).toLocaleString()}</span></div>
-          <div class="row"><span class="label">LUNEST Service Fee (3%)</span><span class="value">-₦${hostFee.toLocaleString()}</span></div>
-          <div class="row"><span class="label">VAT on Service Fee (7.5%)</span><span class="value">-₦${hostVat.toLocaleString()}</span></div>
+          <div class="row"><span class="label">LUNEST App Fee (3%)</span><span class="value">-₦${hostFee.toLocaleString()}</span></div>
+          <div class="row"><span class="label">VAT on App Fee (7.5%)</span><span class="value">-₦${hostVat.toLocaleString()}</span></div>
           <div class="row total"><span>Net Earning</span><span>₦${hostEarnings.toLocaleString()}</span></div>
         </div>
         <div class="section">
@@ -687,14 +685,25 @@ const HostBookingDetailsScreen = () => {
                     message: 'The booking summary has been saved successfully.'
                 });
             } catch (e) {
-                console.error("[Download] Image capture error:", e);
+                // If 'e' is an Event object, log it carefully to avoid [object Event]
+                console.error("[Download] Image capture error detail:", {
+                    message: e?.message || e?.name || "Unknown Error",
+                    type: e?.constructor?.name,
+                    error: e
+                });
+
+                const isCORSError = e?.message?.includes('CORS') || 
+                                   (Platform.OS === 'web' && !e?.message && (e instanceof Event || e?.type === 'error'));
+
+                const diagnosticInfo = e?.message || (e instanceof Event ? `Browser Event: ${e.type}` : String(e));
+
                 setDownloadModalState({
                     visible: true,
                     type: 'error',
                     title: 'Capture Failed',
-                    message: e?.message?.includes('CORS')
-                        ? 'Image server security (CORS) prevented the capture. Please contact support.'
-                        : 'Failed to generate image summary. Please try again.'
+                    message: isCORSError
+                        ? 'Image server security (CORS) prevented the capture. The image source needs Access-Control-Allow-Origin headers.'
+                        : `Capture error: ${diagnosticInfo}. Please try again.`
                 });
             } finally {
                 setIsCapturing(false);
@@ -1009,13 +1018,13 @@ const HostBookingDetailsScreen = () => {
                   },
                 ]}
               >
-                <Text style={styles.infoLabel}>Gross Earning:</Text>
+                <Text style={styles.infoLabel}>Total Rent Fee:</Text>
                 <Text style={styles.infoValue}>
-                  ₦{(rentFee + serviceFee).toLocaleString()}
+                  ₦{rentFee.toLocaleString()}
                 </Text>
               </View>
               <InfoRow
-                label="App Fee DEDUCTION (3%):"
+                label="LUNEST App Fee (3%):"
                 value={`-₦${hostFee.toLocaleString()}`}
                 valueStyle={{ color: "#EF4444" }}
               />

@@ -172,11 +172,45 @@ class APIClient {
   }
 
   /**
+   * Internal helper to check if the device is offline
+   * @private
+   */
+  async _isOffline() {
+    if (Platform.OS === 'web') {
+      // Direct navigator check for web is fastest
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        return true;
+      }
+    }
+
+    try {
+      const state = await NetInfo.fetch();
+      // On native, isInternetReachable is a more accurate indicator of real connectivity
+      // than isConnected (which just means connected to a router/cell tower)
+      if (state.isInternetReachable === false) {
+        return true;
+      }
+      return !state.isConnected;
+    } catch (e) {
+      // Fallback: If NetInfo fails, assume online and let fetch() handle it
+      return false;
+    }
+  }
+
+  /**
    * Internal fetch with retry and exponential backoff
    * Specifically handles 429 (Too Many Requests)
    * @private
    */
   async _fetchWithRetry(url, options, attempt = 1, silent = false) {
+    // Proactive Connectivity Check
+    if (await this._isOffline()) {
+      const error = new Error("Network Unavailable (Offline)");
+      const diagnostic = NetworkErrorHandler.categorizeError(error);
+      this.handleError(diagnostic, silent);
+      throw error;
+    }
+
     const maxRetries = options.retries || 3;
     const retryDelay = options.retryDelay || 2000;
 

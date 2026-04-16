@@ -613,10 +613,10 @@ const Location = () => {
               </Pressable>
 
               {/* Address Input - Search and Manual Entry */}
-              <View style={{ marginBottom: 20, zIndex: 100 }}>
+              <View style={{ marginBottom: 20, zIndex: 10 }}>
                 <Text style={styles.inputLabel}>Property Address *</Text>
                 
-                <View style={[styles.addressSearchContainer, { zIndex: 100 }]}>
+                <View style={styles.addressSearchContainer}>
                   <GooglePlacesAutocomplete
                     ref={googlePlacesRef}
                     placeholder="Search for your address..."
@@ -762,19 +762,19 @@ const Location = () => {
                       borderBottomLeftRadius: 12,
                       borderBottomRightRadius: 12,
                       marginTop: -1,
-                      elevation: 10,       // Higher elevation for Android
+                      elevation: 10,
                       position: "absolute",
-                      top: 50,
+                      top: 45,
                       left: 0,
                       right: 0,
                       width: "100%",
-                      zIndex: 9999,        // Extreme zIndex for Android compatibility
+                      zIndex: 1000,
                       maxHeight: 280,
                       shadowColor: "#000",
                       shadowOffset: { width: 0, height: 4 },
                       shadowOpacity: 0.15,
                       shadowRadius: 8,
-                      overflow: "visible", // Support overlapping content
+                      overflow: "visible",
                     },
                     row: {
                       paddingVertical: 12,

@@ -15,7 +15,18 @@ class NetworkErrorHandler {
         const message = error && error.message ? error.message : "";
         const status = error && error.status ? error.status : null;
 
-        // Network connectivity errors
+        // Offline / No Internet Connectivity
+        if (message.includes("Offline") || message.includes("Network Unavailable")) {
+            return {
+                type: "OFFLINE_ERROR",
+                severity: "critical",
+                userMessage: "You are currently offline. Please check your internet connection and try again.",
+                cause: "Client device is offline",
+                platform: Platform.OS,
+            };
+        }
+
+        // Network connectivity errors (Server reachable but rejected/timeout)
         if (
             message.includes("Network request failed") ||
             message.includes("fetch failed") ||
@@ -127,7 +138,7 @@ class NetworkErrorHandler {
      */
     static getNetworkErrorMessage() {
         const base =
-            "Unable to connect to server. Check your internet connection and try again.";
+            "Unable to connect to server. Check your internet connection or try again later.";
         return this.getPlatformErrorMessage(base);
     }
 

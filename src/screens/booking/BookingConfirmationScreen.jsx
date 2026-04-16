@@ -7,20 +7,20 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Sharing from "expo-sharing";
 import { useEffect, useRef, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    Dimensions,
-    Image,
-    ImageBackground,
-    Linking,
-    Modal,
-    Platform,
-    Pressable,
-    ScrollView,
-    Share,
-    StyleSheet,
-    Text,
-    View
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  Image,
+  ImageBackground,
+  Linking,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  Share,
+  StyleSheet,
+  Text,
+  View
 } from "react-native";
 import { TouchableOpacity } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -37,11 +37,11 @@ import CountdownTimer from "../../components/booking/confirmation/CountdownTimer
 import DownloadConfirmationModal from "../../components/common/DownloadConfirmationModal";
 import DownloadOptionsModal from "../../components/common/DownloadOptionsModal";
 import ToastNotification, {
-    TOAST_TYPE,
+  TOAST_TYPE,
 } from "../../components/common/ToastNotification";
+import CautionActionModal from "../../components/modals/CautionActionModal";
 import CautionDisputeModal from "../../components/modals/CautionDisputeModal";
 import CheckoutConfirmationModal from "../../components/modals/CheckoutConfirmationModal";
-import CautionActionModal from "../../components/modals/CautionActionModal";
 import ReviewFeedbackModal from "../../components/modals/ReviewFeedbackModal";
 import { DEMO_TERMS } from "../../constants/termsConfig";
 import authService from "../../services/authService";
@@ -144,6 +144,7 @@ const BookingConfirmationScreen = () => {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   const [downloadModalState, setDownloadModalState] = useState({
     visible: false,
     type: 'loading',
@@ -663,6 +664,7 @@ const BookingConfirmationScreen = () => {
 
       // 2. Hide UI clutter (buttons/headers)
       setIsCapturing(true);
+      setIsDownloading(true);
 
       // 3. Brief delay to allow React to re-render without buttons
       setTimeout(async () => {
@@ -704,6 +706,7 @@ const BookingConfirmationScreen = () => {
           });
         } finally {
           setIsCapturing(false);
+          setIsDownloading(false);
           setShowDownloadOptions(false);
         }
       }, 500); // 500ms delay for UI stability
@@ -736,6 +739,7 @@ const BookingConfirmationScreen = () => {
     }
 
     setLoading(true);
+    setIsDownloading(true);
     setDownloadModalState({
       visible: true,
       type: 'loading',
@@ -765,12 +769,14 @@ const BookingConfirmationScreen = () => {
       });
     } finally {
       setLoading(false);
+      setIsDownloading(false);
       setShowDownloadOptions(false);
     }
   };
 
   const handleReceiptDownload = async () => {
     setLoading(true);
+    setIsDownloading(true);
     setDownloadModalState({
       visible: true,
       type: 'loading',
@@ -800,6 +806,7 @@ const BookingConfirmationScreen = () => {
       });
     } finally {
       setLoading(false);
+      setIsDownloading(false);
       setShowDownloadOptions(false);
     }
   };
@@ -1955,6 +1962,7 @@ const BookingConfirmationScreen = () => {
         onSaveImage={captureAndSaveImage}
         onDownloadReceipt={handleReceiptDownload}
         onDownloadAgreement={handleAgreementDownload}
+        loading={isDownloading}
       />
 
       <DownloadConfirmationModal

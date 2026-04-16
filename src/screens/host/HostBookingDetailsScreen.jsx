@@ -343,16 +343,17 @@ const HostBookingDetailsScreen = () => {
     booking?.listing?.cautionFee ??
     Math.round(totalPrice * 0.025);
 
-  // Taxable amount (for host commission) is strictly the Rent Fee
-  const hostSubtotal = rentFee;
+  // Fee base for host commission (3%) is Rent + Guest Service Charge
+  const hostSubtotal = rentFee + serviceFee;
 
   // Host service fee (commission) and its VAT
   const hostFee = breakdown?.hostFee ?? Math.round(hostSubtotal * 0.03);
   const hostVat = breakdown?.hostVat ?? Math.round(hostFee * 0.075);
   const totalHostDeduction = hostFee + hostVat;
 
+  // Host earnings are Rent Fee minus the platform commission and VAT
   const hostEarnings =
-    breakdown?.hostEarnings ?? hostSubtotal - totalHostDeduction;
+    breakdown?.hostEarnings ?? rentFee - totalHostDeduction;
   const guestTotal = breakdown?.guestTotal ?? totalPrice;
 
   // App charge and VAT as defined in the pricing model for receipt generation
@@ -538,7 +539,7 @@ const HostBookingDetailsScreen = () => {
           <div class="row"><span class="label">Rent Fee</span><span class="value">₦${rentFee.toLocaleString()}</span></div>
           <div class="row"><span class="label">LUNEST App Fee (3%)</span><span class="value">-₦${hostFee.toLocaleString()}</span></div>
           <div class="row"><span class="label">VAT on App Fee (7.5%)</span><span class="value">-₦${hostVat.toLocaleString()}</span></div>
-          <div class="row total"><span>Net Earning</span><span>₦${hostEarnings.toLocaleString()}</span></div>
+          <div class="row total"><span>TOTAL PAID TO HOST</span><span>₦${hostEarnings.toLocaleString()}</span></div>
         </div>
         <div class="section">
           <div class="section-title">Escrow & Total Tracking</div>
@@ -572,23 +573,23 @@ const HostBookingDetailsScreen = () => {
       const result = await bookingService.fetchReceipt(bookingId);
       if (result.success && result.url) {
         await downloadFile(result.url, `Receipt_${bookingRefCode}.pdf`, "application/pdf");
-        setDownloadModalState({
-          ...downloadModalState,
+        setDownloadModalState(prev => ({
+          ...prev,
           type: 'success',
           title: 'Download Complete',
           message: 'The receipt has been downloaded successfully.'
-        });
+        }));
       } else {
         throw new Error(result.message || "Failed to fetch receipt from server");
       }
     } catch (e) {
       console.warn("Receipt download error:", e);
-      setDownloadModalState({
-        ...downloadModalState,
+      setDownloadModalState(prev => ({
+        ...prev,
         type: 'error',
         title: 'Download Failed',
         message: e.message || "An error occurred while downloading the receipt."
-      });
+      }));
     } finally {
       setIsDownloading(false);
       setShowDownloadOptions(false);
@@ -616,23 +617,23 @@ const HostBookingDetailsScreen = () => {
       const result = await bookingService.fetchHostAgreement(bookingId);
       if (result.success && result.url) {
         await downloadFile(result.url, `Host_Agreement_${bookingRefCode}.pdf`, "application/pdf");
-        setDownloadModalState({
-          ...downloadModalState,
+        setDownloadModalState(prev => ({
+          ...prev,
           type: 'success',
           title: 'Download Complete',
           message: 'The agreement has been downloaded successfully.'
-        });
+        }));
       } else {
         throw new Error(result.message || "Failed to fetch agreement from server");
       }
     } catch (e) {
       console.warn("Agreement download error:", e);
-      setDownloadModalState({
-        ...downloadModalState,
+      setDownloadModalState(prev => ({
+        ...prev,
         type: 'error',
         title: 'Download Failed',
         message: e.message || "An error occurred while downloading the agreement."
-      });
+      }));
     } finally {
       setIsDownloading(false);
       setShowDownloadOptions(false);
@@ -947,13 +948,15 @@ const HostBookingDetailsScreen = () => {
           />
           {/* ── Property Card ── */}
           <View style={styles.card}>
-            <Image
-              source={propertyImageSource}
-              style={styles.propertyImage}
-              resizeMode="cover"
-              fadeDuration={0}
-              {...(Platform.OS === 'web' && { crossOrigin: "anonymous" })}
-            />
+            {!isCapturing && (
+              <Image
+                source={propertyImageSource}
+                style={styles.propertyImage}
+                resizeMode="cover"
+                fadeDuration={0}
+                {...(Platform.OS === 'web' && { crossOrigin: "anonymous" })}
+              />
+            )}
             <View style={styles.propertyInfo}>
               <Text style={styles.propertyName}>{propertyName}</Text>
               {propertyAddress ? (

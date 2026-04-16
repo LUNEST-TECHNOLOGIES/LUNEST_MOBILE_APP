@@ -688,22 +688,24 @@ const BookingConfirmationScreen = () => {
           
           await saveRefAsImage(localUri, `Booking_Confirmation_${refCode}.png`);
           
-          setDownloadModalState({
+          setDownloadModalState(prev => ({
+            ...prev,
             visible: true,
             type: 'success',
             title: 'Image Saved',
             message: 'The booking confirmation has been saved successfully.'
-          });
+          }));
         } catch (innerError) {
           console.warn("Capture failed:", innerError);
-          setDownloadModalState({
+          setDownloadModalState(prev => ({
+            ...prev,
             visible: true,
             type: 'error',
             title: 'Capture Failed',
             message: innerError?.message?.includes('CORS') 
                 ? 'Image server security (CORS) blocked the capture. Please contact support.'
                 : 'Failed to save the booking confirmation image.'
-          });
+          }));
         } finally {
           setIsCapturing(false);
           setIsDownloading(false);
@@ -738,7 +740,6 @@ const BookingConfirmationScreen = () => {
       return;
     }
 
-    setLoading(true);
     setIsDownloading(true);
     setDownloadModalState({
       visible: true,
@@ -750,32 +751,30 @@ const BookingConfirmationScreen = () => {
       const result = await bookingService.fetchRentalAgreement(bookingId);
       if (result.success && result.url) {
         await downloadFile(result.url, `Agreement_${refCode}.pdf`, "application/pdf");
-        setDownloadModalState({
-          ...downloadModalState,
+        setDownloadModalState(prev => ({
+          ...prev,
           type: 'success',
           title: 'Download Complete',
           message: 'The rental agreement has been downloaded successfully.'
-        });
+        }));
       } else {
         throw new Error(result.message || "Failed to fetch agreement from server");
       }
     } catch (e) {
       console.warn("Agreement download error:", e);
-      setDownloadModalState({
-        ...downloadModalState,
+      setDownloadModalState(prev => ({
+        ...prev,
         type: 'error',
         title: 'Download Failed',
         message: e.message || "An error occurred while downloading the agreement."
-      });
+      }));
     } finally {
-      setLoading(false);
       setIsDownloading(false);
       setShowDownloadOptions(false);
     }
   };
 
   const handleReceiptDownload = async () => {
-    setLoading(true);
     setIsDownloading(true);
     setDownloadModalState({
       visible: true,
@@ -787,25 +786,24 @@ const BookingConfirmationScreen = () => {
       const result = await bookingService.fetchReceipt(bookingId);
       if (result.success && result.url) {
         await downloadFile(result.url, `Receipt_${refCode}.pdf`, "application/pdf");
-        setDownloadModalState({
-          ...downloadModalState,
+        setDownloadModalState(prev => ({
+          ...prev,
           type: 'success',
           title: 'Download Complete',
           message: 'The receipt has been downloaded successfully.'
-        });
+        }));
       } else {
         throw new Error(result.message || "Failed to fetch receipt from server");
       }
     } catch (e) {
       console.warn("Receipt download error:", e);
-      setDownloadModalState({
-        ...downloadModalState,
+      setDownloadModalState(prev => ({
+        ...prev,
         type: 'error',
         title: 'Download Failed',
         message: e.message || "An error occurred while downloading the receipt."
-      });
+      }));
     } finally {
-      setLoading(false);
       setIsDownloading(false);
       setShowDownloadOptions(false);
     }

@@ -104,10 +104,10 @@ const VerifyAgreementPage = () => {
       
       <ScrollView 
         showsVerticalScrollIndicator={true}
-        contentContainerStyle={{ flexGrow: 1, paddingBottom: 40 }}
-        style={{ flex: 1 }}
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: 60 }}
+        className="flex-1"
       >
-        <View className="items-center lg:py-10 min-h-full">
+        <View className="items-center lg:py-10 w-full">
             {/* Header Branding */}
             <View className="bg-white px-6 py-8 lg:py-12 items-center shadow-sm lg:rounded-b-[40px]">
               <Image 

@@ -22,6 +22,7 @@ import {
     TouchableOpacity,
     View
 } from "react-native";
+import * as Clipboard from "expo-clipboard";
 import {
     SafeAreaView,
     useSafeAreaInsets,
@@ -984,6 +985,24 @@ const HostBookingDetailsScreen = () => {
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>Booking Info</Text>
             <View style={styles.infoRows}>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Booking Ref:</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Text style={[styles.infoValue, { color: '#6371F1', fontWeight: 'bold' }]}>
+                    {bookingRefCode}
+                  </Text>
+                  <TouchableOpacity 
+                    onPress={async () => {
+                      await Clipboard.setStringAsync(bookingRefCode);
+                      showToastMessage("Booking reference copied!", TOAST_TYPE.SUCCESS);
+                    }}
+                    style={{ marginLeft: 6 }}
+                    hitSlop={10}
+                  >
+                    <Ionicons name="copy-outline" size={14} color="#6371F1" />
+                  </TouchableOpacity>
+                </View>
+              </View>
               <InfoRow label="Check-in:" value={checkIn} />
               <InfoRow label="Check-out:" value={checkOut} />
               <InfoRow

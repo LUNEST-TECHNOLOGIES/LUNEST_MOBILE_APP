@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Image, SafeAreaView, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { Image, SafeAreaView, ScrollView, Text, TouchableOpacity, View, Alert } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { VerificationSkeleton } from '../../../src/components/skeletons/ScreenSkeletons';
 import bookingService from '../../../src/services/bookingService';
@@ -137,7 +138,15 @@ const VerifyAgreementPage = () => {
                   <Text className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1.5">Agreement Reference</Text>
                   <View className="flex-row items-center justify-between">
                     <Text className="text-xl font-mono font-bold text-slate-800 tracking-tight">{data.reference}</Text>
-                    <Ionicons name="copy-outline" size={16} color="#94a3b8" />
+                    <TouchableOpacity 
+                      onPress={async () => {
+                        await Clipboard.setStringAsync(data.reference);
+                        // Optional: Add a simple feedback if needed, but the icon change/toast is better
+                      }}
+                      hitSlop={10}
+                    >
+                      <Ionicons name="copy-outline" size={16} color="#010135" />
+                    </TouchableOpacity>
                   </View>
                 </View>
 

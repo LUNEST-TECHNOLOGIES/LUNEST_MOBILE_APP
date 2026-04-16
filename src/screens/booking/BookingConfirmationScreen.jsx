@@ -22,6 +22,7 @@ import {
   Text,
   View
 } from "react-native";
+import * as Clipboard from "expo-clipboard";
 import { TouchableOpacity } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { captureRef } from "react-native-view-shot";
@@ -1403,9 +1404,21 @@ const BookingConfirmationScreen = () => {
             {/* Booking Ref Code */}
             <View style={[styles.detailRow, { marginTop: 15 }]}>
               <Text style={styles.detailLabel}>Booking ref. code:</Text>
-              <Text style={styles.detailValue} numberOfLines={1}>
-                {refCode}
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Text style={styles.detailValue} numberOfLines={1}>
+                  {refCode}
+                </Text>
+                <TouchableOpacity 
+                  onPress={async () => {
+                    await Clipboard.setStringAsync(refCode);
+                    showToastMessage("Booking reference copied!", TOAST_TYPE.SUCCESS);
+                  }}
+                  style={{ marginLeft: 8 }}
+                  hitSlop={10}
+                >
+                  <Ionicons name="copy-outline" size={16} color="#6371F1" />
+                </TouchableOpacity>
+              </View>
             </View>
 
             {/* Payment Method - Only for Confirmed/Ongoing Guest bookings */}

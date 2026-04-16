@@ -359,6 +359,8 @@ const PropertyDetails = () => {
       });
   };
 
+  const isCommercial = ['office', 'warehouse', 'shop', 'land'].includes(draftData?.propertyType || params?.propertyType);
+
   const handleNext = () => {
     // Validate required fields
     if (!propertyTitle.trim()) {
@@ -379,13 +381,16 @@ const PropertyDetails = () => {
       Alert.alert("Bedrooms Required", "Please enter the number of bedrooms.");
       return;
     }
-    if (!bathrooms || parseInt(bathrooms) < 1) {
+    
+    // Bathroom validation: skip minimum if commercial
+    if (!isCommercial && (!bathrooms || parseInt(bathrooms) < 1)) {
       Alert.alert(
         "Bathrooms Required",
         "Please enter the number of bathrooms.",
       );
       return;
     }
+
     if (!titleType) {
       Alert.alert(
         "Title Type Required",
@@ -438,8 +443,7 @@ const PropertyDetails = () => {
     furnishing &&
     bedrooms &&
     parseInt(bedrooms) >= 1 &&
-    bathrooms &&
-    parseInt(bathrooms) >= 1 &&
+    (isCommercial ? true : (bathrooms && parseInt(bathrooms) >= 1)) &&
     titleType &&
     propertyHighlight &&
     propertyHighlight.trim().length >= 10;
@@ -570,7 +574,7 @@ const PropertyDetails = () => {
           min={0}
         />
         <Counter
-          label="Bathrooms *"
+          label={`Bathrooms ${isCommercial ? "" : "*"}`}
           value={bathrooms}
           onIncrement={() =>
             updatePropertyDetails({ bathrooms: bathrooms + 1 })

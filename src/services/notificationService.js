@@ -303,6 +303,8 @@ class NotificationService {
       message: "mail-outline",
       admin_announcement: "megaphone-outline",
       points_earned: "gift-outline",
+      caution_fee_resolved: "wallet-outline",
+      caution_fee_disputed: "alert-circle-outline",
       default: "notifications-outline",
     };
     return iconMap[type] || iconMap.default;

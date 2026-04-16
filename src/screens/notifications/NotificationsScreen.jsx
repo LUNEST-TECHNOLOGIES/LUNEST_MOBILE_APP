@@ -49,6 +49,8 @@ const TYPE_TO_FILTER = {
   host_application: "system",
   message: "system",
   points_earned: "system",
+  caution_fee_resolved: "bookings",
+  caution_fee_disputed: "bookings",
   admin_announcement: "system",
   default: "system",
 };
@@ -73,6 +75,8 @@ const DEFAULT_IMAGES = {
   host_application: DEFAULT_IMAGE,
   message: DEFAULT_IMAGE,
   points_earned: DEFAULT_IMAGE,
+  caution_fee_resolved: DEFAULT_IMAGE,
+  caution_fee_disputed: DEFAULT_IMAGE,
   admin_announcement: DEFAULT_IMAGE,
   default: DEFAULT_IMAGE,
 };
@@ -307,6 +311,8 @@ const NotificationsScreen = () => {
       admin_announcement: "Announcement",
       message: "New Message",
       points_earned: "Points Awarded",
+      caution_fee_resolved: "Caution Fee Update",
+      caution_fee_disputed: "Dispute Raised",
     };
     return notification.title || titleMap[notification.type] || "Notification";
   };

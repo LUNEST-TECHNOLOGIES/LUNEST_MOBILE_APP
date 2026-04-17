@@ -278,10 +278,38 @@ const Location = () => {
       const res = await fetch(url);
       const data = await res.json();
       if (data.status === 'OK' && data.results.length > 0) {
-        const loc = data.results[0].geometry.location;
+        const result = data.results[0];
+        const loc = result.geometry.location;
         const newCoords = { lat: loc.lat, lon: loc.lng };
         setPropertyCoords(newCoords);
-        saveDraftData({ latitude: loc.lat, longitude: loc.lng, currentStep: 4 });
+        
+        // Extract components to smart-fill fields
+        let extractedCity = "";
+        let extractedState = "";
+        let extractedCountry = "";
+        
+        result.address_components.forEach((comp) => {
+          const types = comp.types;
+          if (types.includes("locality") || types.includes("sublocality"))
+            extractedCity = comp.long_name;
+          if (types.includes("administrative_area_level_1"))
+            extractedState = comp.long_name;
+          if (types.includes("country"))
+            extractedCountry = comp.long_name;
+        });
+
+        if (extractedCity) setCity(extractedCity);
+        if (extractedState) setState(extractedState);
+        if (extractedCountry) setCountry(extractedCountry);
+
+        saveDraftData({ 
+          latitude: loc.lat, 
+          longitude: loc.lng, 
+          city: extractedCity || city,
+          state: extractedState || state,
+          country: extractedCountry || country,
+          currentStep: 4 
+        });
 
         // Animate map to new location
         if (mapRef.current) {
@@ -692,7 +720,12 @@ const Location = () => {
                     components: country === "Nigeria" ? "country:ng" : undefined,
                   }}
                   nearbyPlacesAPI="GooglePlacesSearch"
-                  onFail={(error) => console.log('GooglePlaces Error: ', error)}
+                  onFail={(error) => {
+                    console.log('GooglePlaces Error: ', error);
+                    if (Platform.OS !== 'web') {
+                      Alert.alert('Location Suggestions Error', typeof error === 'string' ? error : JSON.stringify(error));
+                    }
+                  }}
                   textInputProps={{
                     placeholderTextColor: "#999999",
                     style: styles.googlePlacesInput,
@@ -764,7 +797,7 @@ const Location = () => {
                       marginTop: -1,
                       elevation: 10,
                       position: "absolute",
-                      top: 45,
+                      top: 50, // Adjusted from 45 to align better with 50height input
                       left: 0,
                       right: 0,
                       width: "100%",

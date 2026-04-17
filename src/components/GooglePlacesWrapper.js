@@ -16,14 +16,8 @@ const GooglePlacesAutocompleteWeb = React.forwardRef((props, ref) => {
 
   // Get API key from props or config
   const getApiKey = () => {
-    if (apiKey) return apiKey;
-    // Fallback to environment variable
-    if (typeof process !== 'undefined' && process.env) {
-      return process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || 
-             process.env.GOOGLE_MAPS_API_KEY || 
-             '';
-    }
-    return '';
+    if (props.query?.key) return props.query.key;
+    return require('../config/appConfig').APP_CONFIG.GOOGLE_MAPS_API_KEY || '';
   };
 
   // Fetch predictions from Google Places API

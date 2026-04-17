@@ -74,6 +74,13 @@ export default function RootLayout() {
     prepare();
   }, []);
 
+  // Dismiss splash screen when ready
+  useEffect(() => {
+    if (fontsLoaded && !isLoading) {
+      SplashScreen.hideAsync().catch(() => {});
+    }
+  }, [fontsLoaded, isLoading]);
+
   // Handle navigation based on onboarding and auth status
   useEffect(() => {
     if (isLoading || !rootNavigationState?.key) return;

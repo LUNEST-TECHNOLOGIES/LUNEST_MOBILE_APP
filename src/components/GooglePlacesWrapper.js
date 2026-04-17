@@ -42,14 +42,13 @@ const GooglePlacesAutocompleteWeb = React.forwardRef((props, ref) => {
                           Math.random().toString(36).substring(2);
       sessionStorage.setItem('places_session_token', sessionToken);
 
+      const baseUrl = require('../config/appConfig').APP_CONFIG.REFERRAL_DOMAIN;
       const types = props.query?.types || 'address';
       const components = props.query?.components || 'country:ng';
       
-      // Note: Direct API calls from browser may fail due to CORS
-      // You may need to use a proxy or enable Places API in Google Cloud Console
-      const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(input)}&types=${types}&components=${components}&key=${key}&sessiontoken=${sessionToken}`;
+      const url = `${baseUrl}/v1/listings/proxy-places?type=autocomplete&input=${encodeURIComponent(input)}&types=${types}&components=${components}&sessiontoken=${sessionToken}`;
       
-      console.log('[GooglePlacesWeb] Fetching:', url.replace(key, '***'));
+      console.log('[GooglePlacesWeb] Fetching via proxy:', url);
       
       const response = await fetch(url);
       const data = await response.json();
@@ -59,16 +58,11 @@ const GooglePlacesAutocompleteWeb = React.forwardRef((props, ref) => {
       if (data.status === 'OK' && data.predictions) {
         setPredictions(data.predictions.slice(0, 5));
         setShowDropdown(true);
-      } else if (data.status === 'REQUEST_DENIED') {
-        console.error('[GooglePlacesWeb] API Error:', data.error_message);
-        // Fallback: show input as-is for manual entry
-        setPredictions([]);
       } else {
         setPredictions([]);
       }
     } catch (error) {
       console.error('[GooglePlacesWeb] Fetch error:', error);
-      // CORS error - fallback to manual entry
       setPredictions([]);
     } finally {
       setLoading(false);
@@ -90,15 +84,13 @@ const GooglePlacesAutocompleteWeb = React.forwardRef((props, ref) => {
 
   // Fetch place details when user selects a prediction
   const handleSelectPrediction = async (prediction) => {
-    const key = getApiKey();
-    if (!key) return;
-
     setLoading(true);
     setShowDropdown(false);
     
     try {
+      const baseUrl = require('../config/appConfig').APP_CONFIG.REFERRAL_DOMAIN;
       const sessionToken = sessionStorage.getItem('places_session_token') || '';
-      const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${prediction.place_id}&key=${key}&sessiontoken=${sessionToken}`;
+      const url = `${baseUrl}/v1/listings/proxy-places?type=details&place_id=${prediction.place_id}&sessiontoken=${sessionToken}`;
       
       const response = await fetch(url);
       const data = await response.json();

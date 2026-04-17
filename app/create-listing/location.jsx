@@ -588,7 +588,10 @@ const Location = () => {
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+      <TouchableWithoutFeedback 
+        onPress={Platform.OS === 'web' ? undefined : Keyboard.dismiss} 
+        accessible={false}
+      >
         <View style={{ flex: 1 }}>
           {/* Header */}
           <View style={styles.header}>

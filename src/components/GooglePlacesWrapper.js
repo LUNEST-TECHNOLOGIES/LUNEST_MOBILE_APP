@@ -199,7 +199,7 @@ const GooglePlacesAutocompleteWeb = React.forwardRef((props, ref) => {
       {query.length >= 2 && !loading && !showDropdown && (
         <View style={{ marginTop: 4, marginLeft: 4 }}>
           <Text style={{ fontSize: 12, color: '#6b7280' }}>
-            Type your address manually or check console for API errors
+            Type your address manually
           </Text>
         </View>
       )}

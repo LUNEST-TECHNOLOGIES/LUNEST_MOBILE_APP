@@ -617,7 +617,7 @@ const Location = () => {
           style={styles.scrollView}
           contentContainerStyle={[styles.content, { paddingBottom: 150 }]}
           showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
+          keyboardShouldPersistTaps="always"
           keyboardDismissMode="on-drag"
         >
         <View style={styles.titleRow}>
@@ -737,9 +737,12 @@ const Location = () => {
                     numberOfLines: 1,
                     clearButtonMode: 'while-editing',
                     returnKeyType: 'search',
-                    onChangeText: (text) => {
-                      setAddress(text);
-                      updateLocation({ address: text });
+                    onBlur: () => {
+                      const text = googlePlacesRef.current?.getAddressText();
+                      if (text) {
+                        setAddress(text);
+                        updateLocation({ address: text });
+                      }
                     }
                   }}
                   enablePoweredByContainer={false}

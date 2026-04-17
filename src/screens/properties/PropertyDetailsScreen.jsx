@@ -297,6 +297,10 @@ const PropertyDetailsScreen = () => {
           hasImages: !!listingData?.images?.length,
           imagesCount: listingData?.images?.length || 0,
         });
+        // Invalidate recently-viewed and bookmarks queries to keep SavedScreen in sync
+        queryClient.invalidateQueries({ queryKey: ["recently-viewed"] });
+        queryClient.invalidateQueries({ queryKey: ["bookmarks"] });
+
         return listingData;
       }
       if (result && result._id) {

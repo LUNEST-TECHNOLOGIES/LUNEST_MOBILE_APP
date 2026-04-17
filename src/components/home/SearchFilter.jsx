@@ -163,7 +163,7 @@ const styles = StyleSheet.create({
     minWidth: 16,
     height: 16,
     borderRadius: 8,
-    backgroundColor: "#192DFF",
+    backgroundColor: "#010135",
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 4,
@@ -193,12 +193,12 @@ const styles = StyleSheet.create({
   },
   chipText: {
     fontSize: 12,
-    color: "#192DFF",
+    color: "#010135",
     fontWeight: "500",
   },
   chipClose: {
     fontSize: 14,
-    color: "#192DFF",
+    color: "#010135",
     fontWeight: "600",
     marginLeft: 2,
   },

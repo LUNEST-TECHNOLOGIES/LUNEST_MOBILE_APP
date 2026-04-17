@@ -371,6 +371,46 @@ class LocationService {
     }
 
     /**
+     * Search for places using Google Places Autocomplete API
+     * @param {string} query - The search query
+     * @returns {Promise<Array>} List of place suggestions
+     */
+    async searchPlaces(query) {
+        if (!query || query.length < 3) return [];
+
+        const googleKey = APP_CONFIG.GOOGLE_MAPS_API_KEY;
+        if (!googleKey || googleKey === 'YOUR_GOOGLE_MAPS_API_KEY') {
+            console.warn('⚠️ [LocationService] Google Maps API key not configured for searchPlaces');
+            return [];
+        }
+
+        try {
+            console.log(`🔍 [LocationService] Searching places for: "${query}"...`);
+            const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(query)}&types=(cities)&key=${googleKey}`;
+            
+            const response = await fetch(url);
+            const data = await response.json();
+
+            if (data.status === 'OK') {
+                return data.predictions.map(prediction => ({
+                    description: prediction.description,
+                    placeId: prediction.place_id,
+                    mainText: prediction.structured_formatting.main_text,
+                    secondaryText: prediction.structured_formatting.secondary_text,
+                }));
+            } else if (data.status === 'ZERO_RESULTS') {
+                return [];
+            } else {
+                console.warn('⚠️ [LocationService] Google Places API error:', data.status, data.error_message);
+                return [];
+            }
+        } catch (error) {
+            console.error('❌ [LocationService] Error searching places:', error);
+            return [];
+        }
+    }
+
+    /**
      * Format location for display (e.g., "Lagos, Nigeria")
      * @param {Object} address - Address object from reverse geocoding
      * @returns {string}

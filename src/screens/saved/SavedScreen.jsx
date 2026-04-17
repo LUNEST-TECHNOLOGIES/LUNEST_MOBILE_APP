@@ -281,9 +281,6 @@ const SavedScreen = () => {
     );
   };
 
-  if (loading && !refreshing && bookmarks.length === 0) {
-    return (
-      <SafeAreaView style={styles.container} edges={["top"]}>
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Saved</Text>
         </View>
@@ -295,6 +292,17 @@ const SavedScreen = () => {
     );
   }
 
+  // Determine active tab label for branding
+  const getTabLabelStyle = (tabId) => [
+    styles.tabText,
+    activeTab === tabId ? styles.tabTextActive : styles.tabTextInactive
+  ];
+
+  const getTabStyle = (tabId) => [
+    styles.tab,
+    activeTab === tabId && styles.tabActive
+  ];
+
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
@@ -304,34 +312,19 @@ const SavedScreen = () => {
       {/* Tab Navigation */}
       <View style={styles.tabContainer}>
         <Pressable
-          style={[styles.tab, activeTab === "recent" && styles.tabInactive]}
+          style={getTabStyle("recent")}
           onPress={() => setActiveTab("recent")}
         >
-          <Text
-            style={[
-              styles.tabText,
-              activeTab === "recent"
-                ? styles.tabTextInactive
-                : styles.tabTextActive,
-            ]}
-          >
+          <Text style={getTabLabelStyle("recent")}>
             Recently Viewed
           </Text>
+          {activeTab === "recent" && <View style={styles.tabIndicator} />}
         </Pressable>
         <Pressable
-          style={[styles.tab, activeTab === "saved" && styles.tabActive]}
-          onPress={() => {
-            setActiveTab("saved");
-          }}
+          style={getTabStyle("saved")}
+          onPress={() => setActiveTab("saved")}
         >
-          <Text
-            style={[
-              styles.tabText,
-              activeTab === "saved"
-                ? styles.tabTextActive
-                : styles.tabTextInactive,
-            ]}
-          >
+          <Text style={getTabLabelStyle("saved")}>
             Saved Listings
           </Text>
           {activeTab === "saved" && <View style={styles.tabIndicator} />}
@@ -350,7 +343,7 @@ const SavedScreen = () => {
           <RefreshControl
             refreshing={refreshing || (activeTab === "recent" && recentLoading)}
             onRefresh={activeTab === "saved" ? handleRefresh : refetchRecent}
-            colors={["#192DFF"]}
+            colors={["#010135"]}
           />
         }
       />
@@ -389,7 +382,7 @@ const styles = StyleSheet.create({
   },
   tabActive: {
     borderBottomWidth: 2,
-    borderBottomColor: "#192DFF",
+    borderBottomColor: "#010135",
   },
   tabInactive: {},
   tabText: {
@@ -397,7 +390,7 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   tabTextActive: {
-    color: "#192DFF",
+    color: "#010135",
   },
   tabTextInactive: {
     color: "#6D6D6D",
@@ -407,7 +400,7 @@ const styles = StyleSheet.create({
     bottom: -1,
     height: 2,
     width: "100%",
-    backgroundColor: "#192DFF",
+    backgroundColor: "#010135",
   },
   loadingContainer: {
     flex: 1,
@@ -521,7 +514,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   exploreButton: {
-    backgroundColor: "#192DFF",
+    backgroundColor: "#010135",
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 20,

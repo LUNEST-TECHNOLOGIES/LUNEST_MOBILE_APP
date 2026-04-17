@@ -162,18 +162,23 @@ const WithdrawScreen = () => {
     }
   };
 
-  const formatAmount = (value) => {
-    return value.replace(/[^0-9]/g, "");
+  const formatWithSeparators = (value) => {
+    if (!value) return "";
+    // Clean string of any non-digits
+    const numericValue = value.replace(/[^0-9]/g, "");
+    if (!numericValue) return "";
+    // Format with commas
+    return Number(numericValue).toLocaleString("en-US");
   };
 
   const displayAmount = (value) => {
-    if (!value) return "";
-    return formatAmount(value);
+    return formatWithSeparators(value);
   };
 
   const handleAmountChange = (value) => {
-    const formatted = formatAmount(value);
-    setAmount(formatted);
+    // Store only the numeric string for logic
+    const numericString = value.replace(/[^0-9]/g, "");
+    setAmount(numericString);
   };
 
   // Withdrawal success state

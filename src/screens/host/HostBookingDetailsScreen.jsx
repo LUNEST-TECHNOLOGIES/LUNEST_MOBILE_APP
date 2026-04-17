@@ -352,9 +352,9 @@ const HostBookingDetailsScreen = () => {
   const hostVat = breakdown?.hostVat ?? Math.round(hostFee * 0.075);
   const totalHostDeduction = hostFee + hostVat;
 
-  // Host earnings are Rent Fee minus the platform commission and VAT
+  // Host earnings are Subtotal minus the platform commission and VAT
   const hostEarnings =
-    breakdown?.hostEarnings ?? rentFee - totalHostDeduction;
+    breakdown?.hostEarnings ?? hostSubtotal - totalHostDeduction;
   const guestTotal = breakdown?.guestTotal ?? totalPrice;
 
   // App charge and VAT as defined in the pricing model for receipt generation
@@ -1019,12 +1019,12 @@ const HostBookingDetailsScreen = () => {
             <Text style={styles.sectionTitle}>Earnings Breakdown</Text>
             <View style={styles.infoRows}>
               <InfoRow
-                label="Rent Fee:"
+                label="Accommodation Fee:"
                 value={`₦${rentFee.toLocaleString()}`}
               />
               {serviceFee > 0 && (
                 <InfoRow
-                  label="Service Charge:"
+                  label="Service Fee:"
                   value={`₦${serviceFee.toLocaleString()}`}
                 />
               )}
@@ -1040,9 +1040,9 @@ const HostBookingDetailsScreen = () => {
                   },
                 ]}
               >
-                <Text style={styles.infoLabel}>Total Rent Fee:</Text>
+                <Text style={styles.infoLabel}>Subtotal:</Text>
                 <Text style={styles.infoValue}>
-                  ₦{rentFee.toLocaleString()}
+                  ₦{hostSubtotal.toLocaleString()}
                 </Text>
               </View>
               <InfoRow

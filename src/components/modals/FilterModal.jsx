@@ -100,6 +100,8 @@ const FilterModal = ({ visible, onClose, onApply, initialFilters = {} }) => {
   const [petFriendly, setPetFriendly] = useState(
     initialFilters.petFriendly || false,
   );
+  const [suggestions, setSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
   // Use current location handler
   const handleUseCurrentLocation = useCallback(async () => {
@@ -128,6 +130,29 @@ const FilterModal = ({ visible, onClose, onApply, initialFilters = {} }) => {
       setIsLoadingLocation(false);
     }
   }, []);
+
+  // Fetch suggestions when location changes
+  useEffect(() => {
+    const fetchSuggestions = async () => {
+      if (location.length >= 3 && !isLoadingLocation) {
+        const results = await locationService.searchPlaces(location);
+        setSuggestions(results);
+        setShowSuggestions(results.length > 0);
+      } else {
+        setSuggestions([]);
+        setShowSuggestions(false);
+      }
+    };
+
+    const timer = setTimeout(fetchSuggestions, 500);
+    return () => clearTimeout(timer);
+  }, [location, isLoadingLocation]);
+
+  const handleSelectSuggestion = (suggestion) => {
+    setLocation(suggestion.description);
+    setSuggestions([]);
+    setShowSuggestions(false);
+  };
 
   // Toggle selection for multi-select items
   const toggleSelection = useCallback(
@@ -357,6 +382,31 @@ const FilterModal = ({ visible, onClose, onApply, initialFilters = {} }) => {
                   </Pressable>
                 )}
               </View>
+
+              {/* Suggestions Dropdown */}
+              {showSuggestions && (
+                <View style={styles.suggestionsContainer}>
+                  {suggestions.map((item, index) => (
+                    <Pressable
+                      key={item.placeId || index}
+                      style={[
+                        styles.suggestionItem,
+                        index === suggestions.length - 1 && { borderBottomWidth: 0 }
+                      ]}
+                      onPress={() => handleSelectSuggestion(item)}
+                    >
+                      <Ionicons name="location-outline" size={16} color="#010135" />
+                      <View style={styles.suggestionTextContainer}>
+                        <Text style={styles.suggestionMainText}>{item.mainText}</Text>
+                        <Text style={styles.suggestionSecondaryText} numberOfLines={1}>
+                          {item.secondaryText}
+                        </Text>
+                      </View>
+                    </Pressable>
+                  ))}
+                </View>
+              )}
+
               <Pressable
                 style={styles.useLocationLink}
                 onPress={handleUseCurrentLocation}
@@ -625,6 +675,41 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: "#010135",
     fontWeight: "500",
+  },
+  suggestionsContainer: {
+    marginTop: 4,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    zIndex: 1000,
+  },
+  suggestionItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F3F4F6",
+    gap: 12,
+  },
+  suggestionTextContainer: {
+    flex: 1,
+  },
+  suggestionMainText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#111827",
+  },
+  suggestionSecondaryText: {
+    fontSize: 12,
+    color: "#6B7280",
+    marginTop: 2,
   },
   priceRow: {
     flexDirection: "row",

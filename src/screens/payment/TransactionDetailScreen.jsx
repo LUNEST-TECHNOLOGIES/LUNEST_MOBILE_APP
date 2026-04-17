@@ -768,15 +768,17 @@ const styles = StyleSheet.create({
     color: "#2E7D32",
     textAlign: "center",
     lineHeight: 24,
-    maxWidth: 230,
+    width: "100%",
   },
   detailsSection: {
     gap: 16,
   },
   detailRow: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     justifyContent: "space-between",
+    paddingVertical: 4,
+    gap: 8,
   },
   detailLabel: {
     fontSize: 14,
@@ -787,11 +789,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "500",
     color: "#000",
+    flex: 1,
+    textAlign: "right",
   },
   detailValueBold: {
     fontSize: 16,
     fontWeight: "700",
     color: "#000",
+    flex: 1,
+    textAlign: "right",
   },
   typeBadge: {
     backgroundColor: "#010135",

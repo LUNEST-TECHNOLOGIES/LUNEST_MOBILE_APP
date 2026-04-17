@@ -1373,6 +1373,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "500",
     color: "#000000",
+    flexWrap: "wrap",
+    lineHeight: 20,
   },
   transactionMeta: {
     flexDirection: "row",

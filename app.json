@@ -101,15 +101,12 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "099f3a17-c82e-4d65-9e6a-2c89912fb373"
+        "projectId": "33dd6ebf-5088-4f44-8735-b398277ac23c"
       }
     },
     "runtimeVersion": {
       "policy": "appVersion"
     },
-    "updates": {
-      "url": "https://u.expo.dev/bcdc8dad-88b9-4de1-87c9-79cc6a01a870"
-    },
-    "owner": "geminiking"
+    "owner": "geminiking3"
   }
 }

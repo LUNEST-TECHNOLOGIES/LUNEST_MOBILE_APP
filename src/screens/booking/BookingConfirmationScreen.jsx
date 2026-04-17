@@ -1165,7 +1165,7 @@ const BookingConfirmationScreen = () => {
           <View style={styles.detailsSection}>
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Property name:</Text>
-              <Text style={styles.detailValue} numberOfLines={1}>
+              <Text style={styles.detailValue} numberOfLines={2}>
                 {propertyName}
               </Text>
             </View>
@@ -2218,12 +2218,22 @@ const styles = StyleSheet.create({
   // Date Row
   dateRow: {
     flexDirection: "row",
+    flexWrap: "wrap",
     justifyContent: "space-between",
-    gap: 20,
+    gap: 12,
+    paddingHorizontal: 4,
   },
   dateBlock: {
+    flex: 1,
+    minWidth: 140,
     alignItems: "center",
-    gap: 8,
+    backgroundColor: "#F9FAFB",
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#F3F4F6",
+    gap: 6,
   },
   dateLabelRow: {
     flexDirection: "row",
@@ -2236,9 +2246,10 @@ const styles = StyleSheet.create({
     color: "#656565",
   },
   dateValue: {
-    fontSize: 12,
-    fontWeight: "500",
+    fontSize: 11,
+    fontWeight: "600",
     color: "#000",
+    textAlign: "center",
   },
 
   // Total

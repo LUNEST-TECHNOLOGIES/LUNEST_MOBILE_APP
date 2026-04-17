@@ -101,7 +101,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "bcdc8dad-88b9-4de1-87c9-79cc6a01a870"
+        "projectId": "099f3a17-c82e-4d65-9e6a-2c89912fb373"
       }
     },
     "runtimeVersion": {
@@ -109,6 +109,7 @@
     },
     "updates": {
       "url": "https://u.expo.dev/bcdc8dad-88b9-4de1-87c9-79cc6a01a870"
-    }
+    },
+    "owner": "geminiking"
   }
 }

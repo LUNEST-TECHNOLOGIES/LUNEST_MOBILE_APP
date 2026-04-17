@@ -163,7 +163,8 @@ class NotificationService {
       const response = await apiClient.post("/v1/notifications/by-user-type", {
         userType,
       }, { silent: true });
-      return response.data || { data: [] };
+      // Backend returns { success: true, body: { notifications: [], unreadCount: 0 } }
+      return response.body || { notifications: [] };
     } catch (error) {
       // Re-throw 401 to let global handler redirect to login
       if (error.status === 401 || error.message?.includes("Unauthorized")) {
@@ -182,7 +183,8 @@ class NotificationService {
       const response = await apiClient.post("/v1/notifications/unread-count", {
         userType,
       }, { silent: true });
-      return response.data?.unreadCount || 0;
+      // Backend returns { success: true, body: { unreadCount: 0 } }
+      return response.body?.unreadCount || 0;
     } catch (error) {
       // Re-throw 401 to let global handler redirect to login
       if (error.status === 401 || error.message?.includes("Unauthorized")) {

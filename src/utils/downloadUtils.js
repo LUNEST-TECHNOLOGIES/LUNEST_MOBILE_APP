@@ -1,4 +1,4 @@
-import * as FileSystem from "expo-file-system";
+import { File, Directory } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import { Platform, Alert } from "react-native";
 import * as Linking from "expo-linking";
@@ -53,56 +53,44 @@ export const downloadFile = async (url, filename, mimeType = "application/pdf") 
       }
     }
 
-    // 2. IOS SUPPORT (Share Sheet is best)
-    if (Platform.OS === "ios") {
-      const fileUri = `${FileSystem.cacheDirectory}${filename}`;
-      const downloadResult = await FileSystem.downloadAsync(absoluteUrl, fileUri);
-      
-      if (downloadResult.status !== 200) {
-        throw new Error(`Download failed with status ${downloadResult.status}`);
-      }
+    // 2. NATIVE SUPPORT (iOS/Android) using new FileSystem API
+    if (Platform.OS !== "web") {
+        // Use new File API Patterns for SDK 51+
+        const file = new File(Directory.cache, filename);
+        console.log(`[DownloadUtils] Downloading to: ${file.uri}`);
 
-      const isSharingAvailable = await Sharing.isAvailableAsync();
-      if (isSharingAvailable) {
-        await Sharing.shareAsync(downloadResult.uri, {
-          mimeType,
-          UTI: mimeType === "application/pdf" ? "com.adobe.pdf" : "public.image",
-          dialogTitle: `Download ${filename}`,
-        });
-        return { success: true, platform: 'ios' };
-      } else {
-        throw new Error("Sharing is not available on this device");
-      }
-    }
+        const downloadResult = await file.downloadAsync(absoluteUrl);
+        
+        // Check if the file exists and has content
+        if (!downloadResult || !(await file.exists())) {
+            throw new Error(`Download failed: File could not be saved to cache`);
+        }
 
-    // 3. ANDROID SUPPORT (Storage Access Framework or Sharing)
-    if (Platform.OS === "android") {
-      const fileUri = `${FileSystem.cacheDirectory}${filename}`;
-      const downloadResult = await FileSystem.downloadAsync(absoluteUrl, fileUri);
-
-      if (downloadResult.status !== 200) {
-        throw new Error(`Download failed with status ${downloadResult.status}`);
-      }
-
-      // Android: Sharing.shareAsync triggers the system's "Complete action using" or download view
-      const isSharingAvailable = await Sharing.isAvailableAsync();
-      if (isSharingAvailable) {
-        await Sharing.shareAsync(downloadResult.uri, {
-          mimeType,
-          dialogTitle: `Download ${filename}`,
-        });
-        return { success: true, platform: 'android' };
-      } else {
-        // Fallback for older android/specific builds
-        await Linking.openURL(absoluteUrl);
-        return { success: true, platform: 'android-fallback' };
-      }
+        const isSharingAvailable = await Sharing.isAvailableAsync();
+        if (isSharingAvailable) {
+            await Sharing.shareAsync(file.uri, {
+                mimeType,
+                UTI: mimeType === "application/pdf" ? "com.adobe.pdf" : "public.image",
+                dialogTitle: `Download ${filename}`,
+            });
+            return { success: true, platform: Platform.OS };
+        } else if (Platform.OS === "android") {
+            // Fallback for older android/specific builds
+            await Linking.openURL(absoluteUrl);
+            return { success: true, platform: 'android-fallback' };
+        } else {
+            throw new Error("Sharing is not available on this device");
+        }
     }
 
     return { success: false, error: 'Unsupported platform' };
   } catch (error) {
     console.error("[DownloadUtils] Error:", error);
-    Alert.alert("Download Failed", error.message || "An unexpected error occurred during the download.");
+    const displayMessage = error.message?.includes("FileSystem") 
+        ? "Storage access failed. Please check app permissions." 
+        : (error.message || "An unexpected error occurred during the download.");
+    
+    Alert.alert("Download Failed", displayMessage);
     throw error;
   }
 };

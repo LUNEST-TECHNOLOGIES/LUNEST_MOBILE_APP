@@ -280,6 +280,14 @@ const WithdrawScreen = () => {
     return (
       <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
         <View style={styles.successScreen}>
+          {/* Close Button */}
+          <TouchableOpacity
+            style={styles.successCloseButton}
+            onPress={() => router.replace(Platform.OS === 'web' ? "/profile" : "/(tabs)/profile")}
+          >
+            <Ionicons name="close" size={28} color="#6B7280" />
+          </TouchableOpacity>
+
           {/* Success Icon */}
           <View style={styles.successIconContainer}>
             <View style={styles.successIconOuter}>
@@ -1080,6 +1088,13 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "600",
     color: "#374151",
+  },
+  successCloseButton: {
+    position: "absolute",
+    top: 10,
+    right: 16,
+    padding: 8,
+    zIndex: 20,
   },
 });
 

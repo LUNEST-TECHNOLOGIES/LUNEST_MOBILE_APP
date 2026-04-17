@@ -66,8 +66,9 @@ const SearchResultsScreen = () => {
       
       const baseURL = await configService.getBaseURL();
 
-      // NEW: Use the specialized search endpoint for reliable NLP-based results
+      // Use the specialized search endpoint for reliable NLP-based results
       // All filtering logic is now handled server-side for accuracy and performance
+      // Works with both Meilisearch (typo-tolerant) and MongoDB (regex fallback)
       const payload = {
         query: searchQuery,
         location: activeFilters.location,
@@ -95,7 +96,7 @@ const SearchResultsScreen = () => {
           : (result.suggestions || []);
           
         // Standardized listing transformation
-        return filteredListings.map((listing) => {
+        const transformedListings = filteredListings.map((listing) => {
           const firstImg = (listing.propertyImages || listing.images || [])[0];
           let imageUrl = firstImg ? (typeof firstImg === "object" ? firstImg.url || firstImg.uri : firstImg) : null;
           if (imageUrl && !imageUrl.startsWith("http")) imageUrl = `${baseURL}${imageUrl}`;
@@ -130,21 +131,36 @@ const SearchResultsScreen = () => {
             suggestionMessage: result.suggestionMessage
           };
         });
+
+        // Return listings + pagination metadata for accurate page tracking
+        return {
+          listings: transformedListings,
+          pagination: result.pagination || {},
+        };
       }
-      return [];
+      return { listings: [], pagination: {} };
     },
     initialPageParam: 1,
     getNextPageParam: (lastPage, allPages) => {
-      return lastPage.length === 10 ? allPages.length + 1 : undefined;
+      // Use server pagination metadata when available, else fallback to page-size heuristic
+      if (lastPage?.pagination?.hasNext) {
+        return allPages.length + 1;
+      }
+      // Fallback: if no pagination metadata, use array length
+      return (lastPage?.listings?.length || 0) === 10 ? allPages.length + 1 : undefined;
     },
     staleTime: 2 * 60_000,
   });
 
   const listings = useMemo(() => {
-    return searchPages?.pages.flatMap((page) => page) || [];
+    return searchPages?.pages.flatMap((page) => page?.listings || []) || [];
   }, [searchPages]);
 
-  const resultCount = listings.length;
+  // Use server total count if available, otherwise use local count
+  const resultCount = useMemo(() => {
+    const lastPage = searchPages?.pages?.[searchPages.pages.length - 1];
+    return lastPage?.pagination?.totalListings ?? listings.length;
+  }, [searchPages, listings]);
 
   // ── Bookmarks Management ──
   const { data: bookmarkMap = {} } = useQuery({

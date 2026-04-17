@@ -214,17 +214,18 @@ class ListingService {
       // Use the new /search endpoint which handles NLP and advanced filters correctly
       const response = await apiClient.post("/v1/listings/search", payload);
       
-      const listings = response?.body?.listings || 
-                       response?.data?.listings || 
-                       response?.body || 
-                       response?.data || 
-                       [];
+      const responseBody = response?.body || response?.data || {};
+      const listings = responseBody?.listings || 
+                       (Array.isArray(responseBody) ? responseBody : []);
 
       return {
         success: true,
         listings: Array.isArray(listings) ? listings : [],
         count: Array.isArray(listings) ? listings.length : 0,
-        pagination: response?.body?.pagination || response?.data?.pagination || {}
+        pagination: responseBody?.pagination || {},
+        suggestions: responseBody?.suggestions || [],
+        suggestionMessage: responseBody?.suggestionMessage || "",
+        searchEngine: responseBody?.searchEngine || "mongodb",
       };
     } catch (error) {
       console.error("[ListingService] Error searching listings:", error);

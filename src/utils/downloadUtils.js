@@ -1,4 +1,4 @@
-import { File, Directory } from "expo-file-system";
+import * as FileSystem from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import { Platform, Alert } from "react-native";
 import * as Linking from "expo-linking";
@@ -53,29 +53,28 @@ export const downloadFile = async (url, filename, mimeType = "application/pdf") 
       }
     }
 
-    // 2. NATIVE SUPPORT (iOS/Android) using new FileSystem API
+    // 2. NATIVE SUPPORT (iOS/Android) using stable FileSystem API
     if (Platform.OS !== "web") {
-        // Use new File API Patterns for SDK 51+
-        const file = new File(Directory.cache, filename);
-        console.log(`[DownloadUtils] Downloading to: ${file.uri}`);
+        const fileUri = `${FileSystem.cacheDirectory}${filename}`;
+        console.log(`[DownloadUtils] Downloading to: ${fileUri}`);
 
-        const downloadResult = await file.downloadAsync(absoluteUrl);
+        const downloadResult = await FileSystem.downloadAsync(absoluteUrl, fileUri);
         
-        // Check if the file exists and has content
-        if (!downloadResult || !(await file.exists())) {
-            throw new Error(`Download failed: File could not be saved to cache`);
+        // Check if the download succeeded
+        if (!downloadResult || downloadResult.status !== 200 || !downloadResult.uri) {
+            throw new Error(`Download failed with status: ${downloadResult?.status || 'unknown'}`);
         }
 
         const isSharingAvailable = await Sharing.isAvailableAsync();
         if (isSharingAvailable) {
-            await Sharing.shareAsync(file.uri, {
+            await Sharing.shareAsync(downloadResult.uri, {
                 mimeType,
-                UTI: mimeType === "application/pdf" ? "com.adobe.pdf" : "public.image",
+                UTI: mimeType === "application/pdf" ? "com.adobe.pdf" : "public.content",
                 dialogTitle: `Download ${filename}`,
             });
             return { success: true, platform: Platform.OS };
         } else if (Platform.OS === "android") {
-            // Fallback for older android/specific builds
+            // Fallback for android
             await Linking.openURL(absoluteUrl);
             return { success: true, platform: 'android-fallback' };
         } else {

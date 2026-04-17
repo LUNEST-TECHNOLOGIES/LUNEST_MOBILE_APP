@@ -147,16 +147,25 @@ const WithdrawScreen = () => {
     setAccountName("");
 
     try {
+      console.log(`[Withdraw] Verifying account: ${accountNumber} with bank ${selectedBank.code}`);
       const result = await paymentService.verifyBankAccount(
         accountNumber,
         selectedBank.code
       );
+      console.log("[Withdraw] Verification result:", result);
       setAccountName(result.account_name);
     } catch (error) {
       console.error("[Withdraw] Error verifying account:", error);
       // Reset ref so user can try again
       lastVerifiedKey.current = ""; 
-      showToast("Could not verify account. Please check the details.", "error");
+
+      const errorMessage = error.response?.message || error.message || "Could not verify account. Please check the details.";
+      showToast(errorMessage, "error");
+      
+      // If Paystack limits are the issue, log it clearly for the user
+      if (errorMessage.includes("limit") || errorMessage.includes("mode")) {
+        console.warn("[Withdraw] Paystack Test Mode warning detected");
+      }
     } finally {
       setVerifyingAccount(false);
     }

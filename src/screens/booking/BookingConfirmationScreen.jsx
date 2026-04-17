@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { format } from "date-fns";
 import { Asset } from "expo-asset"; // New Import
-import { File } from "expo-file-system";
+import * as FileSystem from "expo-file-system";
 import * as Print from "expo-print";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Sharing from "expo-sharing";
@@ -529,9 +529,8 @@ const BookingConfirmationScreen = () => {
         const asset = Asset.fromModule(logoImage);
         await asset.downloadAsync();
         if (asset.localUri) {
-          const file = new File(asset.localUri);
-          const logoBase64 = await file.readAsStringAsync({
-            encoding: 'base64',
+          const logoBase64 = await FileSystem.readAsStringAsync(asset.localUri, {
+            encoding: FileSystem.EncodingType.Base64,
           });
           logoSrc = `data:image/png;base64,${logoBase64}`;
         } else {

@@ -4,7 +4,7 @@
  * Status types: CONFIRMED, PENDING, FAILED
  */
 import { Ionicons } from "@expo/vector-icons";
-import * as FileSystem from "expo-file-system/legacy";
+import * as FileSystem from "expo-file-system";
 import { useRouter } from "expo-router";
 import * as Sharing from "expo-sharing";
 import { useCallback, useEffect, useState } from "react";
@@ -584,10 +584,10 @@ const TransactionHistoryScreen = () => {
           },
         });
 
-        if (downloadResult.status !== 200) {
+        if (!downloadResult || downloadResult.status !== 200 || !downloadResult.uri) {
           console.error(
-            "[TransactionHistory] Download failed:",
-            downloadResult.status,
+            "[TransactionHistory] Download failed or invalid result:",
+            downloadResult?.status
           );
           Alert.alert(
             "Error",
@@ -598,14 +598,11 @@ const TransactionHistoryScreen = () => {
 
         // Share the downloaded file
         const isAvailable = await Sharing.isAvailableAsync();
-        if (isAvailable) {
+        if (isAvailable && downloadResult.uri) {
           await Sharing.shareAsync(downloadResult.uri, {
             mimeType,
-            dialogTitle: `Share Transaction ${format.toUpperCase()}`,
-            UTI:
-              format === "pdf"
-                ? "com.adobe.pdf"
-                : "public.comma-separated-values-text",
+            UTI: format === "pdf" ? "com.adobe.pdf" : "public.comma-separated-values-text",
+            dialogTitle: `Share Statement`,
           });
         } else {
           Alert.alert("Success", `Statement saved to ${downloadResult.uri}`);

@@ -275,7 +275,9 @@ const BookingConfirmationScreen = () => {
             if (isoMatch) date = new Date(parseInt(isoMatch[1]), parseInt(isoMatch[2]) - 1, parseInt(isoMatch[3]));
           }
           if (isNaN(date.getTime())) return "Invalid Date";
-          return date.toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" });
+          const dateStr = date.toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" });
+          const timeStr = booking?.listing?.checkInTime || '02:00 PM – 04:00 PM';
+          return `${dateStr} @ ${timeStr}`;
         } catch (error) { return "Date Error"; }
       })()
     : params.checkIn || "-";
@@ -289,7 +291,9 @@ const BookingConfirmationScreen = () => {
             if (isoMatch) date = new Date(parseInt(isoMatch[1]), parseInt(isoMatch[2]) - 1, parseInt(isoMatch[3]));
           }
           if (isNaN(date.getTime())) return "Invalid Date";
-          return date.toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" });
+          const dateStr = date.toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" });
+          const timeStr = booking?.listing?.checkOutTime || '11:00 AM – 12:00 PM';
+          return `${dateStr} @ ${timeStr}`;
         } catch (error) { return "Date Error"; }
       })()
     : params.checkOut || "-";

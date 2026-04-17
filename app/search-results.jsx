@@ -551,8 +551,8 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingHorizontal: 16,
-    paddingVertical: 16,
-    paddingBottom: 100,
+    paddingTop: 16,
+    paddingBottom: 120, // Increased bottom padding for smoother scrolling
   },
   row: {
     justifyContent: "space-between",
@@ -562,6 +562,7 @@ const styles = StyleSheet.create({
     width: CARD_WIDTH,
     backgroundColor: "#FFFFFF",
     borderRadius: 10,
+    marginBottom: 24, // Added significant vertical spacing between rows
     shadowColor: "#BEBBB7",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.8,

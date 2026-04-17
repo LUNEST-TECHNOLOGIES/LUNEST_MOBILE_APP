@@ -7,28 +7,27 @@ import { format } from "date-fns";
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
-    Alert,
-    Pressable,
-    ScrollView,
-    Switch,
-    Text,
-    TextInput,
-    View,
+  Alert,
+  Pressable,
+  ScrollView,
+  Switch,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
-import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import Button from '../../src/components/Button';
 import CancelConfirmationModal from '../../src/components/create-listing/CancelConfirmationModal';
 import {
-    baseStyles,
-    footerStyles,
-    headerStyles,
-    infoBoxStyles,
-    progressStyles,
-    scrollStyles,
-    textStyles,
-    toggleStyles
+  baseStyles,
+  footerStyles,
+  headerStyles,
+  infoBoxStyles,
+  progressStyles,
+  scrollStyles,
+  textStyles,
+  toggleStyles
 } from '../../src/constants/styles';
 import { COLORS } from '../../src/constants/theme';
 import { useDraftListing } from '../../src/hooks/useDraftListing';
@@ -44,6 +43,19 @@ const HOUSE_RULES = [
   { id: 'no_shoes', label: 'No Shoes Inside' },
   { id: 'no_cooking', label: 'No Cooking' },
   { id: 'recycling', label: 'Recycling Required' },
+];
+
+// Time Options
+const CHECK_IN_OPTIONS = [
+  { value: "12:00 PM", label: "12:00 PM" },
+  { value: "02:00 PM", label: "02:00 PM", recommended: true },
+  { value: "04:00 PM", label: "04:00 PM" },
+];
+
+const CHECK_OUT_OPTIONS = [
+  { value: "10:00 AM", label: "10:00 AM" },
+  { value: "11:00 AM", label: "11:00 AM", recommended: true },
+  { value: "12:00 PM", label: "12:00 PM" },
 ];
 
 // Close X Icon - with explicit dimensions for web
@@ -93,10 +105,8 @@ const Availability = () => {
   const [availableNow, setAvailableNow] = useState(true);
   const [availabilityStatus, setAvailabilityStatus] = useState('available'); // 'available' or 'booked'
   const [showCancelModal, setShowCancelModal] = useState(false);
-  const [checkInTime, setCheckInTime] = useState(null);
-  const [checkOutTime, setCheckOutTime] = useState(null);
-  const [isCheckInPickerVisible, setCheckInPickerVisible] = useState(false);
-  const [isCheckOutPickerVisible, setCheckOutPickerVisible] = useState(false);
+  const [checkInTime, setCheckInTime] = useState("02:00 PM – 04:00 PM"); // Default Recommended Range
+  const [checkOutTime, setCheckOutTime] = useState("11:00 AM – 12:00 PM"); // Default Recommended Range
   const [selectedRules, setSelectedRules] = useState([]);
   const [additionalRules, setAdditionalRules] = useState('');
   const [initialLoadDone, setInitialLoadDone] = useState(false);
@@ -110,8 +120,21 @@ const Availability = () => {
       setAdvanceNotice(String(draftData.advanceNotice || '1'));
       setAvailableNow(draftData.availableNow !== false);
       setAvailabilityStatus(draftData.availabilityStatus || 'available');
-      setCheckInTime(draftData.checkInTime || null);
-      setCheckOutTime(draftData.checkOutTime || null);
+      // Handle legacy ISO dates or new string format
+      if (draftData.checkInTime) {
+        if (draftData.checkInTime.includes('T')) {
+          try { setCheckInTime(format(new Date(draftData.checkInTime), "hh:mm a")); } catch (e) { setCheckInTime("02:00 PM – 04:00 PM"); }
+        } else {
+          setCheckInTime(draftData.checkInTime);
+        }
+      }
+      if (draftData.checkOutTime) {
+        if (draftData.checkOutTime.includes('T')) {
+          try { setCheckOutTime(format(new Date(draftData.checkOutTime), "hh:mm a")); } catch (e) { setCheckOutTime("11:00 AM – 12:00 PM"); }
+        } else {
+          setCheckOutTime(draftData.checkOutTime);
+        }
+      }
       // Load house rules
       if (draftData.houseRules) {
         if (Array.isArray(draftData.houseRules)) {
@@ -209,18 +232,6 @@ const Availability = () => {
     setShowCancelModal(false);
   };
 
-  const handleCheckInConfirm = (date) => {
-    setCheckInTime(date.toISOString());
-    setCheckInPickerVisible(false);
-    saveDraftData({ checkInTime: date.toISOString() });
-  };
-
-  const handleCheckOutConfirm = (date) => {
-    setCheckOutTime(date.toISOString());
-    setCheckOutPickerVisible(false);
-    saveDraftData({ checkOutTime: date.toISOString() });
-  };
-
   const handleBack = () => {
     // Navigate back with current params to preserve data
     const finalDraftId = (draftData && draftData.draftId) || draftId || draftListingService.generateDraftId();
@@ -249,19 +260,13 @@ const Availability = () => {
 
   const handleNext = () => {
     // Validate that check-in and check-out times are not the same
-    if (checkInTime && checkOutTime) {
-      const checkInDate = new Date(checkInTime);
-      const checkOutDate = new Date(checkOutTime);
-      
-      if (checkInDate.getHours() === checkOutDate.getHours() && 
-          checkInDate.getMinutes() === checkOutDate.getMinutes()) {
-        Alert.alert(
-          'Invalid Times',
-          'Check-in and check-out times cannot be the same. Please select different times.',
-          [{ text: 'OK' }]
-        );
-        return;
-      }
+    if (checkInTime && checkOutTime && checkInTime === checkOutTime) {
+      Alert.alert(
+        'Invalid Times',
+        'Check-in and check-out times cannot be the same. Please select different times.',
+        [{ text: 'OK' }]
+      );
+      return;
     }
 
     const finalDraftId = (draftData && draftData.draftId) || draftId || draftListingService.generateDraftId();
@@ -269,14 +274,11 @@ const Availability = () => {
     saveDraftData({
       ...draftData,  // Preserve all existing data
       instantBooking,
-      minStay,
-      maxStay,
-      advanceNotice,
-      availableNow,
+      availableNow: availabilityStatus === 'available',
       houseRules: selectedRules,
       additionalRules,
-      checkInTime,
-      checkOutTime,
+      checkInTime: checkInTime || '02:00 PM',
+      checkOutTime: checkOutTime || '11:00 AM',
       currentStep: 8,
       draftId: finalDraftId,
     }).then(() => {
@@ -343,10 +345,101 @@ const Availability = () => {
           />
         </View>
 
+        {/* Check-in / Check-out Times Section */}
+        <View style={{
+          marginTop: 20,
+          borderRadius: 9,
+          padding: 15,
+          gap: 13,
+          backgroundColor: '#fff',
+          shadowColor: '#BEBBB7',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.3,
+          shadowRadius: 15,
+          elevation: 5,
+        }}>
+          <Text style={[textStyles.label, { marginBottom: 0 }]}>Check-in / Check-out Times</Text>
+          <Text style={{ fontSize: 12, color: '#666', marginBottom: 10 }}>
+            Set standard times for your guests
+          </Text>
+          
+          {/* Check-in Section */}
+          <View style={{ marginBottom: 10 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+               <Text style={{ fontSize: 13, fontWeight: '700', color: '#333' }}>Check-in after</Text>
+               <View style={{ marginLeft: 8, paddingHorizontal: 6, paddingVertical: 2, backgroundColor: '#E8F5E9', borderRadius: 4 }}>
+                  <Text style={{ fontSize: 10, fontWeight: '600', color: '#2E7D32' }}>Recommended: 2 PM</Text>
+               </View>
+            </View>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              {CHECK_IN_OPTIONS.map((opt) => (
+                <Pressable
+                  key={opt.value}
+                  onPress={() => {
+                    setCheckInTime(opt.value);
+                    saveDraftData({ checkInTime: opt.value });
+                  }}
+                  style={{
+                    flex: 1,
+                    paddingVertical: 12,
+                    borderRadius: 8,
+                    borderWidth: 1.5,
+                    borderColor: checkInTime === opt.value ? COLORS.primary : '#E0E0E0',
+                    backgroundColor: checkInTime === opt.value ? 'rgba(1, 1, 53, 0.05)' : '#fff',
+                    alignItems: 'center',
+                  }}
+                >
+                  <Text style={{
+                    fontSize: 13,
+                    fontWeight: checkInTime === opt.value ? '700' : '500',
+                    color: checkInTime === opt.value ? COLORS.primary : '#616161',
+                  }}>{opt.label}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+
+          {/* Check-out Section */}
+          <View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+               <Text style={{ fontSize: 13, fontWeight: '700', color: '#333' }}>Check-out before</Text>
+               <View style={{ marginLeft: 8, paddingHorizontal: 6, paddingVertical: 2, backgroundColor: '#E8F5E9', borderRadius: 4 }}>
+                  <Text style={{ fontSize: 10, fontWeight: '600', color: '#2E7D32' }}>Recommended: 11 AM</Text>
+               </View>
+            </View>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              {CHECK_OUT_OPTIONS.map((opt) => (
+                <Pressable
+                  key={opt.value}
+                  onPress={() => {
+                    setCheckOutTime(opt.value);
+                    saveDraftData({ checkOutTime: opt.value });
+                  }}
+                  style={{
+                    flex: 1,
+                    paddingVertical: 12,
+                    borderRadius: 8,
+                    borderWidth: 1.5,
+                    borderColor: checkOutTime === opt.value ? COLORS.primary : '#E0E0E0',
+                    backgroundColor: checkOutTime === opt.value ? 'rgba(1, 1, 53, 0.05)' : '#fff',
+                    alignItems: 'center',
+                  }}
+                >
+                  <Text style={{
+                    fontSize: 13,
+                    fontWeight: checkOutTime === opt.value ? '700' : '500',
+                    color: checkOutTime === opt.value ? COLORS.primary : '#616161',
+                  }}>{opt.label}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        </View>
+
         {/* House Rules Section */}
-        <View style={{ marginTop: 20 }}>
+        <View style={{ marginTop: 25 }}>
           <Text style={textStyles.label}>House Rules</Text>
-          <Text style={{ fontSize: 13, color: '#666', marginBottom: 15 }}>Select rules that apply to your property</Text>
+          <Text style={{ fontSize: 13, color: '#666', marginBottom: 15 }}>Select options for your guests</Text>
           
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
             {HOUSE_RULES.map((rule) => {
@@ -396,7 +489,6 @@ const Availability = () => {
               placeholderTextColor="#999"
               multiline
               scrollEnabled={false}
-              textAlignVertical="top"
               value={additionalRules}
               onChangeText={(text) => {
                 setAdditionalRules(text);
@@ -405,100 +497,6 @@ const Availability = () => {
             />
           </View>
         </View>
-
-        {/* Check-in / Check-out Times Section */}
-        <View style={{
-          borderRadius: 9,
-          padding: 15,
-          gap: 13,
-          backgroundColor: '#fff',
-          shadowColor: '#BEBBB7',
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.3,
-          shadowRadius: 15,
-          elevation: 15,
-        }}>
-          <Text style={textStyles.label}>Check-in / Check-out Times</Text>
-          <Text style={{ fontSize: 12, color: '#666', marginBottom: 5 }}>
-            Set the times when guests can check in and must check out
-          </Text>
-          
-          {/* Check-in and Check-out Time Pickers side by side */}
-          <View style={{ flexDirection: 'row', gap: 20 }}>
-            <View style={{ flex: 1 }}>
-              <View style={{
-                backgroundColor: '#fff',
-                borderWidth: 1,
-                borderColor: '#BDBDBD',
-                borderRadius: 7,
-                height: 52,
-                justifyContent: 'center',
-                paddingHorizontal: 15,
-              }}>
-                <Text style={{ 
-                  position: 'absolute', 
-                  top: -10, 
-                  left: 15, 
-                  backgroundColor: '#fff', 
-                  paddingHorizontal: 3,
-                  fontSize: 11,
-                  fontWeight: '700',
-                  color: '#000',
-                }}>Check-in</Text>
-                <Pressable onPress={() => setCheckInPickerVisible(true)}>
-                  <Text style={{ fontSize: 14, color: checkInTime ? '#000' : '#7C7C7C' }}>
-                    {checkInTime && !isNaN(new Date(checkInTime).getTime()) 
-                      ? format(new Date(checkInTime), "hh:mm a") 
-                      : "Select time"}
-                  </Text>
-                </Pressable>
-              </View>
-            </View>
-            <View style={{ flex: 1 }}>
-              <View style={{
-                backgroundColor: '#fff',
-                borderWidth: 1,
-                borderColor: '#BDBDBD',
-                borderRadius: 7,
-                height: 52,
-                justifyContent: 'center',
-                paddingHorizontal: 15,
-              }}>
-                <Text style={{ 
-                  position: 'absolute', 
-                  top: -10, 
-                  left: 15, 
-                  backgroundColor: '#fff', 
-                  paddingHorizontal: 3,
-                  fontSize: 11,
-                  fontWeight: '700',
-                  color: '#000',
-                }}>Check-out</Text>
-                <Pressable onPress={() => setCheckOutPickerVisible(true)}>
-                  <Text style={{ fontSize: 14, color: checkOutTime ? '#000' : '#7C7C7C' }}>
-                    {checkOutTime && !isNaN(new Date(checkOutTime).getTime()) 
-                      ? format(new Date(checkOutTime), "hh:mm a") 
-                      : "Select time"}
-                  </Text>
-                </Pressable>
-              </View>
-            </View>
-          </View>
-        </View>
-
-        <DateTimePickerModal
-          isVisible={isCheckInPickerVisible}
-          mode="time"
-          onConfirm={handleCheckInConfirm}
-          onCancel={() => setCheckInPickerVisible(false)}
-        />
-
-        <DateTimePickerModal
-          isVisible={isCheckOutPickerVisible}
-          mode="time"
-          onConfirm={handleCheckOutConfirm}
-          onCancel={() => setCheckOutPickerVisible(false)}
-        />
 
         {/* Info Note */}
         <View style={infoBoxStyles.warning}>

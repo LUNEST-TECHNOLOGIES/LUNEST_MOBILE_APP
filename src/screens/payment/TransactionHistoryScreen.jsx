@@ -882,9 +882,24 @@ const TransactionHistoryScreen = () => {
       displayLabel = bookingRef ? `${baseLabel} (${bookingRef})` : baseLabel;
     }
 
-    // Explicitly handle security deposit inflow label for host/guest
-    if (item.type === "SECURITY_DEPOSIT" && isInflow) {
-      displayLabel = item.description || "Caution Fee Released";
+    // Explicitly handle security deposit label for host/guest
+    if (item.type === "SECURITY_DEPOSIT") {
+      const resolutionStatus = item.metadata?.reconciliation?.cautionFeeStatus || item.metadata?.cautionFeeStatus;
+      const resolutionNote = item.metadata?.reconciliation?.resolutionReason || item.metadata?.resolutionReason;
+      const isDisclosure = item.metadata?.isDisclosure;
+      const recipientName = item.metadata?.reconciliation?.recipientName || 
+                           item.metadata?.recipientName || 
+                           (resolutionStatus === 'RELEASED_TO_GUEST' ? 'Guest' : resolutionStatus === 'RELEASED_TO_HOST' ? 'Host' : '');
+
+      if (resolutionStatus === 'RELEASED_TO_GUEST' || resolutionStatus === 'RELEASED_TO_HOST') {
+        if (!isDisclosure) {
+          displayLabel = `Credited to ${recipientName}`;
+        } else {
+          displayLabel = `Released to ${recipientName}`;
+        }
+      } else {
+        displayLabel = item.description || "Caution Fee";
+      }
     }
     
     // Extract coupon info for display
@@ -950,10 +965,16 @@ const TransactionHistoryScreen = () => {
           <Text
             style={[
               styles.transactionAmount,
-              { color: isInflow ? "#0308AC" : "#B70808" },
+              { 
+                color: (item.type === "SECURITY_DEPOSIT" && item.metadata?.isDisclosure)
+                       ? "#5D5D5D" // Neutral color for non-recipient disclosure
+                       : isInflow ? "#0308AC" : "#B70808" 
+              },
             ]}
           >
-            {isInflow ? "+" : "-"} {formatAmount(item.amount)}
+            {(item.type === "SECURITY_DEPOSIT" && item.metadata?.isDisclosure)
+             ? "" // No sign for disclosure
+             : isInflow ? "+" : "-"} {formatAmount(item.amount)}
           </Text>
         </View>
       </Pressable>

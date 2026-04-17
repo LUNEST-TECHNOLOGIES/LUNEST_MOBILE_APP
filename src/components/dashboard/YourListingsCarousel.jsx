@@ -155,6 +155,7 @@ const ListingCard = ({ listing, onPress, cardWidth }) => {
     PAUSED: { label: "Paused", color: "#FD3131", bgColor: "#FFEBEE" },
     SUSPENDED: { label: "Suspended", color: "#FD3131", bgColor: "#FFEBEE" },
     REJECTED: { label: "Rejected", color: "#FD3131", bgColor: "#FFEBEE" },
+    BOOKED: { label: "Booked", color: "#DB2777", bgColor: "#FCE7F3" },
   };
 
   return (

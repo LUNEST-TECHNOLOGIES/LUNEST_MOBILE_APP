@@ -366,7 +366,7 @@ const WithdrawScreen = () => {
     >
       <Text style={styles.bankItemText}>{item.name}</Text>
       {selectedBank?.code === item.code && (
-        <Ionicons name="checkmark" size={20} color="#192DFF" />
+        <Ionicons name="checkmark" size={20} color="#010135" />
       )}
     </TouchableOpacity>
   );
@@ -506,7 +506,7 @@ const WithdrawScreen = () => {
             <View style={styles.accountNameContainer}>
               {verifyingAccount ? (
                 <View style={styles.verifyingContainer}>
-                  <ActivityIndicator size="small" color="#192DFF" />
+                  <ActivityIndicator size="small" color="#010135" />
                   <Text style={styles.verifyingText}>Verifying account...</Text>
                 </View>
               ) : accountName ? (
@@ -565,7 +565,7 @@ const WithdrawScreen = () => {
       >
         <View style={styles.processingModalOverlay}>
           <View style={styles.processingModalContent}>
-            <ActivityIndicator size="large" color="#192DFF" />
+            <ActivityIndicator size="large" color="#010135" />
             <Text style={styles.processingModalTitle}>Processing Withdrawal</Text>
             <Text style={styles.processingModalText}>
               Please wait while we secure your transaction...
@@ -774,7 +774,7 @@ const styles = StyleSheet.create({
   },
   verifyingText: {
     fontSize: 14,
-    color: "#192DFF",
+    color: "#010135",
   },
   verifiedContainer: {
     flexDirection: "row",
@@ -814,7 +814,7 @@ const styles = StyleSheet.create({
     borderTopColor: "#F5F5F5",
   },
   withdrawButton: {
-    backgroundColor: "#192DFF",
+    backgroundColor: "#010135",
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: "center",
@@ -969,7 +969,7 @@ const styles = StyleSheet.create({
   successAmountValue: {
     fontSize: 32,
     fontWeight: "800",
-    color: "#192DFF",
+    color: "#010135",
   },
   successDetailsCard: {
     backgroundColor: "#F9FAFB",
@@ -1033,7 +1033,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   successPrimaryButton: {
-    backgroundColor: "#192DFF",
+    backgroundColor: "#010135",
     borderRadius: 12,
     paddingVertical: 16,
     flexDirection: "row",

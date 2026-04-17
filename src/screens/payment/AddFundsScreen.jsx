@@ -484,7 +484,7 @@ const AddFundsScreen = () => {
       {loading.active && (
         <View style={styles.loadingOverlay}>
           <View style={styles.loadingCard}>
-            <ActivityIndicator size="large" color="#192DFF" />
+            <ActivityIndicator size="large" color="#010135" />
             <Text style={styles.loadingText}>{loading.message || "Please wait..."}</Text>
           </View>
         </View>
@@ -580,12 +580,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   presetButtonActive: {
-    backgroundColor: "#192DFF",
+    backgroundColor: "#010135",
   },
   presetButtonText: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#192DFF",
+    color: "#010135",
   },
   presetButtonTextActive: {
     color: "#FFFFFF",
@@ -604,7 +604,7 @@ const styles = StyleSheet.create({
     borderColor: "transparent",
   },
   paymentOptionSelected: {
-    borderColor: "#192DFF",
+    borderColor: "#010135",
     backgroundColor: "#F0F3FF",
   },
   paymentOptionLeft: {
@@ -638,7 +638,7 @@ const styles = StyleSheet.create({
     height: 20,
     borderRadius: 10,
     borderWidth: 6,
-    borderColor: "#192DFF",
+    borderColor: "#010135",
     backgroundColor: "#FFFFFF",
   },
   securityNote: {
@@ -666,7 +666,7 @@ const styles = StyleSheet.create({
     borderTopColor: "#F5F5F5",
   },
   payButton: {
-    backgroundColor: "#192DFF",
+    backgroundColor: "#010135",
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: "center",

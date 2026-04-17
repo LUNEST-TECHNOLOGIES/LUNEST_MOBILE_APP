@@ -264,7 +264,7 @@ const FilterModal = ({ visible, onClose, onApply, initialFilters = {} }) => {
           <Ionicons
             name="remove"
             size={20}
-            color={value === 0 ? "#CCC" : "#192DFF"}
+            color={value === 0 ? "#CCC" : "#010135"}
           />
         </Pressable>
         <Text style={styles.counterValue}>{value}</Text>
@@ -272,7 +272,7 @@ const FilterModal = ({ visible, onClose, onApply, initialFilters = {} }) => {
           style={styles.counterButton}
           onPress={() => increment(value, setValue)}
         >
-          <Ionicons name="add" size={20} color="#192DFF" />
+          <Ionicons name="add" size={20} color="#010135" />
         </Pressable>
       </View>
     </View>
@@ -285,7 +285,7 @@ const FilterModal = ({ visible, onClose, onApply, initialFilters = {} }) => {
       <Switch
         value={value}
         onValueChange={setValue}
-        trackColor={{ false: "#E5E7EB", true: "#192DFF" }}
+        trackColor={{ false: "#E5E7EB", true: "#010135" }}
         thumbColor={value ? "#FFF" : "#F4F4F5"}
         ios_backgroundColor="#E5E7EB"
       />
@@ -347,13 +347,13 @@ const FilterModal = ({ visible, onClose, onApply, initialFilters = {} }) => {
                   onChangeText={setLocation}
                 />
                 {isLoadingLocation ? (
-                  <ActivityIndicator size="small" color="#192DFF" />
+                  <ActivityIndicator size="small" color="#010135" />
                 ) : (
                   <Pressable
                     onPress={handleUseCurrentLocation}
                     style={styles.useLocationButton}
                   >
-                    <Ionicons name="navigate" size={18} color="#192DFF" />
+                    <Ionicons name="navigate" size={18} color="#010135" />
                   </Pressable>
                 )}
               </View>
@@ -562,7 +562,7 @@ const styles = StyleSheet.create({
     color: "#111827",
   },
   filterBadge: {
-    backgroundColor: "#192DFF",
+    backgroundColor: "#010135",
     borderRadius: 10,
     paddingHorizontal: 8,
     paddingVertical: 2,
@@ -623,7 +623,7 @@ const styles = StyleSheet.create({
   },
   useLocationText: {
     fontSize: 13,
-    color: "#192DFF",
+    color: "#010135",
     fontWeight: "500",
   },
   priceRow: {
@@ -669,7 +669,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
   },
   chipSelected: {
-    borderColor: "#192DFF",
+    borderColor: "#010135",
     backgroundColor: "#EEF2FF",
   },
   chipText: {
@@ -678,7 +678,7 @@ const styles = StyleSheet.create({
     color: "#6B7280",
   },
   chipTextSelected: {
-    color: "#192DFF",
+    color: "#010135",
   },
   checkboxGrid: {
     gap: 12,
@@ -705,8 +705,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
   },
   checkboxSelected: {
-    backgroundColor: "#192DFF",
-    borderColor: "#192DFF",
+    backgroundColor: "#010135",
+    borderColor: "#010135",
   },
   checkboxLabel: {
     fontSize: 14,
@@ -736,7 +736,7 @@ const styles = StyleSheet.create({
     height: 36,
     borderRadius: 18,
     borderWidth: 1.5,
-    borderColor: "#192DFF",
+    borderColor: "#010135",
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#FFFFFF",
@@ -796,7 +796,7 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#192DFF",
+    backgroundColor: "#010135",
   },
   applyButtonText: {
     fontSize: 16,

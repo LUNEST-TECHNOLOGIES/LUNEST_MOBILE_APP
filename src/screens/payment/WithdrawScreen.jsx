@@ -225,7 +225,9 @@ const WithdrawScreen = () => {
         "mobile" // origin
       );
 
-      if (result.status === "PENDING" || result.status === "SUCCESS") {
+      console.log("[Withdraw] Backend result:", JSON.stringify(result));
+
+      if (result.status === "PENDING" || result.status === "SUCCESS" || result.status === "OTP_REQUIRED") {
         // Refresh global wallet balance
         await queryClient.invalidateQueries({ queryKey: ["walletInfo"] });
         await queryClient.invalidateQueries({ queryKey: ["userProfile"] });
@@ -238,7 +240,7 @@ const WithdrawScreen = () => {
             bankName: selectedBank.name,
             accountNumber,
             accountName,
-            reference: result.reference || result.transferCode || null,
+            reference: result.reference || result.transfer_code || null,
           });
           setWithdrawalSuccess(true);
           
@@ -248,6 +250,11 @@ const WithdrawScreen = () => {
             router.replace(Platform.OS === 'web' ? "/profile" : "/(tabs)/profile");
           }, 12000);
         }, 2000); // Slightly longer processing for "perceived quality"
+      } else {
+        // Unknown/unexpected status — close the modal and inform the user
+        console.warn("[Withdraw] Unexpected status from backend:", result.status);
+        setShowProcessingModal(false);
+        showToast(result.message || "Withdrawal returned an unexpected status. Please check your transactions.", "error");
       }
     } catch (error) {
       console.error("[Withdraw] Error:", error);
@@ -255,6 +262,16 @@ const WithdrawScreen = () => {
       showToast(error?.message || "Failed to process withdrawal", "error");
     } finally {
       setLoading(false);
+      // Safety net: ensure the processing modal is always dismissed
+      // The setTimeout ensures this runs after any pending state updates from the try block
+      setTimeout(() => {
+        setShowProcessingModal((current) => {
+          if (current) {
+            console.warn("[Withdraw] Safety net: force-closing stuck processing modal");
+          }
+          return false;
+        });
+      }, 15000); // 15s max — well beyond the 2s success delay
     }
   };
 

@@ -3,10 +3,12 @@ module.exports = {
     {
       name: 'preset-default',
     },
-    // Move removeViewBox outside of preset-default to avoid configuration warning
+    // In SVGO 4.x, removeViewBox is listed after the preset to avoid warnings
     {
       name: 'removeViewBox',
-      active: false,
+      params: {
+        active: false,
+      },
     },
   ],
 };

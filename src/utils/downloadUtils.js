@@ -1,4 +1,4 @@
-import * as FileSystem from "expo-file-system";
+import { File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import { Platform, Alert } from "react-native";
 import * as Linking from "expo-linking";
@@ -53,21 +53,21 @@ export const downloadFile = async (url, filename, mimeType = "application/pdf") 
       }
     }
 
-    // 2. NATIVE SUPPORT (iOS/Android) using stable FileSystem API
+    // 2. NATIVE SUPPORT (iOS/Android) using modern FileSystem API
     if (Platform.OS !== "web") {
-        const fileUri = `${FileSystem.cacheDirectory}${filename}`;
-        console.log(`[DownloadUtils] Downloading to: ${fileUri}`);
+        const file = new File(Paths.cache, filename);
+        console.log(`[DownloadUtils] Downloading to: ${file.uri}`);
 
-        const downloadResult = await FileSystem.downloadAsync(absoluteUrl, fileUri);
+        await File.downloadFileAsync(absoluteUrl, file);
         
-        // Check if the download succeeded
-        if (!downloadResult || downloadResult.status !== 200 || !downloadResult.uri) {
-            throw new Error(`Download failed with status: ${downloadResult?.status || 'unknown'}`);
+        // Verify the file was created
+        if (!(await file.exists())) {
+            throw new Error(`Download failed: File not created at ${file.uri}`);
         }
 
         const isSharingAvailable = await Sharing.isAvailableAsync();
         if (isSharingAvailable) {
-            await Sharing.shareAsync(downloadResult.uri, {
+            await Sharing.shareAsync(file.uri, {
                 mimeType,
                 UTI: mimeType === "application/pdf" ? "com.adobe.pdf" : "public.content",
                 dialogTitle: `Download ${filename}`,

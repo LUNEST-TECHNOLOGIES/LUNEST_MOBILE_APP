@@ -4,7 +4,7 @@
  * Status types: CONFIRMED, PENDING, FAILED
  */
 import { Ionicons } from "@expo/vector-icons";
-import * as FileSystem from "expo-file-system";
+import { File, Paths } from "expo-file-system";
 import { useRouter } from "expo-router";
 import * as Sharing from "expo-sharing";
 import { useCallback, useEffect, useState } from "react";
@@ -574,20 +574,19 @@ const TransactionHistoryScreen = () => {
 
         Alert.alert("Success", "Statement downloaded successfully.");
       } else {
-        // Native (iOS/Android): use FileSystem + Sharing
-        const fileUri = `${FileSystem.cacheDirectory}${fileName}`;
+        // Native (iOS/Android): use File + Sharing
+        const file = new File(Paths.cache, fileName);
 
-        const downloadResult = await FileSystem.downloadAsync(url, fileUri, {
+        await File.downloadFileAsync(url, file, {
           headers: {
             Authorization: `Bearer ${token}`,
             Accept: mimeType,
           },
         });
 
-        if (!downloadResult || downloadResult.status !== 200 || !downloadResult.uri) {
+        if (!(await file.exists())) {
           console.error(
-            "[TransactionHistory] Download failed or invalid result:",
-            downloadResult?.status
+            "[TransactionHistory] Download failed: File not created"
           );
           Alert.alert(
             "Error",
@@ -598,14 +597,14 @@ const TransactionHistoryScreen = () => {
 
         // Share the downloaded file
         const isAvailable = await Sharing.isAvailableAsync();
-        if (isAvailable && downloadResult.uri) {
-          await Sharing.shareAsync(downloadResult.uri, {
+        if (isAvailable && file.uri) {
+          await Sharing.shareAsync(file.uri, {
             mimeType,
             UTI: format === "pdf" ? "com.adobe.pdf" : "public.comma-separated-values-text",
             dialogTitle: `Share Statement`,
           });
         } else {
-          Alert.alert("Success", `Statement saved to ${downloadResult.uri}`);
+          Alert.alert("Success", `Statement saved to ${file.uri}`);
         }
       }
     } catch (error) {

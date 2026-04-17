@@ -5,7 +5,7 @@
 
 import { Ionicons } from "@expo/vector-icons";
 import { Asset } from "expo-asset";
-import * as FileSystem from "expo-file-system";
+import { File } from "expo-file-system";
 import * as Print from "expo-print";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Sharing from "expo-sharing";
@@ -222,9 +222,8 @@ const TransactionDetailScreen = () => {
       try {
         const asset = Asset.fromModule(logoImage);
         await asset.downloadAsync();
-        const logoBase64 = await FileSystem.readAsStringAsync(asset.localUri, {
-          encoding: FileSystem.EncodingType.Base64,
-        });
+        const logoFile = new File(asset.localUri);
+        const logoBase64 = await logoFile.base64();
         logoSrc = `data:image/png;base64,${logoBase64}`;
       } catch (imgErr) {
         console.warn("[PDF] Logo load error:", imgErr);

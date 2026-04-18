@@ -984,51 +984,53 @@ const styles = StyleSheet.create({
  */
 export const VerificationSkeleton = () => (
   <View style={{ flex: 1, backgroundColor: '#f9fafb' }}>
-    <View style={styles.verificationHeader}>
-      <SkeletonPlaceholder>
-        <View style={styles.logoPlaceholder} />
-      </SkeletonPlaceholder>
-      <SkeletonPlaceholder>
-        <View style={styles.statusBadgeSkeleton} />
-      </SkeletonPlaceholder>
-    </View>
-
-    <View style={styles.verificationCard}>
-      <View style={{ gap: 12 }}>
+    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ flexGrow: 1, paddingBottom: 40 }}>
+      <View style={styles.verificationHeader}>
         <SkeletonPlaceholder>
-          <View style={styles.iconSealPlaceholder} />
+          <View style={styles.logoPlaceholder} />
         </SkeletonPlaceholder>
         <SkeletonPlaceholder>
-          <View style={styles.titlePlaceholder} />
+          <View style={styles.statusBadgeSkeleton} />
         </SkeletonPlaceholder>
       </View>
 
-      <SkeletonPlaceholder>
-        <View style={styles.refBoxSkeleton} />
-      </SkeletonPlaceholder>
+      <View style={styles.verificationCard}>
+        <View style={{ gap: 12 }}>
+          <SkeletonPlaceholder>
+            <View style={styles.iconSealPlaceholder} />
+          </SkeletonPlaceholder>
+          <SkeletonPlaceholder>
+            <View style={styles.titlePlaceholder} />
+          </SkeletonPlaceholder>
+        </View>
 
-      <View style={{ gap: 16 }}>
-        {Array.from({ length: 5 }).map((_, i) => (
-          <View key={i} style={styles.infoRowSkeleton}>
-            <SkeletonPlaceholder>
-              <View style={styles.iconCircleSmall} />
-            </SkeletonPlaceholder>
-            <View style={styles.infoLines}>
+        <SkeletonPlaceholder>
+          <View style={styles.refBoxSkeleton} />
+        </SkeletonPlaceholder>
+
+        <View style={{ gap: 16 }}>
+          {Array.from({ length: 5 }).map((_, i) => (
+            <View key={i} style={styles.infoRowSkeleton}>
               <SkeletonPlaceholder>
-                <View style={styles.labelSmall} />
+                <View style={styles.iconCircleSmall} />
               </SkeletonPlaceholder>
-              <SkeletonPlaceholder>
-                <View style={styles.valueSmall} />
-              </SkeletonPlaceholder>
+              <View style={styles.infoLines}>
+                <SkeletonPlaceholder>
+                  <View style={styles.labelSmall} />
+                </SkeletonPlaceholder>
+                <SkeletonPlaceholder>
+                  <View style={styles.valueSmall} />
+                </SkeletonPlaceholder>
+              </View>
             </View>
-          </View>
-        ))}
+          ))}
+        </View>
       </View>
-    </View>
 
-    <SkeletonPlaceholder>
-      <View style={styles.proofBoxSkeleton} />
-    </SkeletonPlaceholder>
+      <SkeletonPlaceholder>
+        <View style={styles.proofBoxSkeleton} />
+      </SkeletonPlaceholder>
+    </ScrollView>
   </View>
 );
 

@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Image, SafeAreaView, ScrollView, Text, TouchableOpacity, View, Alert } from 'react-native';
+import { Image, ScrollView, Text, TouchableOpacity, View, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Clipboard from 'expo-clipboard';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { VerificationSkeleton } from '../../../src/components/skeletons/ScreenSkeletons';
@@ -104,10 +105,10 @@ const VerifyAgreementPage = () => {
       
       <ScrollView 
         showsVerticalScrollIndicator={true}
-        contentContainerStyle={{ flexGrow: 1, paddingBottom: 100 }}
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: 60 }}
         className="flex-1"
       >
-        <View className="items-center lg:py-10 w-full">
+        <View className="lg:py-10 w-full">
             {/* Header Branding - More compact */}
             <View className="bg-white px-6 py-4 lg:py-8 items-center shadow-sm lg:rounded-b-[40px] w-full">
               <Image 

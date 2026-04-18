@@ -65,7 +65,7 @@ const VerifyAgreementPage = () => {
       </View>
       <View className="flex-1">
         <Text className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">{label}</Text>
-        <Text className="text-sm text-slate-800 font-semibold">{value || "N/A"}</Text>
+        <Text className="text-sm text-slate-800 font-semibold flex-wrap">{value || "N/A"}</Text>
       </View>
     </View>
   );
@@ -108,11 +108,11 @@ const VerifyAgreementPage = () => {
         className="flex-1"
       >
         <View className="items-center lg:py-10 w-full">
-            {/* Header Branding */}
-            <View className="bg-white px-6 py-8 lg:py-12 items-center shadow-sm lg:rounded-b-[40px]">
+            {/* Header Branding - More compact */}
+            <View className="bg-white px-6 py-4 lg:py-8 items-center shadow-sm lg:rounded-b-[40px] w-full">
               <Image 
                 source={require('../../../src/assets/images/lunest_logo_main.png')}
-                style={{ width: 140, height: 40, resizeMode: 'contain' }}
+                style={{ width: 120, height: 35, resizeMode: 'contain' }}
               />
               <View className="mt-4 flex-row items-center bg-blue-50 px-4 py-1.5 rounded-full">
                 <Ionicons name="shield-checkmark" size={14} color="#010135" />
@@ -120,17 +120,17 @@ const VerifyAgreementPage = () => {
               </View>
             </View>
 
-            {/* Verification Status Card */}
+            {/* Verification Status Card - Compacted to avoid clipping */}
             <Animated.View 
               entering={FadeIn.duration(600)}
-              className="px-5 -mt-6"
+              className="px-5 -mt-8 w-full"
             >
-              <View className="bg-white rounded-[40px] p-6 lg:p-10 shadow-xl shadow-slate-200 border border-white">
-                <View className="items-center mb-8">
-                  <View className="w-20 h-20 bg-green-50 rounded-3xl items-center justify-center mb-4">
-                    <Ionicons name="checkmark-circle" size={48} color="#10b981" />
+              <View className="bg-white rounded-[32px] p-5 lg:p-8 shadow-xl shadow-slate-200 border border-white">
+                <View className="items-center mb-6">
+                  <View className="w-16 h-16 bg-green-50 rounded-2xl items-center justify-center mb-3">
+                    <Ionicons name="checkmark-circle" size={40} color="#10b981" />
                   </View>
-                  <Text className="text-3xl font-bold text-slate-900">Verified</Text>
+                  <Text className="text-2xl font-bold text-slate-900">Verified</Text>
                   <Text className="text-green-600 font-bold text-xs tracking-wide">Authentic & Legally Binding</Text>
                 </View>
 
@@ -150,11 +150,11 @@ const VerifyAgreementPage = () => {
                   </View>
                 </View>
 
-                <View className="space-y-1">
+                <View className="space-y-0.5">
                   <InfoRow icon="business" label="Property Title" value={data.property?.title} />
                   <InfoRow icon="location" label="Location" value={data.property?.location} />
-                  <InfoRow icon="person" label="Host (Landlord)" value={maskName(data.participants?.host)} />
-                  <InfoRow icon="people" label="Tenant (Guest)" value={maskName(data.participants?.tenant)} />
+                  <InfoRow icon="person" label="Host (Landlord)" value={data.participants?.host} />
+                  <InfoRow icon="people" label="Tenant (Guest)" value={data.participants?.tenant} />
                   <InfoRow icon="calendar" label="Occupation Period" value={`${new Date(data.dates?.checkIn).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })} — ${new Date(data.dates?.checkOut).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`} />
                   <InfoRow icon="list" label="Document Status" value={data.status} />
                 </View>

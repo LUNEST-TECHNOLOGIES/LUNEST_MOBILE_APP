@@ -125,8 +125,8 @@ export default function RootLayout() {
           }
           // Redirect to login (not onboarding) for returning users
           router.replace("/login");
-        } else if (!inOnboarding && !inAuth && !isPaymentCallback && !isAddFunds) {
-          // Not on onboarding, auth, or payment screens, go to onboarding for new users
+        } else if (!inOnboarding && !inAuth && !isPaymentCallback && !isAddFunds && !isVerify) {
+          // Not on onboarding, auth, verify, or payment screens, go to onboarding for new users
           router.replace("/onboarding");
         }
       }

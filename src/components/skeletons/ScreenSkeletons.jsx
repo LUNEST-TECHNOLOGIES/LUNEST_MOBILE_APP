@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, Dimensions } from 'react-native';
+import { View, StyleSheet, Dimensions, ScrollView } from 'react-native';
 import SkeletonPlaceholder from './SkeletonPlaceholder';
 
 const { width } = Dimensions.get('window');

@@ -96,7 +96,7 @@ const VerifyAgreementPage = () => {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50 lg:bg-slate-200" edges={['top', 'left', 'right']}>
+    <SafeAreaView className="flex-1 bg-gray-50 lg:bg-slate-200" edges={['top', 'left', 'right', 'bottom']}>
       <Stack.Screen options={{ 
         title: 'Verify Agreement',
         headerShown: false
@@ -104,7 +104,7 @@ const VerifyAgreementPage = () => {
       
       <ScrollView 
         showsVerticalScrollIndicator={true}
-        contentContainerStyle={{ flexGrow: 1, paddingBottom: 60 }}
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: 100 }}
         className="flex-1"
       >
         <View className="items-center lg:py-10 w-full">

@@ -12,6 +12,7 @@ import {
     ActivityIndicator,
     Alert,
     FlatList,
+    Modal,
     Platform,
     Pressable,
     RefreshControl,
@@ -26,6 +27,13 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 import authService from "../../services/authService";
 import configService from "../../services/configService";
+
+/**
+ * Sanitizes filename for Android/iOS filesystem compatibility
+ */
+const sanitizeFilename = (name) => {
+  return name.replace(/[^\w\s.-]/gi, '').replace(/\s+/g, '_');
+};
 
 /**
  * Back Arrow Icon - Same style as other profile screens
@@ -498,8 +506,6 @@ const TransactionHistoryScreen = () => {
   const downloadTransactionReport = async () => {
     setShowExportModal(false);
 
-    setShowExportModal(false);
-
     // Use selected date objects directly, adjusting to start/end of day
     const start = new Date(fromDate.getFullYear(), fromDate.getMonth(), fromDate.getDate(), 0, 0, 0);
     const end = new Date(toDate.getFullYear(), toDate.getMonth(), toDate.getDate(), 23, 59, 59);
@@ -539,7 +545,7 @@ const TransactionHistoryScreen = () => {
       const fileExt = format === "pdf" ? "pdf" : "csv";
       const mimeType = format === "pdf" ? "application/pdf" : "text/csv";
       const dateSuffix = new Date().toISOString().split("T")[0];
-      const fileName = `LUNEST_Statement_${dateSuffix}.${fileExt}`;
+      const fileName = sanitizeFilename(`LUNEST_Statement_${dateSuffix}.${fileExt}`);
 
       if (Platform.OS === "web") {
         // Web: use fetch + blob + anchor download
@@ -584,7 +590,7 @@ const TransactionHistoryScreen = () => {
           },
         });
 
-        if (!(await file.exists())) {
+        if (!file.exists) {
           console.error(
             "[TransactionHistory] Download failed: File not created"
           );
@@ -611,7 +617,7 @@ const TransactionHistoryScreen = () => {
       console.error("[TransactionHistory] Download Error:", error);
       Alert.alert(
         "Error",
-        "Failed to download statement. Please check your connection and try again.",
+        `Failed to download statement: ${error.message || "Please check your connection and try again."}`,
       );
     } finally {
       setExporting(false);
@@ -620,10 +626,15 @@ const TransactionHistoryScreen = () => {
 
   // Render Export Overlay (Bottom Sheet Style)
   const renderExportModal = () => {
-    if (!showExportModal) return null;
-
     return (
-      <View style={styles.overlayRoot}>
+      <Modal
+        visible={showExportModal}
+        transparent={true}
+        animationType="fade"
+        statusBarTranslucent={true}
+        onRequestClose={() => setShowExportModal(false)}
+      >
+        <View style={styles.overlayRoot}>
         <TouchableWithoutFeedback onPress={() => setShowExportModal(false)}>
           <View style={styles.overlayBackdrop} />
         </TouchableWithoutFeedback>
@@ -799,6 +810,7 @@ const TransactionHistoryScreen = () => {
           />
         </View>
       </View>
+    </Modal>
     );
   };
 
@@ -1412,13 +1424,9 @@ const styles = StyleSheet.create({
   },
   // ── Overlay (Bottom Sheet) ──
   overlayRoot: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    flex: 1,
     justifyContent: "flex-end",
-    zIndex: 1000,
+    backgroundColor: "transparent",
   },
   overlayBackdrop: {
     ...StyleSheet.absoluteFillObject,
@@ -1552,20 +1560,20 @@ const styles = StyleSheet.create({
   },
   // ── Download Button ──
   downloadBtn: {
-    backgroundColor: "#192DFF",
+    backgroundColor: "#010135",
     borderRadius: 14,
     paddingVertical: 16,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#192DFF",
+    shadowColor: "#010135",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
     shadowRadius: 8,
     elevation: 6,
   },
   downloadBtnDisabled: {
-    backgroundColor: "#A0AAFF",
+    backgroundColor: "#70708F",
     shadowOpacity: 0,
     elevation: 0,
   },

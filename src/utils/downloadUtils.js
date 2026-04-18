@@ -5,6 +5,13 @@ import * as Linking from "expo-linking";
 import apiClient from "../services/apiClient";
 
 /**
+ * Sanitizes filename for Android/iOS filesystem compatibility
+ */
+const sanitizeFilename = (name) => {
+  return name.replace(/[^\w\s.-]/gi, '').replace(/\s+/g, '_');
+};
+
+/**
  * Universal Download Utility
  * Handles Web, iOS, and Android file saving/sharing
  */
@@ -12,6 +19,8 @@ export const downloadFile = async (url, filename, mimeType = "application/pdf") 
   if (!url) {
     throw new Error("Invalid URL provided for download");
   }
+
+  const safeFilename = sanitizeFilename(filename);
 
   // Ensure URL is absolute for Native
   const baseURL = apiClient.baseURL || "https://api.lunest.app";
@@ -55,13 +64,13 @@ export const downloadFile = async (url, filename, mimeType = "application/pdf") 
 
     // 2. NATIVE SUPPORT (iOS/Android) using modern FileSystem API
     if (Platform.OS !== "web") {
-        const file = new File(Paths.cache, filename);
+        const file = new File(Paths.cache, safeFilename);
         console.log(`[DownloadUtils] Downloading to: ${file.uri}`);
 
         await File.downloadFileAsync(absoluteUrl, file);
         
         // Verify the file was created
-        if (!(await file.exists())) {
+        if (!file.exists) {
             throw new Error(`Download failed: File not created at ${file.uri}`);
         }
 
@@ -70,7 +79,7 @@ export const downloadFile = async (url, filename, mimeType = "application/pdf") 
             await Sharing.shareAsync(file.uri, {
                 mimeType,
                 UTI: mimeType === "application/pdf" ? "com.adobe.pdf" : "public.content",
-                dialogTitle: `Download ${filename}`,
+                dialogTitle: `Download ${safeFilename}`,
             });
             return { success: true, platform: Platform.OS };
         } else if (Platform.OS === "android") {

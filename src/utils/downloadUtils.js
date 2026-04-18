@@ -64,7 +64,20 @@ export const downloadFile = async (url, filename, mimeType = "application/pdf") 
 
     // 2. NATIVE SUPPORT (iOS/Android) using modern FileSystem API
     if (Platform.OS !== "web") {
-        const file = new File(Paths.cache, safeFilename);
+        let uniqueFilename = safeFilename;
+        let counter = 1;
+        let file = new File(Paths.cache, uniqueFilename);
+
+        // Loop to find a unique filename if it already exists
+        while (file.exists) {
+            const lastDotIndex = safeFilename.lastIndexOf('.');
+            const namePart = lastDotIndex !== -1 ? safeFilename.substring(0, lastDotIndex) : safeFilename;
+            const extensionPart = lastDotIndex !== -1 ? safeFilename.substring(lastDotIndex) : '';
+            uniqueFilename = `${namePart} (${counter})${extensionPart}`;
+            file = new File(Paths.cache, uniqueFilename);
+            counter++;
+        }
+
         console.log(`[DownloadUtils] Downloading to: ${file.uri}`);
 
         await File.downloadFileAsync(absoluteUrl, file);

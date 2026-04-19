@@ -171,6 +171,11 @@ const BookingConfirmationScreen = () => {
     message: "",
   });
 
+  // ── Dispute / Report Issue State ──
+  const [showDisputeModal, setShowDisputeModal] = useState(false);
+  const [disputeReason, setDisputeReason] = useState("");
+  const [isReportingIssue, setIsReportingIssue] = useState(false);
+
   const showToastMessage = (message, type = TOAST_TYPE.SUCCESS) => {
     setToastConfig({ message, type });
     setToastVisible(true);
@@ -512,6 +517,54 @@ const BookingConfirmationScreen = () => {
       console.warn("[BookingConfirmation] Auto-cancel failed:", e);
     }
   };
+
+  // ── Report Issue / Raise Dispute ──
+  const handleReportIssue = async (reason) => {
+    if (!bookingId || !reason.trim()) return;
+    
+    setIsReportingIssue(true);
+    try {
+      const result = await bookingService.reportIssue(bookingId, reason);
+      if (result.success) {
+        setDisputeReason("");
+        setShowDisputeModal(false);
+        showToastMessage("Issue reported. This booking is now under review and funds have been locked.", TOAST_TYPE.SUCCESS);
+        
+        // Refresh booking data to show DISPUTED status
+        const fresh = await bookingService.fetchBookingById(bookingId);
+        if (fresh?.success) setBooking(fresh.booking);
+      } else {
+        throw new Error(result.message || "Failed to report issue");
+      }
+    } catch (error) {
+      Alert.alert("Report failed", error.message);
+    } finally {
+      setIsReportingIssue(false);
+    }
+  };
+
+  // ── Calculate Sliding Scale Refund Estimate for UI ──
+  const getRefundEstimate = () => {
+    if (!booking?.checkIn) return "Standard refund policy applies.";
+    
+    const checkInDate = new Date(booking.checkIn);
+    const now = new Date();
+    const diffMs = checkInDate.getTime() - now.getTime();
+    const hoursUntilCheckIn = diffMs / (1000 * 60 * 60);
+
+    if (hoursUntilCheckIn >= 168) {
+      return "100% Cash Refund (₦5,000 penalty applies)";
+    } else if (hoursUntilCheckIn >= 72) {
+      return "80% LUNEST Credit (issued as a discount coupon)";
+    } else if (hoursUntilCheckIn >= 48) {
+      return "60% LUNEST Credit (issued as a discount coupon)";
+    } else if (hoursUntilCheckIn > 0) {
+      return "50% LUNEST Credit (issued as a discount coupon)";
+    } else {
+      return "This booking is currently non-refundable as the stay has already started.";
+    }
+  };
+
   const badgeColor = statusColors[statusLower] || statusColors.pending;
 
   // Generate PDF (Booking Confirmation)
@@ -1839,6 +1892,27 @@ const BookingConfirmationScreen = () => {
                     <Text style={styles.outlineButtonText}>Go Home</Text>
                   </Pressable>
                 </>
+                        ) : statusLower === "confirmed" ? (
+              <>
+                <Pressable
+                  style={[styles.outlineDangerButton, styles.buttonFlex]}
+                  onPress={() => setShowCancelModal(true)}
+                >
+                  <Text style={styles.outlineDangerButtonText}>Cancel Stay</Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.outlineButton, { width: 50, height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center' }]}
+                  onPress={() => setShowDisputeModal(true)}
+                >
+                  <Ionicons name="alert-circle-outline" size={24} color="#fd3131" />
+                </Pressable>
+                <Pressable
+                  style={[styles.primaryButton, styles.buttonFlex]}
+                  onPress={handleShare}
+                >
+                  <Text style={styles.primaryButtonText}>Share</Text>
+                </Pressable>
+              </>
             ) : statusLower === "ongoing" && !isHostView ? (
               <>
                 <Pressable
@@ -1848,25 +1922,10 @@ const BookingConfirmationScreen = () => {
                   <Text style={styles.primaryButtonText}>Check-out</Text>
                 </Pressable>
                 <Pressable
-                  style={[styles.outlineButton, styles.buttonFlex]}
-                  onPress={handleShare}
+                  style={[styles.outlineDangerButton, styles.buttonFlex]}
+                  onPress={() => setShowDisputeModal(true)}
                 >
-                  <Text style={styles.outlineButtonText}>Share Stay</Text>
-                </Pressable>
-              </>
-            ) : statusLower === "confirmed" ? (
-              <>
-                <Pressable
-                  style={[styles.outlineButton, styles.buttonFlex]}
-                  onPress={handleShare}
-                >
-                  <Text style={styles.outlineButtonText}>Share Booking</Text>
-                </Pressable>
-                <Pressable
-                  style={[styles.outlineButton, styles.buttonFlex, { marginLeft: 10 }]}
-                  onPress={handleGoHome}
-                >
-                  <Text style={styles.outlineButtonText}>Go Home</Text>
+                  <Text style={styles.outlineDangerButtonText}>Report Issue</Text>
                 </Pressable>
               </>
             ) : (
@@ -1993,12 +2052,16 @@ const BookingConfirmationScreen = () => {
           <View style={styles.popUpReservation}>
             <View style={styles.areYouSureYouWantToCanceParent}>
               <Text style={styles.areYouSure}>
-                Are you sure you want to cancel this reservation?
+                Cancel Reservation?
               </Text>
               <Text style={styles.thePropertyWill}>
-                The property will be released immediately and may no longer be
-                available.
+                The property will be released immediately. Based on the time remaining until check-in, your estimated refund is:
               </Text>
+              <View style={styles.refundEstimateBox}>
+                <Text style={styles.refundEstimateText}>
+                  {getRefundEstimate()}
+                </Text>
+              </View>
             </View>
             <View style={styles.buttonStyle3Parent}>
               <Pressable
@@ -2017,13 +2080,28 @@ const BookingConfirmationScreen = () => {
                 onPress={() => setShowCancelModal(false)}
               >
                 <Text style={styles.modalKeepButtonText}>
-                  Keep my Reservation
+                  Keep Stay
                 </Text>
               </Pressable>
             </View>
           </View>
         </View>
       </Modal>
+
+      {/* Report Issue Modal (Escrow Lock) */}
+      <CautionDisputeModal
+        visible={showDisputeModal}
+        onClose={() => setShowDisputeModal(false)}
+        onSubmit={handleReportIssue}
+        isLoading={isReportingIssue}
+        reason={disputeReason}
+        onReasonChange={setDisputeReason}
+        title="Report Issue / Raise Dispute"
+        subtitle="Raising a dispute will immediately lock the host's payment in escrow and alert our support team for investigation. Please provide details."
+        placeholder="e.g. Property doesn't match photos, host is unresponsive, access code doesn't work..."
+        submitLabel="Lock Funds & Raise Dispute"
+      />
+
     </SafeAreaView>
   );
 };

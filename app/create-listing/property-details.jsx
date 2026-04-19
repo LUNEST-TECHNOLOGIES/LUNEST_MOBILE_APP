@@ -217,30 +217,52 @@ const PropertyDetails = () => {
     useDraftListing();
 
   // Initialize from draft or params
-  const [propertyTitle, setPropertyTitle] = useState("");
-  const [furnishing, setFurnishing] = useState(null);
-  const [bedrooms, setBedrooms] = useState(0);
-  const [bathrooms, setBathrooms] = useState(0);
-  const [guestCapacity, setGuestCapacity] = useState(0);
-  const [titleType, setTitleType] = useState("");
-  const [propertyHighlight, setPropertyHighlight] = useState("");
-  const [showTitleTypeDropdown, setShowTitleTypeDropdown] = useState(false);
-  const [showTipsOverlay, setShowTipsOverlay] = useState(false);
-  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [rentalPurpose, setRentalPurpose] = useState(null);
+  const [roomSizes, setRoomSizes] = useState("");
+  const [totalSquareFootage, setTotalSquareFootage] = useState("");
+  const [usageType, setUsageType] = useState("");
+  const [sittingRooms, setSittingRooms] = useState(0);
+  const [lounges, setLounges] = useState(0);
+  const [workspaces, setWorkspaces] = useState(0);
+  const [showPurposeDropdown, setShowPurposeDropdown] = useState(false);
 
   const MAX_HIGHLIGHT_LENGTH = 500;
+  
+  const PURPOSE_SECTIONS = [
+    {
+      title: "Residential & Living",
+      options: ["Residential", "Short Term Residence", "Hospitality"]
+    },
+    {
+      title: "Commercial & Business",
+      options: ["Commercial", "Industrial", "Agricultural"]
+    },
+    {
+      title: "Specialized & Others",
+      options: ["Storage", "Miscellaneous"]
+    }
+  ];
+
+  const RENTAL_PURPOSE_OPTIONS = PURPOSE_SECTIONS.flatMap(s => s.options);
 
   // Load draft data on mount
   const isInitialized = useRef(false);
   useEffect(() => {
     if (draftData && !isInitialized.current) {
       setPropertyTitle(draftData.propertyTitle || "");
+      setRentalPurpose(draftData.rentalPurpose || null);
       setFurnishing(draftData.furnishing || null);
       setBedrooms(draftData.bedrooms || 0);
       setBathrooms(draftData.bathrooms || 0);
       setGuestCapacity(draftData.guestCapacity || 0);
       setTitleType(draftData.titleType || "");
       setPropertyHighlight(draftData.propertyHighlight || "");
+      setRoomSizes(draftData.roomSizes?.join(", ") || "");
+      setTotalSquareFootage(draftData.totalSquareFootage || "");
+      setUsageType(draftData.usageType || "");
+      setSittingRooms(draftData.sittingRooms || 0);
+      setLounges(draftData.lounges || 0);
+      setWorkspaces(draftData.workspaces || 0);
       isInitialized.current = true;
     }
   }, [draftData]);
@@ -256,10 +278,8 @@ const PropertyDetails = () => {
   // Auto-save function
   const updatePropertyDetails = (updates) => {
     const finalUpdates = {
-      propertyTitle:
-        updates.propertyTitle !== undefined
-          ? updates.propertyTitle
-          : propertyTitle,
+      propertyTitle: updates.propertyTitle !== undefined ? updates.propertyTitle : propertyTitle,
+      rentalPurpose: updates.rentalPurpose !== undefined ? updates.rentalPurpose : rentalPurpose,
       furnishing:
         updates.furnishing !== undefined ? updates.furnishing : furnishing,
       bedrooms: updates.bedrooms !== undefined ? updates.bedrooms : bedrooms,
@@ -275,19 +295,29 @@ const PropertyDetails = () => {
         updates.propertyHighlight !== undefined
           ? updates.propertyHighlight
           : propertyHighlight,
+      roomSizes: updates.roomSizes !== undefined ? (typeof updates.roomSizes === 'string' ? updates.roomSizes.split(",").map(s => s.trim()).filter(s => s) : updates.roomSizes) : roomSizes.split(",").map(s => s.trim()).filter(s => s),
+      totalSquareFootage: updates.totalSquareFootage !== undefined ? updates.totalSquareFootage : totalSquareFootage,
+      usageType: updates.usageType !== undefined ? updates.usageType : usageType,
+      sittingRooms: updates.sittingRooms !== undefined ? updates.sittingRooms : sittingRooms,
+      lounges: updates.lounges !== undefined ? updates.lounges : lounges,
+      workspaces: updates.workspaces !== undefined ? updates.workspaces : workspaces,
       currentStep: 3,
     };
 
-    if (updates.propertyTitle !== undefined)
-      setPropertyTitle(updates.propertyTitle);
+    if (updates.propertyTitle !== undefined) setPropertyTitle(updates.propertyTitle);
+    if (updates.rentalPurpose !== undefined) setRentalPurpose(updates.rentalPurpose);
     if (updates.furnishing !== undefined) setFurnishing(updates.furnishing);
     if (updates.bedrooms !== undefined) setBedrooms(updates.bedrooms);
     if (updates.bathrooms !== undefined) setBathrooms(updates.bathrooms);
-    if (updates.guestCapacity !== undefined)
-      setGuestCapacity(updates.guestCapacity);
+    if (updates.guestCapacity !== undefined) setGuestCapacity(updates.guestCapacity);
     if (updates.titleType !== undefined) setTitleType(updates.titleType);
-    if (updates.propertyHighlight !== undefined)
-      setPropertyHighlight(updates.propertyHighlight);
+    if (updates.propertyHighlight !== undefined) setPropertyHighlight(updates.propertyHighlight);
+    if (updates.roomSizes !== undefined) setRoomSizes(updates.roomSizes);
+    if (updates.totalSquareFootage !== undefined) setTotalSquareFootage(updates.totalSquareFootage);
+    if (updates.usageType !== undefined) setUsageType(updates.usageType);
+    if (updates.sittingRooms !== undefined) setSittingRooms(updates.sittingRooms);
+    if (updates.lounges !== undefined) setLounges(updates.lounges);
+    if (updates.workspaces !== undefined) setWorkspaces(updates.workspaces);
 
     debouncedSaveDraft(finalUpdates);
   };
@@ -308,6 +338,9 @@ const PropertyDetails = () => {
         furnishing: furnishing || "",
         bedrooms,
         bathrooms,
+        sittingRooms,
+        lounges,
+        workspaces,
         guestCapacity,
         titleType,
         propertyHighlight,
@@ -339,6 +372,9 @@ const PropertyDetails = () => {
       furnishing: furnishing || "",
       bedrooms,
       bathrooms,
+      sittingRooms,
+      lounges,
+      workspaces,
       guestCapacity,
       titleType,
       propertyHighlight,
@@ -377,16 +413,23 @@ const PropertyDetails = () => {
       );
       return;
     }
-    if (!bedrooms || parseInt(bedrooms) < 1) {
-      Alert.alert("Bedrooms Required", "Please enter the number of bedrooms.");
+    if (isResidentialPurpose && (!bedrooms || parseInt(bedrooms) < 1)) {
+      Alert.alert("Bedrooms Required", "Please enter the number of bedrooms for your residence.");
       return;
     }
     
-    // Bathroom validation: skip minimum if commercial
-    if (!isCommercial && (!bathrooms || parseInt(bathrooms) < 1)) {
+    if (isResidentialPurpose && (!bathrooms || parseInt(bathrooms) < 1)) {
       Alert.alert(
         "Bathrooms Required",
         "Please enter the number of bathrooms.",
+      );
+      return;
+    }
+
+    if (isBusinessPurpose && (!totalSquareFootage.trim() || !usageType.trim())) {
+      Alert.alert(
+        "Missing Details",
+        "Please provide square footage and usage type for your business listing.",
       );
       return;
     }
@@ -417,6 +460,9 @@ const PropertyDetails = () => {
       furnishing: furnishing || "",
       bedrooms,
       bathrooms,
+      sittingRooms,
+      lounges,
+      workspaces,
       guestCapacity,
       titleType,
       propertyHighlight,
@@ -437,13 +483,17 @@ const PropertyDetails = () => {
       });
   };
 
-  // Validate form - guest capacity is optional
+  // Purpose Logic
+  const isBusinessPurpose = ["Commercial", "Industrial", "Agricultural", "Storage"].includes(rentalPurpose);
+  const isResidentialPurpose = ["Residential", "Hospitality", "Short Term Residence"].includes(rentalPurpose);
+
+  // Validate form
   const isValid =
     propertyTitle.trim().length > 0 &&
+    rentalPurpose &&
     furnishing &&
-    bedrooms &&
-    parseInt(bedrooms) >= 1 &&
-    (isCommercial ? true : (bathrooms && parseInt(bathrooms) >= 1)) &&
+    (isResidentialPurpose ? (bedrooms >= 1 && bathrooms >= 1) : true) &&
+    (isBusinessPurpose ? (totalSquareFootage.trim().length > 0 && usageType.trim().length > 0) : true) &&
     titleType &&
     propertyHighlight &&
     propertyHighlight.trim().length >= 10;
@@ -487,9 +537,28 @@ const PropertyDetails = () => {
         <View style={styles.formSection}>
           <Text style={styles.formLabel}>Fill in the details below:</Text>
 
+          {/* Purpose of Rental */}
+          <View style={styles.selectionSection}>
+            <Text style={styles.selectionLabel}>Purpose of Rental: <Text style={styles.requiredText}>*Required</Text></Text>
+            <Pressable
+              style={styles.dropdownButton}
+              onPress={() => setShowPurposeDropdown(true)}
+            >
+              <Text
+                style={[
+                  styles.dropdownButtonText,
+                  !rentalPurpose && styles.dropdownPlaceholder,
+                ]}
+              >
+                {rentalPurpose || "Select rental purpose"}
+              </Text>
+              <ChevronDownIcon size={20} color="#656565" />
+            </Pressable>
+          </View>
+
           {/* Property Title */}
           <View style={styles.selectionSection}>
-            <Text style={styles.selectionLabel}>Property Title:</Text>
+            <Text style={styles.selectionLabel}>Property Title: <Text style={styles.requiredText}>*Required</Text></Text>
             <View style={styles.inputContainer}>
               <TextInput
                 style={styles.textInput}
@@ -503,6 +572,53 @@ const PropertyDetails = () => {
             </View>
           </View>
         </View>
+
+        {/* Dynamic Fields based on Purpose */}
+        {isBusinessPurpose && (
+          <View style={styles.formSection}>
+            <View style={styles.selectionSection}>
+              <Text style={styles.selectionLabel}>Total Square Footage: <Text style={styles.requiredText}>*Required</Text></Text>
+              <View style={styles.inputContainer}>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="E.g 5000 sq ft"
+                  placeholderTextColor="#656565"
+                  value={totalSquareFootage}
+                  onChangeText={(text) => updatePropertyDetails({ totalSquareFootage: text })}
+                />
+              </View>
+            </View>
+            <View style={styles.selectionSection}>
+              <Text style={styles.selectionLabel}>Intended Usage Type: <Text style={styles.requiredText}>*Required</Text></Text>
+              <View style={styles.inputContainer}>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="E.g Retail, Factory, Farming"
+                  placeholderTextColor="#656565"
+                  value={usageType}
+                  onChangeText={(text) => updatePropertyDetails({ usageType: text })}
+                />
+              </View>
+            </View>
+          </View>
+        )}
+
+        {isResidentialPurpose && (
+          <View style={styles.formSection}>
+            <View style={styles.selectionSection}>
+              <Text style={styles.selectionLabel}>Room Sizes (Optional):</Text>
+              <View style={styles.inputContainer}>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="E.g 10x12, 12x14 (comma separated)"
+                  placeholderTextColor="#656565"
+                  value={roomSizes}
+                  onChangeText={(text) => updatePropertyDetails({ roomSizes: text })}
+                />
+              </View>
+            </View>
+          </View>
+        )}
 
         {/* Property Highlight */}
         <View style={styles.selectionSection}>
@@ -565,7 +681,7 @@ const PropertyDetails = () => {
 
         {/* Counters */}
         <Counter
-          label="Bedrooms *"
+          label={`Bedrooms / Rooms ${isResidentialPurpose ? "*" : ""}`}
           value={bedrooms}
           onIncrement={() => updatePropertyDetails({ bedrooms: bedrooms + 1 })}
           onDecrement={() =>
@@ -574,7 +690,7 @@ const PropertyDetails = () => {
           min={0}
         />
         <Counter
-          label={`Bathrooms ${isCommercial ? "" : "*"}`}
+          label={`Bathrooms / Toilets ${isResidentialPurpose ? "*" : ""}`}
           value={bathrooms}
           onIncrement={() =>
             updatePropertyDetails({ bathrooms: bathrooms + 1 })
@@ -584,6 +700,33 @@ const PropertyDetails = () => {
           }
           min={0}
         />
+
+        {isBusinessPurpose && (
+          <Counter
+            label="Workspaces"
+            value={workspaces}
+            onIncrement={() => updatePropertyDetails({ workspaces: workspaces + 1 })}
+            onDecrement={() => updatePropertyDetails({ workspaces: Math.max(0, workspaces - 1) })}
+            min={0}
+          />
+        )}
+
+        <Counter
+          label="Sitting Rooms"
+          value={sittingRooms}
+          onIncrement={() => updatePropertyDetails({ sittingRooms: sittingRooms + 1 })}
+          onDecrement={() => updatePropertyDetails({ sittingRooms: Math.max(0, sittingRooms - 1) })}
+          min={0}
+        />
+
+        <Counter
+          label="Lounges"
+          value={lounges}
+          onIncrement={() => updatePropertyDetails({ lounges: lounges + 1 })}
+          onDecrement={() => updatePropertyDetails({ lounges: Math.max(0, lounges - 1) })}
+          min={0}
+        />
+
         <Counter
           label="Guest Capacity"
           value={guestCapacity}
@@ -619,6 +762,63 @@ const PropertyDetails = () => {
           </Pressable>
         </View>
       </ScrollView>
+
+      {/* Rental Purpose Dropdown Overlay */}
+      {showPurposeDropdown && (
+        <Pressable
+          style={styles.dropdownOverlay}
+          onPress={() => setShowPurposeDropdown(false)}
+        >
+          <Pressable
+            style={styles.dropdownModal}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={styles.dropdownHeader}>
+              <Text style={styles.dropdownTitle}>Select Rental Purpose</Text>
+              <Pressable onPress={() => setShowPurposeDropdown(false)}>
+                <CloseIcon size={20} color="#000000" />
+              </Pressable>
+            </View>
+            <ScrollView
+              style={styles.dropdownList}
+              contentContainerStyle={styles.dropdownListContent}
+              showsVerticalScrollIndicator={true}
+              bounces={true}
+            >
+              {PURPOSE_SECTIONS.map((section) => (
+                <View key={section.title} style={styles.dropdownSection}>
+                  <Text style={styles.dropdownSectionHeader}>{section.title}</Text>
+                  {section.options.map((option) => (
+                    <Pressable
+                      key={option}
+                      style={[
+                        styles.dropdownItem,
+                        rentalPurpose === option && styles.dropdownItemSelected,
+                      ]}
+                      onPress={() => {
+                        updatePropertyDetails({ rentalPurpose: option });
+                        setShowPurposeDropdown(false);
+                      }}
+                    >
+                      <Text
+                        style={[
+                          styles.dropdownItemText,
+                          rentalPurpose === option && styles.dropdownItemTextSelected,
+                        ]}
+                      >
+                        {option}
+                      </Text>
+                      {rentalPurpose === option && (
+                        <CheckIcon size={20} color="#23C16B" />
+                      )}
+                    </Pressable>
+                  ))}
+                </View>
+              ))}
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      )}
 
       {/* Title Type Dropdown Overlay */}
       {showTitleTypeDropdown && (

@@ -446,6 +446,9 @@ class DraftListingService {
       furnishing: params.furnishing || "",
       bedrooms: params.bedrooms || "0",
       bathrooms: params.bathrooms || "0",
+      sittingRooms: params.sittingRooms || "0",
+      lounges: params.lounges || "0",
+      workspaces: params.workspaces || "0",
       guestCapacity: params.guestCapacity || "0",
       titleType: params.titleType || "",
       // Step 4

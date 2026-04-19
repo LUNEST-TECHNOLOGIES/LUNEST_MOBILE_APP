@@ -310,7 +310,7 @@ const BookingCard = ({
           {/* Confirmed & Ongoing Status: Chat Icon (Left) + View Details (Right) */}
           {(isConfirmed || isOngoing) && (
             <>
-              {/* Chat Button - Left Side */}
+              {/* Chat Button */}
               <Pressable
                 style={styles.chatButton}
                 onPress={() => onChat?.(booking)}
@@ -321,10 +321,9 @@ const BookingCard = ({
                 />
               </Pressable>
 
-              {/* Spacer to push View Details to the right */}
               <View style={styles.spacer} />
 
-              {/* View Details Button - Right Side */}
+              {/* View Details Button */}
               <Pressable
                 style={[
                   styles.viewDetailsButton,

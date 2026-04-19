@@ -217,14 +217,27 @@ const PropertyDetails = () => {
     useDraftListing();
 
   // Initialize from draft or params
+  const [propertyTitle, setPropertyTitle] = useState("");
   const [rentalPurpose, setRentalPurpose] = useState(null);
+  const [furnishing, setFurnishing] = useState(null);
+  const [bedrooms, setBedrooms] = useState(0);
+  const [bathrooms, setBathrooms] = useState(0);
+  const [guestCapacity, setGuestCapacity] = useState(0);
+  const [titleType, setTitleType] = useState("");
+  const [propertyHighlight, setPropertyHighlight] = useState("");
+  
   const [roomSizes, setRoomSizes] = useState("");
   const [totalSquareFootage, setTotalSquareFootage] = useState("");
   const [usageType, setUsageType] = useState("");
   const [sittingRooms, setSittingRooms] = useState(0);
   const [lounges, setLounges] = useState(0);
   const [workspaces, setWorkspaces] = useState(0);
+  
+  // Visibility States
   const [showPurposeDropdown, setShowPurposeDropdown] = useState(false);
+  const [showTitleTypeDropdown, setShowTitleTypeDropdown] = useState(false);
+  const [showTipsOverlay, setShowTipsOverlay] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
 
   const MAX_HIGHLIGHT_LENGTH = 500;
   

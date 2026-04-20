@@ -134,10 +134,19 @@ const AddFundsScreen = () => {
         setTimeout(() => {
           if (context?.returnUrl) {
             console.log("[AddFunds] Redirecting to stored context:", context.returnUrl);
+            
+            // Construct clean params for return
+            const returnParams = {
+              ...(context.params || {}),
+              fromBooking: "true",
+              refreshed: "true"
+            };
+
             router.replace({
               pathname: context.returnUrl,
-              params: context.params || {}
+              params: returnParams
             });
+            
             if (Platform.OS === "web") {
               localStorage.removeItem("lunest_payment_context");
             } else {
@@ -276,8 +285,14 @@ const AddFundsScreen = () => {
         // PERSIST CONTEXT
         const context = {
           type: "WALLET_FUNDING",
-          returnUrl: params.returnUrl || "/pay-with-wallet", // Fallback to pay-with-wallet if coming from booking flow
-          params: { ...params, status: null, reference: null },
+          returnUrl: params.returnUrl || "/pay-with-wallet",
+          params: { 
+            ...params, 
+            status: null, 
+            reference: null, 
+            trxref: null,
+            fromBooking: "true"
+          },
         };
 
         if (Platform.OS === "web") {

@@ -236,6 +236,7 @@ const Availability = () => {
     // Navigate back with current params to preserve data
     const finalDraftId = (draftData && draftData.draftId) || draftId || draftListingService.generateDraftId();
     
+    // OPTIMIZATION: Trigger save in background and navigate immediately
     saveDraftData({
       ...draftData,  // Preserve all existing data
       instantBooking,
@@ -245,16 +246,11 @@ const Availability = () => {
       availableNow,
       currentStep: 8,
       draftId: finalDraftId,
-    }).then(() => {
-      router.replace({
-        pathname: '/create-listing/pricing',
-        params: { draftId: finalDraftId },
-      });
-    }).catch(() => {
-      router.replace({
-        pathname: '/create-listing/pricing',
-        params: { draftId: finalDraftId },
-      });
+    }, { background: true });
+
+    router.replace({
+      pathname: '/create-listing/pricing',
+      params: { draftId: finalDraftId },
     });
   };
 
@@ -271,6 +267,7 @@ const Availability = () => {
 
     const finalDraftId = (draftData && draftData.draftId) || draftId || draftListingService.generateDraftId();
     
+    // OPTIMIZATION: Trigger save in background and navigate immediately
     saveDraftData({
       ...draftData,  // Preserve all existing data
       instantBooking,
@@ -281,17 +278,12 @@ const Availability = () => {
       checkOutTime: checkOutTime || '11:00 AM',
       currentStep: 8,
       draftId: finalDraftId,
-    }).then(() => {
-      // Skip house-rules step, go directly to terms-agreement
-      router.push({
-        pathname: '/create-listing/terms-agreement',
-        params: { draftId: finalDraftId },
-      });
-    }).catch(() => {
-      router.push({
-        pathname: '/create-listing/terms-agreement',
-        params: { draftId: finalDraftId },
-      });
+    }, { background: true });
+
+    // Skip house-rules step, go directly to terms-agreement
+    router.push({
+      pathname: '/create-listing/terms-agreement',
+      params: { draftId: finalDraftId },
     });
   };
 

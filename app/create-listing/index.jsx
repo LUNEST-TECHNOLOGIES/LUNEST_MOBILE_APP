@@ -388,23 +388,17 @@ const SelectPropertyCategory = () => {
                            draftId || 
                            draftListingService.generateDraftId();
       
-      // Save before navigation
+      // OPTIMIZATION: Trigger save in background and navigate immediately
       saveDraftData({
         propertyType: selectedCategory,
         currentStep: 1,
         draftId: finalDraftId,
-      }).then(() => {
-        router.push({
-          pathname: '/create-listing/intent',
-          params: { draftId: finalDraftId },
-        });
-      }).catch(err => {
-        console.error('Error saving:', err);
-        // Still navigate
-        router.push({
-          pathname: '/create-listing/intent',
-          params: { draftId: finalDraftId },
-        });
+      }, { background: true });
+
+      // Navigate immediately without waiting for API
+      router.push({
+        pathname: '/create-listing/intent',
+        params: { draftId: finalDraftId },
       });
     }
   };

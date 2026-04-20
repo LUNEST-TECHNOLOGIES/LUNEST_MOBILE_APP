@@ -291,23 +291,18 @@ const Photos = () => {
     // Save current photos before navigating back
     const finalDraftId = (draftData && draftData.draftId) || draftId || draftListingService.generateDraftId();
     
+    // OPTIMIZATION: Trigger save in background and navigate immediately
     saveDraftData({
       photos: Array.isArray(photos) ? photos : safeParseArray(photos),
       video: videos,
       propertyVideos: videos,
       currentStep: 6,
       draftId: finalDraftId,
-    }).then(() => {
-      router.replace({
-        pathname: "/create-listing/amenities",
-        params: { draftId: finalDraftId },
-      });
-    }).catch((err) => {
-      console.error("Error saving photos before back navigation:", err);
-      router.replace({
-        pathname: "/create-listing/amenities",
-        params: { draftId: finalDraftId },
-      });
+    }, { background: true });
+
+    router.replace({
+      pathname: "/create-listing/amenities",
+      params: { draftId: finalDraftId },
     });
   };
 
@@ -510,26 +505,19 @@ const Photos = () => {
         draftId ||
         draftListingService.generateDraftId();
 
+      // OPTIMIZATION: Trigger save in background and navigate immediately
       saveDraftData({
         photos: Array.isArray(photos) ? photos : safeParseArray(photos),
         video: videos,
         propertyVideos: videos,
         currentStep: 6,
         draftId: finalDraftId,
-      })
-        .then(() => {
-          router.push({
-            pathname: "/create-listing/pricing",
-            params: { draftId: finalDraftId },
-          });
-        })
-        .catch((err) => {
-          console.error("Error saving photos:", err);
-          router.push({
-            pathname: "/create-listing/pricing",
-            params: { draftId: finalDraftId },
-          });
-        });
+      }, { background: true });
+
+      router.push({
+        pathname: "/create-listing/pricing",
+        params: { draftId: finalDraftId },
+      });
     } else {
       Alert.alert(
         "More Photos Needed",

@@ -53,8 +53,11 @@ export const useDraftListing = () => {
   }, []);
 
   // Save draft data to storage (merges with existing data)
-  const saveDraftData = useCallback(async (updates) => {
-    setIsSavingDraft(true);
+  const saveDraftData = useCallback(async (updates, options = { background: false }) => {
+    // Only show loading indicator if not saving in background
+    if (!options.background) {
+      setIsSavingDraft(true);
+    }
 
     try {
       // If we have draftId in updates, use it
@@ -62,7 +65,7 @@ export const useDraftListing = () => {
       
       if (!draftId) {
         console.error('❌ [useDraftListing] No draftId provided in updates or params');
-        setIsSavingDraft(false);
+        if (!options.background) setIsSavingDraft(false);
         return false;
       }
 
@@ -73,8 +76,23 @@ export const useDraftListing = () => {
         lastModified: new Date().toISOString(),
       };
 
-      console.log('💾 [useDraftListing] Saving draft:', draftId);
-      const savedDraft = await draftListingService.saveDraft(updatedDraft);
+      console.log('💾 [useDraftListing] Saving draft:', draftId, options.background ? '(background)' : '(foreground)');
+      
+      // Call service
+      const savingPromise = draftListingService.saveDraft(updatedDraft);
+      
+      // If background, we don't await the promise for the UI state update
+      if (options.background) {
+        savingPromise.then(saved => {
+          if (saved) setDraftData(saved);
+        }).catch(err => {
+          console.warn('⚠️ [useDraftListing] Background save failed:', err.message);
+        });
+        return true; 
+      }
+
+      // Foreground save: await and update state
+      const savedDraft = await savingPromise;
       
       // If the service returned a draft (which might have a new draftId or _id), use it
       const finalDraft = savedDraft || updatedDraft;
@@ -86,7 +104,9 @@ export const useDraftListing = () => {
       setDraftError(error.message);
       return false;
     } finally {
-      setIsSavingDraft(false);
+      if (!options.background) {
+        setIsSavingDraft(false);
+      }
     }
   }, [draftData, params.draftId]);
 

@@ -111,21 +111,18 @@ const TermsAgreement = () => {
   const handleBack = () => {
     // Save terms agreement state and navigate back to availability
     const finalDraftId = (draftData && draftData.draftId) || draftId;
+    
+    // OPTIMIZATION: Trigger save in background and navigate immediately
     saveDraftData({
       ...draftData,  // Preserve all existing data
       termsAgreed,
       currentStep: 8,
       draftId: finalDraftId,
-    }).then(() => {
-      router.push({
-        pathname: '/create-listing/availability',
-        params: finalDraftId ? { draftId: finalDraftId } : {},
-      });
-    }).catch(() => {
-      router.push({
-        pathname: '/create-listing/availability',
-        params: finalDraftId ? { draftId: finalDraftId } : {},
-      });
+    }, { background: true });
+
+    router.push({
+      pathname: '/create-listing/availability',
+      params: finalDraftId ? { draftId: finalDraftId } : {},
     });
   };
 
@@ -133,21 +130,17 @@ const TermsAgreement = () => {
     if (termsAgreed) {
       const finalDraftId = (draftData && draftData.draftId) || draftId || draftListingService.generateDraftId();
       
+      // OPTIMIZATION: Trigger save in background and navigate immediately
       saveDraftData({
         ...draftData,  // Preserve all existing data
         termsAgreed: true,
         currentStep: 9,
         draftId: finalDraftId,
-      }).then(() => {
-        router.push({
-          pathname: '/create-listing/review',
-          params: { draftId: finalDraftId },
-        });
-      }).catch(() => {
-        router.push({
-          pathname: '/create-listing/review',
-          params: { draftId: finalDraftId },
-        });
+      }, { background: true });
+
+      router.push({
+        pathname: '/create-listing/review',
+        params: { draftId: finalDraftId },
       });
     }
   };

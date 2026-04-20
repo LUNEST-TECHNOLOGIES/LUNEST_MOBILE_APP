@@ -191,6 +191,7 @@ const Pricing = () => {
       draftId ||
       draftListingService.generateDraftId();
 
+    // OPTIMIZATION: Trigger save in background and navigate immediately
     saveDraftData({
       ...draftData,
       price: intent === "sale" ? salePrice : price,
@@ -199,13 +200,12 @@ const Pricing = () => {
       serviceCharge,
       currentStep: 7,
       draftId: finalDraftId,
-    })
-      .finally(() => {
-        router.replace({
-          pathname: "/create-listing/photos",
-          params: { draftId: finalDraftId },
-        });
-      });
+    }, { background: true });
+
+    router.replace({
+      pathname: "/create-listing/photos",
+      params: { draftId: finalDraftId },
+    });
   };
 
   const handleNext = () => {
@@ -230,6 +230,7 @@ const Pricing = () => {
       draftId ||
       draftListingService.generateDraftId();
 
+    // OPTIMIZATION: Trigger save in background and navigate immediately
     saveDraftData({
       price: priceValue,
       pricingPeriod: selectedPeriod,
@@ -237,19 +238,12 @@ const Pricing = () => {
       serviceCharge,
       currentStep: 7,
       draftId: finalDraftId,
-    })
-      .then(() => {
-        router.push({
-          pathname: "/create-listing/availability",
-          params: { draftId: finalDraftId },
-        });
-      })
-      .catch(() => {
-        router.push({
-          pathname: "/create-listing/availability",
-          params: { draftId: finalDraftId },
-        });
-      });
+    }, { background: true });
+
+    router.push({
+      pathname: "/create-listing/availability",
+      params: { draftId: finalDraftId },
+    });
   };
 
   const formatPrice = (value) => {

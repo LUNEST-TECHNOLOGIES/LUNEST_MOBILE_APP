@@ -532,19 +532,13 @@ const Location = () => {
       savePayload.longitude = propertyCoords.lon;
     }
 
-    saveDraftData(savePayload)
-      .then(() => {
-        router.replace({
-          pathname: "/create-listing/property-details",
-          params: { draftId: finalDraftId },
-        });
-      })
-      .catch(() => {
-        router.replace({
-          pathname: "/create-listing/property-details",
-          params: { draftId: finalDraftId },
-        });
-      });
+    // OPTIMIZATION: Trigger save in background and navigate immediately
+    saveDraftData(savePayload, { background: true });
+
+    router.replace({
+      pathname: "/create-listing/property-details",
+      params: { draftId: finalDraftId },
+    });
   };
 
   const handleNext = () => {
@@ -568,19 +562,13 @@ const Location = () => {
         savePayload.longitude = propertyCoords.lon;
       }
 
-      saveDraftData(savePayload)
-        .then(() => {
-          router.push({
-            pathname: "/create-listing/amenities",
-            params: { draftId: finalDraftId },
-          });
-        })
-        .catch(() => {
-          router.push({
-            pathname: "/create-listing/amenities",
-            params: { draftId: finalDraftId },
-          });
-        });
+      // OPTIMIZATION: Trigger save in background and navigate immediately
+      saveDraftData(savePayload, { background: true });
+
+      router.push({
+        pathname: "/create-listing/amenities",
+        params: { draftId: finalDraftId },
+      });
     } else {
       Alert.alert("Location Required", "Please enter address and city.");
     }

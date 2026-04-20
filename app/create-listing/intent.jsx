@@ -157,24 +157,17 @@ const SelectListingIntent = () => {
       // Save draft with latest data
       const draftId = draftData?.draftId || params.draftId || draftListingService.generateDraftId();
       
-      // Save draft before navigation
+      // OPTIMIZATION: Trigger save in background and navigate immediately
       saveDraftData({
         intent: selectedIntent,
         currentStep: 2,
         draftId,
-      }).then(() => {
-        // Navigate after save completes
-        router.push({
-          pathname: '/create-listing/property-details',
-          params: { draftId },
-        });
-      }).catch(err => {
-        console.error('Error saving draft:', err);
-        // Still navigate even if save fails
-        router.push({
-          pathname: '/create-listing/property-details',
-          params: { draftId },
-        });
+      }, { background: true });
+
+      // Navigate immediately without waiting for API
+      router.push({
+        pathname: '/create-listing/property-details',
+        params: { draftId },
       });
     }
   };

@@ -540,6 +540,14 @@ const Review = () => {
   const handleBack = () => {
     // Navigate back to step 9 (terms-agreement) with draftId
     const finalDraftId = (draftData && draftData.draftId) || draftId;
+    
+    // OPTIMIZATION: Trigger save in background and navigate immediately
+    saveDraftData({
+      ...mergedData,
+      currentStep: 9,
+      draftId: finalDraftId,
+    }, { background: true });
+
     router.push({
       pathname: "/create-listing/terms-agreement",
       params: finalDraftId ? { draftId: finalDraftId } : {},

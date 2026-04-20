@@ -396,21 +396,17 @@ const Amenities = () => {
   const handleBack = () => {
     const finalDraftId = (draftData && draftData.draftId) || draftId || draftListingService.generateDraftId();
     
+    // OPTIMIZATION: Trigger save in background and navigate immediately
     saveDraftData({
       selectedAmenities,
       customAmenities,
       currentStep: 5,
       draftId: finalDraftId,
-    }).then(() => {
-      router.replace({
-        pathname: '/create-listing/location',
-        params: { draftId: finalDraftId },
-      });
-    }).catch(() => {
-      router.replace({
-        pathname: '/create-listing/location',
-        params: { draftId: finalDraftId },
-      });
+    }, { background: true });
+
+    router.replace({
+      pathname: '/create-listing/location',
+      params: { draftId: finalDraftId },
     });
   };
 
@@ -460,21 +456,18 @@ const Amenities = () => {
     // Always ensure arrays before saving
     const safeSelected = Array.isArray(selectedAmenities) ? selectedAmenities : [];
     const safeCustom = Array.isArray(customAmenities) ? customAmenities : [];
+    
+    // OPTIMIZATION: Trigger save in background and navigate immediately
     saveDraftData({
       selectedAmenities: safeSelected,
       customAmenities: safeCustom,
       currentStep: 5,
       draftId: finalDraftId,
-    }).then(() => {
-      router.push({
-        pathname: '/create-listing/photos',
-        params: { draftId: finalDraftId },
-      });
-    }).catch(() => {
-      router.push({
-        pathname: '/create-listing/photos',
-        params: { draftId: finalDraftId },
-      });
+    }, { background: true });
+
+    router.push({
+      pathname: '/create-listing/photos',
+      params: { draftId: finalDraftId },
     });
   };
 

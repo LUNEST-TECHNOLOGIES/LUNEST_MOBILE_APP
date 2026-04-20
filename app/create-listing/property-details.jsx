@@ -380,6 +380,7 @@ const PropertyDetails = () => {
       draftId ||
       draftListingService.generateDraftId();
 
+    // OPTIMIZATION: Trigger save in background and navigate immediately
     saveDraftData({
       propertyTitle,
       furnishing: furnishing || "",
@@ -393,19 +394,12 @@ const PropertyDetails = () => {
       propertyHighlight,
       currentStep: 3,
       draftId: finalDraftId,
-    })
-      .then(() => {
-        router.replace({
-          pathname: "/create-listing/intent",
-          params: { draftId: finalDraftId },
-        });
-      })
-      .catch(() => {
-        router.replace({
-          pathname: "/create-listing/intent",
-          params: { draftId: finalDraftId },
-        });
-      });
+    }, { background: true });
+
+    router.replace({
+      pathname: "/create-listing/intent",
+      params: { draftId: finalDraftId },
+    });
   };
 
   const isCommercial = ['office', 'warehouse', 'shop', 'land'].includes(draftData?.propertyType || params?.propertyType);
@@ -468,6 +462,7 @@ const PropertyDetails = () => {
       draftId ||
       draftListingService.generateDraftId();
 
+    // OPTIMIZATION: Trigger save in background and navigate immediately
     saveDraftData({
       propertyTitle,
       furnishing: furnishing || "",
@@ -481,19 +476,12 @@ const PropertyDetails = () => {
       propertyHighlight,
       currentStep: 3,
       draftId: finalDraftId,
-    })
-      .then(() => {
-        router.push({
-          pathname: "/create-listing/location",
-          params: { draftId: finalDraftId },
-        });
-      })
-      .catch(() => {
-        router.push({
-          pathname: "/create-listing/location",
-          params: { draftId: finalDraftId },
-        });
-      });
+    }, { background: true });
+
+    router.push({
+      pathname: "/create-listing/location",
+      params: { draftId: finalDraftId },
+    });
   };
 
   // Purpose Logic

@@ -1298,11 +1298,26 @@ class ListingService {
       if (existingId && !isTemporaryId) {
         // Valid MongoDB ObjectId - update existing draft via PATCH
         console.log("[ListingService] Syncing existing draft via PATCH:", existingId);
-        response = await apiClient.patch(
-          "/v1/listings/update/" + existingId,
-          payload,
-          { headers: { Authorization: "Bearer " + token } },
-        );
+        try {
+          response = await apiClient.patch(
+            "/v1/listings/update/" + existingId,
+            payload,
+            { headers: { Authorization: "Bearer " + token } },
+          );
+        } catch (patchError) {
+          // AUTO-RECOVERY: If the listing is not found (404), it might be a stale draft ID 
+          // or was deleted from server. Recover by creating it as new.
+          if (patchError.status === 404) {
+            console.log("[ListingService] ⚠️ 404 on PATCH (Listing not found). Falling back to POST /create for recovery.");
+            response = await apiClient.post(
+              "/v1/listings/create",
+              payload,
+              { headers: { Authorization: "Bearer " + token } },
+            );
+          } else {
+            throw patchError;
+          }
+        }
       } else {
         // No ID or temporary ID - create new draft via POST
         // _id/id already excluded from payload at destructuring

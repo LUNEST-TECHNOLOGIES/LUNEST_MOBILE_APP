@@ -113,7 +113,13 @@ const CautionDisputeModal = ({
                       color="#fff"
                       style={{ marginRight: 6 }}
                     />
-                    <Text style={styles.modalConfirmBtnText}>{submitLabel}</Text>
+                    <Text 
+                      style={styles.modalConfirmBtnText}
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
+                    >
+                      {submitLabel}
+                    </Text>
                   </>
                 )}
               </TouchableOpacity>
@@ -243,7 +249,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   modalConfirmBtn: {
-    flex: 1.6,
+    flex: 2.2,
     height: 52,
     flexDirection: "row",
     alignItems: "center",

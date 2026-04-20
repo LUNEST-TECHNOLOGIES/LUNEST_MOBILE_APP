@@ -39,6 +39,13 @@ const StatusBadge = ({ status }) => {
           width: 85,
           icon: <ReservedIcon width={14} height={14} color="#464AE5" />,
         };
+      case "pending_payment":
+        return {
+          text: "PENDING PAYMENT",
+          color: "#FDAE31",
+          width: 140,
+          icon: <PendingIcon width={14} height={14} color="#FDAE31" />,
+        };
       case "confirmed":
         return {
           text: "CONFIRMED",

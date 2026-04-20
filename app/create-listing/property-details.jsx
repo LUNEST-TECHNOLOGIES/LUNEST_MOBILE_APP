@@ -798,35 +798,30 @@ const PropertyDetails = () => {
               showsVerticalScrollIndicator={true}
               bounces={true}
             >
-              {PURPOSE_SECTIONS.map((section) => (
-                <View key={section.title} style={styles.dropdownSection}>
-                  <Text style={styles.dropdownSectionHeader}>{section.title}</Text>
-                  {section.options.map((option) => (
-                    <Pressable
-                      key={option}
-                      style={[
-                        styles.dropdownItem,
-                        rentalPurpose === option && styles.dropdownItemSelected,
-                      ]}
-                      onPress={() => {
-                        updatePropertyDetails({ rentalPurpose: option });
-                        setShowPurposeDropdown(false);
-                      }}
-                    >
-                      <Text
-                        style={[
-                          styles.dropdownItemText,
-                          rentalPurpose === option && styles.dropdownItemTextSelected,
-                        ]}
-                      >
-                        {option}
-                      </Text>
-                      {rentalPurpose === option && (
-                        <CheckIcon size={20} color="#23C16B" />
-                      )}
-                    </Pressable>
-                  ))}
-                </View>
+              {RENTAL_PURPOSE_OPTIONS.map((option) => (
+                <Pressable
+                  key={option}
+                  style={[
+                    styles.dropdownItem,
+                    rentalPurpose === option && styles.dropdownItemSelected,
+                  ]}
+                  onPress={() => {
+                    updatePropertyDetails({ rentalPurpose: option });
+                    setShowPurposeDropdown(false);
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.dropdownItemText,
+                      rentalPurpose === option && styles.dropdownItemTextSelected,
+                    ]}
+                  >
+                    {option}
+                  </Text>
+                  {rentalPurpose === option && (
+                    <CheckIcon size={20} color="#23C16B" />
+                  )}
+                </Pressable>
               ))}
             </ScrollView>
           </Pressable>

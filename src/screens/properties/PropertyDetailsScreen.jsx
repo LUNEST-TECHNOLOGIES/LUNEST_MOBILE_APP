@@ -40,6 +40,7 @@ import ReviewFeedbackModal from "../../components/modals/ReviewFeedbackModal";
 import VerifiedInfoOverlay from "../../components/modals/VerifiedInfoOverlay";
 import PropertyDetailsSkeleton from "../../components/skeletons/PropertyDetailsSkeleton";
 import SkeletonPlaceholder from "../../components/skeletons/SkeletonPlaceholder";
+import ToastNotification, { TOAST_TYPE } from "../../components/common/ToastNotification";
 import { useProgressiveLoading } from "../../hooks/useDelayedLoading";
 import authService from "../../services/authService";
 import bookingService from "../../services/bookingService";
@@ -258,6 +259,17 @@ const PropertyDetailsScreen = () => {
   const [imageErrors, setImageErrors] = useState({});
   const queryClient = useQueryClient();
 
+  // Toast Notification state
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
+  const [toastType, setToastType] = useState(TOAST_TYPE.SUCCESS);
+
+  const showToast = (message, type = TOAST_TYPE.SUCCESS) => {
+    setToastMessage(message);
+    setToastType(type);
+    setToastVisible(true);
+  };
+
   // ── Data Fetching (React Query) ──
   const {
     data: listing,
@@ -464,7 +476,7 @@ const PropertyDetailsScreen = () => {
       }
     } catch (error) {
       console.error("[PropertyDetails] Error picking images:", error);
-      Alert.alert("Error", "Failed to pick images");
+      showToast("Failed to pick images", TOAST_TYPE.ERROR);
     }
   };
 
@@ -492,10 +504,7 @@ const PropertyDetailsScreen = () => {
           );
           console.log("[PropertyDetailsScreen] Uploaded review images:", uploadedImageUrls);
         } else {
-          Alert.alert(
-            "Upload Failed",
-            "Could not upload review images. Proceeding without them?",
-          );
+          showToast("Could not upload review images. Submission may continue without them.", TOAST_TYPE.WARNING);
         }
       }
 
@@ -511,7 +520,7 @@ const PropertyDetailsScreen = () => {
         guestBookings.bookings[0];
 
       if (!activeBookingToReview) {
-        Alert.alert("Error", "Could not find a completed booking to review.");
+        showToast("No completed booking found to review.", TOAST_TYPE.ERROR);
         setIsPostingReview(false);
         return;
       }
@@ -527,7 +536,7 @@ const PropertyDetailsScreen = () => {
       );
 
       if (result.success) {
-        Alert.alert("Success", "Your review has been posted. Thank you!");
+        showToast("Your review has been posted. Thank you!");
         setShowReviewModal(false);
         setReviewRating(0);
         setIsPostingReview(false);
@@ -537,15 +546,12 @@ const PropertyDetailsScreen = () => {
         queryClient.invalidateQueries(["listings"]); // Invalidate the home screen list
         handleRefresh(); // Force local refetch
       } else {
-        Alert.alert("Error", result.message || "Failed to post review");
+        showToast(result.message || "Failed to post review", TOAST_TYPE.ERROR);
         setIsPostingReview(false);
       }
     } catch (error) {
       console.error("Error posting review:", error);
-      Alert.alert(
-        "Error",
-        "An unexpected error occurred while posting your review.",
-      );
+      showToast("An error occurred while posting your review.", TOAST_TYPE.ERROR);
       setIsPostingReview(false);
     }
   };
@@ -615,13 +621,17 @@ const PropertyDetailsScreen = () => {
       );
 
       if (result.success) {
-        setIsFavorite(!isFavorite);
+        const newStatus = !isFavorite;
+        setIsFavorite(newStatus);
+        
         if (result.action === "added") {
+          showToast("Added to your saved properties");
           // Fetch the new bookmark to get its ID
           const bookmarkStatus =
             await bookmarkService.isListingBookmarked(listingId);
           setBookmarkId(bookmarkStatus.bookmarkId);
         } else {
+          showToast("Removed from saved properties", TOAST_TYPE.INFO);
           setBookmarkId(null);
         }
       }

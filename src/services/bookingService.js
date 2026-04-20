@@ -979,6 +979,44 @@ class BookingService {
       };
     }
   }
+
+  /**
+   * Report an issue with a booking / Raise a dispute
+   * @param {string} bookingId - The booking ID
+   * @param {string} reason - The reason for the dispute
+   * @returns {Promise<Object>}
+   */
+  async reportIssue(bookingId, reason) {
+    console.log(`🛡️ [BookingService] Reporting issue for booking ${bookingId}:`, reason);
+    if (!bookingId || !reason) return { success: false, message: "Booking ID and reason required" };
+
+    try {
+      const token = await authService.getToken();
+      if (!token) return { success: false, message: "Authentication required" };
+
+      const response = await apiClient.post(
+        `/v1/bookings/${bookingId}/report-issue`,
+        { reason },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      return {
+        success: true,
+        message: response?.message || "Dispute raised successfully",
+        booking: (response && response.body) || (response && response.data),
+      };
+    } catch (error) {
+      console.error("❌ [BookingService] Error reporting issue:", error);
+      const categorized = NetworkErrorHandler.categorizeError(error);
+      return {
+        success: false,
+        message: categorized.userMessage || "Failed to report issue",
+      };
+    }
+  }
+
   /**
    * Publicly verify a rental agreement via reference code
    * Requires no authentication - used by QR code scanned from PDFs

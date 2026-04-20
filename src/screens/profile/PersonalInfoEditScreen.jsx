@@ -19,6 +19,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Circle, Path } from "react-native-svg";
 import PhoneVerificationModal from "../../components/modals/PhoneVerificationModal";
+import ToastNotification, { TOAST_TYPE } from "../../components/common/ToastNotification";
 import authService from "../../services/authService";
 import profileService from "../../services/profileService";
 
@@ -178,15 +179,19 @@ const PersonalInfoEditScreen = () => {
 
   // Modal states
   const [showEditModal, setShowEditModal] = useState(false);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [successMessage, setSuccessMessage] = useState("");
-  const [editField, setEditField] = useState(null);
-  const [editValue, setEditValue] = useState("");
-  const [editError, setEditError] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [showPhoneVerificationModal, setShowPhoneVerificationModal] = useState(false);
   const [pendingPhoneUpdate, setPendingPhoneUpdate] = useState(null);
+
+  // Toast Notification state
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
+  const [toastType, setToastType] = useState(TOAST_TYPE.SUCCESS);
+
+  const showToast = (message, type = TOAST_TYPE.SUCCESS) => {
+    setToastMessage(message);
+    setToastType(type);
+    setToastVisible(true);
+  };
 
   // Load saved profile data on mount
   useEffect(() => {
@@ -332,11 +337,7 @@ const PersonalInfoEditScreen = () => {
           await ImagePicker.requestMediaLibraryPermissionsAsync();
 
         if (status !== "granted") {
-          Alert.alert(
-            "Permission Required",
-            "Please allow access to your photo library to upload a profile picture.",
-            [{ text: "OK" }],
-          );
+          showToast("Photo library access is required to update your profile picture.", TOAST_TYPE.WARNING);
           return;
         }
       }
@@ -359,7 +360,7 @@ const PersonalInfoEditScreen = () => {
         const isImage = asset.type === 'image' || (asset.mimeType && asset.mimeType.startsWith('image/'));
         
         if (!isImage && !validTypes.includes(extension)) {
-           Alert.alert("Invalid File Type", "Please select a valid image file (JPG, PNG, etc).");
+           showToast("Please select a valid image file (JPG, PNG, etc).", TOAST_TYPE.ERROR);
            return;
         }
 
@@ -392,27 +393,20 @@ const PersonalInfoEditScreen = () => {
           await loadProfileData();
           setIsLoading(false);
 
-          Alert.alert("Success", "Profile picture updated successfully.");
+          showToast("Profile picture updated successfully.");
         } else {
           setIsLoading(false);
-          Alert.alert("Upload Failed", uploadResult.message);
+          showToast(uploadResult.message || "Upload failed", TOAST_TYPE.ERROR);
         }
       }
     } catch (error) {
       console.error("Error picking image:", error);
       setIsLoading(false);
-      Alert.alert("Error", "Failed to upload photo. Please try again.");
+      showToast("Failed to upload photo. Please try again.", TOAST_TYPE.ERROR);
     }
   };
 
-  // Show success modal
-  const showSuccess = (message) => {
-    setSuccessMessage(message);
-    setShowSuccessModal(true);
-    setTimeout(() => {
-      setShowSuccessModal(false);
-    }, 2000);
-  };
+
 
   // Validate field based on type
   const validateField = (field, value) => {
@@ -453,11 +447,7 @@ const PersonalInfoEditScreen = () => {
   // Open edit modal
   const handleUpdate = (field, isEmployment = false) => {
     if ((field === "name" || field === "nin") && userData.isVerified) {
-      Alert.alert(
-        `Cannot Edit ${fieldLabels[field] || field}`,
-        `Your ${fieldLabels[field] || field} cannot be changed because your account is verified. Please contact support if you need to update it.`,
-        [{ text: "OK" }],
-      );
+      showToast(`${field === 'nin' ? 'NIN' : 'Name'} cannot be changed for verified accounts.`, TOAST_TYPE.WARNING);
       return;
     }
 
@@ -527,11 +517,7 @@ const PersonalInfoEditScreen = () => {
 
         if (!serverResult.success) {
           setIsLoading(false);
-          Alert.alert(
-            "Error",
-            serverResult.message ||
-              "Failed to save to server. Please try again.",
-          );
+          showToast(serverResult.message || "Failed to save to server.", TOAST_TYPE.ERROR);
           return;
         }
 
@@ -544,7 +530,7 @@ const PersonalInfoEditScreen = () => {
         // Show phone verification modal
         setPendingPhoneUpdate(editValue.trim());
         setShowPhoneVerificationModal(true);
-        showSuccess("Phone updated - verification required");
+        showToast("Phone updated - verification required");
         return;
       }
 
@@ -556,11 +542,7 @@ const PersonalInfoEditScreen = () => {
 
         if (!serverResult.success) {
           setIsLoading(false);
-          Alert.alert(
-            "Error",
-            serverResult.message ||
-              "Failed to save to server. Please try again.",
-          );
+          showToast(serverResult.message || "Failed to update NIN.", TOAST_TYPE.ERROR);
           return;
         }
       }
@@ -573,11 +555,11 @@ const PersonalInfoEditScreen = () => {
 
       setIsLoading(false);
       setShowEditModal(false);
-      showSuccess(`${editField.label} updated`);
+      showToast(`${editField.label} updated successfully`);
     } catch (error) {
       console.error("Error saving edit:", error);
       setIsLoading(false);
-      Alert.alert("Error", "Failed to save changes. Please try again.");
+      showToast("Failed to save changes. Please try again.", TOAST_TYPE.ERROR);
     }
   };
 
@@ -898,16 +880,6 @@ const PersonalInfoEditScreen = () => {
         </View>
       </Modal>
 
-      {/* Success Modal */}
-      <Modal visible={showSuccessModal} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.successModalContent}>
-            <SuccessCheckIcon size={60} />
-            <Text style={styles.successText}>{successMessage}</Text>
-          </View>
-        </View>
-      </Modal>
-
       {/* Phone Verification Modal */}
       <PhoneVerificationModal
         visible={showPhoneVerificationModal}
@@ -927,6 +899,14 @@ const PersonalInfoEditScreen = () => {
           // Refresh profile data to get latest from server
           loadProfileData();
         }}
+      />
+
+      {/* Toast Notification */}
+      <ToastNotification
+        visible={toastVisible}
+        message={toastMessage}
+        type={toastType}
+        onHide={() => setToastVisible(false)}
       />
     </SafeAreaView>
   );

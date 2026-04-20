@@ -23,6 +23,7 @@ import useCachedFetch from "../../hooks/useCachedFetch";
 
 
 import EmptyState from "../../components/common/EmptyState";
+import ToastNotification, { TOAST_TYPE } from "../../components/common/ToastNotification";
 
 // Import booking components
 import {
@@ -57,6 +58,17 @@ const BookingsScreen = () => {
     params?.bookingId || null,
   );
   const [isHostMode, setIsHostMode] = useState(params?.hostMode === "true");
+
+  // Toast Notification state
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
+  const [toastType, setToastType] = useState(TOAST_TYPE.SUCCESS);
+
+  const showToast = (message, type = TOAST_TYPE.SUCCESS) => {
+    setToastMessage(message);
+    setToastType(type);
+    setToastVisible(true);
+  };
 
   /**
    * Get image from listing data - handles various formats
@@ -265,6 +277,7 @@ const BookingsScreen = () => {
       CANCELED: "cancelled",
       CANCELLED: "cancelled",
       EXPIRED: "expired",
+      PENDING_PAYMENT: "pending_payment",
     };
     return statusMap[status?.toUpperCase()] || "pending";
   };
@@ -304,7 +317,7 @@ const BookingsScreen = () => {
     try {
       const now = Date.now();
       const expiredBookings = safeBookings.filter((booking) => {
-        if (booking.status !== "reserved") return false;
+        if (booking.status !== "reserved" && booking.status !== "pending_payment") return false;
 
         const bookingCreated = new Date(
           booking.rawCreatedAt || booking.rawCheckIn || booking.checkIn,
@@ -366,7 +379,7 @@ const BookingsScreen = () => {
     switch (activeTab) {
       case "Upcoming":
         return safeBookings.filter((b) =>
-          ["pending", "reserved", "confirmed", "ongoing"].includes(b.status),
+          ["pending", "reserved", "pending_payment", "confirmed", "ongoing"].includes(b.status),
         );
       case "Completed":
         return safeBookings.filter((b) => b.status === "completed");
@@ -385,6 +398,7 @@ const BookingsScreen = () => {
         confirmed: "Confirmed",
         pending: "Pending",
         reserved: "Reserved",
+        pending_payment: "Pending Payment",
         completed: "Completed",
         cancelled: "Cancelled",
         expired: "Expired",
@@ -430,10 +444,7 @@ const BookingsScreen = () => {
           },
         });
       } else {
-        Alert.alert(
-          "Invalid Booking",
-          "This booking cannot be viewed because its ID is invalid. Please contact support if this issue persists.",
-        );
+        showToast("Invalid booking ID. Please contact support.", TOAST_TYPE.ERROR);
       }
     } catch (error) {
       console.error("Navigation error:", error);
@@ -456,21 +467,15 @@ const BookingsScreen = () => {
                 "CANCELLED",
               );
               if (result.success) {
-                Alert.alert("Cancelled", "Your booking has been cancelled.");
+                showToast("Your booking has been cancelled successfully.");
                 mutateBookings(); // Refresh bookings
 
               } else {
-                Alert.alert(
-                  "Error",
-                  result.message || "Failed to cancel booking",
-                );
+                showToast(result.message || "Failed to cancel booking", TOAST_TYPE.ERROR);
               }
             } catch (error) {
               console.error("Error cancelling booking:", error);
-              Alert.alert(
-                "Error",
-                "Failed to cancel booking. Please try again.",
-              );
+              showToast("Failed to cancel booking. Please try again.", TOAST_TYPE.ERROR);
             }
           },
         },
@@ -590,6 +595,14 @@ const BookingsScreen = () => {
           isVerified: true,
           avatar: selectedBooking?.hostAvatar || null,
         }}
+      />
+
+      {/* Toast Notification */}
+      <ToastNotification
+        visible={toastVisible}
+        message={toastMessage}
+        type={toastType}
+        onHide={() => setToastVisible(false)}
       />
     </SafeAreaView>
   );

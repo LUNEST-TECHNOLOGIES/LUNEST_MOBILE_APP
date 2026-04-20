@@ -23,6 +23,7 @@ import * as ImageUtils from "../../utils/imageUtils";
 
 import EmptyState from "../../components/common/EmptyState";
 import ListingSkeleton from "../../components/common/ListingSkeleton";
+import ToastNotification, { TOAST_TYPE } from "../../components/common/ToastNotification";
 
 const SavedScreen = () => {
   const router = useRouter();
@@ -30,6 +31,17 @@ const SavedScreen = () => {
   const [activeTab, setActiveTab] = useState("saved");
   const [baseURL, setBaseURL] = useState("");
   const [imageErrors, setImageErrors] = useState({});
+
+  // Toast Notification state
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
+  const [toastType, setToastType] = useState(TOAST_TYPE.SUCCESS);
+
+  const showToast = (message, type = TOAST_TYPE.SUCCESS) => {
+    setToastMessage(message);
+    setToastType(type);
+    setToastVisible(true);
+  };
 
   useEffect(() => {
     configService.getBaseURL().then(setBaseURL);
@@ -93,13 +105,13 @@ const SavedScreen = () => {
     },
     onError: (err, variables, context) => {
       queryClient.setQueryData(["bookmarks"], context.previousBookmarks);
-      Alert.alert("Error", "Failed to remove property from saved");
+      showToast("Failed to remove property from saved", TOAST_TYPE.ERROR);
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["bookmarks"] });
     },
     onSuccess: (data, variables) => {
-      Alert.alert("Removed", `${variables.listingTitle} has been removed from saved`);
+      showToast("Removed from saved listings", TOAST_TYPE.INFO);
     },
   });
 
@@ -342,13 +354,16 @@ const SavedScreen = () => {
         contentContainerStyle={styles.listContent}
         columnWrapperStyle={styles.columnWrapper}
         ListEmptyComponent={renderEmptyState}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing || (activeTab === "recent" && recentLoading)}
-            onRefresh={activeTab === "saved" ? handleRefresh : refetchRecent}
-            colors={["#010135"]}
-          />
+                  />
         }
+      />
+
+      {/* Toast Notification */}
+      <ToastNotification
+        visible={toastVisible}
+        message={toastMessage}
+        type={toastType}
+        onHide={() => setToastVisible(false)}
       />
     </SafeAreaView>
   );

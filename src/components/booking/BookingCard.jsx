@@ -47,12 +47,14 @@ const BookingCard = ({
     booking.status === "completed" ||
     booking.status === "pending" ||
     booking.status === "reserved" ||
+    booking.status === "pending_payment" ||
     booking.status === "confirmed" ||
     booking.status === "ongoing" ||
     booking.status === "expired";
 
   const isPending = booking.status === "pending";
   const isReserved = booking.status === "reserved";
+  const isPendingPayment = booking.status === "pending_payment";
   const isConfirmed = booking.status === "confirmed";
   const isOngoing = booking.status === "ongoing";
   const isExpired = booking.status === "expired";
@@ -238,11 +240,11 @@ const BookingCard = ({
             </>
           )}
 
-          {/* Reserved Status: Trash Icon + Pay Now Button + View Details */}
-          {isReserved && (
+          {/* Reserved / Pending Payment Status: Trash Icon + Pay Now Button + View Details */}
+          {(isReserved || isPendingPayment) && (
             <>
               <View style={styles.reservedButtonsContainer}>
-                {/* Trash Delete Button */}
+                {/* Trash Delete Button (Cancel) */}
                 <Pressable
                   style={[
                     styles.trashDeleteButton,
@@ -261,7 +263,7 @@ const BookingCard = ({
                     />
                   </View>
                 </Pressable>
-
+ 
                 {/* Pay Now Button */}
                 <Pressable
                   style={[
@@ -283,7 +285,7 @@ const BookingCard = ({
                   </Text>
                 </Pressable>
               </View>
-
+ 
               {/* View Details Button */}
               <Pressable
                 style={[

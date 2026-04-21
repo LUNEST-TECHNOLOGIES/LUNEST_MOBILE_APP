@@ -676,11 +676,17 @@ const PersonalInfoEditScreen = () => {
         <View style={styles.headerSpacer} />
       </View>
 
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+      {isInitialLoading ? (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color="#192DFF" />
+          <Text style={{ marginTop: 12, color: '#656565', fontSize: 14 }}>Loading your profile...</Text>
+        </View>
+      ) : (
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
         {/* Profile Avatar Section */}
         <View style={styles.avatarSection}>
           <TouchableOpacity
@@ -815,6 +821,7 @@ const PersonalInfoEditScreen = () => {
         {/* Bottom spacing */}
         <View style={styles.bottomSpacer} />
       </ScrollView>
+      )}
 
       {/* Edit Modal */}
       <Modal

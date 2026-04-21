@@ -1,3 +1,24 @@
+import { 
+  ArrowLeft, 
+  ArrowRight, 
+  Share2, 
+  ShieldCheck, 
+  Star, 
+  Clock, 
+  Info, 
+  Heart, 
+  ChevronRight, 
+  MapPin, 
+  PlayCircle, 
+  Video, 
+  Navigation, 
+  Phone, 
+  MessageSquare, 
+  Copy, 
+  CheckCircle2, 
+  X,
+  ChevronLeft
+} from "lucide-react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Image } from "expo-image";
@@ -25,15 +46,6 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
-import ArrowRightIcon from "../../assets/icons/arrow-right.svg";
-import ArrowLeftIcon from "../../assets/icons/bookings/arrow-left.svg";
-import CircleInfoIcon from "../../assets/icons/circle-info.svg";
-import CircleInfo2Icon from "../../assets/icons/circle-info2.svg";
-import EllipseAvatar from "../../assets/icons/Ellipse 10.svg";
-import ShareIcon from "../../assets/icons/share.svg";
-import ShieldTickIcon from "../../assets/icons/shield-tick.svg";
-import StarIcon from "../../assets/icons/star.svg";
-import TimeIcon from "../../assets/icons/time.svg";
 import { MapView, Marker, PROVIDER_GOOGLE } from "../../components/MapViewWrapper";
 import ImageViewerModal from "../../components/modals/ImageViewerModal";
 import ReviewFeedbackModal from "../../components/modals/ReviewFeedbackModal";
@@ -1587,23 +1599,24 @@ const PropertyDetailsScreen = () => {
           style={[styles.backButton, !isHeaderFixed && styles.backCircle]}
           onPress={handleGoBack}
         >
-          <ArrowLeftIcon width={24} height={24} />
+          <ArrowLeft size={24} color={isHeaderFixed ? "#FFFFFF" : "#000"} strokeWidth={2} />
         </Pressable>
 
         {isHeaderFixed && (
           <Text style={styles.headerTitle}>Property Details</Text>
         )}
 
-        <Pressable
-          style={[styles.saveButton, !isHeaderFixed && styles.favoriteButton]}
-          onPress={handleToggleFavorite}
+        <TouchableOpacity
+          onPress={handleToggleBookmark}
+          style={styles.headerIconButton}
         >
-          <Ionicons
-            name={isFavorite ? "heart" : "heart-outline"}
-            size={24}
-            color={isHeaderFixed ? "#FFFFFF" : "#FFFFFF"}
+          <Heart 
+            size={22} 
+            color={isBookmarked ? "#FF5A5F" : "#FFFFFF"} 
+            fill={isBookmarked ? "#FF5A5F" : "transparent"}
+            strokeWidth={1.5} 
           />
-        </Pressable>
+        </TouchableOpacity>
       </View>
 
       {loading ? (
@@ -1631,9 +1644,12 @@ const PropertyDetailsScreen = () => {
             {/* Title and Share */}
             <View style={styles.titleRow}>
               <Text style={styles.title}>{propertyData.title}</Text>
-              <Pressable onPress={handleShare}>
-                <ShareIcon width={20} height={20} />
-              </Pressable>
+              <TouchableOpacity
+                onPress={handleShare}
+                style={styles.headerIconButton}
+              >
+                <Share2 size={22} color="#000" strokeWidth={1.5} />
+              </TouchableOpacity>
             </View>
 
             {/* Location - Clickable */}
@@ -1648,7 +1664,7 @@ const PropertyDetailsScreen = () => {
                 style={{ flexDirection: "row", alignItems: "center", flex: 1 }}
               >
                 <View style={styles.locationIconContainer}>
-                  <Ionicons name="location-sharp" size={14} color="#192DFF" />
+                  <MapPin size={14} color="#192DFF" />
                 </View>
                 <Text
                   style={styles.location}
@@ -1667,10 +1683,10 @@ const PropertyDetailsScreen = () => {
                 propertyData.isUnavailable && styles.bookedAvailabilityRow,
               ]}
             >
-              <TimeIcon
-                width={16}
-                height={16}
+              <Clock
+                size={16}
                 color={propertyData.isUnavailable ? "#FF3B30" : "#192DFF"}
+                strokeWidth={2}
               />
               <Text
                 style={[
@@ -1704,7 +1720,7 @@ const PropertyDetailsScreen = () => {
 
             {/* Price Note */}
             <View style={styles.priceNoteContainer}>
-              <CircleInfoIcon width={16} height={16} />
+              <Info size={16} color="#656565" strokeWidth={2} />
             <Text style={styles.priceNote}>{propertyData.priceNote}</Text>
           </View>
 
@@ -1719,7 +1735,7 @@ const PropertyDetailsScreen = () => {
             }
           >
             <Text style={styles.fullDetailsText}>Full details</Text>
-            <ArrowRightIcon width={18} height={18} color="#010135" />
+            <ArrowRight size={18} color="#010135" />
           </Pressable>
         </View>
 
@@ -1740,10 +1756,10 @@ const PropertyDetailsScreen = () => {
           >
             {propertyData.features.map((feature, index) => (
               <View key={index} style={styles.whatYouGetBox}>
-                <Ionicons 
-                  name={feature.icon || "checkmark-circle"} 
+                <CheckCircle2 
                   size={18} 
                   color="#192DFF" 
+                  strokeWidth={2}
                 />
                 <Text style={styles.whatYouGetText}>{feature.label}</Text>
               </View>
@@ -1757,12 +1773,12 @@ const PropertyDetailsScreen = () => {
           <View style={styles.amenitiesGrid}>
             {propertyData.amenities.map((amenity, index) => (
               <View key={index} style={styles.amenityGridItem}>
-                <View style={styles.amenityIconCircle}>
-                   <Ionicons 
-                     name={getAmenityIcon(amenity)} 
-                     size={20} 
-                     color="#010135" 
-                   />
+                <View style={styles.amenityIconContainer}>
+                   {React.createElement(getAmenityIcon(amenity), {
+                     size: 20,
+                     color: "#010135",
+                     strokeWidth: 2
+                   })}
                 </View>
                 <Text style={styles.amenityGridText}>
                   {amenity.replace(/^custom_/, "").replace(/_/g, " ")}

@@ -3,6 +3,16 @@
  * Set property availability and booking settings
  */
 
+import { 
+  X, 
+  ChevronDown, 
+  ChevronUp, 
+  Plus, 
+  Minus, 
+  Check, 
+  AlertCircle,
+  LayoutGrid
+} from "lucide-react-native";
 import { format } from "date-fns";
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
@@ -59,18 +69,7 @@ const CHECK_OUT_OPTIONS = [
   { value: "12:00 PM", label: "12:00 PM" },
 ];
 
-// Close X Icon - with explicit dimensions for web
-const CloseIcon = ({ size = 24, color = '#000000' }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={{ width: size, height: size }}>
-    <Path
-      d="M18 6L6 18M6 6L18 18"
-      stroke={color}
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </Svg>
-);
+// Icons migrated to Lucide
 
 // Progress Bar Component
 const ProgressBar = ({ currentStep, totalSteps }) => {
@@ -305,10 +304,7 @@ const Availability = () => {
       <View style={headerStyles.container}>
         <Text style={headerStyles.title}>Create a Listing</Text>
         <Pressable style={headerStyles.closeButton} onPress={handleClose}>
-          <View style={headerStyles.closeButtonBg} />
-          <View style={{ zIndex: 5 }}>
-            <CloseIcon size={14} color="#000000" />
-          </View>
+          <X size={24} color="#000000" />
         </Pressable>
       </View>
 

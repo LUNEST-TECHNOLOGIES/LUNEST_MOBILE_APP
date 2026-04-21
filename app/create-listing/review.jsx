@@ -3,6 +3,20 @@
  * Review all listing details before submission
  */
 
+import { 
+  X, 
+  Check, 
+  Star, 
+  ChevronLeft, 
+  ChevronRight, 
+  MapPin, 
+  Bed, 
+  Droplets, 
+  Square,
+  ShieldCheck,
+  LayoutGrid,
+  Info
+} from "lucide-react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -31,58 +45,7 @@ import listingService from "../../src/services/listingService";
 import toastService from "../../src/services/toastService";
 // Use distinct name to avoid collision with local StarIcon component
 
-// Close X Icon - with explicit dimensions for web
-const CloseIcon = ({ size = 24, color = "#000000" }) => (
-  <Svg
-    width={size}
-    height={size}
-    viewBox="0 0 24 24"
-    fill="none"
-    style={{ width: size, height: size }}
-  >
-    <Path
-      d="M18 6L6 18M6 6L18 18"
-      stroke={color}
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </Svg>
-);
-
-// Check Icon for amenities
-const CheckIcon = ({ size = 16, color = "#22C55E" }) => (
-  <Svg
-    width={size}
-    height={size}
-    viewBox="0 0 24 24"
-    fill="none"
-    style={{ width: size, height: size }}
-  >
-    <Path
-      d="M20 6L9 17L4 12"
-      stroke={color}
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </Svg>
-);
-
-// Local Star Icon component for ratings - renamed to avoid collision
-const StarIconLocal = ({ size = 16, color = "#FDB913" }) => (
-  <Svg
-    width={size}
-    height={size}
-    viewBox="0 0 24 24"
-    fill={color}
-    style={{ width: size, height: size }}
-  >
-    <Path
-      d="M12 17.27L18.18 21L16.54 13.97L22 9.24L14.81 8.63L12 2L9.19 8.63L2 9.24L7.46 13.97L5.82 21L12 17.27Z"
-    />
-  </Svg>
-);
+// Icons migrated to Lucide
 
 
 
@@ -788,6 +751,8 @@ const Review = () => {
         additionalRules: mergedData.additionalRules || "",
         furnishing: mergedData.furnishing || "",
         titleType: mergedData.titleType || "",
+        totalSquareFootage: mergedData.totalSquareFootage || "",
+        usageType: mergedData.usageType || "",
         // ALIGN WITH BACKEND: Use propertyName and explicit bedrooms/bathrooms
         propertyName: mergedData.propertyTitle || mergedData.propertyName || "Listing",
         propertyTitle: mergedData.propertyTitle || mergedData.propertyName || "Listing",
@@ -934,10 +899,7 @@ const Review = () => {
           {isEditing ? "Edit Listing" : "Create a Listing"}
         </Text>
         <Pressable style={styles.closeButton} onPress={handleClose}>
-          <View style={styles.closeButtonBg} />
-          <View style={{ zIndex: 5 }}>
-            <CloseIcon size={14} color="#000000" />
-          </View>
+          <X size={24} color="#000000" />
         </Pressable>
       </View>
 
@@ -985,7 +947,7 @@ const Review = () => {
                       <View
                         style={[styles.previewImage, styles.videoPlaceholder]}
                       >
-                        <VideoIcon size={30} color="#010135" />
+                        <Video size={30} color="#010135" />
                         <Text style={styles.videoPlaceholderText}>Video</Text>
                       </View>
                     </View>
@@ -1122,7 +1084,7 @@ const Review = () => {
             <View style={styles.amenitiesContainer}>
               {selectedAmenities.map((amenityId, index) => (
                 <View key={`amenity-${index}`} style={styles.amenityItem}>
-                  <CheckIcon size={16} color="#22C55E" />
+                  <Check size={16} color="#22C55E" />
                   <Text style={styles.amenityText}>
                     {String(getAmenityLabel(amenityId) || "")}
                   </Text>
@@ -1136,7 +1098,7 @@ const Review = () => {
                     : String(amenity || "");
                 return (
                   <View key={`custom-${index}`} style={styles.amenityItem}>
-                    <CheckIcon size={16} color="#22C55E" />
+                    <Check size={16} color="#22C55E" />
                     <Text style={styles.amenityText}>
                       {String(amenityLabel || "")}
                     </Text>
@@ -1204,7 +1166,7 @@ const Review = () => {
               <View style={{ flex: 1 }}>
                 <Text style={{ fontSize: 16, fontWeight: "600", color: "#1F2937" }}>{hostStats.fullName}</Text>
                 <View style={{ flexDirection: "row", alignItems: "center", marginTop: 2 }}>
-                  <StarIconLocal size={14} color="#FDB913" />
+                  <Star size={14} color="#FDB913" fill="#FDB913" />
                   <Text style={{ fontSize: 13, color: "#4B5563", marginLeft: 4 }}>
                     {Number(hostStats.rating || 0).toFixed(1)} ({hostStats.reviews} reviews)
                   </Text>
@@ -1458,7 +1420,7 @@ const Review = () => {
           <View style={styles.modalOverlay}>
               <View style={styles.modalContainer}>
                   <View style={styles.modalIconContainer}>
-                      <Ionicons name="alert-circle" size={50} color="#F59E0B" />
+                      <AlertCircle size={50} color="#F59E0B" strokeWidth={1.5} />
                   </View>
                   
                   <Text style={styles.modalTitle}>Listing Record Missing</Text>

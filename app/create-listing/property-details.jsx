@@ -3,6 +3,16 @@
  * Enter property title, furnishing, bedrooms, bathrooms, etc.
  */
 
+import { 
+  X, 
+  Info, 
+  Plus, 
+  Minus, 
+  ChevronDown, 
+  Check, 
+  AlertCircle,
+  LayoutGrid
+} from "lucide-react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import debounce from "lodash.debounce";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -26,88 +36,7 @@ import ToastNotification from "../../src/components/common/ToastNotification";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
-// Close X Icon - with explicit dimensions for web
-const CloseIcon = ({ size = 24, color = "#000000" }) => (
-  <Svg
-    width={size}
-    height={size}
-    viewBox="0 0 24 24"
-    fill="none"
-    style={{ width: size, height: size, minWidth: size, minHeight: size }}
-  >
-    <Path
-      d="M18 6L6 18M6 6L18 18"
-      stroke={color}
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </Svg>
-);
-
-// Info Circle Icon
-const InfoIcon = ({ size = 18, color = "#FD3131" }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth={1.5} />
-    <Path
-      d="M12 16V12M12 8H12.01"
-      stroke={color}
-      strokeWidth={1.5}
-      strokeLinecap="round"
-    />
-  </Svg>
-);
-
-// Plus/Minus Icons
-const PlusIcon = ({ size = 20, color = "#000000" }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Path
-      d="M12 5V19M5 12H19"
-      stroke={color}
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </Svg>
-);
-
-const MinusIcon = ({ size = 20, color = "#000000" }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Path
-      d="M5 12H19"
-      stroke={color}
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </Svg>
-);
-
-// Chevron Down Icon
-const ChevronDownIcon = ({ size = 20, color = "#000000" }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Path
-      d="M6 9L12 15L18 9"
-      stroke={color}
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </Svg>
-);
-
-// Check Icon
-const CheckIcon = ({ size = 20, color = "#23C16B" }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Path
-      d="M20 6L9 17L4 12"
-      stroke={color}
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </Svg>
-);
+// Icons migrated to Lucide
 
 // Check Circle Icon for Tips
 const CheckCircleIcon = ({ size = 18, color = "#23C16B" }) => (
@@ -179,7 +108,7 @@ const Counter = ({
         onPress={onDecrement}
         disabled={value <= min}
       >
-        <MinusIcon size={16} color={value <= min ? "#CCCCCC" : "#000000"} />
+        <Minus size={16} color={value <= min ? "#CCCCCC" : "#000000"} />
       </Pressable>
       <View style={styles.counterValueContainer}>
         <Text style={styles.counterValue}>{value}</Text>
@@ -192,7 +121,7 @@ const Counter = ({
         onPress={onIncrement}
         disabled={value >= max}
       >
-        <PlusIcon size={16} color={value >= max ? "#CCCCCC" : "#000000"} />
+        <Plus size={16} color={value >= max ? "#CCCCCC" : "#000000"} />
       </Pressable>
     </View>
   </View>
@@ -508,7 +437,7 @@ const PropertyDetails = () => {
         <Pressable style={styles.closeButton} onPress={handleClose}>
           <View style={styles.closeButtonBg} />
           <View style={{ zIndex: 5 }}>
-            <CloseIcon size={14} color="#000000" />
+            <X size={14} color="#000000" />
           </View>
         </Pressable>
       </View>
@@ -529,7 +458,7 @@ const PropertyDetails = () => {
             onPress={() => setShowTipsOverlay(true)}
           >
             <View style={styles.tipsIconContainer}>
-              <InfoIcon size={18} color="#FD3131" />
+              <Info size={18} color="#FD3131" />
             </View>
             <Text style={styles.tipsText}>Tips</Text>
           </Pressable>
@@ -554,7 +483,7 @@ const PropertyDetails = () => {
               >
                 {rentalPurpose || "Select rental purpose"}
               </Text>
-              <ChevronDownIcon size={20} color="#656565" />
+              <ChevronDown size={20} color="#656565" />
             </Pressable>
           </View>
 

@@ -3,6 +3,15 @@
  * Select available amenities with categorized layout
  */
 
+import { 
+  X, 
+  Search, 
+  ChevronDown, 
+  Check, 
+  Plus, 
+  ChevronUp,
+  LayoutGrid
+} from "lucide-react-native";
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
@@ -16,91 +25,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle, Path } from 'react-native-svg';
+import { getAmenityIcon } from "../../src/utils/amenityIcons";
 import CancelConfirmationModal from '../../src/components/create-listing/CancelConfirmationModal';
 import { useDraftListing } from '../../src/hooks/useDraftListing';
 import draftListingService from '../../src/services/draftListingService';
 import toastService from '../../src/services/toastService';
 import ToastNotification from '../../src/components/common/ToastNotification';
-
-// Close X Icon - with explicit dimensions for web
-const CloseIcon = ({ size = 24, color = '#000000' }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={{ width: size, height: size }}>
-    <Path
-      d="M18 6L6 18M6 6L18 18"
-      stroke={color}
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </Svg>
-);
-
-// Search Icon
-const SearchIcon = ({ size = 20, color = '#9B9B9B' }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={{ width: size, height: size }}>
-    <Path
-      d="M21 21L16.65 16.65M19 11C19 15.4183 15.4183 19 11 19C6.58172 19 3 15.4183 3 11C3 6.58172 6.58172 3 11 3C15.4183 3 19 6.58172 19 11Z"
-      stroke={color}
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </Svg>
-);
-
-// Info Circle Icon for Tips
-const InfoIcon = ({ size = 18, color = '#FD3131' }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={{ width: size, height: size }}>
-    <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth={1.5} />
-    <Path d="M12 16V12M12 8H12.01" stroke={color} strokeWidth={1.5} strokeLinecap="round" />
-  </Svg>
-);
-
-// Check Circle Icon for Tips
-const CheckCircleIcon = ({ size = 18, color = '#23C16B' }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={{ width: size, height: size }}>
-    <Circle cx="12" cy="12" r="10" fill={color} />
-    <Path
-      d="M8 12L11 15L16 9"
-      stroke="#FFFFFF"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </Svg>
-);
-
-// Checkmark Icon
-const CheckIcon = ({ size = 10, color = '#FFFFFF' }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={{ width: size, height: size }}>
-    <Path
-      d="M20 6L9 17L4 12"
-      stroke={color}
-      strokeWidth={3}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </Svg>
-);
-
-// Chevron Down Icon
-const ChevronDownIcon = ({ size = 16, color = '#666666', rotation = 0 }) => (
-  <Svg 
-    width={size} 
-    height={size} 
-    viewBox="0 0 24 24" 
-    fill="none" 
-    style={{ width: size, height: size, transform: [{ rotate: `${rotation}deg` }] }}
-  >
-    <Path
-      d="M6 9L12 15L18 9"
-      stroke={color}
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </Svg>
-);
 
 // Progress Bar Component
 const ProgressBar = ({ currentStep, totalSteps }) => {
@@ -128,87 +58,124 @@ const AMENITIES_CATEGORIES = [
     id: 'comfort',
     title: 'Comfort & Living Essentials',
     amenities: [
-      { id: 'walk_in_closet', label: 'Walk-In Closet' },
-      { id: 'balcony', label: 'Balcony' },
-      { id: 'ac', label: 'Air Conditioning (AC)' },
-      { id: 'heating', label: 'Heating System' },
-      { id: 'washer', label: 'Washer/Dryer' },
-      { id: 'kitchen', label: 'Full Kitchen' },
-      { id: 'furnished', label: 'Fully Furnished' },
+      { id: 'walk_in_closet', label: 'Walk-In Closet', icon: 'Armchair' },
+      { id: 'balcony', label: 'Balcony', icon: 'Warehouse' },
+      { id: 'ac', label: 'Air Conditioning (AC)', icon: 'Snowflake' },
+      { id: 'heating', label: 'Heating System', icon: 'Fan' },
+      { id: 'washer', label: 'Washer/Dryer', icon: 'WashingMachine' },
+      { id: 'kitchen', label: 'Full Kitchen', icon: 'UtensilsCrossed' },
+      { id: 'furnished', label: 'Fully Furnished', icon: 'Armchair' },
+      { id: 'refrigerator', label: 'Refrigerator', icon: 'Refrigerator' },
+      { id: 'microwave', label: 'Microwave', icon: 'Microwave' },
+      { id: 'coffee_maker', label: 'Coffee Maker', icon: 'Coffee' },
+      { id: 'dishwasher', label: 'Dishwasher', icon: 'UtensilsCrossed' },
     ],
   },
   {
     id: 'security',
     title: 'Security & Access',
     amenities: [
-      { id: 'security_24_7', label: '24/7 Security' },
-      { id: 'cctv', label: 'CCTV Surveillance' },
-      { id: 'gated', label: 'Gated Compound' },
-      { id: 'electronic_lock', label: 'Electronic Door Lock' },
-      { id: 'intercom', label: 'Intercom System' },
+      { id: 'security_24_7', label: '24/7 Security', icon: 'ShieldCheck' },
+      { id: 'cctv', label: 'CCTV Surveillance', icon: 'Camera' },
+      { id: 'gated', label: 'Gated Compound', icon: 'ShieldCheck' },
+      { id: 'electronic_lock', label: 'Electronic Door Lock', icon: 'Lock' },
+      { id: 'intercom', label: 'Intercom System', icon: 'PhoneForwarded' },
+      { id: 'fire_extinguisher', label: 'Fire Extinguisher', icon: 'ShieldAlert' },
+      { id: 'smoke_alarm', label: 'Smoke Alarm', icon: 'ShieldAlert' },
     ],
   },
   {
     id: 'power',
     title: 'Power & Utilities',
     amenities: [
-      { id: 'inverter', label: 'Inverter' },
-      { id: 'generator', label: 'Generator' },
-      { id: 'solar', label: 'Solar Power' },
-      { id: 'borehole', label: 'Borehole Water' },
-      { id: 'water_heater', label: 'Water Heater' },
+      { id: 'inverter', label: 'Inverter', icon: 'BatteryCharging' },
+      { id: 'generator', label: 'Generator', icon: 'Zap' },
+      { id: 'solar', label: 'Solar Power', icon: 'Sun' },
+      { id: 'borehole', label: 'Borehole Water', icon: 'Droplets' },
+      { id: 'water_heater', label: 'Water Heater', icon: 'Bath' },
+      { id: 'ev_charger', label: 'EV Charging', icon: 'Zap' },
+      { id: 'gas_supply', label: 'Gas Supply', icon: 'Flame' },
     ],
   },
   {
     id: 'tech',
     title: 'Tech & Connectivity',
     amenities: [
-      { id: 'wifi', label: 'WiFi' },
-      { id: 'smart_tv', label: 'Smart TV' },
-      { id: 'cable', label: 'Cable/Satellite TV' },
-      { id: 'workspace', label: 'Dedicated Workspace' },
+      { id: 'wifi', label: 'Wifi', icon: 'Wifi' },
+      { id: 'smart_tv', label: 'Smart TV', icon: 'Tv' },
+      { id: 'cable', label: 'Cable/Satellite TV', icon: 'Tv' },
+      { id: 'workspace', label: 'Dedicated Workspace', icon: 'Laptop' },
+      { id: 'fiber_optics', label: 'Fiber Optics', icon: 'Wifi' },
+      { id: 'printer', label: 'Printer/Scanner', icon: 'Printer' },
     ],
   },
   {
     id: 'lifestyle',
     title: 'Lifestyle & Luxury',
     amenities: [
-      { id: 'pool', label: 'Swimming Pool' },
-      { id: 'gym', label: 'Gym/Fitness Center' },
-      { id: 'garden', label: 'Garden/Lawn' },
-      { id: 'rooftop', label: 'Rooftop Access' },
-      { id: 'parking', label: 'Parking Space' },
+      { id: 'pool', label: 'Swimming Pool', icon: 'Waves' },
+      { id: 'gym', label: 'Gym/Fitness Center', icon: 'Dumbbell' },
+      { id: 'garden', label: 'Garden/Lawn', icon: 'TreePine' },
+      { id: 'rooftop', label: 'Rooftop Access', icon: 'ArrowUpCircle' },
+      { id: 'parking', label: 'Parking Space', icon: 'Car' },
+      { id: 'bbq', label: 'BBQ Grill', icon: 'Drumstick' },
+      { id: 'sauna', label: 'Sauna/Steam Room', icon: 'Bath' },
+    ],
+  },
+  {
+    id: 'commercial',
+    title: 'Commercial & Professional',
+    amenities: [
+      { id: 'loading_bay', label: 'Loading Bay', icon: 'Truck' },
+      { id: 'high_ceilings', label: 'High Ceilings', icon: 'Ruler' },
+      { id: 'meeting_rooms', label: 'Meeting Rooms', icon: 'Users' },
+      { id: 'receptionist', label: 'Reception Area', icon: 'UserCheck' },
+      { id: 'elevator', label: 'Elevator', icon: 'ArrowUpCircle' },
+      { id: 'cold_storage', label: 'Cold Storage', icon: 'Snowflake' },
     ],
   },
   {
     id: 'location',
     title: 'Location Benefits',
     amenities: [
-      { id: 'supermarket', label: 'Proximity to Supermarket' },
-      { id: 'hospital', label: 'Near Hospital' },
-      { id: 'school', label: 'Near Schools' },
-      { id: 'transport', label: 'Public Transport Access' },
-      { id: 'restaurant', label: 'Near Restaurants' },
+      { id: 'supermarket', label: 'Proximity to Supermarket', icon: 'ShoppingBag' },
+      { id: 'hospital', label: 'Near Hospital', icon: 'ShieldAlert' },
+      { id: 'school', label: 'Near Schools', icon: 'School' },
+      { id: 'transport', label: 'Public Transport Access', icon: 'Car' },
+      { id: 'restaurant', label: 'Near Restaurants', icon: 'UtensilsCrossed' },
     ],
   },
 ];
 
 // Amenity Tag Component - small pill style
-const AmenityTag = ({ amenity, selected, onToggle }) => (
-  <Pressable
-    style={[styles.amenityTag, selected && styles.amenityTagSelected]}
-    onPress={onToggle}
-  >
-    {selected && (
-      <View style={styles.tagCheckIcon}>
-        <CheckIcon size={10} color="#FFFFFF" />
+const AmenityTag = ({ amenity, selected, onToggle }) => {
+  const Icon = getAmenityIcon(amenity.icon);
+  
+  return (
+    <Pressable
+      style={[styles.amenityTag, selected && styles.amenityTagSelected]}
+      onPress={onToggle}
+    >
+      <View style={styles.tagIconWrapper}>
+        {Icon && (
+          <Icon 
+            size={14} 
+            color={selected ? "#FFFFFF" : "#666666"} 
+            strokeWidth={2}
+          />
+        )}
       </View>
-    )}
-    <Text style={[styles.amenityTagText, selected && styles.amenityTagTextSelected]}>
-      {amenity.label}
-    </Text>
-  </Pressable>
-);
+      <Text style={[styles.amenityTagText, selected && styles.amenityTagTextSelected]}>
+        {amenity.label}
+      </Text>
+      {selected && (
+        <View style={styles.tagCheckIcon}>
+          <Check size={10} color="#FFFFFF" strokeWidth={3} />
+        </View>
+      )}
+    </Pressable>
+  );
+};
 
 // Category Section Component
 const CategorySection = ({ category, selectedAmenities = [], onToggle, isExpanded, onToggleExpand }) => {
@@ -229,7 +196,11 @@ const CategorySection = ({ category, selectedAmenities = [], onToggle, isExpande
             </View>
           )}
         </View>
-        <ChevronDownIcon size={16} color="#666666" rotation={isExpanded ? 180 : 0} />
+        <ChevronDown 
+          size={16} 
+          color="#666666" 
+          style={{ transform: [{ rotate: isExpanded ? '180deg' : '0deg' }] }} 
+        />
       </Pressable>
       
       {isExpanded && (
@@ -527,7 +498,7 @@ const Amenities = () => {
         <Pressable style={styles.closeButton} onPress={handleClose}>
           <View style={styles.closeButtonBg} />
           <View style={{ zIndex: 5 }}>
-            <CloseIcon size={14} color="#000000" />
+            <X size={14} color="#000000" />
           </View>
         </Pressable>
       </View>
@@ -542,7 +513,7 @@ const Amenities = () => {
           <Text style={styles.sectionTitle}>Key Amenities</Text>
           <Pressable style={styles.tipsButton} onPress={() => setShowTipsOverlay(true)}>
             <View style={styles.tipsIconContainer}>
-              <InfoIcon size={18} color="#FD3131" />
+              <Info size={18} color="#FD3131" />
             </View>
             <Text style={styles.tipsText}>Tips</Text>
           </Pressable>
@@ -552,7 +523,7 @@ const Amenities = () => {
         {/* Search Input with Add Button */}
         <View style={styles.searchRow}>
           <View style={styles.searchInputContainer}>
-            <SearchIcon size={20} color="#9B9B9B" />
+            <Search size={20} color="#9B9B9B" />
             <TextInput
               style={styles.searchInput}
               placeholder="Search or add amenity"
@@ -582,7 +553,7 @@ const Amenities = () => {
                     style={styles.removeCustomButton}
                     onPress={() => removeCustomAmenity(amenity.id)}
                   >
-                    <CloseIcon size={10} color="#FFFFFF" />
+                    <X size={10} color="#FFFFFF" />
                   </Pressable>
                 </View>
               ))}
@@ -630,7 +601,7 @@ const Amenities = () => {
                 style={styles.tipsCloseButton}
                 onPress={() => setShowTipsOverlay(false)}
               >
-                <CloseIcon size={14} color="#000000" />
+                <Plus size={20} color="#010135" style={{ transform: [{ rotate: '45deg' }] }} />
               </Pressable>
             </View>
             <View style={styles.tipsContent}>
@@ -926,6 +897,11 @@ const styles = StyleSheet.create({
   amenityTagSelected: {
     borderColor: '#010135',
     backgroundColor: '#F0F4FF',
+  },
+  tagIconWrapper: {
+    marginRight: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   tagCheckIcon: {
     width: 16,

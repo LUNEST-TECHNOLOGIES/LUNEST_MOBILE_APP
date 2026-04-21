@@ -1,4 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
+import { Bed, Droplets, Heart, LayoutGrid, MapPin, PlayCircle } from "lucide-react-native";
 import { Image } from "expo-image";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -129,14 +129,13 @@ const PropertyListingCard = ({
 
   const getIconForItem = (item, isAmenity = false) => {
     const lower = item.toLowerCase();
-    if (lower.includes("bedroom")) return "bed-outline";
-    if (lower.includes("bathroom")) return "water-outline";
+    if (lower.includes("bedroom")) return Bed;
+    if (lower.includes("bathroom")) return Droplets;
     if (isAmenity) {
        const { getAmenityIcon } = require("../../utils/amenityIcons");
-       const icon = getAmenityIcon(item);
-       return icon.endsWith("-outline") ? icon : `${icon}-outline`;
+       return getAmenityIcon(item);
     }
-    return "apps-outline";
+    return LayoutGrid;
   };
 
   const renderAmenityItems = () => {
@@ -145,14 +144,14 @@ const PropertyListingCard = ({
     if (bedrooms > 0) {
       displayItems.push({
         label: `${bedrooms} Bedroom${bedrooms > 1 ? "s" : ""}`,
-        icon: "bed-outline"
+        icon: Bed
       });
     }
 
     if (bathrooms > 0) {
       displayItems.push({
         label: `${bathrooms} Bath${bathrooms > 1 ? "s" : ""}`,
-        icon: "water-outline"
+        icon: Droplets
       });
     }
 
@@ -168,20 +167,20 @@ const PropertyListingCard = ({
        filteredAmenities.slice(0, remainingSlots).forEach(amenity => {
          const label = typeof amenity === 'object' ? (amenity.label || amenity.name || "") : String(amenity);
          const { getAmenityIcon } = require("../../utils/amenityIcons");
-         let icon = getAmenityIcon(label);
-         if (!icon.endsWith("-outline") && icon !== "apps-outline") {
-           icon = `${icon}-outline`;
-         }
-         displayItems.push({ label, icon });
+         const IconComponent = getAmenityIcon(label);
+         displayItems.push({ label, icon: IconComponent });
        });
     }
 
-    return displayItems.map((item, index) => (
-      <View key={index} style={styles.amenityItem}>
-        <Ionicons name={item.icon} size={12} color="#656565" />
-        <Text style={styles.amenityLabel}>{item.label}</Text>
-      </View>
-    ));
+    return displayItems.map((item, index) => {
+      const Icon = item.icon;
+      return (
+        <View key={index} style={styles.amenityItem}>
+          <Icon size={12} color="#656565" strokeWidth={2} />
+          <Text style={styles.amenityLabel}>{item.label}</Text>
+        </View>
+      );
+    });
   };
 
   return (
@@ -251,10 +250,10 @@ const PropertyListingCard = ({
                 />
                 {isVideo && (
                   <View style={styles.videoIndicatorOverlay}>
-                    <Ionicons
-                      name="play-circle"
+                    <PlayCircle
                       size={48}
                       color="rgba(255,255,255,0.8)"
+                      strokeWidth={1.5}
                     />
                   </View>
                 )}
@@ -290,10 +289,11 @@ const PropertyListingCard = ({
 
         {/* Favorite Button - icon only */}
         <Pressable style={styles.favoriteButton} onPress={handleFavoritePress}>
-          <Ionicons
-            name={favorite ? "heart" : "heart-outline"}
+          <Heart
             size={20}
             color={favorite ? "#FF5A5F" : "#FFFFFF"}
+            fill={favorite ? "#FF5A5F" : "transparent"}
+            strokeWidth={2}
           />
         </Pressable>
       </View>
@@ -307,7 +307,7 @@ const PropertyListingCard = ({
               {title}
             </Text>
             <View style={styles.locationContainer}>
-              <Ionicons name="location-outline" size={14} color="#656565" />
+              <MapPin size={14} color="#656565" strokeWidth={2} />
               <Text style={styles.location} numberOfLines={1}>
                 {location}
               </Text>

@@ -3,6 +3,13 @@
  * Choose between For Rent or For Sale
  */
 
+import { 
+  X, 
+  Key, 
+  CircleDollarSign, 
+  ChevronLeft,
+  LayoutGrid
+} from "lucide-react-native";
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
@@ -20,18 +27,11 @@ import draftListingService from '../../src/services/draftListingService';
 import toastService from '../../src/services/toastService';
 import ToastNotification from '../../src/components/common/ToastNotification';
 
-// Close X Icon - with explicit dimensions for web
-const CloseIcon = ({ size = 24, color = '#000000' }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={{ width: size, height: size }}>
-    <Path
-      d="M18 6L6 18M6 6L18 18"
-      stroke={color}
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </Svg>
-);
+// Icons for intents
+const IntentIcons = {
+  rent: Key,
+  sale: CircleDollarSign,
+};
 
 // Progress Bar Component
 const ProgressBar = ({ currentStep, totalSteps }) => {
@@ -54,30 +54,41 @@ const ProgressBar = ({ currentStep, totalSteps }) => {
 };
 
 // Intent Option Component
-const IntentOption = ({ title, selected, onPress, comingSoon }) => (
-  <Pressable
-    style={[
-      styles.intentOption, 
-      selected && styles.intentOptionSelected,
-      comingSoon && styles.intentOptionDisabled
-    ]}
-    onPress={comingSoon ? null : onPress}
-    disabled={comingSoon}
-  >
-    <Text style={[
-      styles.intentText, 
-      selected && styles.intentTextSelected,
-      comingSoon && styles.intentTextDisabled
-    ]}>
-      {title}
-    </Text>
-    {comingSoon && (
-      <View style={styles.comingSoonBadge}>
-        <Text style={styles.comingSoonText}>Coming Soon</Text>
+const IntentOption = ({ title, selected, onPress, comingSoon, type }) => {
+  const Icon = IntentIcons[type] || LayoutGrid;
+  
+  return (
+    <Pressable
+      style={[
+        styles.intentOption, 
+        selected && styles.intentOptionSelected,
+        comingSoon && styles.intentOptionDisabled
+      ]}
+      onPress={comingSoon ? null : onPress}
+      disabled={comingSoon}
+    >
+      <View style={styles.intentIconBox}>
+        <Icon 
+          size={32} 
+          color={selected ? "#010135" : (comingSoon ? "#9B9B9B" : "#292929")} 
+          strokeWidth={1.5}
+        />
       </View>
-    )}
-  </Pressable>
-);
+      <Text style={[
+        styles.intentText, 
+        selected && styles.intentTextSelected,
+        comingSoon && styles.intentTextDisabled
+      ]}>
+        {title}
+      </Text>
+      {comingSoon && (
+        <View style={styles.comingSoonBadge}>
+          <Text style={styles.comingSoonText}>Coming Soon</Text>
+        </View>
+      )}
+    </Pressable>
+  );
+};
 
 const SelectListingIntent = () => {
   const router = useRouter();
@@ -201,10 +212,7 @@ const SelectListingIntent = () => {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Create a Listing</Text>
         <Pressable style={styles.closeButton} onPress={handleClose}>
-          <View style={styles.closeButtonBg} />
-          <View style={{ zIndex: 5 }}>
-            <CloseIcon size={14} color="#000000" />
-          </View>
+          <X size={24} color="#000000" />
         </Pressable>
       </View>
 
@@ -218,11 +226,13 @@ const SelectListingIntent = () => {
         <View style={styles.intentOptions}>
           <IntentOption
             title="For Rent"
+            type="rent"
             selected={selectedIntent === 'rent'}
             onPress={() => updateIntent('rent')}
           />
           <IntentOption
             title="For Sale"
+            type="sale"
             selected={selectedIntent === 'sale'}
             onPress={() => updateIntent('sale')}
             comingSoon={true}
@@ -351,10 +361,19 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 2,
     borderColor: '#888888',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    gap: 16,
+  },
+  intentIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#F5F5F5',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
   },
   intentOptionSelected: {
     borderColor: '#010135',

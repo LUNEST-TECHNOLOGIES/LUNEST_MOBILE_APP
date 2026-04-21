@@ -1,3 +1,24 @@
+import { 
+  X, 
+  Check, 
+  Star, 
+  ChevronLeft, 
+  ChevronRight, 
+  MapPin, 
+  Bed, 
+  Droplets, 
+  Square,
+  ShieldCheck,
+  LayoutGrid,
+  Info,
+  ArrowLeft,
+  ArrowRight,
+  Share2,
+  Heart,
+  Clock,
+  Image as ImageIcon,
+  PlayCircle
+} from "lucide-react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -96,16 +117,8 @@ const HOUSE_RULES_MAP = {
 // Professional "No Media" Placeholder Component
 const NoMediaPlaceholder = ({ width, height }) => (
   <View style={[styles.placeholderContainer, { width, height }]}>
-    <Svg width={64} height={64} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M4 16L8.586 11.414C8.96106 11.0391 9.46971 10.8284 10 10.8284C10.5303 10.8284 11.0389 11.0391 11.414 11.414L16 16M14 14L15.586 12.414C15.9611 12.0391 16.4697 11.8284 17 11.8284C17.5303 11.8284 18.0389 12.0391 18.414 12.414L20 14M14 8H14.01M6 20H18C19.1046 20 20 19.1046 20 18V6C20 4.89543 19.1046 4 18 4H6C4.89543 4 4 4.89543 4 6V18C4 19.1046 4.89543 20 6 20Z"
-        stroke="#94A3B8"
-        strokeWidth={1.5}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-    <Text style={styles.placeholderText}>No Photos Uploaded Yet</Text>
+    <ImageIcon size={64} color="#E0E0E0" strokeWidth={1} />
+    <Text style={styles.placeholderText}>No Photos Available</Text>
   </View>
 );
 
@@ -397,17 +410,11 @@ const ListingPreview = () => {
           </Text>
           {isHost && <StatusBadge status={listingData.status} />}
         </View>
-        <Pressable 
-          style={styles.closeButton} 
-          onPress={() => {
-            if (router.canGoBack()) {
-              router.back();
-            } else {
-              router.replace(isHost ? "/(host-tabs)/listings" : "/(tabs)");
-            }
-          }}
+        <Pressable
+          style={[styles.headerButton, styles.backCircle]}
+          onPress={() => router.back()}
         >
-          <Text style={styles.closeButtonText}>✕</Text>
+          <ArrowLeft size={24} color="#000" strokeWidth={2} />
         </Pressable>
       </View>
 

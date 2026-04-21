@@ -4,6 +4,16 @@
  * Supports both native and web platforms
  */
 
+import { 
+  X, 
+  Camera, 
+  Plus, 
+  ImagePlus, 
+  Trash2, 
+  Info, 
+  ChevronLeft,
+  LayoutGrid
+} from "lucide-react-native";
 import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
@@ -37,57 +47,7 @@ if (Platform.OS !== "web") {
   LegacyFileSystem = require("expo-file-system/legacy");
 }
 
-// Close X Icon - with explicit dimensions for web
-const CloseIcon = ({ size = 24, color = "#000000" }) => (
-  <Svg
-    width={size}
-    height={size}
-    viewBox="0 0 24 24"
-    fill="none"
-    style={{ width: size, height: size, minWidth: size, minHeight: size }}
-  >
-    <Path
-      d="M18 6L6 18M6 6L18 18"
-      stroke={color}
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </Svg>
-);
-
-// Camera Icon
-const CameraIcon = ({ size = 40, color = "#010135" }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Path
-      d="M23 19C23 19.5304 22.7893 20.0391 22.4142 20.4142C22.0391 20.7893 21.5304 21 21 21H3C2.46957 21 1.96086 20.7893 1.58579 20.4142C1.21071 20.0391 1 19.5304 1 19V8C1 7.46957 1.21071 6.96086 1.58579 6.58579C1.96086 6.21071 2.46957 6 3 6H7L9 3H15L17 6H21C21.5304 6 22.0391 6.21071 22.4142 6.58579C22.7893 6.96086 23 7.46957 23 8V19Z"
-      stroke={color}
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-    <Path
-      d="M12 17C14.2091 17 16 15.2091 16 13C16 10.7909 14.2091 9 12 9C9.79086 9 8 10.7909 8 13C8 15.2091 9.79086 17 12 17Z"
-      stroke={color}
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </Svg>
-);
-
-// Plus Icon
-const PlusIcon = ({ size = 24, color = "#010135" }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Path
-      d="M12 5V19M5 12H19"
-      stroke={color}
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </Svg>
-);
+// Icons migrated to Lucide
 
 // Progress Bar Component
 const ProgressBar = ({ currentStep, totalSteps }) => {
@@ -658,10 +618,7 @@ const Photos = () => {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Create a Listing</Text>
         <Pressable style={styles.closeButton} onPress={handleClose}>
-          <View style={styles.closeButtonBg} />
-          <View style={{ zIndex: 5 }}>
-            <CloseIcon size={14} color="#000000" />
-          </View>
+          <X size={24} color="#000000" />
         </Pressable>
       </View>
 
@@ -708,7 +665,7 @@ const Photos = () => {
           </View>
         ) : photos.length === 0 ? (
           <Pressable style={styles.uploadArea} onPress={pickImage}>
-            <CameraIcon size={50} color="#010135" />
+            <Camera size={40} color="#010135" strokeWidth={1.5} />
             <Text style={styles.uploadTitle}>Tap to upload photos</Text>
             <Text style={styles.uploadSubtitle}>PNG, JPG up to 10MB each</Text>
           </Pressable>
@@ -721,7 +678,7 @@ const Photos = () => {
                   style={styles.removeButton}
                   onPress={() => removePhoto(index)}
                 >
-                  <CloseIcon size={12} color="#FFFFFF" />
+                  <X size={12} color="#FFFFFF" />
                 </Pressable>
                 {index === 0 && (
                   <View style={styles.coverBadge}>
@@ -732,7 +689,7 @@ const Photos = () => {
             ))}
             {photos.length < 10 && (
               <Pressable style={styles.addMoreButton} onPress={pickImage}>
-                <PlusIcon size={30} color="#010135" />
+                <Plus size={24} color="#010135" strokeWidth={2} />
                 <Text style={styles.addMoreText}>Add More</Text>
               </Pressable>
             )}

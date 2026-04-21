@@ -3,18 +3,11 @@
  * Set property availability and booking settings
  */
 
-import { 
-  X, 
-  ChevronDown, 
-  ChevronUp, 
-  Plus, 
-  Minus, 
-  Check, 
-  AlertCircle,
-  LayoutGrid
-} from "lucide-react-native";
 import { format } from "date-fns";
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import {
+  X
+} from "lucide-react-native";
 import { useCallback, useEffect, useState } from 'react';
 import {
   Pressable,
@@ -25,8 +18,8 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Svg, { Path } from 'react-native-svg';
 import Button from '../../src/components/Button';
+import ToastNotification from '../../src/components/common/ToastNotification';
 import CancelConfirmationModal from '../../src/components/create-listing/CancelConfirmationModal';
 import {
   baseStyles,
@@ -42,7 +35,6 @@ import { COLORS } from '../../src/constants/theme';
 import { useDraftListing } from '../../src/hooks/useDraftListing';
 import draftListingService from '../../src/services/draftListingService';
 import toastService from '../../src/services/toastService';
-import ToastNotification from '../../src/components/common/ToastNotification';
 
 // House Rules options
 const HOUSE_RULES = [

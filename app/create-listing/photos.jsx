@@ -4,18 +4,13 @@
  * Supports both native and web platforms
  */
 
-import { 
-  X, 
-  Camera, 
-  Plus, 
-  ImagePlus, 
-  Trash2, 
-  Info, 
-  ChevronLeft,
-  LayoutGrid
-} from "lucide-react-native";
 import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import {
+  Camera,
+  Plus,
+  X
+} from "lucide-react-native";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -28,7 +23,8 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import Svg, { Circle, Path } from "react-native-svg";
+import Svg, { Path } from "react-native-svg";
+import ToastNotification from "../../src/components/common/ToastNotification";
 import CancelConfirmationModal from "../../src/components/create-listing/CancelConfirmationModal";
 import useDraftListing from "../../src/hooks/useDraftListing";
 import configService from "../../src/services/configService";
@@ -36,7 +32,6 @@ import draftListingService from "../../src/services/draftListingService";
 import imageCompressionService from "../../src/services/imageCompressionService";
 import listingService from "../../src/services/listingService";
 import toastService from "../../src/services/toastService";
-import ToastNotification from "../../src/components/common/ToastNotification";
 
 // Fallback for ActivityIndicator if needed (React 19 / RN 0.81 compatibility)
 const RNActivityIndicator = ActivityIndicator;

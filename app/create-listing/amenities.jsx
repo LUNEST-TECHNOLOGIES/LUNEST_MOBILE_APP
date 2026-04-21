@@ -3,16 +3,14 @@
  * Select available amenities with categorized layout
  */
 
-import { 
-  X, 
-  Search, 
-  ChevronDown, 
-  Check, 
-  Plus, 
-  ChevronUp,
-  LayoutGrid
-} from "lucide-react-native";
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import {
+  Check,
+  ChevronDown,
+  Plus,
+  Search,
+  X
+} from "lucide-react-native";
 import { useEffect, useState } from 'react';
 import {
   Platform,
@@ -24,13 +22,12 @@ import {
   View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Svg, { Circle, Path } from 'react-native-svg';
-import { getAmenityIcon } from "../../src/utils/amenityIcons";
+import ToastNotification from '../../src/components/common/ToastNotification';
 import CancelConfirmationModal from '../../src/components/create-listing/CancelConfirmationModal';
 import { useDraftListing } from '../../src/hooks/useDraftListing';
 import draftListingService from '../../src/services/draftListingService';
 import toastService from '../../src/services/toastService';
-import ToastNotification from '../../src/components/common/ToastNotification';
+import { getAmenityIcon } from "../../src/utils/amenityIcons";
 
 // Progress Bar Component
 const ProgressBar = ({ currentStep, totalSteps }) => {

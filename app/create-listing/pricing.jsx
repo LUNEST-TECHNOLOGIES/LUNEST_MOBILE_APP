@@ -3,18 +3,10 @@
  * Set property price and payment details
  */
 
-import { 
-  X, 
-  ChevronDown, 
-  ChevronUp, 
-  Plus, 
-  Minus, 
-  Info, 
-  Check, 
-  AlertCircle,
-  LayoutGrid
-} from "lucide-react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import {
+  X
+} from "lucide-react-native";
 import { useEffect, useRef, useState } from "react";
 import {
   Platform,
@@ -26,12 +18,11 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import Svg, { Path } from "react-native-svg";
+import ToastNotification from "../../src/components/common/ToastNotification";
 import CancelConfirmationModal from "../../src/components/create-listing/CancelConfirmationModal";
 import { useDraftListing } from "../../src/hooks/useDraftListing";
 import draftListingService from "../../src/services/draftListingService";
 import toastService from "../../src/services/toastService";
-import ToastNotification from "../../src/components/common/ToastNotification";
 
 // Icons migrated to Lucide
 

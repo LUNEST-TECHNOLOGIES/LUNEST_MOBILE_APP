@@ -3,22 +3,12 @@
  * Review all listing details before submission
  */
 
-import { 
-  X, 
-  Check, 
-  Star, 
-  ChevronLeft, 
-  ChevronRight, 
-  MapPin, 
-  Bed, 
-  Droplets, 
-  Square,
-  ShieldCheck,
-  LayoutGrid,
-  Info
-} from "lucide-react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import {
+  Check,
+  Star,
+  X
+} from "lucide-react-native";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -33,10 +23,10 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import Svg, { Line, Path, Rect } from "react-native-svg";
+import Svg, { Line, Rect } from "react-native-svg";
+import ToastNotification from "../../src/components/common/ToastNotification";
 import CancelConfirmationModal from "../../src/components/create-listing/CancelConfirmationModal";
 import SubmitConfirmationModal from "../../src/components/create-listing/SubmitConfirmationModal";
-import ToastNotification from "../../src/components/common/ToastNotification";
 import { useDraftListing } from "../../src/hooks/useDraftListing";
 import authService from "../../src/services/authService";
 import draftListingService from "../../src/services/draftListingService";

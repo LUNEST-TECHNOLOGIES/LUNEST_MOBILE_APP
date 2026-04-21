@@ -1,39 +1,21 @@
-import { 
-  X, 
-  Check, 
-  Star, 
-  ChevronLeft, 
-  ChevronRight, 
-  MapPin, 
-  Bed, 
-  Droplets, 
-  Square,
-  ShieldCheck,
-  LayoutGrid,
-  Info,
-  ArrowLeft,
-  ArrowRight,
-  Share2,
-  Heart,
-  Clock,
-  Image as ImageIcon,
-  PlayCircle
-} from "lucide-react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import {
+  ArrowLeft,
+  Image as ImageIcon
+} from "lucide-react-native";
 import { useEffect, useMemo, useState } from "react";
 import {
-    ActivityIndicator,
-    Image,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    useWindowDimensions,
-    View,
+  ActivityIndicator,
+  Image,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import Svg, { Path, Rect } from "react-native-svg";
 
 // Status color configurations
 const STATUS_CONFIG = {

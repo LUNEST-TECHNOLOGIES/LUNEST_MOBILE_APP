@@ -674,7 +674,7 @@ const ListingTipsOverlay = ({ visible, onClose }) => {
               {tips.map((tip, index) => (
                 <View key={index} style={styles.tipItem}>
                   <View style={styles.tipIconContainer}>
-                    <ChecksDoubleIcon width={18} height={18} color="#192DFF" />
+                    <ChecksDoubleIcon width={18} height={18} color="#010135" />
                   </View>
                   <Text style={styles.tipText}>{tip}</Text>
                 </View>
@@ -1943,7 +1943,7 @@ const HostListingsScreen = () => {
                   style={[
                     styles.deleteModalConfirmButton,
                     {
-                      backgroundColor: editDraftLoading ? "#A0A0A0" : "#192DFF",
+                      backgroundColor: editDraftLoading ? "#A0A0A0" : "#010135",
                     },
                   ]}
                   onPress={editDraftLoading ? undefined : confirmEditListing}
@@ -2095,7 +2095,7 @@ const styles = StyleSheet.create({
     color: "#6D6D6D",
   },
   filterTabTextActive: {
-    color: "#192DFF",
+    color: "#010135",
     fontWeight: "700",
   },
   activeIndicator: {
@@ -2104,7 +2104,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: "#192DFF",
+    backgroundColor: "#010135",
   },
   sortByButton: {
     flexDirection: "row",
@@ -2308,7 +2308,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   createEmptyButton: {
-    backgroundColor: "#192DFF",
+    backgroundColor: "#010135",
     borderRadius: 25,
     paddingVertical: 14,
     paddingHorizontal: 32,
@@ -2397,7 +2397,7 @@ const styles = StyleSheet.create({
   },
   modalActionButton: {
     marginTop: 20,
-    backgroundColor: "#192DFF",
+    backgroundColor: "#010135",
     borderRadius: 25,
     paddingVertical: 14,
     alignItems: "center",

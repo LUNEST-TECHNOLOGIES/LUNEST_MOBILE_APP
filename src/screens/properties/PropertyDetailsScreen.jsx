@@ -65,6 +65,9 @@ import profileService from "../../services/profileService";
 import { getAmenityIcon } from "../../utils/amenityIcons";
 import { formatCurrency } from "../../utils/currency";
 import { resolveImageUrlSync } from "../../utils/imageUtils";
+import ShieldTickIcon from "../../assets/icons/shield-tick.svg";
+import StarIcon from "../../assets/icons/star.svg";
+import CircleInfo2Icon from "../../assets/icons/circle-info2.svg";
 
 // House rules ID to label mapping (aligned with availability.jsx HOUSE_RULES)
 const HOUSE_RULES_MAP = {

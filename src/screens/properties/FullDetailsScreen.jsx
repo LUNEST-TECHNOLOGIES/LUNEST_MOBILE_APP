@@ -578,7 +578,7 @@ const FullDetailsScreen = () => {
       features.push({
         label: `${listing.bedrooms} Bedroom${listing.bedrooms > 1 ? "s" : ""}`,
       });
-    if (listing.guests)
+    if (listing.guests && listing.guests > 0)
       features.push({
         label: `${listing.guests} Guest${listing.guests > 1 ? "s" : ""}`,
       });

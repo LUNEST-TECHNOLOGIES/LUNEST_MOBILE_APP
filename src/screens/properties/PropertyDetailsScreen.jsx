@@ -806,10 +806,12 @@ const PropertyDetailsScreen = () => {
           label: `${listing.bedrooms || 0} Bedroom${listing.bedrooms !== 1 ? "s" : ""}`,
           icon: "bed"
         },
-        {
-          label: `${listing.guests || 0} Guest${listing.guests !== 1 ? "s" : ""}`,
-          icon: "people"
-        },
+        ...(listing.guests > 0 ? [
+          {
+            label: `${listing.guests} Guest${listing.guests !== 1 ? "s" : ""}`,
+            icon: "people"
+          },
+        ] : []),
         {
           label: `${listing.bathrooms || 0} Bathroom${listing.bathrooms !== 1 ? "s" : ""}`,
           icon: "water"
@@ -1247,7 +1249,7 @@ const PropertyDetailsScreen = () => {
         {/* Virtual Tour Button - Now on RIGHT */}
         <Pressable style={styles.virtualTourButton}>
           <ShieldTickIcon width={20} height={20} />
-          <Text style={styles.virtualTourText}>Take Virtual tour</Text>
+          <Text style={styles.virtualTourText}>Take Virtual tour (Coming Soon)</Text>
         </Pressable>
       </View>
     );
@@ -2702,7 +2704,7 @@ const styles = StyleSheet.create({
   },
   priceNote: {
     fontSize: 12,
-    color: "#010135",
+    color: "#3B4BFB",
   },
   fullDetailsButton: {
     flexDirection: "row",

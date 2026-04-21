@@ -7,55 +7,9 @@ import { useRouter } from "expo-router";
 import * as React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import Svg, { Circle, Path } from "react-native-svg";
+import { CheckCircle2 } from "lucide-react-native";
 
-// Status Bar Icons
-const CellularIcon = ({ size = 19, color = "#000" }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <View style={{ width: size, height: size }}>
-      <View style={[styles.level1, styles.levelBg]} />
-      <View style={[styles.level2, styles.levelBg]} />
-      <View style={[styles.level3, styles.levelLayout]} />
-      <View style={[styles.level4, styles.childPosition]} />
-    </View>
-  </Svg>
-);
-
-const WifiIcon = ({ size = 18 }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Path
-      d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z"
-      fill="#000"
-    />
-  </Svg>
-);
-
-const BatteryIcon = ({ size = 28 }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Path d="M15 4H9v2H7v12h10V6h-2V4z" fill="#000" />
-  </Svg>
-);
-
-// Success Check Icon
-const CheckIcon = ({ size = 60 }) => (
-  <Svg width={size} height={size} viewBox="0 0 64 64" fill="none">
-    <Circle
-      cx="32"
-      cy="32"
-      r="30"
-      fill="#FFF3CD"
-      stroke="#FF9800"
-      strokeWidth="2"
-    />
-    <Path
-      d="M28 40L20 32M28 40L44 24"
-      stroke="#FF9800"
-      strokeWidth="3"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </Svg>
-);
+// Success Check Icon migrated to Lucide
 
 const PUBLISH1 = ({ route }) => {
   const router = useRouter();
@@ -91,7 +45,7 @@ const PUBLISH1 = ({ route }) => {
         <View style={styles.frameParent}>
           {/* Success Icon */}
           <View style={styles.component26Wrapper}>
-            <CheckIcon size={60} />
+            <CheckCircle2 size={60} color="#FF9800" />
           </View>
 
           {/* Text Content */}

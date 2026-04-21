@@ -33,30 +33,25 @@ import * as ImageUtils from "../../utils/imageUtils";
 
 // Icons
 // Icons
-import ChecksDoubleIcon from "../../assets/icons/listing/checks-double-v.svg";
-import InfoIcon from "../../assets/icons/listing/circle-info.svg";
-import CloseIcon from "../../assets/icons/listing/close-x.svg";
-import ArrowDownIcon from "../../assets/icons/listing/vuesax/linear/arrow-3.svg";
-import PauseIcon from "../../assets/icons/listing/vuesax/linear/pause-circle.svg";
-import RefreshIcon from "../../assets/icons/listing/vuesax/linear/refresh-2.svg";
-import TrashIcon from "../../assets/icons/listing/vuesax/linear/trash-1.svg";
-import CalendarIcon from "../../assets/icons/listing/vuesax/outline/calendar.svg";
-import ChartIcon from "../../assets/icons/listing/vuesax/outline/chart-square.svg";
-import ClockIcon from "../../assets/icons/listing/vuesax/outline/clock.svg";
-import EditIcon from "../../assets/icons/listing/vuesax/outline/edit.svg";
-import HomeIcon from "../../assets/icons/navbar/HomeIcon.svg";
+import { 
+  CheckCheck, 
+  AlertCircle, 
+  X, 
+  ChevronDown, 
+  PauseCircle, 
+  RefreshCw, 
+  Trash2, 
+  Calendar, 
+  TrendingUp, 
+  Clock, 
+  Pencil, 
+  Home,
+  Plus,
+  Zap
+} from "lucide-react-native";
 import { HostListingSkeleton } from "../../components/skeletons";
 
-// Re-defining PromotionIcon locally if not found in assets
-const PromotionIcon = ({ size = 24, color = "#FFFFFF" }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Path
-      d="M12 2L4.5 20.29L5.21 21L12 18L18.79 21L19.5 20.29L12 2Z"
-      stroke={color}
-      strokeWidth={2}
-    />
-  </Svg>
-);
+// Status Badge configuration removed local SVG definitions here as we use Lucide now
 
 // Filter tab options for Host Listings
 const FILTER_TABS = [
@@ -159,11 +154,7 @@ const convertAmenitiesToIds = (amenities) => {
 };
 
 // Icons
-const PlusIcon = ({ size = 24, color = "#FFFFFF" }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Path d="M12 5V19M5 12H19" stroke={color} strokeWidth={2} />
-  </Svg>
-);
+// Legacy icon definitions removed
 
 // Demo property image removed as per requirement for strict data display
 // const DEMO_PROPERTY_IMAGE = require("../../assets/images/prop_image.png");
@@ -181,20 +172,20 @@ const StatusBadge = ({ status }) => {
     <View style={styles.statusBadge}>
       <View style={styles.statusBadgeContent}>
         {normalizedStatus === "LIVE" && (
-          <ChecksDoubleIcon width={14} height={14} />
+          <CheckCheck size={14} color={config.color} />
         )}
-        {normalizedStatus === "PENDING" && <ClockIcon width={14} height={14} />}
-        {normalizedStatus === "DRAFT" && <EditIcon width={14} height={14} />}
+        {normalizedStatus === "PENDING" && <Clock size={14} color={config.color} />}
+        {normalizedStatus === "DRAFT" && <Pencil size={14} color={config.color} />}
         {normalizedStatus === "EXPIRED" && (
-          <RefreshIcon width={14} height={14} />
+          <RefreshCw size={14} color={config.color} />
         )}
         {(normalizedStatus === "PAUSED" ||
           normalizedStatus === "SUSPENDED") && (
-          <PauseIcon width={14} height={14} />
+          <PauseCircle size={14} color={config.color} />
         )}
-        {normalizedStatus === "REJECTED" && <InfoIcon width={14} height={14} />}
+        {normalizedStatus === "REJECTED" && <AlertCircle size={14} color={config.color} />}
         {normalizedStatus === "BOOKED" && (
-          <ChecksDoubleIcon width={14} height={14} color="#DB2777" />
+          <CheckCheck size={14} color="#DB2777" />
         )}
         <Text style={[styles.statusText, { color: config.color }]}>
           {config.label}
@@ -448,7 +439,7 @@ const ListingCard = ({
                   onEdit?.();
                 }}
               >
-                <EditIcon width={20} height={20} />
+                <Pencil size={20} color="#6D6D6D" />
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.cardActionButton}
@@ -457,10 +448,10 @@ const ListingCard = ({
                   onCalendar?.();
                 }}
               >
-                <CalendarIcon width={20} height={20} />
+                <Calendar size={20} color="#6D6D6D" />
               </TouchableOpacity>
               <View style={[styles.cardActionButton, styles.disabledButton]}>
-                <ChartIcon width={20} height={20} />
+                <TrendingUp size={20} color="#6D6D6D" />
               </View>
               <TouchableOpacity
                 style={styles.cardActionButton}
@@ -469,7 +460,7 @@ const ListingCard = ({
                   onPause?.();
                 }}
               >
-                <PauseIcon width={20} height={20} />
+                <PauseCircle size={20} color="#6D6D6D" />
               </TouchableOpacity>
             </>
           )}
@@ -484,7 +475,7 @@ const ListingCard = ({
                   onEdit?.();
                 }}
               >
-                <EditIcon width={20} height={20} />
+                <Pencil size={20} color="#6D6D6D" />
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.cardActionButton}
@@ -493,7 +484,7 @@ const ListingCard = ({
                   onCalendar?.();
                 }}
               >
-                <CalendarIcon width={20} height={20} />
+                <Calendar size={20} color="#6D6D6D" />
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.cardActionButton}
@@ -502,7 +493,7 @@ const ListingCard = ({
                   onDelete?.();
                 }}
               >
-                <TrashIcon width={20} height={20} />
+                <Trash2 size={20} color="#FD3131" />
               </TouchableOpacity>
             </>
           )}
@@ -517,7 +508,7 @@ const ListingCard = ({
                   onEdit?.();
                 }}
               >
-                <EditIcon width={20} height={20} />
+                <Pencil size={20} color="#6D6D6D" />
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.cardActionButton}
@@ -526,7 +517,7 @@ const ListingCard = ({
                   onDelete?.();
                 }}
               >
-                <TrashIcon width={20} height={20} />
+                <Trash2 size={20} color="#FD3131" />
               </TouchableOpacity>
             </>
           )}
@@ -541,7 +532,7 @@ const ListingCard = ({
                   onEdit?.();
                 }}
               >
-                <RefreshIcon width={20} height={20} />
+                <RefreshCw size={20} color="#6D6D6D" />
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.cardActionButton}
@@ -550,7 +541,7 @@ const ListingCard = ({
                   onDelete?.();
                 }}
               >
-                <TrashIcon width={20} height={20} />
+                <Trash2 size={20} color="#FD3131" />
               </TouchableOpacity>
             </>
           )}
@@ -565,7 +556,7 @@ const ListingCard = ({
                   onEdit?.();
                 }}
               >
-                <EditIcon width={20} height={20} />
+                <Pencil size={20} color="#6D6D6D" />
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.cardActionButton}
@@ -574,7 +565,7 @@ const ListingCard = ({
                   onPause?.();
                 }}
               >
-                <RefreshIcon width={20} height={20} />
+                <RefreshCw size={20} color="#6D6D6D" />
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.cardActionButton}
@@ -583,7 +574,7 @@ const ListingCard = ({
                   onDelete?.();
                 }}
               >
-                <TrashIcon width={20} height={20} />
+                <Trash2 size={20} color="#FD3131" />
               </TouchableOpacity>
             </>
           )}
@@ -615,7 +606,7 @@ const FilterTab = ({ tab, isActive, onPress }) => (
  */
 const EmptyState = ({ onCreateListing }) => (
   <View style={styles.emptyContainer}>
-    <HomeIcon size={80} color="#CCCCCC" />
+    <Home size={80} color="#CCCCCC" />
     <Text style={styles.emptyTitle}>No Listings Yet</Text>
     <Text style={styles.emptySubtext}>
       Start earning by listing your property on Lunest
@@ -636,7 +627,7 @@ const EmptyState = ({ onCreateListing }) => (
  */
 const PromotionEmptyState = ({ onPromoteListing }) => (
   <View style={styles.emptyContainer}>
-    <PromotionIcon size={80} color="#CCCCCC" />
+    <Zap size={80} color="#CCCCCC" />
     <Text style={styles.emptyTitle}>No Promotions Yet</Text>
     <Text style={styles.emptySubtext}>
       Boost your listings to get more visibility and bookings
@@ -675,7 +666,7 @@ const ListingTipsOverlay = ({ visible, onClose }) => {
           <View style={styles.modalContentResponsive}>
             {/* Close Button */}
             <Pressable style={styles.modalCloseButton} onPress={onClose}>
-              <CloseIcon size={24} color="#292929" />
+              <X size={24} color="#292929" />
             </Pressable>
             {/* Title */}
             <Text style={styles.modalTitle}>Listing Tips?</Text>
@@ -688,7 +679,7 @@ const ListingTipsOverlay = ({ visible, onClose }) => {
               {tips.map((tip, index) => (
                 <View key={index} style={styles.tipItem}>
                   <View style={styles.tipIconContainer}>
-                    <ChecksDoubleIcon width={18} height={18} />
+                    <CheckCheck size={18} color="#192DFF" />
                   </View>
                   <Text style={styles.tipText}>{tip}</Text>
                 </View>
@@ -718,7 +709,7 @@ const HostListingsScreen = () => {
   const router = useRouter();
   const params = useLocalSearchParams();
   const insets = useSafeAreaInsets();
-  const cardWidth = (width - 40 - 15) / 2; // 2 columns with 20px padding each side and 15px gap
+  const cardWidth = Platform.OS === 'web' ? '48%' : (width - 40 - 15) / 2; // 2 columns with 20px padding each side and 15px gap
 
   const { currentMode, toggleMode } = useUserMode();
   const side = currentMode === USER_MODES.HOST ? "host" : "guest";
@@ -1752,8 +1743,8 @@ const HostListingsScreen = () => {
             style={styles.tipsButton}
             onPress={() => setShowTipsModal(true)}
           >
-            <InfoIcon size={18} color="#FD3131" />
-            <Text style={styles.tipsText}>Tips</Text>
+            <AlertCircle size={18} color="#FD3131" />
+            <Text style={styles.tipsText}>Listing Tips?</Text>
           </TouchableOpacity>
         </View>
         <ScrollView
@@ -1779,8 +1770,8 @@ const HostListingsScreen = () => {
           style={styles.tipsButton}
           onPress={() => setShowTipsModal(true)}
         >
-          <InfoIcon size={18} color="#FD3131" />
-          <Text style={styles.tipsText}>Tips</Text>
+          <AlertCircle size={18} color="#FD3131" />
+          <Text style={styles.tipsText}>Listing Tips?</Text>
         </TouchableOpacity>
       </View>
 
@@ -1803,13 +1794,10 @@ const HostListingsScreen = () => {
 
       {/* Sort By */}
       {!showEmptyState && (
-        <TouchableOpacity
-          style={styles.sortByButton}
-          onPress={handleToggleSort}
-        >
-          <ArrowDownIcon
-            width={12}
-            height={12}
+        <TouchableOpacity style={styles.sortByButton} onPress={handleToggleSort}>
+          <ChevronDown 
+            size={16} 
+            color="#000000" 
             style={[
               styles.sortIcon,
               sortOrder === "oldest" && styles.sortIconRotated,
@@ -1847,7 +1835,7 @@ const HostListingsScreen = () => {
               <ListingCard
                 key={`${listing.status}_${listing.id}`}
                 listing={listing}
-                cardWidth={cardWidth}
+                cardWidth={Platform.OS === 'web' ? 300 : cardWidth}
                 onEdit={() => handleEditListing(listing)}
                 onDelete={() => handleDeleteListing(listing)}
                 onPause={() => handlePauseListing(listing)}
@@ -1862,10 +1850,13 @@ const HostListingsScreen = () => {
 
       {/* Create New Listing FAB */}
       {!showEmptyState && (
-        <TouchableOpacity style={styles.fab} onPress={handleCreateListing}>
-          <Text style={styles.fabText}>Create new Listing</Text>
+        <TouchableOpacity
+          style={styles.fab}
+          onPress={() => router.push("/create-listing")}
+        >
+          <Text style={styles.fabText}>Create Listing</Text>
           <View style={styles.fabIconContainer}>
-            <PlusIcon size={20} color="#FFFFFF" />
+            <Plus size={20} color="#FFFFFF" />
           </View>
         </TouchableOpacity>
       )}

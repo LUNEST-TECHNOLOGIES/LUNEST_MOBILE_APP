@@ -9,7 +9,12 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   Camera,
   Plus,
-  X
+  X,
+  Video,
+  CheckCircle2,
+  Signal,
+  Wifi,
+  Battery
 } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import {
@@ -68,25 +73,7 @@ const ProgressBar = ({ currentStep, totalSteps }) => {
   );
 };
 
-// Video Icon
-const VideoIcon = ({ size = 40, color = "#010135" }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Path
-      d="M23 7L16 12L23 17V7Z"
-      stroke={color}
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-    <Path
-      d="M14 5H3C1.89543 5 1 5.89543 1 7V17C1 18.1046 1.89543 19 3 19H14C15.1046 19 16 18.1046 16 17V7C16 5.89543 15.1046 5 14 5Z"
-      stroke={color}
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </Svg>
-);
+// Legacy icons migrated to Lucide
 
 // Safe JSON parse helper - defined outside component
 const safeParseArray = (value) => {
@@ -730,7 +717,7 @@ const Photos = () => {
             </View>
           ) : videos.length === 0 ? (
             <Pressable style={styles.videoUploadArea} onPress={pickVideo}>
-              <VideoIcon size={40} color="#010135" />
+              <Video size={40} color="#010135" />
               <Text style={styles.uploadTitle}>Tap to upload video</Text>
               <Text style={styles.uploadSubtitle}>MP4, MOV up to 100MB</Text>
             </Pressable>
@@ -739,7 +726,7 @@ const Photos = () => {
               {videos.map((vid, index) => (
                 <View key={index} style={styles.videoItemContainer}>
                   <View style={styles.videoPreview}>
-                    <VideoIcon size={30} color="#010135" />
+                    <Video size={30} color="#010135" />
                     <Text style={styles.videoFileName} numberOfLines={1}>
                       Video {index + 1}
                     </Text>
@@ -748,7 +735,7 @@ const Photos = () => {
                     style={styles.removeVideoButton}
                     onPress={() => removeVideo(index)}
                   >
-                    <CloseIcon size={14} color="#FFFFFF" />
+                    <X size={14} color="#FFFFFF" />
                   </Pressable>
                 </View>
               ))}

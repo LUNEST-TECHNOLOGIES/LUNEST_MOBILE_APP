@@ -7,29 +7,10 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import * as React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import Svg, { Circle, Path } from "react-native-svg";
+import { CheckCircle2 } from "lucide-react-native";
 import listingService from "../../src/services/listingService";
 
-// Success Check Icon
-const CheckIcon = ({ size = 60 }) => (
-  <Svg width={size} height={size} viewBox="0 0 64 64" fill="none">
-    <Circle
-      cx="32"
-      cy="32"
-      r="30"
-      fill="#E8F5E9"
-      stroke="#22C55E"
-      strokeWidth="2"
-    />
-    <Path
-      d="M20 32L28 40L44 24"
-      stroke="#22C55E"
-      strokeWidth="3"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </Svg>
-);
+// Success Check Icon migrated to Lucide
 
 const PUBLISH2 = ({ route }) => {
   const router = useRouter();
@@ -92,7 +73,7 @@ const PUBLISH2 = ({ route }) => {
         <View style={styles.frameParent}>
           {/* Success Icon */}
           <View style={styles.frameChild}>
-            <CheckIcon size={60} />
+            <CheckCircle2 size={60} color="#22C55E" />
           </View>
 
           {/* Text Content */}

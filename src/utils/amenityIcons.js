@@ -47,6 +47,7 @@ import {
   Drumstick,
   VolumeX,
   Printer,
+  ShoppingBag,
   LayoutGrid
 } from 'lucide-react-native';
 

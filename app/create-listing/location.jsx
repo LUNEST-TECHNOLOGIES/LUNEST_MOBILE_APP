@@ -3,7 +3,13 @@
  * Enter property address and location
  */
 
-import { Ionicons } from "@expo/vector-icons";
+import { 
+  X, 
+  MapPin, 
+  Plus, 
+  PlusCircle, 
+  Trash2 
+} from "lucide-react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import debounce from "lodash.debounce";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -33,90 +39,7 @@ import locationService from "../../src/services/locationService";
 import toastService from "../../src/services/toastService";
 import ToastNotification from "../../src/components/common/ToastNotification";
 
-// Close X Icon - with explicit dimensions for web
-const CloseIcon = ({ size = 24, color = "#000000" }) => (
-  <Svg
-    width={size}
-    height={size}
-    viewBox="0 0 24 24"
-    fill="none"
-    style={{ width: size, height: size, minWidth: size, minHeight: size }}
-  >
-    <Path
-      d="M18 6L6 18M6 6L18 18"
-      stroke={color}
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </Svg>
-);
-
-// Location Pin Icon
-const LocationIcon = ({ size = 24, color = "#010135" }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Path
-      d="M12 13C13.6569 13 15 11.6569 15 10C15 8.34315 13.6569 7 12 7C10.3431 7 9 8.34315 9 10C9 11.6569 10.3431 13 12 13Z"
-      stroke={color}
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-    <Path
-      d="M12 22C16 18 20 14.4183 20 10C20 5.58172 16.4183 2 12 2C7.58172 2 4 5.58172 4 10C4 14.4183 8 18 12 22Z"
-      stroke={color}
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </Svg>
-);
-
-// Plus Icon
-const PlusIcon = ({ size = 24, color = "#010135" }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Path
-      d="M12 5V19M5 12H19"
-      stroke={color}
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </Svg>
-);
-
-// Plus Icon for adding landmarks
-const AddIcon = ({ size = 20, color = "#010135" }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Path
-      d="M12 5V19M5 12H19"
-      stroke={color}
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </Svg>
-);
-
-// Trash Icon for deleting landmarks
-const TrashIcon = ({ size = 20, color = "#FD3131" }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Path
-      d="M3 6H5H21"
-      stroke={color}
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-    <Path
-      d="M8 6V4C8 3.46957 8.21071 2.96086 8.58579 2.58579C8.96086 2.21071 9.46957 2 10 2H14C14.5304 2 15.0391 2.21071 15.4142 2.58579C15.7893 2.96086 16 3.46957 16 4V6M19 6V20C19 20.5304 18.7893 21.0391 18.4142 21.4142C18.0391 21.7893 17.5304 22 17 22H7C6.46957 22 5.96086 21.7893 5.58579 21.4142C5.21071 21.0391 5 20.5304 5 20V6H19Z"
-      stroke={color}
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </Svg>
-);
+// Legacy icon definitions removed
 
 // Progress Bar Component
 const ProgressBar = ({ currentStep, totalSteps }) => {
@@ -603,7 +526,7 @@ const Location = () => {
             <Pressable style={styles.closeButton} onPress={handleClose}>
               <View style={styles.closeButtonBg} />
               <View style={{ zIndex: 5 }}>
-                <CloseIcon size={14} color="#000000" />
+                <X size={14} color="#000000" />
               </View>
             </Pressable>
           </View>
@@ -625,7 +548,7 @@ const Location = () => {
           keyboardDismissMode="on-drag"
         >
         <View style={styles.titleRow}>
-                <LocationIcon size={24} color="#010135" />
+                <MapPin size={24} color="#010135" />
                 <Text style={styles.sectionTitle}>
                   Where is your property located?
                 </Text>
@@ -640,7 +563,7 @@ const Location = () => {
                 {detectingLocation ? (
                   <ActivityIndicator size="small" color="#010135" />
                 ) : (
-                  <Ionicons name="location-outline" size={16} color="#010135" />
+                  <MapPin size={16} color="#010135" />
                 )}
                 <Text style={styles.currentLocationText}>
                   {detectingLocation ? "Detecting..." : "Use my current location"}
@@ -755,7 +678,7 @@ const Location = () => {
                   disableScroll={true}                 // Disable internal FlatList scrolling
                   renderRow={(data) => (
                     <View style={styles.suggestionRow}>
-                      <LocationIcon size={20} color="#010135" />
+                      <MapPin size={20} color="#010135" />
                       <View style={styles.suggestionTextContainer}>
                         <Text style={styles.suggestionMainText} numberOfLines={1}>
                           {data.main_text || data.description}

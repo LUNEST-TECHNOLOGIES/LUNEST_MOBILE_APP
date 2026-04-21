@@ -4,6 +4,7 @@
  */
 
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { X } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import {
   Platform,
@@ -19,19 +20,6 @@ import CancelConfirmationModal from '../../src/components/create-listing/CancelC
 import useDraftListing from '../../src/hooks/useDraftListing';
 import draftListingService from '../../src/services/draftListingService';
 import toastService from '../../src/services/toastService';
-
-// Close X Icon - with explicit dimensions for web
-const CloseIcon = ({ size = 24, color = '#000000' }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={{ width: size, height: size }}>
-    <Path
-      d="M18 6L6 18M6 6L18 18"
-      stroke={color}
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </Svg>
-);
 
 // Progress Bar Component
 const ProgressBar = ({ currentStep, totalSteps }) => {
@@ -202,7 +190,7 @@ const SelectListingIntent = () => {
         <Pressable style={styles.closeButton} onPress={handleClose}>
           <View style={styles.closeButtonBg} />
           <View style={{ zIndex: 5 }}>
-            <CloseIcon size={14} color="#000000" />
+            <X size={20} color="#000000" />
           </View>
         </Pressable>
       </View>

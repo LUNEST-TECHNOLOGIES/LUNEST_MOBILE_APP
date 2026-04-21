@@ -48,7 +48,7 @@ import draftListingService from '../../src/services/draftListingService';
 import toastService from '../../src/services/toastService';
 import ToastNotification from '../../src/components/common/ToastNotification';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
 
 // Categories lookup - migrated to Lucide Icons
 const PROPERTY_CATEGORIES = [
@@ -396,10 +396,11 @@ const styles = StyleSheet.create({
   categoriesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    justifyContent: 'space-between',
     gap: 15,
   },
   categoryOption: {
-    width: (SCREEN_WIDTH - 55) / 2,
+    width: '48%',
     height: 100,
     borderRadius: 12,
     borderWidth: 2,

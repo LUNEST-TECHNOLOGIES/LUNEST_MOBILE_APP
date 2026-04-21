@@ -11,7 +11,9 @@ import {
   ChevronDown, 
   Check, 
   AlertCircle,
-  LayoutGrid
+  LayoutGrid,
+  CheckCircle,
+  MapPin
 } from "lucide-react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import debounce from "lodash.debounce";
@@ -38,19 +40,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 // Icons migrated to Lucide
 
-// Check Circle Icon for Tips
-const CheckCircleIcon = ({ size = 18, color = "#23C16B" }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Circle cx="12" cy="12" r="10" fill={color} />
-    <Path
-      d="M8 12L11 15L16 9"
-      stroke="#FFFFFF"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </Svg>
-);
+
 
 // Title Type Options
 const TITLE_TYPE_OPTIONS = [
@@ -689,7 +679,7 @@ const PropertyDetails = () => {
             >
               {titleType || "Select title type"}
             </Text>
-            <ChevronDownIcon size={20} color="#656565" />
+            <ChevronDown size={20} color="#656565" />
           </Pressable>
         </View>
       </ScrollView>
@@ -707,7 +697,7 @@ const PropertyDetails = () => {
             <View style={styles.dropdownHeader}>
               <Text style={styles.dropdownTitle}>Select Rental Purpose</Text>
               <Pressable onPress={() => setShowPurposeDropdown(false)}>
-                <CloseIcon size={20} color="#000000" />
+                <X size={20} color="#000000" />
               </Pressable>
             </View>
             <ScrollView
@@ -737,7 +727,7 @@ const PropertyDetails = () => {
                     {option}
                   </Text>
                   {rentalPurpose === option && (
-                    <CheckIcon size={20} color="#23C16B" />
+                    <Check size={20} color="#23C16B" />
                   )}
                 </Pressable>
               ))}
@@ -759,7 +749,7 @@ const PropertyDetails = () => {
             <View style={styles.dropdownHeader}>
               <Text style={styles.dropdownTitle}>Select Title Type</Text>
               <Pressable onPress={() => setShowTitleTypeDropdown(false)}>
-                <CloseIcon size={20} color="#000000" />
+                <X size={20} color="#000000" />
               </Pressable>
             </View>
             <ScrollView
@@ -789,7 +779,7 @@ const PropertyDetails = () => {
                     {option}
                   </Text>
                   {titleType === option && (
-                    <CheckIcon size={20} color="#23C16B" />
+                    <Check size={20} color="#23C16B" />
                   )}
                 </Pressable>
               ))}
@@ -814,13 +804,13 @@ const PropertyDetails = () => {
                 style={styles.tipsCloseButton}
                 onPress={() => setShowTipsOverlay(false)}
               >
-                <CloseIcon size={14} color="#000000" />
+                <X size={14} color="#000000" />
               </Pressable>
             </View>
             <View style={styles.tipsContent}>
               <View style={styles.tipItem}>
                 <View style={styles.tipCheckbox}>
-                  <CheckCircleIcon size={18} color="#23C16B" />
+                  <CheckCircle size={18} color="#23C16B" />
                 </View>
                 <Text style={styles.tipText}>
                   Accurate info helps match the right guests
@@ -828,7 +818,7 @@ const PropertyDetails = () => {
               </View>
               <View style={styles.tipItem}>
                 <View style={styles.tipCheckbox}>
-                  <CheckCircleIcon size={18} color="#23C16B" />
+                  <CheckCircle size={18} color="#23C16B" />
                 </View>
                 <Text style={styles.tipText}>
                   Clear titles attract more views and bookings
@@ -836,7 +826,7 @@ const PropertyDetails = () => {
               </View>
               <View style={styles.tipItem}>
                 <View style={styles.tipCheckbox}>
-                  <CheckCircleIcon size={18} color="#23C16B" />
+                  <CheckCircle size={18} color="#23C16B" />
                 </View>
                 <Text style={styles.tipText}>
                   Detailed descriptions build guest confidence

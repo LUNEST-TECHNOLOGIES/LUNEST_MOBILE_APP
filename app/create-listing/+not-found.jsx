@@ -15,53 +15,9 @@ import {
   SafeAreaView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import Svg, { Path } from 'react-native-svg';
+import { AlertTriangle, ArrowLeft, Home } from 'lucide-react-native';
 
-// Warning/Error Icon
-const WarningIcon = ({ size = 60, color = '#FDAE31' }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Path
-      d="M12 9V13M12 17H12.01M10.29 3.86L1.82 18C1.64 18.3 1.55 18.64 1.55 19C1.55 19.36 1.64 19.7 1.82 20C2 20.3 2.27 20.56 2.59 20.73C2.91 20.91 3.27 21 3.64 21H20.36C20.73 21 21.09 20.91 21.41 20.73C21.73 20.56 22 20.3 22.18 20C22.36 19.7 22.45 19.36 22.45 19C22.45 18.64 22.36 18.3 22.18 18L13.71 3.86C13.53 3.56 13.26 3.32 12.94 3.15C12.62 2.98 12.26 2.89 11.89 2.89C11.52 2.89 11.16 2.98 10.84 3.15C10.52 3.32 10.25 3.56 10.07 3.86H10.29Z"
-      stroke={color}
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </Svg>
-);
-
-// Arrow Left Icon
-const ArrowLeftIcon = ({ size = 20, color = '#010135' }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Path
-      d="M19 12H5M5 12L12 19M5 12L12 5"
-      stroke={color}
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </Svg>
-);
-
-// Home Icon
-const HomeIcon = ({ size = 20, color = '#FFFFFF' }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Path
-      d="M3 9L12 2L21 9V20C21 20.5304 20.7893 21.0391 20.4142 21.4142C20.0391 21.7893 19.5304 22 19 22H5C4.46957 22 3.96086 21.7893 3.58579 21.4142C3.21071 20.0391 3 20.5304 3 20V9Z"
-      stroke={color}
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-    <Path
-      d="M9 22V12H15V22"
-      stroke={color}
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </Svg>
-);
+// Error Screen Component
 
 export default function CreateListingNotFoundScreen() {
   const router = useRouter();
@@ -92,7 +48,7 @@ export default function CreateListingNotFoundScreen() {
       <View style={styles.content}>
         {/* Warning Icon */}
         <View style={styles.iconContainer}>
-          <WarningIcon size={60} color="#FDAE31" />
+          <AlertTriangle size={60} color="#FDAE31" />
         </View>
 
         {/* Title */}
@@ -107,7 +63,7 @@ export default function CreateListingNotFoundScreen() {
         <View style={styles.buttonContainer}>
           {/* Go Back Button */}
           <TouchableOpacity style={styles.secondaryButton} onPress={handleGoBack}>
-            <ArrowLeftIcon size={18} color="#010135" />
+            <ArrowLeft size={18} color="#010135" />
             <Text style={styles.secondaryButtonText}>Go Back</Text>
           </TouchableOpacity>
 
@@ -118,7 +74,7 @@ export default function CreateListingNotFoundScreen() {
 
           {/* Go to Listings Button */}
           <TouchableOpacity style={styles.primaryButton} onPress={handleGoToListings}>
-            <HomeIcon size={18} color="#FFFFFF" />
+            <Home size={18} color="#FFFFFF" />
             <Text style={styles.primaryButtonText}>Go to My Listings</Text>
           </TouchableOpacity>
         </View>

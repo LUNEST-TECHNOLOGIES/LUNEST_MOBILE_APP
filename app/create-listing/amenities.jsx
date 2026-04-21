@@ -6,7 +6,9 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   Check,
+  CheckCircle,
   ChevronDown,
+  Info,
   Plus,
   Search,
   X
@@ -604,13 +606,13 @@ const Amenities = () => {
             <View style={styles.tipsContent}>
               <View style={styles.tipItem}>
                 <View style={styles.tipCheckbox}>
-                  <CheckCircleIcon size={18} color="#23C16B" />
+                  <CheckCircle size={18} color="#23C16B" />
                 </View>
                 <Text style={styles.tipText}>These help your listing show up in searches</Text>
               </View>
               <View style={styles.tipItem}>
                 <View style={styles.tipCheckbox}>
-                  <CheckCircleIcon size={18} color="#23C16B" />
+                  <CheckCircle size={18} color="#23C16B" />
                 </View>
                 <Text style={styles.tipText}>Highlight unique amenities to stand out</Text>
               </View>

@@ -848,7 +848,7 @@ const Location = () => {
               </MapView>
             ) : (
               <View style={styles.mapPlaceholder}>
-                <LocationIcon size={32} color="#999" />
+                <MapPin size={32} color="#999" />
                 <Text style={styles.mapPlaceholderText}>
                   Enter an address to see the map
                 </Text>
@@ -866,7 +866,7 @@ const Location = () => {
             <Text style={styles.landmarkTitle}>Landmark:</Text>
             {landmarks.length < 5 && (
               <Pressable style={styles.addLandmarkButton} onPress={addLandmark}>
-                <AddIcon size={16} color="#010135" />
+                <Plus size={16} color="#010135" />
                 <Text style={styles.addLandmarkText}>Add</Text>
               </Pressable>
             )}
@@ -887,7 +887,7 @@ const Location = () => {
                 style={styles.removeLandmarkButton}
                 onPress={() => removeLandmark(index)}
               >
-                <TrashIcon size={18} color="#FD3131" />
+                <Trash2 size={18} color="#FD3131" />
               </Pressable>
             </View>
           ))}

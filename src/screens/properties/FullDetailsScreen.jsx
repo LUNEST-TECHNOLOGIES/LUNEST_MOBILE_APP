@@ -32,7 +32,6 @@ import { fetchHostData } from "../../services/hostService";
 import listingService from "../../services/listingService";
 import { formatCurrency } from "../../utils/currency";
 import { resolveImageUrlSync } from "../../utils/imageUtils";
-import { getAmenityIcon } from "../../utils/amenityIcons";
 
 // House rules ID to label mapping (aligned with availability.jsx HOUSE_RULES)
 const HOUSE_RULES_MAP = {

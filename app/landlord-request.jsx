@@ -24,6 +24,7 @@ import ToggleSwitch from '../src/components/ToggleSwitch';
 import { useUserMode } from '../src/context';
 import authService from '../src/services/authService';
 import profileService from '../src/services/profileService';
+import toastService from '../src/services/toastService';
 
 /**
  * Back Icon
@@ -167,6 +168,8 @@ const LandlordRequestForm = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPendingModal, setShowPendingModal] = useState(false);
 
+  const isPropertyManager = hostRole === 'manager';
+
   const PROPERTY_COUNT_RANGES = ['1-5', '6-20', '21-50', '50+', 'Other (Exact number)'];
 
   // Load user data on mount
@@ -239,63 +242,63 @@ const LandlordRequestForm = () => {
   const handleSubmit = async () => {
     // Strict Validation
     if (!userData.fullName?.trim()) {
-      Alert.alert('Required Field', 'Full Name is required.');
+      toastService.error('Full Name is required.');
       return;
     }
     if (!userData.email?.trim()) {
-      Alert.alert('Required Field', 'Email Address is required.');
+      toastService.error('Email Address is required.');
       return;
     }
     if (!gender) {
-      Alert.alert('Required Field', 'Please select your Gender.');
+      toastService.error('Please select your Gender.');
       return;
     }
     if (!userData.phone?.trim()) {
-      Alert.alert('Required Field', 'Phone Number is required.');
+      toastService.error('Phone Number is required.');
       return;
     }
     if (!userData.location?.trim()) {
-      Alert.alert('Required Field', 'Location is required.');
+      toastService.error('Location is required.');
       return;
     }
     if (!userData.nin?.trim() || userData.nin.length < 11) {
-      Alert.alert('Required Field', 'A valid 11-digit NIN is required.');
+      toastService.error('A valid 11-digit NIN is required.');
       return;
     }
     if (selectedPropertyTypes.length === 0) {
-      Alert.alert('Required Field', 'Please select at least one Property Type.');
+      toastService.error('Please select at least one Property Type.');
       return;
     }
     if (!propertyLocation?.trim()) {
-      Alert.alert('Required Field', 'Property Location is required.');
+      toastService.error('Property Location is required.');
       return;
     }
     if (!hostRole) {
-      Alert.alert('Required Field', 'Please select your role (Landlord, Manager or Developer/Realtor).');
+      toastService.error('Please select your role (Landlord, Manager or Developer/Realtor).');
       return;
     }
     if (hostRole === 'realtor' && !companyName?.trim()) {
-      Alert.alert('Required Field', 'Company Name is required for Developers/Realtors.');
+      toastService.error('Company Name is required for Developers/Realtors.');
       return;
     }
     if (!propertyCount) {
-      Alert.alert('Required Field', 'Please select or enter the number of properties.');
+      toastService.error('Please select or enter the number of properties.');
       return;
     }
     if (isCustomPropertyCount && !customPropertyCount?.trim()) {
-      Alert.alert('Required Field', 'Please enter the exact number of properties.');
+      toastService.error('Please enter the exact number of properties.');
       return;
     }
     if (propertyImages.length === 0) {
-      Alert.alert('Required Field', 'Please upload at least one property image.');
+      toastService.error('Please upload at least one property image.');
       return;
     }
     if (!validIdImage) {
-      Alert.alert('Required Field', 'Please upload a valid ID image.');
+      toastService.error('Please upload a valid ID image.');
       return;
     }
     if (isPropertyManager && !authorizationLetter) {
-      Alert.alert('Required Field', 'As an Authorised Property Manager, you must upload an authorization letter.');
+      toastService.error('As an Authorised Property Manager, you must upload an authorization letter.');
       return;
     }
 

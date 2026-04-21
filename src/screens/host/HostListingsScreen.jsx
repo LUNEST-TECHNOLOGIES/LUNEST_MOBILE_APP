@@ -1,7 +1,7 @@
 import { useFocusEffect } from "@react-navigation/native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import ChecksDoubleIcon from "../../assets/icons/listing/checks-double-v.svg";
 import InfoIcon from "../../assets/icons/listing/circle-info.svg";
 import CloseIcon from "../../assets/icons/listing/close-x.svg";

@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useVideoPlayer, VideoView } from "expo-video";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
     ActivityIndicator,
     Dimensions,
@@ -15,7 +15,7 @@ import {
     View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import ArrowLeftIcon from "../../assets/icons/bookings/arrow-left.svg";
+import ArrowLeftIcon from "../../assets/icons/arrow-left.svg";
 import CircleInfo2Icon from "../../assets/icons/circle-info2.svg";
 import DoneV2Icon from "../../assets/icons/done-v2.svg";
 import EllipseAvatar from "../../assets/icons/Ellipse 10.svg";
@@ -849,7 +849,7 @@ const FullDetailsScreen = () => {
               <Ionicons 
                 name="checkmark-circle-outline" 
                 size={16} 
-                color="#192DFF" 
+                color="#010135" 
               />
               <Text style={styles.regulationText}>{regulation}</Text>
             </View>
@@ -872,7 +872,7 @@ const FullDetailsScreen = () => {
               <Ionicons 
                 name="location-outline" 
                 size={16} 
-                color="#192DFF" 
+                color="#010135" 
               />
               <Text style={styles.landmarkText}>{landmark}</Text>
             </View>
@@ -1581,7 +1581,7 @@ const styles = StyleSheet.create({
   totalPrice: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#192DFF",
+    color: "#010135",
   },
   additionalFeesContainer: {
     marginTop: 8,

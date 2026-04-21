@@ -3,7 +3,7 @@
  * Shows temporary success/error messages
  */
 
-import { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
     Animated,
     Platform,

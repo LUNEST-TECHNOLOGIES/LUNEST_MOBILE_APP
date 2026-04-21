@@ -25,7 +25,7 @@ import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useVideoPlayer, VideoView } from "expo-video";
-import { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert, // Added Alert
@@ -1352,7 +1352,7 @@ const PropertyDetailsScreen = () => {
                 <Ionicons 
                   name="checkmark-circle-outline" 
                   size={16} 
-                  color="#192DFF" 
+                  color="#010135" 
                 />
                 <Text style={styles.regulationText}>
                   {String(regulation || "")}
@@ -1383,7 +1383,7 @@ const PropertyDetailsScreen = () => {
                   <Ionicons 
                     name="location-outline" 
                     size={16} 
-                    color="#192DFF" 
+                    color="#010135" 
                   />
                   <Text style={styles.landmarkText}>{String(landmark || "")}</Text>
                 </View>
@@ -1416,7 +1416,7 @@ const PropertyDetailsScreen = () => {
                   longitudeDelta: 0.015,
                 }}
                 loadingEnabled={true}
-                loadingIndicatorColor="#192DFF"
+                loadingIndicatorColor="#010135"
                 scrollEnabled={true}
                 zoomEnabled={true}
                 pitchEnabled={false}
@@ -1440,7 +1440,7 @@ const PropertyDetailsScreen = () => {
                   }}
                   title={propertyData.title}
                   description={propertyData.location}
-                  pinColor="#192DFF"
+                  pinColor="#010135"
                   onPress={() => {
                     // Handle pin click - open map with more details
                     handleLocationPress();
@@ -1451,7 +1451,7 @@ const PropertyDetailsScreen = () => {
               {/* Interactive Map Overlay */}
               <View style={styles.mapOverlay}>
                 <View style={styles.mapOverlayContent}>
-                  <Ionicons name="location" size={16} color="#192DFF" />
+                  <Ionicons name="location" size={16} color="#010135" />
                   <Text style={styles.mapOverlayText}>Tap to view in maps</Text>
                 </View>
               </View>
@@ -1465,7 +1465,7 @@ const PropertyDetailsScreen = () => {
                     console.log('Zoom in pressed');
                   }}
                 >
-                  <Ionicons name="add" size={16} color="#192DFF" />
+                  <Ionicons name="add" size={16} color="#010135" />
                 </Pressable>
                 <Pressable 
                   style={[styles.zoomButton, styles.zoomButtonBottom]}
@@ -1474,14 +1474,14 @@ const PropertyDetailsScreen = () => {
                     console.log('Zoom out pressed');
                   }}
                 >
-                  <Ionicons name="remove" size={16} color="#192DFF" />
+                  <Ionicons name="remove" size={16} color="#010135" />
                 </Pressable>
               </View>
             </Pressable>
           ) : (
             <View style={styles.mapPlaceholder}>
               <View style={styles.mapPlaceholderContent}>
-                <Ionicons name="location-outline" size={40} color="#192DFF" />
+                <Ionicons name="location-outline" size={40} color="#010135" />
                 <Text style={styles.mapPlaceholderText}>Map not available</Text>
                 <Text style={styles.mapPlaceholderSubtext}>
                   Location coordinates not provided
@@ -1653,7 +1653,7 @@ const PropertyDetailsScreen = () => {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={handleRefresh}
-              tintColor="#192DFF"
+              tintColor="#010135"
             />
           }
         >
@@ -1685,7 +1685,7 @@ const PropertyDetailsScreen = () => {
                 style={{ flexDirection: "row", alignItems: "center", flex: 1 }}
               >
                 <View style={styles.locationIconContainer}>
-                  <MapPin size={14} color="#192DFF" />
+                  <MapPin size={14} color="#010135" />
                 </View>
                 <Text
                   style={styles.location}
@@ -1706,7 +1706,7 @@ const PropertyDetailsScreen = () => {
             >
               <Clock
                 size={16}
-                color={propertyData.isUnavailable ? "#FF3B30" : "#192DFF"}
+                color={propertyData.isUnavailable ? "#FF3B30" : "#010135"}
                 strokeWidth={2}
               />
               <Text
@@ -1779,7 +1779,7 @@ const PropertyDetailsScreen = () => {
               <View key={index} style={styles.whatYouGetBox}>
                 <CheckCircle2 
                   size={18} 
-                  color="#192DFF" 
+                  color="#010135" 
                   strokeWidth={2}
                 />
                 <Text style={styles.whatYouGetText}>{feature.label}</Text>
@@ -2100,7 +2100,7 @@ const PropertyDetailsScreen = () => {
               onPress={() => setShowMapModal(false)}
               style={({ pressed }) => [styles.mapModalCloseButton, pressed && { opacity: 0.6 }]}
             >
-              <Ionicons name="chevron-down" size={28} color="#192DFF" />
+              <Ionicons name="chevron-down" size={28} color="#010135" />
             </Pressable>
             <Text style={styles.mapModalTitle}
               numberOfLines={1}
@@ -2143,7 +2143,7 @@ const PropertyDetailsScreen = () => {
                   longitudeDelta: 0.01,
                 }}
                 loadingEnabled={true}
-                loadingIndicatorColor="#192DFF"
+                loadingIndicatorColor="#010135"
                 scrollEnabled={true}
                 zoomEnabled={true}
                 pitchEnabled={true}
@@ -2156,7 +2156,7 @@ const PropertyDetailsScreen = () => {
                   }}
                   title={listing?.propertyName || "Property Location"}
                   description={propertyData.location || ""}
-                  pinColor="#192DFF"
+                  pinColor="#010135"
                   onPress={() => {
                     // Handle pin click - show location details or open in maps
                     const label = listing?.propertyName || "Property Location";
@@ -2166,7 +2166,7 @@ const PropertyDetailsScreen = () => {
               </MapView>
             ) : (
               <View style={styles.mapLoadingContainer}>
-                <ActivityIndicator size="large" color="#192DFF" />
+                <ActivityIndicator size="large" color="#010135" />
                 <Text style={styles.mapLoadingText}>Loading map...</Text>
               </View>
             )}
@@ -2175,7 +2175,7 @@ const PropertyDetailsScreen = () => {
           {/* Location Details */}
           <View style={styles.mapModalDetails}>
             <View style={styles.mapModalDetailRow}>
-              <Ionicons name="location" size={20} color="#192DFF" />
+              <Ionicons name="location" size={20} color="#010135" />
               <View style={styles.mapModalDetailText}>
                 <Text style={styles.mapModalDetailLabel}>Address</Text>
                 <Text style={styles.mapModalDetailValue} numberOfLines={2}>
@@ -2185,7 +2185,7 @@ const PropertyDetailsScreen = () => {
             </View>
             {propertyData.latitude && propertyData.longitude && (
               <View style={styles.mapModalDetailRow}>
-                <Ionicons name="navigate" size={20} color="#192DFF" />
+                <Ionicons name="navigate" size={20} color="#010135" />
                 <View style={styles.mapModalDetailText}>
                   <Text style={styles.mapModalDetailLabel}>Coordinates</Text>
                   <Text style={styles.mapModalDetailValue}>
@@ -2506,7 +2506,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#666",
     textDecorationLine: "underline",
-    textDecorationColor: "#192DFF",
+    textDecorationColor: "#010135",
     textDecorationStyle: "solid",
     flex: 1,
     minWidth: 0,
@@ -2561,7 +2561,7 @@ const styles = StyleSheet.create({
   mapModalOpenButton: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#192DFF",
+    backgroundColor: "#010135",
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 6,
@@ -2664,7 +2664,7 @@ const styles = StyleSheet.create({
   rentalType: {
     fontSize: 10,
     fontWeight: "600",
-    color: "#192DFF",
+    color: "#010135",
   },
   additionalFeesContainer: {
     marginTop: 8,
@@ -3141,7 +3141,7 @@ const styles = StyleSheet.create({
   },
   mapOverlayText: {
     fontSize: 10,
-    color: '#192DFF',
+    color: '#010135',
     fontWeight: '500',
   },
   zoomControls: {

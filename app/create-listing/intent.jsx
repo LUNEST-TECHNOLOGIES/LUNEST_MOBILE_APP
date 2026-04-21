@@ -116,7 +116,6 @@ const SelectListingIntent = () => {
 
   // Save to draft when intent changes (but don't navigate)
   const updateIntent = async (intent) => {
-    setSelectedCategory(intent); // Note: It seems it should be setSelectedIntent
     setSelectedIntent(intent);
     if (draftId) {
       // Save immediately to preserve user selection

@@ -27,7 +27,6 @@ import {
   X,
   ChevronRight,
   Castle,
-  Warehouse as WarehouseIcon,
   LayoutGrid
 } from "lucide-react-native";
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -79,7 +78,7 @@ const PROPERTY_CATEGORIES = [
   { id: 'hotel', label: 'Hotel Space', icon: Hotel, color: '#FFF0F5' },
 
   // Industrial & Land
-  { id: 'warehouse', label: 'Warehouse', icon: WarehouseIcon, color: '#F0FFFF' },
+  { id: 'warehouse', label: 'Warehouse', icon: Warehouse, color: '#F0FFFF' },
   { id: 'factory', label: 'Factory', icon: Factory, color: '#FFF5F0' },
   { id: 'farm-land', label: 'Farm Land', icon: Trees, color: '#F5F5FF' },
   { id: 'land', label: 'Vacant Land', icon: MapIcon, color: '#F0F5F5' },

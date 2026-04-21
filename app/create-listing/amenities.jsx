@@ -393,11 +393,11 @@ const Amenities = () => {
     setShowCancelModal(false);
   };
 
-  const handleBack = () => {
+  const handleBack = async () => {
     const finalDraftId = (draftData && draftData.draftId) || draftId || draftListingService.generateDraftId();
     
     // OPTIMIZATION: Trigger save in background and navigate immediately
-    saveDraftData({
+    await saveDraftData({
       selectedAmenities,
       customAmenities,
       currentStep: 5,
@@ -451,14 +451,15 @@ const Amenities = () => {
     });
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     const finalDraftId = (draftData && draftData.draftId) || draftId || draftListingService.generateDraftId();
     // Always ensure arrays before saving
     const safeSelected = Array.isArray(selectedAmenities) ? selectedAmenities : [];
     const safeCustom = Array.isArray(customAmenities) ? customAmenities : [];
     
     // OPTIMIZATION: Trigger save in background and navigate immediately
-    saveDraftData({
+    // CRITICAL: We await the local save to ensure data is in cache for next screen
+    await saveDraftData({
       selectedAmenities: safeSelected,
       customAmenities: safeCustom,
       currentStep: 5,

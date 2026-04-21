@@ -63,15 +63,11 @@ axiosInstance.interceptors.response.use(
         type: TOAST_TYPE.WARNING,
       });
 
-      // Clear session and redirect
-      authService.logout().then(() => {
-        isRedirectingToLogin = false;
-        navigateToLogin();
-      }).catch(err => {
-        isRedirectingToLogin = false;
-        console.error("[Axios] Logout failed during 401 handle:", err);
-        navigateToLogin(); // Still try to redirect
-      });
+      // Clear session - do it without awaiting if possible to speed up redirect
+      authService.logout();
+      
+      isRedirectingToLogin = false;
+      navigateToLogin();
     }
     
     // Rate limit detection (429 Too Many Requests)

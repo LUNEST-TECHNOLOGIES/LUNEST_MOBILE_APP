@@ -96,6 +96,7 @@ const ProfileScreen = ({ isHostMode: isHostModeProp = false }) => {
     },
     staleTime: 0, // Always consider wallet data stale to ensure fresh fetches
     refetchOnWindowFocus: true, // Specifically useful for web after returning from Paystack
+    enabled: !!profileData,
   });
 
   const { data: listingsCount = 0 } = useQuery({

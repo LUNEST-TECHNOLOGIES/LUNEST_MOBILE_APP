@@ -328,14 +328,18 @@ const SelectPropertyCategory = () => {
   }, [draftData, params.propertyType]);
 
   // Auto-save when category changes
-  const handleSelectCategory = (category) => {
+  const handleSelectCategory = async (category) => {
     setSelectedCategory(category);
     if (draftId) {
       // Immediately save user selection
-      saveDraftData({
-        propertyType: category,
-        currentStep: 1,
-      }).catch(err => console.error('Error auto-saving category:', err));
+      try {
+        await saveDraftData({
+          propertyType: category,
+          currentStep: 1,
+        });
+      } catch (err) {
+        console.error('Error auto-saving category:', err);
+      }
     }
   };
 
@@ -381,7 +385,7 @@ const SelectPropertyCategory = () => {
     setShowCancelModal(false);
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (selectedCategory) {
       // Get or create draftId
       const finalDraftId = (draftData && draftData.draftId) || 
@@ -389,7 +393,8 @@ const SelectPropertyCategory = () => {
                            draftListingService.generateDraftId();
       
       // OPTIMIZATION: Trigger save in background and navigate immediately
-      saveDraftData({
+      // CRITICAL: We await the local save to ensure data is in cache for next screen
+      await saveDraftData({
         propertyType: selectedCategory,
         currentStep: 1,
         draftId: finalDraftId,

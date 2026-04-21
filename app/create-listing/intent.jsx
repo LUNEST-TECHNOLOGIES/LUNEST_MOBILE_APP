@@ -98,14 +98,19 @@ const SelectListingIntent = () => {
   }, [draftData, params.intent]);
 
   // Save to draft when intent changes (but don't navigate)
-  const updateIntent = (intent) => {
+  const updateIntent = async (intent) => {
+    setSelectedCategory(intent); // Note: It seems it should be setSelectedIntent
     setSelectedIntent(intent);
     if (draftId) {
       // Save immediately to preserve user selection
-      saveDraftData({
-        intent,
-        currentStep: 2,
-      }).catch(err => console.error('Error auto-saving intent:', err));
+      try {
+        await saveDraftData({
+          intent,
+          currentStep: 2,
+        });
+      } catch (err) {
+        console.error('Error auto-saving intent:', err);
+      }
     }
   };
 
@@ -152,22 +157,23 @@ const SelectListingIntent = () => {
     });
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (selectedIntent) {
       // Save draft with latest data
-      const draftId = draftData?.draftId || params.draftId || draftListingService.generateDraftId();
+      const finalDraftId = (draftData && draftData.draftId) || params.draftId || draftListingService.generateDraftId();
       
       // OPTIMIZATION: Trigger save in background and navigate immediately
-      saveDraftData({
+      // CRITICAL: We await the local save to ensure data is in cache for next screen
+      await saveDraftData({
         intent: selectedIntent,
         currentStep: 2,
-        draftId,
+        draftId: finalDraftId,
       }, { background: true });
 
       // Navigate immediately without waiting for API
       router.push({
-        pathname: '/create-listing/property-details',
-        params: { draftId },
+        pathname: '/create-listing/property-type',
+        params: { draftId: finalDraftId },
       });
     }
   };

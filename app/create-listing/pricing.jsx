@@ -20,6 +20,7 @@ import Svg, { Path } from "react-native-svg";
 import CancelConfirmationModal from "../../src/components/create-listing/CancelConfirmationModal";
 import { useDraftListing } from "../../src/hooks/useDraftListing";
 import draftListingService from "../../src/services/draftListingService";
+import toastService from "../../src/services/toastService";
 
 // Close X Icon - with explicit dimensions for web
 const CloseIcon = ({ size = 24, color = "#000000" }) => (
@@ -184,7 +185,7 @@ const Pricing = () => {
     setShowCancelModal(false);
   };
 
-  const handleBack = () => {
+  const handleBack = async () => {
     // Navigate back with current params to preserve data
     const finalDraftId =
       (draftData && draftData.draftId) ||
@@ -192,9 +193,9 @@ const Pricing = () => {
       draftListingService.generateDraftId();
 
     // OPTIMIZATION: Trigger save in background and navigate immediately
-    saveDraftData({
+    await saveDraftData({
       ...draftData,
-      price: intent === "sale" ? salePrice : price,
+      price: priceValue,
       pricingPeriod: selectedPeriod,
       securityDeposit,
       serviceCharge,
@@ -208,20 +209,17 @@ const Pricing = () => {
     });
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     // Validate price
     const priceValue = intent === "sale" ? salePrice : price;
     if (!priceValue) {
-      Alert.alert("Price Required", "Please enter a price for your property.");
+      toastService.showError("Please enter a price for your property.");
       return;
     }
 
     // Validate pricing period for rentals
     if (intent !== "sale" && !selectedPeriod) {
-      Alert.alert(
-        "Pricing Period Required",
-        "Please select a pricing period (per night, month, or year).",
-      );
+      toastService.showError("Please select a pricing period (per night, month, or year).");
       return;
     }
 
@@ -231,7 +229,7 @@ const Pricing = () => {
       draftListingService.generateDraftId();
 
     // OPTIMIZATION: Trigger save in background and navigate immediately
-    saveDraftData({
+    await saveDraftData({
       price: priceValue,
       pricingPeriod: selectedPeriod,
       securityDeposit,

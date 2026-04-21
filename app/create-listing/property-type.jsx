@@ -356,18 +356,33 @@ const PropertyType = () => {
   };
 
   const handleBack = () => {
-    if (router.canGoBack()) {
-      router.back();
+    // Navigate back with draftId to preserve state
+    const finalDraftId = (draftData && draftData.draftId) || params.draftId;
+    
+    if (finalDraftId) {
+      router.replace({
+        pathname: "/create-listing/intent",
+        params: { draftId: finalDraftId },
+      });
     } else {
-      router.replace("/create-listing");
+      router.replace("/create-listing/intent");
     }
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (selectedType) {
+      const finalDraftId = (draftData && draftData.draftId) || params.draftId || draftListingService.generateDraftId();
+      
+      // Save data before navigating
+      await saveDraftData({
+        propertyType: selectedType,
+        currentStep: 2,
+        draftId: finalDraftId
+      }, { background: true });
+
       router.push({
         pathname: "/create-listing/property-details",
-        params: { ...params, propertyType: selectedType },
+        params: { draftId: finalDraftId },
       });
     }
   };

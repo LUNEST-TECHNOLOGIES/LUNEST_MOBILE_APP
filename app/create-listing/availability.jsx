@@ -32,6 +32,8 @@ import {
 import { COLORS } from '../../src/constants/theme';
 import { useDraftListing } from '../../src/hooks/useDraftListing';
 import draftListingService from '../../src/services/draftListingService';
+import toastService from '../../src/services/toastService';
+import ToastNotification from '../../src/components/common/ToastNotification';
 
 // House Rules options
 const HOUSE_RULES = [
@@ -110,6 +112,21 @@ const Availability = () => {
   const [selectedRules, setSelectedRules] = useState([]);
   const [additionalRules, setAdditionalRules] = useState('');
   const [initialLoadDone, setInitialLoadDone] = useState(false);
+
+  // Toast Notification state
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
+  const [toastType, setToastType] = useState("SUCCESS");
+
+  // Subscribe to toast service
+  useEffect(() => {
+    const unsubscribe = toastService.subscribe(({ message, type }) => {
+      setToastMessage(message);
+      setToastType(type);
+      setToastVisible(true);
+    });
+    return unsubscribe;
+  }, []);
 
   // Load draft data on mount
   useEffect(() => {
@@ -232,12 +249,12 @@ const Availability = () => {
     setShowCancelModal(false);
   };
 
-  const handleBack = () => {
+  const handleBack = async () => {
     // Navigate back with current params to preserve data
     const finalDraftId = (draftData && draftData.draftId) || draftId || draftListingService.generateDraftId();
     
     // OPTIMIZATION: Trigger save in background and navigate immediately
-    saveDraftData({
+    await saveDraftData({
       ...draftData,  // Preserve all existing data
       instantBooking,
       minStay,
@@ -254,21 +271,17 @@ const Availability = () => {
     });
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     // Validate that check-in and check-out times are not the same
     if (checkInTime && checkOutTime && checkInTime === checkOutTime) {
-      Alert.alert(
-        'Invalid Times',
-        'Check-in and check-out times cannot be the same. Please select different times.',
-        [{ text: 'OK' }]
-      );
+      toastService.showError('Check-in and check-out times cannot be the same. Please select different times.');
       return;
     }
 
     const finalDraftId = (draftData && draftData.draftId) || draftId || draftListingService.generateDraftId();
     
     // OPTIMIZATION: Trigger save in background and navigate immediately
-    saveDraftData({
+    await saveDraftData({
       ...draftData,  // Preserve all existing data
       instantBooking,
       availableNow: availabilityStatus === 'available',
@@ -521,8 +534,17 @@ const Availability = () => {
       {/* Cancel Confirmation Modal */}
       <CancelConfirmationModal
         visible={showCancelModal}
-        onConfirm={handleCancelConfirm}
-        onDismiss={handleCancelDismiss}
+        onCancel={handleCancelConfirm}
+        onContinue={handleCancelDismiss}
+        onClose={handleCancelDismiss}
+      />
+
+      {/* Toast Notification */}
+      <ToastNotification
+        visible={toastVisible}
+        message={toastMessage}
+        type={toastType}
+        onHide={() => setToastVisible(false)}
       />
     </SafeAreaView>
   );

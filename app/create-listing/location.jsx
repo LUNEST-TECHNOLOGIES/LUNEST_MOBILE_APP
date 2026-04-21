@@ -31,6 +31,7 @@ import { APP_CONFIG } from "../../src/config/appConfig";
 import { useDraftListing } from "../../src/hooks/useDraftListing";
 import draftListingService from "../../src/services/draftListingService";
 import locationService from "../../src/services/locationService";
+import toastService from "../../src/services/toastService";
 
 // Close X Icon - with explicit dimensions for web
 const CloseIcon = ({ size = 24, color = "#000000" }) => (
@@ -425,11 +426,11 @@ const Location = () => {
           }, 1000);
         }
       } else {
-        Alert.alert("Location Error", "Could not detect your current location. Please ensure location services are enabled.");
+        toastService.showError("Could not detect your current location. Please ensure location services are enabled.");
       }
     } catch (error) {
       console.error("[Location] Error detecting location:", error);
-      Alert.alert("Error", "An error occurred while trying to get your location.");
+      toastService.showError("An error occurred while trying to get your location.");
     } finally {
       setDetectingLocation(false);
     }
@@ -511,7 +512,7 @@ const Location = () => {
   // Validation - require at least address and city
   const isValid = address.trim().length > 0 && city.trim().length > 0;
 
-  const handleBack = () => {
+  const handleBack = async () => {
     const finalDraftId =
       (draftData && draftData.draftId) ||
       draftId ||
@@ -533,7 +534,7 @@ const Location = () => {
     }
 
     // OPTIMIZATION: Trigger save in background and navigate immediately
-    saveDraftData(savePayload, { background: true });
+    await saveDraftData(savePayload, { background: true });
 
     router.replace({
       pathname: "/create-listing/property-details",

@@ -14,6 +14,8 @@ const DRAFTS_KEY_PREFIX = "listingDrafts_";
 
 // Track which drafts are currently being synced to prevent duplicates
 const syncingDrafts = new Set();
+// In-memory cache for the most recently saved/accessed draft to prevent race conditions during navigation
+const draftCache = new Map();
 
 class DraftListingService {
   /**
@@ -78,6 +80,10 @@ class DraftListingService {
 
       // Stage 4: Local Storage Operations
       const draftsKey = await this.getDraftsKey();
+      
+      // Update in-memory cache immediately - this is the source of truth for fast navigation
+      draftCache.set(resolvedDraftId, draftToSave);
+      
       const existingDrafts = (await this.getAllDrafts()) || [];
       const updatedDraftsList = [...existingDrafts];
       
@@ -314,8 +320,21 @@ class DraftListingService {
    */
   async getDraft(draftId) {
     try {
+      // Check in-memory cache first for maximum speed during transitions
+      if (draftCache.has(draftId)) {
+        console.log("🚀 [DraftListingService] Returning draft from cache:", draftId);
+        return draftCache.get(draftId);
+      }
+
       const drafts = await this.getAllDrafts();
-      return drafts.find((d) => d.draftId === draftId) || null;
+      const draft = drafts.find((d) => d.draftId === draftId) || null;
+      
+      // Seed cache if found in storage
+      if (draft) {
+        draftCache.set(draftId, draft);
+      }
+      
+      return draft;
     } catch (error) {
       console.error("Error getting draft:", error);
       return null;

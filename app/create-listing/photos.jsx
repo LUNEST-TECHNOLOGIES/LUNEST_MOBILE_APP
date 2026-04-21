@@ -26,6 +26,7 @@ import configService from "../../src/services/configService";
 import draftListingService from "../../src/services/draftListingService";
 import imageCompressionService from "../../src/services/imageCompressionService";
 import listingService from "../../src/services/listingService";
+import toastService from "../../src/services/toastService";
 
 // Fallback for ActivityIndicator if needed (React 19 / RN 0.81 compatibility)
 const RNActivityIndicator = ActivityIndicator;
@@ -287,12 +288,12 @@ const Photos = () => {
     setShowCancelModal(false);
   };
 
-  const handleBack = () => {
+  const handleBack = async () => {
     // Save current photos before navigating back
     const finalDraftId = (draftData && draftData.draftId) || draftId || draftListingService.generateDraftId();
     
     // OPTIMIZATION: Trigger save in background and navigate immediately
-    saveDraftData({
+    await saveDraftData({
       photos: Array.isArray(photos) ? photos : safeParseArray(photos),
       video: videos,
       propertyVideos: videos,
@@ -313,10 +314,7 @@ const Photos = () => {
         await ImagePicker.requestMediaLibraryPermissionsAsync();
 
       if (status !== "granted") {
-        Alert.alert(
-          "Permission Required",
-          "Please allow access to your photo library to upload images.",
-        );
+        toastService.showError("Please allow access to your photo library to upload images.");
         return;
       }
     }
@@ -422,11 +420,7 @@ const Photos = () => {
                 
                 if (uploadAttempts >= maxUploadAttempts) {
                   // Show error to user - don't save local URI
-                  Alert.alert(
-                    "Upload Failed",
-                    `Could not upload photo to server after ${maxUploadAttempts} attempts. Please check your connection and try again.`,
-                    [{ text: "OK" }]
-                  );
+                  toastService.showError(`Could not upload photo to server after ${maxUploadAttempts} attempts. Please check your connection and try again.`);
                   throw new Error("Failed to upload to S3 after multiple attempts");
                 }
                 
@@ -485,7 +479,7 @@ const Photos = () => {
         );
       } catch (error) {
         console.error("Error processing images:", error);
-        Alert.alert("Error", "Failed to process images. Please try again.");
+        toastService.showError("Failed to process images. Please try again.");
       } finally {
         setIsCompressing(false);
         setImageProgress(0);
@@ -498,7 +492,7 @@ const Photos = () => {
     updatePhotos(newPhotos);
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (photos && photos.length >= 3) {
       const finalDraftId =
         (draftData && draftData.draftId) ||
@@ -506,7 +500,8 @@ const Photos = () => {
         draftListingService.generateDraftId();
 
       // OPTIMIZATION: Trigger save in background and navigate immediately
-      saveDraftData({
+      // CRITICAL: We await the local save to ensure data is in cache for next screen
+      await saveDraftData({
         photos: Array.isArray(photos) ? photos : safeParseArray(photos),
         video: videos,
         propertyVideos: videos,
@@ -519,10 +514,7 @@ const Photos = () => {
         params: { draftId: finalDraftId },
       });
     } else {
-      Alert.alert(
-        "More Photos Needed",
-        "Please upload at least 3 photos of your property.",
-      );
+      toastService.showError("Please upload at least 3 photos of your property.");
     }
   };
 
@@ -531,10 +523,7 @@ const Photos = () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (status !== "granted") {
-      Alert.alert(
-        "Permission Required",
-        "Please allow access to your media library to upload videos.",
-      );
+      toastService.showError("Please allow access to your media library to upload videos.");
       return;
     }
 
@@ -578,10 +567,7 @@ const Photos = () => {
 
             // Double check if result is still too large
             if (compressionResult && compressionResult.size > MAX_VIDEO_SIZE) {
-              Alert.alert(
-                "Video Too Large",
-                "The video is still over 50MB after compression. Please choose a shorter or lower resolution video.",
-              );
+              toastService.showError("The video is still over 50MB after compression. Please choose a shorter or lower resolution video.");
               throw new Error("Video too large after compression");
             }
             let compressedUri = compressionResult

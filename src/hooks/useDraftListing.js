@@ -78,13 +78,19 @@ export const useDraftListing = () => {
 
       console.log('💾 [useDraftListing] Saving draft:', draftId, options.background ? '(background)' : '(foreground)');
       
+      // Update local state IMMEDIATELY for perfect consistency during rapid navigation
+      setDraftData(updatedDraft);
+
       // Call service
       const savingPromise = draftListingService.saveDraft(updatedDraft);
       
       // If background, we don't await the promise for the UI state update
       if (options.background) {
         savingPromise.then(saved => {
-          if (saved) setDraftData(saved);
+          if (saved) {
+            // Re-sync with service-resolved version (might have updated timestamps/_ids)
+            setDraftData(saved);
+          }
         }).catch(err => {
           console.warn('⚠️ [useDraftListing] Background save failed:', err.message);
         });

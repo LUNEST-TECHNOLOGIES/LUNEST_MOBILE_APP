@@ -108,12 +108,12 @@ const TermsAgreement = () => {
     setShowCancelModal(false);
   };
 
-  const handleBack = () => {
+  const handleBack = async () => {
     // Save terms agreement state and navigate back to availability
     const finalDraftId = (draftData && draftData.draftId) || draftId;
     
     // OPTIMIZATION: Trigger save in background and navigate immediately
-    saveDraftData({
+    await saveDraftData({
       ...draftData,  // Preserve all existing data
       termsAgreed,
       currentStep: 8,
@@ -126,12 +126,12 @@ const TermsAgreement = () => {
     });
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (termsAgreed) {
       const finalDraftId = (draftData && draftData.draftId) || draftId || draftListingService.generateDraftId();
       
       // OPTIMIZATION: Trigger save in background and navigate immediately
-      saveDraftData({
+      await saveDraftData({
         ...draftData,  // Preserve all existing data
         termsAgreed: true,
         currentStep: 9,

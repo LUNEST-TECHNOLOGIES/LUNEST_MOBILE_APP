@@ -22,6 +22,7 @@ import Svg, { Circle, Path } from "react-native-svg";
 import CancelConfirmationModal from "../../src/components/create-listing/CancelConfirmationModal";
 import { useDraftListing } from "../../src/hooks/useDraftListing";
 import draftListingService from "../../src/services/draftListingService";
+import toastService from "../../src/services/toastService";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -374,14 +375,14 @@ const PropertyDetails = () => {
     setShowCancelModal(false);
   };
 
-  const handleBack = () => {
+  const handleBack = async () => {
     const finalDraftId =
       (draftData && draftData.draftId) ||
       draftId ||
       draftListingService.generateDraftId();
 
     // OPTIMIZATION: Trigger save in background and navigate immediately
-    saveDraftData({
+    await saveDraftData({
       propertyTitle,
       furnishing: furnishing || "",
       bedrooms,
@@ -397,62 +398,44 @@ const PropertyDetails = () => {
     }, { background: true });
 
     router.replace({
-      pathname: "/create-listing/intent",
+      pathname: "/create-listing/property-type",
       params: { draftId: finalDraftId },
     });
   };
 
   const isCommercial = ['office', 'warehouse', 'shop', 'land'].includes(draftData?.propertyType || params?.propertyType);
 
-  const handleNext = () => {
+  const handleNext = async () => {
     // Validate required fields
     if (!propertyTitle.trim()) {
-      Alert.alert(
-        "Property Title Required",
-        "Please enter a title for your property.",
-      );
+      toastService.showError("Please enter a title for your property.");
       return;
     }
     if (!furnishing) {
-      Alert.alert(
-        "Furnishing Required",
-        "Please select the furnishing status of your property.",
-      );
+      toastService.showError("Please select the furnishing status of your property.");
       return;
     }
     if (isResidentialPurpose && (!bedrooms || parseInt(bedrooms) < 1)) {
-      Alert.alert("Bedrooms Required", "Please enter the number of bedrooms for your residence.");
+      toastService.showError("Please enter the number of bedrooms for your residence.");
       return;
     }
     
     if (isResidentialPurpose && (!bathrooms || parseInt(bathrooms) < 1)) {
-      Alert.alert(
-        "Bathrooms Required",
-        "Please enter the number of bathrooms.",
-      );
+      toastService.showError("Please enter the number of bathrooms.");
       return;
     }
 
     if (isBusinessPurpose && (!totalSquareFootage.trim() || !usageType.trim())) {
-      Alert.alert(
-        "Missing Details",
-        "Please provide square footage and usage type for your business listing.",
-      );
+      toastService.showError("Please provide square footage and usage type for your business listing.");
       return;
     }
 
     if (!titleType) {
-      Alert.alert(
-        "Title Type Required",
-        "Please select the title type for your property.",
-      );
+      toastService.showError("Please select the title type for your property.");
       return;
     }
     if (!propertyHighlight || propertyHighlight.trim().length < 10) {
-      Alert.alert(
-        "Description Required",
-        "Please enter a description (at least 10 characters).",
-      );
+      toastService.showError("Please enter a description (at least 10 characters).");
       return;
     }
     // Note: Guest capacity is optional
@@ -463,7 +446,7 @@ const PropertyDetails = () => {
       draftListingService.generateDraftId();
 
     // OPTIMIZATION: Trigger save in background and navigate immediately
-    saveDraftData({
+    await saveDraftData({
       propertyTitle,
       furnishing: furnishing || "",
       bedrooms,

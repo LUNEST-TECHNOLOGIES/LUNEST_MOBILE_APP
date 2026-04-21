@@ -132,18 +132,22 @@ const AddFundsScreen = () => {
         }
 
         setTimeout(() => {
-          if (context?.returnUrl) {
-            console.log("[AddFunds] Redirecting to stored context:", context.returnUrl);
+          if (context?.returnUrl || params.returnUrl) {
+            const finalUrl = context?.returnUrl || params.returnUrl;
+            console.log("[AddFunds] Redirecting to returnUrl:", finalUrl);
             
             // Construct clean params for return
             const returnParams = {
-              ...(context.params || {}),
+              ...(params || {}),
+              ...(context?.params || {}),
               fromBooking: "true",
-              refreshed: "true"
+              refreshed: "true",
+              status: "success",
+              reference: reference
             };
 
             router.replace({
-              pathname: context.returnUrl,
+              pathname: finalUrl,
               params: returnParams
             });
             
@@ -152,8 +156,6 @@ const AddFundsScreen = () => {
             } else {
               AsyncStorage.removeItem("lunest_payment_context");
             }
-          } else if (params.returnUrl) {
-            router.replace(params.returnUrl);
           } else if (router.canGoBack()) {
             router.back();
           } else {

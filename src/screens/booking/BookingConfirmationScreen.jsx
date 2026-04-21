@@ -175,6 +175,7 @@ const BookingConfirmationScreen = () => {
   const [showDisputeModal, setShowDisputeModal] = useState(false);
   const [disputeReason, setDisputeReason] = useState("");
   const [isReportingIssue, setIsReportingIssue] = useState(false);
+  const [isCheckingIn, setIsCheckingIn] = useState(false);
 
   const showToastMessage = (message, type = TOAST_TYPE.SUCCESS) => {
     setToastConfig({ message, type });
@@ -287,6 +288,21 @@ const BookingConfirmationScreen = () => {
       })()
     : params.checkIn || "-";
     
+  const isCheckInToday = (() => {
+    if (!booking?.checkIn) return false;
+    try {
+      const checkInDate = new Date(booking.checkIn);
+      const today = new Date();
+      return (
+        checkInDate.getFullYear() === today.getFullYear() &&
+        checkInDate.getMonth() === today.getMonth() &&
+        checkInDate.getDate() === today.getDate()
+      );
+    } catch {
+      return false;
+    }
+  })();
+
   const checkOut = booking?.checkOut
     ? (() => {
         try {
@@ -541,6 +557,40 @@ const BookingConfirmationScreen = () => {
     } finally {
       setIsReportingIssue(false);
     }
+  };
+
+  // ── Manual Check-in ──
+  const handleCheckIn = async () => {
+    if (!bookingId) return;
+
+    Alert.alert(
+      "Confirm Check-in",
+      "Are you already at the property and successfully checked in? By confirming, you verify your arrival and the host will be credited with their earnings for this stay.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Yes, Checked-in",
+          onPress: async () => {
+            setIsCheckingIn(true);
+            try {
+              const result = await bookingService.checkInBooking(bookingId);
+              if (result.success) {
+                showToastMessage(result.message, TOAST_TYPE.SUCCESS);
+                // Refresh booking data
+                const fresh = await bookingService.fetchBookingById(bookingId);
+                if (fresh?.success) setBooking(fresh.booking);
+              } else {
+                showToastMessage(result.message, TOAST_TYPE.ERROR);
+              }
+            } catch (error) {
+              showToastMessage("Something went wrong", TOAST_TYPE.ERROR);
+            } finally {
+              setIsCheckingIn(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   // ── Calculate Sliding Scale Refund Estimate for UI ──
@@ -1894,27 +1944,56 @@ const BookingConfirmationScreen = () => {
                 </>
                         ) : statusLower === "confirmed" ? (
               <>
-                <Pressable
-                  style={[styles.outlineDangerButton, styles.buttonFlex]}
-                  onPress={() => setShowCancelModal(true)}
-                >
-                  <Text style={styles.outlineDangerButtonText}>Cancel Stay</Text>
-                </Pressable>
+                {isGuest && !booking?.guestCheckedIn ? (
+                  <Pressable
+                    style={[styles.primaryButton, styles.buttonFlex, { backgroundColor: '#22C55E' }]}
+                    onPress={handleCheckIn}
+                    disabled={isCheckingIn}
+                  >
+                    {isCheckingIn ? (
+                      <ActivityIndicator color="#fff" size="small" />
+                    ) : (
+                      <Text style={styles.primaryButtonText}>Confirm Check-in</Text>
+                    )}
+                  </Pressable>
+                ) : (
+                  <Pressable
+                    style={[styles.primaryButton, styles.buttonFlex]}
+                    onPress={handleShare}
+                  >
+                    <Text style={styles.primaryButtonText}>Share</Text>
+                  </Pressable>
+                )}
+                {!isCheckInToday && (
+                  <Pressable
+                    style={[styles.outlineDangerButton, styles.buttonFlex]}
+                    onPress={() => setShowCancelModal(true)}
+                  >
+                    <Text style={styles.outlineDangerButtonText}>Cancel Stay</Text>
+                  </Pressable>
+                )}
                 <Pressable
                   style={[styles.outlineButton, { width: 50, height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center' }]}
                   onPress={() => setShowDisputeModal(true)}
                 >
                   <Ionicons name="alert-circle-outline" size={24} color="#fd3131" />
                 </Pressable>
-                <Pressable
-                  style={[styles.primaryButton, styles.buttonFlex]}
-                  onPress={handleShare}
-                >
-                  <Text style={styles.primaryButtonText}>Share</Text>
-                </Pressable>
               </>
             ) : statusLower === "ongoing" && !isHostView ? (
               <>
+                {isGuest && !booking?.guestCheckedIn && (
+                  <Pressable
+                    style={[styles.primaryButton, styles.buttonFlex, { backgroundColor: '#22C55E', marginRight: 8 }]}
+                    onPress={handleCheckIn}
+                    disabled={isCheckingIn}
+                  >
+                    {isCheckingIn ? (
+                      <ActivityIndicator color="#fff" size="small" />
+                    ) : (
+                      <Text style={styles.primaryButtonText}>Check-in</Text>
+                    )}
+                  </Pressable>
+                )}
                 <Pressable
                   style={[styles.primaryButton, styles.buttonFlex]}
                   onPress={() => setShowCheckoutModal(true)}
@@ -2099,7 +2178,7 @@ const BookingConfirmationScreen = () => {
         title="Report Issue / Raise Dispute"
         subtitle="Raising a dispute will immediately lock the host's payment in escrow and alert our support team for investigation. Please provide details."
         placeholder="e.g. Property doesn't match photos, host is unresponsive, access code doesn't work..."
-        submitLabel="Lock Funds & Raise Dispute"
+        submitLabel="Lock Funds & Dispute"
       />
 
     </SafeAreaView>

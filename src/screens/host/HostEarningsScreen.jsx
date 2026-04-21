@@ -216,7 +216,12 @@ const HostEarningsScreen = () => {
           let paidOut = 0;
 
           mapped.forEach((txn) => {
-            // Sum all earning-related categories, accounting for credits and debits
+            // Exclude non-earning categories like withdrawals, funding, and platform costs
+            if (["WITHDRAWAL", "TOP_UP", "MANUAL_FUNDING", "FAILED_TRANSACTION", "VAT", "PLATFORM_FEE"].includes(txn.displayType)) return;
+            
+            // Exclude expired or significantly failed bookings
+            if (txn.status === "FAILED" || txn.status === "EXPIRED") return;
+
             const isFinancialValue = [
               "HOST_EARNING",
               "RENT",
@@ -226,9 +231,6 @@ const HostEarningsScreen = () => {
             ].includes(txn.displayType) || txn.type === "CREDIT" || txn.type === "DEBIT";
 
             if (isFinancialValue) {
-              // Exclude non-earning categories like withdrawals, funding, and platform costs
-              if (["WITHDRAWAL", "TOP_UP", "REFUND", "VAT", "PLATFORM_FEE"].includes(txn.displayType)) return;
-
               const val = txn.type === "DEBIT" ? -txn.amount : txn.amount;
 
               if (txn.status === "ON_HOLD" || txn.status === "PENDING") {
@@ -238,6 +240,10 @@ const HostEarningsScreen = () => {
                 pendingEarnings += val;
                 totalEarnings += val;
               } else if (txn.status === "COMPLETED") {
+                // For caution fees, only count them towards earnings if they were settled/transferred to host (payout)
+                // In typical flows, caution fees are returned to guest, so we exclude COMPLETED SECURITY_DEPOSIT from "Earnings" card
+                if (txn.displayType === "SECURITY_DEPOSIT") return;
+
                 paidOut += val;
                 totalEarnings += val;
               }

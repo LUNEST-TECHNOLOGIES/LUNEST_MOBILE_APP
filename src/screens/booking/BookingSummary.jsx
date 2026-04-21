@@ -1589,13 +1589,16 @@ const BookingSummary = () => {
               </View>
               <ScrollView style={styles.policyContent}>
                 <Text style={styles.policyText}>
-                  This booking is non-refundable. Once you confirm your booking
-                  and payment is processed, you will not be able to cancel or
-                  request a refund.
+                  Lunest follows a sliding-scale refund policy based on how early you cancel:
                 </Text>
+                <View style={{ marginVertical: 10, gap: 8 }}>
+                   <Text style={styles.policyText}>• <Text style={{fontWeight: '700'}}>7+ Days before check-in:</Text> Full cash refund (minus ₦5,000 platform processing fee).</Text>
+                   <Text style={styles.policyText}>• <Text style={{fontWeight: '700'}}>3 – 7 Days before:</Text> 80% refund (issued as platform credit) and 20% penalty.</Text>
+                   <Text style={styles.policyText}>• <Text style={{fontWeight: '700'}}>48 – 72 Hours before:</Text> 60% refund (issued as platform credit) and 40% penalty.</Text>
+                   <Text style={styles.policyText}>• <Text style={{fontWeight: '700'}}>&lt; 48 Hours before:</Text> 50% refund (issued as platform credit) and 50% penalty.</Text>
+                </View>
                 <Text style={styles.policyText}>
-                  If you need to modify your booking, please contact the
-                  property host directly through the messaging feature.
+                  Please note that once the stay has officially started, or if the check-in time has passed, refunds are generally not available. Platform credits are issued as unique coupons valid for 1 year.
                 </Text>
               </ScrollView>
             </View>

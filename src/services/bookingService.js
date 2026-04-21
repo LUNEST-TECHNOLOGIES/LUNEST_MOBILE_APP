@@ -519,6 +519,48 @@ class BookingService {
   }
 
   /**
+   * Guest confirms check-in manually
+   * @param {string} bookingId - The booking ID
+   * @returns {Promise<Object>} Result
+   */
+  async checkInBooking(bookingId) {
+    console.log("🛎️ [BookingService] Confirming manual check-in for:", bookingId);
+
+    if (!bookingId) {
+      return { success: false, message: "Booking ID is required" };
+    }
+
+    try {
+      const token = await authService.getToken();
+      if (!token) return { success: false, message: "Authentication required" };
+
+      const response = await apiClient.post(
+        `/v1/bookings/${bookingId}/check-in`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      console.log("✅ [BookingService] Check-in confirmed successfully");
+      return {
+        success: true,
+        message: "Check-in confirmed. Host earnings released.",
+        booking: (response && response.body) || (response && response.data),
+      };
+    } catch (error) {
+      console.error("❌ [BookingService] Error confirming check-in:", error);
+      const categorized = NetworkErrorHandler.categorizeError(error);
+      return {
+        success: false,
+        message: categorized.userMessage || "Failed to confirm check-in",
+      };
+    }
+  }
+
+  /**
    * Upload review images to the server
    * Any authenticated user (guest or host) can upload review images
    * @param {string[]} imageUris - Array of local image URIs

@@ -3,6 +3,13 @@
  * User must agree to terms before proceeding to review
  */
 
+import { 
+  X, 
+  Check, 
+  ChevronRight, 
+  AlertCircle,
+  LayoutGrid
+} from "lucide-react-native";
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
@@ -23,31 +30,7 @@ import draftListingService from '../../src/services/draftListingService';
 import toastService from '../../src/services/toastService';
 import ToastNotification from '../../src/components/common/ToastNotification';
 
-// Close X Icon
-const CloseIcon = ({ size = 24, color = '#000000' }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={{ width: size, height: size }}>
-    <Path
-      d="M18 6L6 18M6 6L18 18"
-      stroke={color}
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </Svg>
-);
-
-// Check Icon
-const CheckIcon = ({ size = 20, color = '#22C55E' }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Path
-      d="M20 6L9 17L4 12"
-      stroke={color}
-      strokeWidth={2.5}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </Svg>
-);
+// Icons migrated to Lucide
 
 // Progress Bar Component
 const ProgressBar = ({ currentStep, totalSteps }) => {
@@ -185,10 +168,7 @@ const TermsAgreement = () => {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Create a Listing</Text>
         <Pressable style={styles.closeButton} onPress={handleClose}>
-          <View style={styles.closeButtonBg} />
-          <View style={{ zIndex: 5 }}>
-            <CloseIcon size={14} color="#000000" />
-          </View>
+          <X size={24} color="#000000" />
         </Pressable>
       </View>
 
@@ -241,7 +221,7 @@ const TermsAgreement = () => {
             styles.checkbox,
             termsAgreed && styles.checkboxChecked
           ]}>
-            {termsAgreed && <CheckIcon size={14} color="#FFFFFF" />}
+            {termsAgreed && <Check size={16} color="#FFFFFF" strokeWidth={3} />}
           </View>
           <Text style={styles.agreementText}>
             I agree to the Terms of Service and Listing Agreement

@@ -106,6 +106,8 @@ const AMENITIES_CATEGORIES = [
       { id: 'workspace', label: 'Dedicated Workspace', icon: 'Laptop' },
       { id: 'fiber_optics', label: 'Fiber Optics', icon: 'Wifi' },
       { id: 'printer', label: 'Printer/Scanner', icon: 'Printer' },
+      { id: 'playstation_4', label: 'PlayStation 4', icon: 'Gamepad2' },
+      { id: 'playstation_5', label: 'PlayStation 5', icon: 'Gamepad2' },
     ],
   },
   {

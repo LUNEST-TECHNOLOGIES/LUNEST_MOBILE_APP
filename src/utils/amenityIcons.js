@@ -48,7 +48,8 @@ import {
   VolumeX,
   Printer,
   ShoppingBag,
-  LayoutGrid
+  LayoutGrid,
+  Gamepad2
 } from 'lucide-react-native';
 
 const AMENITY_ICONS = {
@@ -110,6 +111,13 @@ const AMENITY_ICONS = {
   smart_home: Building2,
   printer: Printer,
   "soundproof room": VolumeX,
+  playstation: Gamepad2,
+  "playstation 4": Gamepad2,
+  "playstation 5": Gamepad2,
+  ps4: Gamepad2,
+  ps5: Gamepad2,
+  "gaming console": Gamepad2,
+  gamepad2: Gamepad2,
 
   // Lifestyle & Luxury
   pool: Waves,

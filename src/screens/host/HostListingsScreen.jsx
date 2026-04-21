@@ -1,9 +1,22 @@
-import { useLocalSearchParams, useRouter } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
-import { useCallback, useEffect, useState, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
+import ChecksDoubleIcon from "../../assets/icons/listing/checks-double-v.svg";
+import InfoIcon from "../../assets/icons/listing/circle-info.svg";
+import CloseIcon from "../../assets/icons/listing/close-x.svg";
+import ArrowDownIcon from "../../assets/icons/listing/vuesax/linear/arrow-3.svg";
+import PauseIcon from "../../assets/icons/listing/vuesax/linear/pause-circle.svg";
+import RefreshIcon from "../../assets/icons/listing/vuesax/linear/refresh-2.svg";
+import TrashIcon from "../../assets/icons/listing/vuesax/linear/trash-1.svg";
+import CalendarIcon from "../../assets/icons/listing/vuesax/outline/calendar.svg";
+import ChartIcon from "../../assets/icons/listing/vuesax/outline/chart-square.svg";
+import ClockIcon from "../../assets/icons/listing/vuesax/outline/clock.svg";
+import EditIcon from "../../assets/icons/listing/vuesax/outline/edit.svg";
+import HomeIcon from "../../assets/icons/navbar/HomeIcon.svg";
+
+
 import {
-  ActivityIndicator,
   ImageBackground,
   Modal,
   Platform,
@@ -15,10 +28,9 @@ import {
   Text,
   TouchableOpacity,
   useWindowDimensions,
-  View,
+  View
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Path, Svg } from "react-native-svg";
 
 // Context
 import { USER_MODES, useUserMode } from "../../context";
@@ -28,27 +40,10 @@ import Toast from "../../components/common/Toast";
 import configService from "../../services/configService";
 import draftListingService from "../../services/draftListingService";
 import listingService from "../../services/listingService";
-import logService from "../../services/logService";
 import * as ImageUtils from "../../utils/imageUtils";
 
 // Icons
-// Icons
-import { 
-  CheckCheck, 
-  AlertCircle, 
-  X, 
-  ChevronDown, 
-  PauseCircle, 
-  RefreshCw, 
-  Trash2, 
-  Calendar, 
-  TrendingUp, 
-  Clock, 
-  Pencil, 
-  Home,
-  Plus,
-  Zap
-} from "lucide-react-native";
+import { Plus } from "lucide-react-native";
 import { HostListingSkeleton } from "../../components/skeletons";
 
 // Status Badge configuration removed local SVG definitions here as we use Lucide now
@@ -172,20 +167,20 @@ const StatusBadge = ({ status }) => {
     <View style={styles.statusBadge}>
       <View style={styles.statusBadgeContent}>
         {normalizedStatus === "LIVE" && (
-          <CheckCheck size={14} color={config.color} />
+          <ChecksDoubleIcon width={14} height={14} color={config.color} />
         )}
-        {normalizedStatus === "PENDING" && <Clock size={14} color={config.color} />}
-        {normalizedStatus === "DRAFT" && <Pencil size={14} color={config.color} />}
+        {normalizedStatus === "PENDING" && <ClockIcon width={14} height={14} color={config.color} />}
+        {normalizedStatus === "DRAFT" && <EditIcon width={14} height={14} color={config.color} />}
         {normalizedStatus === "EXPIRED" && (
-          <RefreshCw size={14} color={config.color} />
+          <RefreshIcon width={14} height={14} color={config.color} />
         )}
         {(normalizedStatus === "PAUSED" ||
           normalizedStatus === "SUSPENDED") && (
-          <PauseCircle size={14} color={config.color} />
+          <PauseIcon width={14} height={14} color={config.color} />
         )}
-        {normalizedStatus === "REJECTED" && <AlertCircle size={14} color={config.color} />}
+        {normalizedStatus === "REJECTED" && <InfoIcon width={14} height={14} color={config.color} />}
         {normalizedStatus === "BOOKED" && (
-          <CheckCheck size={14} color="#DB2777" />
+          <ChecksDoubleIcon width={14} height={14} color="#DB2777" />
         )}
         <Text style={[styles.statusText, { color: config.color }]}>
           {config.label}
@@ -439,7 +434,7 @@ const ListingCard = ({
                   onEdit?.();
                 }}
               >
-                <Pencil size={20} color="#6D6D6D" />
+                <EditIcon width={20} height={20} color="#6D6D6D" />
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.cardActionButton}
@@ -448,10 +443,10 @@ const ListingCard = ({
                   onCalendar?.();
                 }}
               >
-                <Calendar size={20} color="#6D6D6D" />
+                <CalendarIcon width={20} height={20} color="#6D6D6D" />
               </TouchableOpacity>
               <View style={[styles.cardActionButton, styles.disabledButton]}>
-                <TrendingUp size={20} color="#6D6D6D" />
+                <ChartIcon width={20} height={20} color="#6D6D6D" />
               </View>
               <TouchableOpacity
                 style={styles.cardActionButton}
@@ -460,7 +455,7 @@ const ListingCard = ({
                   onPause?.();
                 }}
               >
-                <PauseCircle size={20} color="#6D6D6D" />
+                <PauseIcon width={20} height={20} color="#6D6D6D" />
               </TouchableOpacity>
             </>
           )}
@@ -475,7 +470,7 @@ const ListingCard = ({
                   onEdit?.();
                 }}
               >
-                <Pencil size={20} color="#6D6D6D" />
+                <EditIcon width={20} height={20} color="#6D6D6D" />
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.cardActionButton}
@@ -484,7 +479,7 @@ const ListingCard = ({
                   onCalendar?.();
                 }}
               >
-                <Calendar size={20} color="#6D6D6D" />
+                <CalendarIcon width={20} height={20} color="#6D6D6D" />
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.cardActionButton}
@@ -493,7 +488,7 @@ const ListingCard = ({
                   onDelete?.();
                 }}
               >
-                <Trash2 size={20} color="#FD3131" />
+                <TrashIcon width={20} height={20} color="#FD3131" />
               </TouchableOpacity>
             </>
           )}
@@ -508,7 +503,7 @@ const ListingCard = ({
                   onEdit?.();
                 }}
               >
-                <Pencil size={20} color="#6D6D6D" />
+                <EditIcon width={20} height={20} color="#6D6D6D" />
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.cardActionButton}
@@ -517,7 +512,7 @@ const ListingCard = ({
                   onDelete?.();
                 }}
               >
-                <Trash2 size={20} color="#FD3131" />
+                <TrashIcon width={20} height={20} color="#FD3131" />
               </TouchableOpacity>
             </>
           )}
@@ -532,7 +527,7 @@ const ListingCard = ({
                   onEdit?.();
                 }}
               >
-                <RefreshCw size={20} color="#6D6D6D" />
+                <RefreshIcon width={20} height={20} color="#6D6D6D" />
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.cardActionButton}
@@ -541,7 +536,7 @@ const ListingCard = ({
                   onDelete?.();
                 }}
               >
-                <Trash2 size={20} color="#FD3131" />
+                <TrashIcon width={20} height={20} color="#FD3131" />
               </TouchableOpacity>
             </>
           )}
@@ -556,7 +551,7 @@ const ListingCard = ({
                   onEdit?.();
                 }}
               >
-                <Pencil size={20} color="#6D6D6D" />
+                <EditIcon width={20} height={20} color="#6D6D6D" />
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.cardActionButton}
@@ -565,7 +560,7 @@ const ListingCard = ({
                   onPause?.();
                 }}
               >
-                <RefreshCw size={20} color="#6D6D6D" />
+                <RefreshIcon width={20} height={20} color="#6D6D6D" />
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.cardActionButton}
@@ -574,7 +569,7 @@ const ListingCard = ({
                   onDelete?.();
                 }}
               >
-                <Trash2 size={20} color="#FD3131" />
+                <TrashIcon width={20} height={20} color="#FD3131" />
               </TouchableOpacity>
             </>
           )}
@@ -606,7 +601,7 @@ const FilterTab = ({ tab, isActive, onPress }) => (
  */
 const EmptyState = ({ onCreateListing }) => (
   <View style={styles.emptyContainer}>
-    <Home size={80} color="#CCCCCC" />
+    <HomeIcon width={80} height={80} color="#CCCCCC" />
     <Text style={styles.emptyTitle}>No Listings Yet</Text>
     <Text style={styles.emptySubtext}>
       Start earning by listing your property on Lunest
@@ -627,7 +622,7 @@ const EmptyState = ({ onCreateListing }) => (
  */
 const PromotionEmptyState = ({ onPromoteListing }) => (
   <View style={styles.emptyContainer}>
-    <Zap size={80} color="#CCCCCC" />
+    <ChartIcon width={80} height={80} color="#CCCCCC" />
     <Text style={styles.emptyTitle}>No Promotions Yet</Text>
     <Text style={styles.emptySubtext}>
       Boost your listings to get more visibility and bookings
@@ -666,7 +661,7 @@ const ListingTipsOverlay = ({ visible, onClose }) => {
           <View style={styles.modalContentResponsive}>
             {/* Close Button */}
             <Pressable style={styles.modalCloseButton} onPress={onClose}>
-              <X size={24} color="#292929" />
+              <CloseIcon width={24} height={24} color="#292929" />
             </Pressable>
             {/* Title */}
             <Text style={styles.modalTitle}>Listing Tips?</Text>
@@ -679,7 +674,7 @@ const ListingTipsOverlay = ({ visible, onClose }) => {
               {tips.map((tip, index) => (
                 <View key={index} style={styles.tipItem}>
                   <View style={styles.tipIconContainer}>
-                    <CheckCheck size={18} color="#192DFF" />
+                    <ChecksDoubleIcon width={18} height={18} color="#192DFF" />
                   </View>
                   <Text style={styles.tipText}>{tip}</Text>
                 </View>
@@ -1743,7 +1738,7 @@ const HostListingsScreen = () => {
             style={styles.tipsButton}
             onPress={() => setShowTipsModal(true)}
           >
-            <AlertCircle size={18} color="#FD3131" />
+            <InfoIcon width={18} height={18} color="#FD3131" />
             <Text style={styles.tipsText}>Listing Tips?</Text>
           </TouchableOpacity>
         </View>
@@ -1770,7 +1765,7 @@ const HostListingsScreen = () => {
           style={styles.tipsButton}
           onPress={() => setShowTipsModal(true)}
         >
-          <AlertCircle size={18} color="#FD3131" />
+          <InfoIcon width={18} height={18} color="#FD3131" />
           <Text style={styles.tipsText}>Listing Tips?</Text>
         </TouchableOpacity>
       </View>
@@ -1795,8 +1790,9 @@ const HostListingsScreen = () => {
       {/* Sort By */}
       {!showEmptyState && (
         <TouchableOpacity style={styles.sortByButton} onPress={handleToggleSort}>
-          <ChevronDown 
-            size={16} 
+          <ArrowDownIcon 
+            width={16} 
+            height={16} 
             color="#000000" 
             style={[
               styles.sortIcon,

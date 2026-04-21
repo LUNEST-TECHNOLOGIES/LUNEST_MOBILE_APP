@@ -260,7 +260,7 @@ const PropertyDetailsScreen = () => {
         : null;
   const { width: screenWidth } = useWindowDimensions();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [isFavorite, setIsFavorite] = useState(false);
+  const [isBookmarked, setIsBookmarked] = useState(false);
   const [bookmarkId, setBookmarkId] = useState(null);
   const [isHeaderFixed, setIsHeaderFixed] = useState(false);
   const [showVerifiedInfo, setShowVerifiedInfo] = useState(false);
@@ -472,6 +472,24 @@ const PropertyDetailsScreen = () => {
     }
   }, [listingId]);
 
+  // Check if current property is bookmarked by the user
+  useEffect(() => {
+    const checkBookmarkStatus = async () => {
+      if (!listingId) return;
+      try {
+        const result = await bookmarkService.isListingBookmarked(listingId);
+        if (result) {
+          setIsBookmarked(result.isBookmarked);
+          setBookmarkId(result.bookmarkId);
+        }
+      } catch (err) {
+        console.warn("[PropertyDetails] Error checking bookmark status:", err);
+      }
+    };
+
+    checkBookmarkStatus();
+  }, [listingId]);
+
   const pickReviewImages = async () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -618,23 +636,23 @@ const PropertyDetailsScreen = () => {
     handleRefresh();
   };
 
-  const handleToggleFavorite = async () => {
+  const handleToggleBookmark = async () => {
     try {
-      console.log("[PropertyDetailsScreen] Toggling favorite:", {
+      console.log("[PropertyDetailsScreen] Toggling bookmark:", {
         listingId,
-        currentState: isFavorite,
+        currentState: isBookmarked,
         bookmarkId,
       });
 
       const result = await bookmarkService.toggleBookmark(
         listingId,
-        isFavorite,
+        isBookmarked,
         bookmarkId,
       );
 
       if (result.success) {
-        const newStatus = !isFavorite;
-        setIsFavorite(newStatus);
+        const newStatus = !isBookmarked;
+        setIsBookmarked(newStatus);
         
         if (result.action === "added") {
           showToast("Added to your saved properties");
@@ -648,7 +666,7 @@ const PropertyDetailsScreen = () => {
         }
       }
     } catch (error) {
-      console.error("[PropertyDetailsScreen] Error toggling favorite:", error);
+      console.error("[PropertyDetailsScreen] Error toggling bookmark:", error);
     }
   };
 

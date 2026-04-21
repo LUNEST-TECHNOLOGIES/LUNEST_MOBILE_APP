@@ -1776,16 +1776,19 @@ const PropertyDetailsScreen = () => {
             style={styles.featuresScroll}
             contentContainerStyle={styles.whatYouGetContainer}
           >
-            {propertyData.features.map((feature, index) => (
-              <View key={index} style={styles.whatYouGetBox}>
-                <CheckCircle2 
-                  size={18} 
-                  color="#010135" 
-                  strokeWidth={2}
-                />
-                <Text style={styles.whatYouGetText}>{feature.label}</Text>
-              </View>
-            ))}
+            {propertyData.features.map((feature, index) => {
+              const Icon = getAmenityIcon(feature.label);
+              return (
+                <View key={index} style={styles.whatYouGetBox}>
+                  <Icon 
+                    size={18} 
+                    color="#FFFFFF" 
+                    strokeWidth={2}
+                  />
+                  <Text style={styles.whatYouGetText}>{feature.label}</Text>
+                </View>
+              );
+            })}
           </ScrollView>
         </View>
 
@@ -2699,7 +2702,7 @@ const styles = StyleSheet.create({
   },
   priceNote: {
     fontSize: 12,
-    color: "#666",
+    color: "#010135",
   },
   fullDetailsButton: {
     flexDirection: "row",
@@ -2749,16 +2752,14 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    backgroundColor: "#F3F4F6", // Light friendly professional background
+    backgroundColor: "#010135",
     borderRadius: 16,
     justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
   },
   whatYouGetText: {
     fontSize: 12,
     fontWeight: "700",
-    color: "#010135",
+    color: "#FFFFFF",
   },
   keyAmenitiesSection: {
     padding: 20,

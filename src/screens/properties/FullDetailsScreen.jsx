@@ -688,7 +688,7 @@ const FullDetailsScreen = () => {
             const IconComponent = getAmenityIcon(feature.label);
             return (
               <View key={index} style={styles.whatYouGetBox}>
-                <IconComponent size={18} color="#010135" strokeWidth={2.5} />
+                <IconComponent size={18} color="#FFFFFF" strokeWidth={2.5} />
                 <Text style={styles.whatYouGetText}>{feature.label}</Text>
               </View>
             );
@@ -826,11 +826,10 @@ const FullDetailsScreen = () => {
         <View style={styles.amenitiesContainer}>
           {propertyData.amenities.map((amenity, index) => (
             <View key={index} style={styles.amenityRow}>
-              <Ionicons 
-                name={getAmenityIcon(amenity)} 
-                size={20} 
-                color="#010135" 
-              />
+              {(() => {
+                const Icon = getAmenityIcon(amenity);
+                return <Icon size={20} color="#010135" strokeWidth={2} />;
+              })()}
               <Text style={styles.amenityText}>{amenity}</Text>
             </View>
           ))}
@@ -1663,7 +1662,7 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    backgroundColor: "#0E2F5D",
+    backgroundColor: "#010135",
     borderRadius: 20,
     justifyContent: "center",
   },

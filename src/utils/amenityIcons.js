@@ -146,6 +146,8 @@ const AMENITY_ICONS = {
   office: Building2,
   warehouse: Warehouse,
   school: School,
+  guests: Users,
+  guest: Users,
 };
 
 /**

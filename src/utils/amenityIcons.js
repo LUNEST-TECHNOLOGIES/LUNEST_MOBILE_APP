@@ -49,7 +49,8 @@ import {
   Printer,
   ShoppingBag,
   LayoutGrid,
-  Gamepad2
+  Gamepad2,
+  Bed
 } from 'lucide-react-native';
 
 const AMENITY_ICONS = {
@@ -72,6 +73,8 @@ const AMENITY_ICONS = {
   dishwasher: UtensilsCrossed,
   "coffee maker": Coffee,
   dining_area: Table,
+  bedroom: Bed,
+  bathroom: Bath,
 
   // Security & Access
   security_24_7: ShieldCheck,

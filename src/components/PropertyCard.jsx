@@ -182,13 +182,19 @@ const PropertyCard = ({
         <View style={styles.propertyDetailsRow}>
           {Number(bedrooms) > 0 && (
             <View style={styles.detailItem}>
-              <Ionicons name="bed-outline" size={12} color="#4B5563" />
+              {(() => {
+                const Icon = getAmenityIcon("bedroom");
+                return <Icon size={12} color="#4B5563" strokeWidth={2.5} />;
+              })()}
               <Text style={styles.detailText}>{bedrooms} Bedroom</Text>
             </View>
           )}
           {Number(bathrooms) > 0 && (
             <View style={styles.detailItem}>
-              <Ionicons name="water-outline" size={12} color="#4B5563" />
+              {(() => {
+                const Icon = getAmenityIcon("bathroom");
+                return <Icon size={12} color="#4B5563" strokeWidth={2.5} />;
+              })()}
               <Text style={styles.detailText}>{bathrooms} Bathroom</Text>
             </View>
           )}
@@ -197,9 +203,10 @@ const PropertyCard = ({
           {Array.isArray(amenities) && amenities.slice(0, 1).map((amenity, index) => {
              const label = typeof amenity === 'object' ? (amenity.label || amenity.name || "") : String(amenity);
              if (!label) return null;
+             const IconComponent = getAmenityIcon(label);
              return (
                <View key={index} style={styles.detailItem}>
-                 <Ionicons name={getAmenityIcon(label)} size={12} color="#4B5563" />
+                 <IconComponent size={12} color="#4B5563" strokeWidth={2.5} />
                  <Text style={styles.detailText}>{label}</Text>
                </View>
              );

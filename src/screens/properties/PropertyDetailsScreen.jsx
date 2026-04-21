@@ -67,6 +67,7 @@ import { formatCurrency } from "../../utils/currency";
 import { resolveImageUrlSync } from "../../utils/imageUtils";
 import ShieldTickIcon from "../../assets/icons/shield-tick.svg";
 import StarIcon from "../../assets/icons/star.svg";
+import ArrowLeftIcon from "../../assets/icons/arrow-left.svg";
 import CircleInfo2Icon from "../../assets/icons/circle-info2.svg";
 
 // House rules ID to label mapping (aligned with availability.jsx HOUSE_RULES)
@@ -1620,7 +1621,7 @@ const PropertyDetailsScreen = () => {
           style={[styles.backButton, !isHeaderFixed && styles.backCircle]}
           onPress={handleGoBack}
         >
-          <ArrowLeft size={24} color={isHeaderFixed ? "#FFFFFF" : "#000"} strokeWidth={2} />
+          <ArrowLeftIcon width={24} height={24} color={isHeaderFixed ? "#FFFFFF" : "#000"} />
         </Pressable>
 
         {isHeaderFixed && (

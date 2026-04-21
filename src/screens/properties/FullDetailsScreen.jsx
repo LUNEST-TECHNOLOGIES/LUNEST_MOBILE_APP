@@ -27,6 +27,7 @@ import VerifiedInfoOverlay from "../../components/modals/VerifiedInfoOverlay";
 import bookingService from "../../services/bookingService";
 import Skeleton from "../../components/common/Skeleton";
 import configService from "../../services/configService";
+import { getAmenityIcon } from "../../utils/amenityIcons";
 import { fetchHostData } from "../../services/hostService";
 import listingService from "../../services/listingService";
 import { formatCurrency } from "../../utils/currency";
@@ -684,12 +685,15 @@ const FullDetailsScreen = () => {
           style={styles.featuresScroll}
           contentContainerStyle={styles.whatYouGetContainer}
         >
-          {features.map((feature, index) => (
-            <View key={index} style={styles.whatYouGetBox}>
-              <DoneV2Icon width={16} height={16} />
-              <Text style={styles.whatYouGetText}>{feature.label}</Text>
-            </View>
-          ))}
+          {features.map((feature, index) => {
+            const IconComponent = getAmenityIcon(feature.label);
+            return (
+              <View key={index} style={styles.whatYouGetBox}>
+                <IconComponent size={18} color="#010135" strokeWidth={2.5} />
+                <Text style={styles.whatYouGetText}>{feature.label}</Text>
+              </View>
+            );
+          })}
         </ScrollView>
       </View>
     );

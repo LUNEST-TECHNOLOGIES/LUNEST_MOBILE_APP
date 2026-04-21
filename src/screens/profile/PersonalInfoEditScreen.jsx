@@ -598,6 +598,7 @@ const PersonalInfoEditScreen = () => {
     showVerification,
     disabled,
     isEmpty,
+    isComingSoon,
   }) => {
     // Check if the label itself is the value (for name, email, phone, location fields)
     const isEmptyField =
@@ -617,7 +618,11 @@ const PersonalInfoEditScreen = () => {
             </View>
           )}
         </View>
-        {showVerification ? (
+        {isComingSoon ? (
+          <View style={styles.comingSoonBadge}>
+            <Text style={styles.comingSoonText}>COMING SOON</Text>
+          </View>
+        ) : showVerification ? (
           <View style={styles.verificationBadge}>
             {isVerified ? (
               <>
@@ -805,17 +810,19 @@ const PersonalInfoEditScreen = () => {
             onAction={() => handleUpdate("employerContact", true)}
             isEmpty={!userData.employment.employerContact}
           />
-          {/* CAC and Business ID verification hidden for now */}
-          {/* <InfoRow
+          {/* CAC and Business ID verification coming soon */}
+          <InfoRow
             label="CAC verification"
             showVerification
             isVerified={userData.employment.cacVerified}
+            isComingSoon={true}
           />
           <InfoRow
             label="Business ID"
             showVerification
             isVerified={userData.employment.businessIdVerified}
-          /> */}
+            isComingSoon={true}
+          />
         </SectionCard>
 
         {/* Bottom spacing */}
@@ -1127,6 +1134,18 @@ const styles = StyleSheet.create({
   verificationText: {
     fontSize: 12,
     fontWeight: "700",
+  },
+  comingSoonBadge: {
+    backgroundColor: "rgba(0, 0, 0, 0.05)",
+    borderRadius: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  comingSoonText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#666666",
+    letterSpacing: 0.5,
   },
   bottomSpacer: {
     height: 40,

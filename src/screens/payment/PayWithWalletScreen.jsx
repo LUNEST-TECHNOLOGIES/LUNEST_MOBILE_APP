@@ -54,13 +54,19 @@ const PayWithWalletScreen = () => {
   // Auto-refresh wallet balance when screen comes back into focus
   useFocusEffect(
     useCallback(() => {
-      fetchWalletBalance();
-      
-      // If we just came back from added funds, show success feedback
+      // If we just came back from added funds, wait slightly before fetching
+      // to ensure backend database state has propagated correctly
       if (params.fromBooking === "true") {
-        notificationService.success("Balance updated! You can now complete your booking.");
-        // Clear param to prevent multi-toasts on subsequent focus
-        router.setParams({ fromBooking: null });
+        console.log("[PayWithWallet] Returning from booking funding, delaying refresh...");
+        setIsLoading(true);
+        setTimeout(() => {
+          fetchWalletBalance();
+          notificationService.success("Balance updated! You can now complete your booking.");
+          // Clear param to prevent multi-toasts on subsequent focus
+          router.setParams({ fromBooking: null });
+        }, 1500);
+      } else {
+        fetchWalletBalance();
       }
     }, [params.fromBooking])
   );
@@ -168,10 +174,11 @@ const PayWithWalletScreen = () => {
     if (walletBalance < amount) {
       Alert.alert(
         "Insufficient Balance",
-        "Your wallet balance is not enough for this transaction. Please add funds to continue.",
+        `Your wallet balance (${formatCurrency(walletBalance)}) is not enough for this transaction (₦${amount?.toLocaleString()}).`,
         [
           { text: "Cancel", style: "cancel" },
-          { text: "Add Funds", onPress: handleAddFunds },
+          { text: "Refresh Balance", onPress: fetchWalletBalance },
+          { text: "Add Funds", onPress: handleAddFunds, style: "default" },
         ],
       );
       return;
@@ -382,8 +389,20 @@ const PayWithWalletScreen = () => {
 
           {hasInsufficientBalance && (
             <View style={styles.insufficientNotice}>
-              <Ionicons name="alert-circle" size={16} color="#EF4444" />
-              <Text style={styles.insufficientText}>Insufficient balance</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Ionicons name="alert-circle" size={16} color="#EF4444" />
+                <Text style={styles.insufficientText}>Insufficient balance</Text>
+              </View>
+              <Pressable 
+                onPress={fetchWalletBalance} 
+                style={({ pressed }) => [
+                  styles.refreshBalanceButton,
+                  pressed && { opacity: 0.7 }
+                ]}
+              >
+                <Ionicons name="refresh" size={14} color="#0E2F5D" />
+                <Text style={styles.refreshBalanceText}>Refresh</Text>
+              </Pressable>
             </View>
           )}
         </View>
@@ -537,6 +556,7 @@ const styles = StyleSheet.create({
   insufficientNotice: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
     gap: 6,
     paddingTop: 8,
     borderTopWidth: 1,
@@ -546,6 +566,20 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#EF4444",
     fontWeight: "500",
+  },
+  refreshBalanceButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(14, 47, 93, 0.1)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  refreshBalanceText: {
+    fontSize: 12,
+    color: '#0E2F5D',
+    fontWeight: '600',
   },
   paymentMethodSection: {
     gap: 16,

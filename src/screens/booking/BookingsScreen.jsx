@@ -36,6 +36,9 @@ import {
 // Import Host Profile Modal
 import HostProfileModal from "../../components/modals/HostProfileModal";
 
+// Import Booking Action Modal
+import BookingActionModal, { BOOKING_ACTION } from "../../components/modals/BookingActionModal";
+
 // Import booking service for API calls
 import bookingService from "../../services/bookingService";
 import configService from "../../services/configService";
@@ -49,6 +52,12 @@ const BookingsScreen = () => {
   // Modal state for host profile
   const [showHostModal, setShowHostModal] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState(null);
+
+  // Modal state for booking cancellation
+  const [showActionModal, setShowActionModal] = useState(false);
+  const [actionType, setActionType] = useState(BOOKING_ACTION.CANCEL);
+  const [actionBooking, setActionBooking] = useState(null);
+  const [isActionLoading, setIsActionLoading] = useState(false);
 
   // API state for user's own bookings
   const [error, setError] = useState(null);
@@ -451,36 +460,52 @@ const BookingsScreen = () => {
     }
   };
 
-  const handleCancelBooking = async (booking) => {
-    Alert.alert(
-      "Cancel Booking",
-      "Are you sure you want to cancel this booking? This action cannot be undone.",
-      [
-        { text: "No, Keep It", style: "cancel" },
-        {
-          text: "Yes, Cancel",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              const result = await bookingService.updateBookingStatus(
-                booking.id,
-                "CANCELLED",
-              );
-              if (result.success) {
-                showToast("Your booking has been cancelled successfully.");
-                mutateBookings(); // Refresh bookings
+  const handleCancelBooking = (booking) => {
+    setActionBooking(booking);
+    setActionType(BOOKING_ACTION.CANCEL);
+    setShowActionModal(true);
+  };
 
-              } else {
-                showToast(result.message || "Failed to cancel booking", TOAST_TYPE.ERROR);
-              }
-            } catch (error) {
-              console.error("Error cancelling booking:", error);
-              showToast("Failed to cancel booking. Please try again.", TOAST_TYPE.ERROR);
-            }
-          },
-        },
-      ],
-    );
+  /**
+   * Execute booking action after modal confirmation
+   */
+  const handleActionConfirmed = async () => {
+    if (!actionBooking) return;
+
+    setIsActionLoading(true);
+
+    try {
+      const result = await bookingService.updateBookingStatus(
+        actionBooking.id,
+        "CANCELLED",
+      );
+
+      setShowActionModal(false);
+      setIsActionLoading(false);
+
+      if (result.success) {
+        showToast("Your booking has been cancelled successfully.");
+        mutateBookings(); // Refresh bookings
+        setActionBooking(null);
+      } else {
+        showToast(result.message || "Failed to cancel booking", TOAST_TYPE.ERROR);
+      }
+    } catch (error) {
+      console.error("Error cancelling booking:", error);
+      setShowActionModal(false);
+      setIsActionLoading(false);
+      showToast("Failed to cancel booking. Please try again.", TOAST_TYPE.ERROR);
+    }
+  };
+
+  /**
+   * Close action modal
+   */
+  const handleActionModalClose = () => {
+    if (!isActionLoading) {
+      setShowActionModal(false);
+      setActionBooking(null);
+    }
   };
 
   const handlePayNow = (booking) => {
@@ -595,6 +620,16 @@ const BookingsScreen = () => {
           isVerified: true,
           avatar: selectedBooking?.hostAvatar || null,
         }}
+      />
+
+      {/* Booking Action Confirmation Modal */}
+      <BookingActionModal
+        visible={showActionModal}
+        actionType={actionType}
+        booking={actionBooking}
+        onConfirm={handleActionConfirmed}
+        onClose={handleActionModalClose}
+        isLoading={isActionLoading}
       />
 
       {/* Toast Notification */}

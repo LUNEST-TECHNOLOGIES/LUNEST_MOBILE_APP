@@ -12,6 +12,7 @@ import {
     View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import Svg, { Path, Rect } from "react-native-svg";
 
 // Status color configurations
 const STATUS_CONFIG = {
@@ -91,6 +92,22 @@ const HOUSE_RULES_MAP = {
   no_cooking: "No Cooking",
   recycling: "Recycling Required",
 };
+
+// Professional "No Media" Placeholder Component
+const NoMediaPlaceholder = ({ width, height }) => (
+  <View style={[styles.placeholderContainer, { width, height }]}>
+    <Svg width={64} height={64} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M4 16L8.586 11.414C8.96106 11.0391 9.46971 10.8284 10 10.8284C10.5303 10.8284 11.0389 11.0391 11.414 11.414L16 16M14 14L15.586 12.414C15.9611 12.0391 16.4697 11.8284 17 11.8284C17.5303 11.8284 18.0389 12.0391 18.414 12.414L20 14M14 8H14.01M6 20H18C19.1046 20 20 19.1046 20 18V6C20 4.89543 19.1046 4 18 4H6C4.89543 4 4 4.89543 4 6V18C4 19.1046 4.89543 20 6 20Z"
+        stroke="#94A3B8"
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+    <Text style={styles.placeholderText}>No Photos Uploaded Yet</Text>
+  </View>
+);
 
 // Helper function to convert house rule IDs to readable labels
 const convertRegulationsToLabels = (regulations) => {
@@ -465,11 +482,7 @@ const ListingPreview = () => {
                 .filter(Boolean)}
             </ScrollView>
           ) : (
-            <Image
-              style={[styles.image, { width: screenWidth }]}
-              source={require("../src/assets/images/prop_image.png")}
-              resizeMode="cover"
-            />
+            <NoMediaPlaceholder width={screenWidth} height={screenWidth * 0.75} />
           )}
 
           {/* Image Counter */}
@@ -1130,6 +1143,17 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 14,
     color: "#656565",
+  },
+  placeholderContainer: {
+    backgroundColor: "#F1F5F9",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 12,
+  },
+  placeholderText: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#94A3B8",
   },
 });
 

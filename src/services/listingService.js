@@ -1218,7 +1218,8 @@ class ListingService {
       const payload = {
         ...restOfDraft,
         host: hostId || draftData.host,
-        propertyCategory: draftData.category || draftData.propertyCategory || "rental", // Ensure DB alignment
+        propertyCategory: draftData.propertyCategory || draftData.category || draftData.propertyType || "rental", // Ensure DB alignment
+        propertyType: draftData.propertyType || draftData.propertyCategory || "", // Preserve specific type if available
         draftId: draftData.draftId || (isTemporaryId ? String(existingId) : existingId), // Critical for backend update matching
         isDraft: true,
         status: "DRAFT",
@@ -1284,6 +1285,20 @@ class ListingService {
           }
         }
       });
+
+      // 5. Consolidate Amenities (Selected + Custom)
+      const selAmenities = Array.isArray(draftData.selectedAmenities) ? draftData.selectedAmenities : [];
+      const custAmenities = Array.isArray(draftData.customAmenities) ? draftData.customAmenities.map(a => typeof a === 'string' ? a : a.label) : [];
+      
+      // If we have selected/custom amenities but no consolidated 'amenities' array yet
+      if ((selAmenities.length > 0 || custAmenities.length > 0) && (!payload.amenities || payload.amenities.length === 0)) {
+        payload.amenities = [...new Set([...selAmenities, ...custAmenities])];
+      }
+
+      // 6. Explicit Availability & Rules mapping
+      if (draftData.checkInTime) payload.checkInTime = draftData.checkInTime;
+      if (draftData.checkOutTime) payload.checkOutTime = draftData.checkOutTime;
+      if (draftData.additionalRules) payload.additionalRules = draftData.additionalRules;
 
       // Special case for houseRules - some frontends send as array, backend might expect string
       if (Array.isArray(payload.houseRules)) {

@@ -6,7 +6,6 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
-  Alert,
   Platform,
   Pressable,
   ScrollView,
@@ -21,6 +20,7 @@ import CancelConfirmationModal from "../../src/components/create-listing/CancelC
 import { useDraftListing } from "../../src/hooks/useDraftListing";
 import draftListingService from "../../src/services/draftListingService";
 import toastService from "../../src/services/toastService";
+import ToastNotification from "../../src/components/common/ToastNotification";
 
 // Close X Icon - with explicit dimensions for web
 const CloseIcon = ({ size = 24, color = "#000000" }) => (
@@ -86,6 +86,21 @@ const Pricing = () => {
   const [serviceCharge, setServiceCharge] = useState("");
   const [salePrice, setSalePrice] = useState("");
   const [showCancelModal, setShowCancelModal] = useState(false);
+
+  // Toast Notification state
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
+  const [toastType, setToastType] = useState("SUCCESS");
+
+  // Subscribe to toast service
+  useEffect(() => {
+    const unsubscribe = toastService.subscribe(({ message, type }) => {
+      setToastMessage(message);
+      setToastType(type);
+      setToastVisible(true);
+    });
+    return unsubscribe;
+  }, []);
   const hasInitialized = useRef(false);
 
   // Load draft data on mount and when draftData changes
@@ -195,7 +210,7 @@ const Pricing = () => {
     // OPTIMIZATION: Trigger save in background and navigate immediately
     await saveDraftData({
       ...draftData,
-      price: priceValue,
+      price: intent === "sale" ? salePrice : price,
       pricingPeriod: selectedPeriod,
       securityDeposit,
       serviceCharge,
@@ -253,11 +268,7 @@ const Pricing = () => {
 
   const handlePriceChange = (value, isSale = false) => {
     const formatted = formatPrice(value);
-    if (isSale) {
-      updatePricing({ price: formatted });
-    } else {
-      updatePricing({ price: formatted });
-    }
+    updatePricing({ price: formatted });
   };
 
   const isValid =
@@ -541,6 +552,14 @@ const Pricing = () => {
         onCancel={handleCancelConfirm}
         onContinue={handleCancelDismiss}
         onClose={handleCancelDismiss}
+      />
+
+      {/* Toast Notification */}
+      <ToastNotification
+        visible={toastVisible}
+        message={toastMessage}
+        type={toastType}
+        onHide={() => setToastVisible(false)}
       />
     </SafeAreaView>
   );

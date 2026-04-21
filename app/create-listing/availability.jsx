@@ -7,7 +7,6 @@ import { format } from "date-fns";
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
-  Alert,
   Pressable,
   ScrollView,
   Switch,

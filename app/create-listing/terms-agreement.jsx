@@ -4,7 +4,7 @@
  */
 
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
     Platform,
     Pressable,
@@ -20,6 +20,8 @@ import TermsModal from '../../src/components/create-listing/TermsModal';
 import { DEMO_TERMS } from '../../src/constants/termsConfig';
 import { useDraftListing } from '../../src/hooks/useDraftListing';
 import draftListingService from '../../src/services/draftListingService';
+import toastService from '../../src/services/toastService';
+import ToastNotification from '../../src/components/common/ToastNotification';
 
 // Close X Icon
 const CloseIcon = ({ size = 24, color = '#000000' }) => (
@@ -77,6 +79,25 @@ const TermsAgreement = () => {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [selectedTerm, setSelectedTerm] = useState(null);
   const [showTermsModal, setShowTermsModal] = useState(false);
+
+  // Toast Notification state
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
+  const [toastType, setToastType] = useState("SUCCESS");
+
+  // Subscribe to toast service
+  useEffect(() => {
+    const unsubscribe = toastService.subscribe(({ message, type }) => {
+      setToastMessage(message);
+      setToastType(type);
+      setToastVisible(true);
+    });
+    return unsubscribe;
+  }, []);
+
+  // Ensure useEffect is imported from react
+  // (Wait, line 7 has only { useState }) - fix imports in chunk 3 if needed.
+  
 
   const handleClose = () => {
     setShowCancelModal(true);
@@ -266,6 +287,14 @@ const TermsAgreement = () => {
         visible={showTermsModal}
         term={selectedTerm}
         onClose={handleCloseTermsModal}
+      />
+
+      {/* Toast Notification */}
+      <ToastNotification
+        visible={toastVisible}
+        message={toastMessage}
+        type={toastType}
+        onHide={() => setToastVisible(false)}
       />
     </SafeAreaView>
   );

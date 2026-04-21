@@ -7,7 +7,6 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import debounce from "lodash.debounce";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-    Alert,
     Dimensions,
     Platform,
     Pressable,
@@ -23,6 +22,7 @@ import CancelConfirmationModal from "../../src/components/create-listing/CancelC
 import { useDraftListing } from "../../src/hooks/useDraftListing";
 import draftListingService from "../../src/services/draftListingService";
 import toastService from "../../src/services/toastService";
+import ToastNotification from "../../src/components/common/ToastNotification";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -239,6 +239,21 @@ const PropertyDetails = () => {
   const [showTitleTypeDropdown, setShowTitleTypeDropdown] = useState(false);
   const [showTipsOverlay, setShowTipsOverlay] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
+
+  // Toast Notification state
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
+  const [toastType, setToastType] = useState("SUCCESS");
+
+  // Subscribe to toast service
+  useEffect(() => {
+    const unsubscribe = toastService.subscribe(({ message, type }) => {
+      setToastMessage(message);
+      setToastType(type);
+      setToastVisible(true);
+    });
+    return unsubscribe;
+  }, []);
 
   const MAX_HIGHLIGHT_LENGTH = 500;
   
@@ -927,6 +942,14 @@ const PropertyDetails = () => {
         onCancel={handleCancelConfirm}
         onContinue={handleCancelDismiss}
         onClose={handleCancelDismiss}
+      />
+
+      {/* Toast Notification */}
+      <ToastNotification
+        visible={toastVisible}
+        message={toastMessage}
+        type={toastType}
+        onHide={() => setToastVisible(false)}
       />
     </SafeAreaView>
   );

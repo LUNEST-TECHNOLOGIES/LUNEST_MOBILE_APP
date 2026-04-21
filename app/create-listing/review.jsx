@@ -8,7 +8,6 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Image,
   Modal,
   Platform,
@@ -23,6 +22,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Line, Path, Rect } from "react-native-svg";
 import CancelConfirmationModal from "../../src/components/create-listing/CancelConfirmationModal";
 import SubmitConfirmationModal from "../../src/components/create-listing/SubmitConfirmationModal";
+import ToastNotification from "../../src/components/common/ToastNotification";
 import { useDraftListing } from "../../src/hooks/useDraftListing";
 import authService from "../../src/services/authService";
 import draftListingService from "../../src/services/draftListingService";
@@ -321,25 +321,43 @@ const Review = () => {
   const [showSaveAsNewModal, setShowSaveAsNewModal] = useState(false);
   const [isFallbackCreating, setIsFallbackCreating] = useState(false);
   
+  // Toast Notification state
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
+  const [toastType, setToastType] = useState("SUCCESS");
+
+  // Subscribe to toast service
+  useEffect(() => {
+    const unsubscribe = toastService.subscribe(({ message, type }) => {
+      setToastMessage(message);
+      setToastType(type);
+      setToastVisible(true);
+    });
+    return unsubscribe;
+  }, []);
+  
   // Capture params once at mount to avoid unstable reference issues
   const initialParamsRef = useRef(params);
 
   // Load and merge data whenever draftData or params change
   useEffect(() => {
+    // If we have a draftId but draftData hasn't arrived yet, we wait.
+    if (draftId && !draftData) return;
+
     // 1. Start with initial params as baseline
     const baseData = { ...initialParamsRef.current };
     
-    // 2. Merge with current draft data
+    // 2. Use draft data if available, otherwise fallback to base params
     const activeDraft = draftData || {};
     
     // 3. Resolve Media (Photos)
-    // Priority: draftData.photos -> initialParams.photos -> initialParams.images
+    // Priority: draftData.photos -> draftData.images -> baseData.photos -> baseData.images
     const draftPhotos = safeParseArray(activeDraft.photos || activeDraft.images);
     const paramPhotos = safeParseArray(baseData.photos || baseData.images);
     const finalPhotos = draftPhotos.length > 0 ? draftPhotos : paramPhotos;
 
-    console.log('📂 [Review] Merging data for display:', {
-      hasDraft: !!draftData,
+    console.log('📂 [Review] Aggregating data for display:', {
+      source: draftData ? 'local-cache' : 'nav-params',
       photosCount: finalPhotos.length,
       propertyTitle: activeDraft.propertyTitle || baseData.propertyTitle || 'Untitled'
     });
@@ -355,12 +373,7 @@ const Review = () => {
       houseRules: activeDraft.houseRules || baseData.houseRules || [],
       additionalRules: activeDraft.additionalRules || baseData.additionalRules || ""
     });
-
-    console.log('📋 [Review] Rules data synced:', {
-      houseRules: activeDraft.houseRules || baseData.houseRules,
-      additionalRules: activeDraft.additionalRules || baseData.additionalRules
-    });
-  }, [draftData]); // Re-run whenever draftData arrives or updates
+  }, [draftData, draftId]); // Re-run whenever draftData arrives or updates
 
   // Fetch host stats from backend
   useEffect(() => {
@@ -605,8 +618,7 @@ const Review = () => {
               "❌ [Review] Video upload failed:",
               uploadVideosResult,
             );
-            Alert.alert(
-              "Upload Error",
+            toastService.showError(
               uploadVideosResult.message || "Failed to upload videos.",
             );
             setIsSubmitting(false);
@@ -665,11 +677,9 @@ const Review = () => {
               );
             } else {
               console.log("⚠️ [Review] Image upload failed:", uploadResult);
-              Alert.alert(
-                "Upload Error",
+              toastService.showError(
                 uploadResult.message ||
                   "Failed to upload images. Please try again.",
-                [{ text: "OK" }],
               );
               setIsSubmitting(false);
               return;
@@ -904,8 +914,7 @@ const Review = () => {
   };
 
   // Show loading indicator if draft is selected but not yet loaded
-  // Check both draftId presence and draftData content availability
-  const isActuallyLoading = draftId && (!draftData || Object.keys(mergedData).length === 0 || mergedData.propertyTitle === "Untitled");
+  const isActuallyLoading = draftId && (!draftData || Object.keys(mergedData).length === 0);
 
   if (isActuallyLoading && !isSubmitting) {
     return (
@@ -1461,6 +1470,14 @@ const Review = () => {
               </View>
           </View>
       </Modal>
+
+      {/* Toast Notification */}
+      <ToastNotification
+        visible={toastVisible}
+        message={toastMessage}
+        type={toastType}
+        onHide={() => setToastVisible(false)}
+      />
     </SafeAreaView>
   );
 };

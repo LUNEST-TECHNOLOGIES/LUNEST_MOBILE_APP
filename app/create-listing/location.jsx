@@ -9,7 +9,6 @@ import debounce from "lodash.debounce";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Keyboard,
   KeyboardAvoidingView,
   Modal,
@@ -32,6 +31,7 @@ import { useDraftListing } from "../../src/hooks/useDraftListing";
 import draftListingService from "../../src/services/draftListingService";
 import locationService from "../../src/services/locationService";
 import toastService from "../../src/services/toastService";
+import ToastNotification from "../../src/components/common/ToastNotification";
 
 // Close X Icon - with explicit dimensions for web
 const CloseIcon = ({ size = 24, color = "#000000" }) => (
@@ -166,6 +166,21 @@ const Location = () => {
   const [detectingLocation, setDetectingLocation] = useState(false);
   const [showCountryModal, setShowCountryModal] = useState(false);
   const [showStateModal, setShowStateModal] = useState(false);
+
+  // Toast Notification state
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
+  const [toastType, setToastType] = useState("SUCCESS");
+
+  // Subscribe to toast service
+  useEffect(() => {
+    const unsubscribe = toastService.subscribe(({ message, type }) => {
+      setToastMessage(message);
+      setToastType(type);
+      setToastVisible(true);
+    });
+    return unsubscribe;
+  }, []);
   const countries = [
     "Nigeria",
     "Ghana",
@@ -571,7 +586,7 @@ const Location = () => {
         params: { draftId: finalDraftId },
       });
     } else {
-      Alert.alert("Location Required", "Please enter address and city.");
+      toastService.showError("Please enter address and city.");
     }
   };
 
@@ -1049,6 +1064,13 @@ const Location = () => {
       />
         </View>
       </TouchableWithoutFeedback>
+      {/* Toast Notification */}
+      <ToastNotification
+        visible={toastVisible}
+        message={toastMessage}
+        type={toastType}
+        onHide={() => setToastVisible(false)}
+      />
     </SafeAreaView>
   );
 };

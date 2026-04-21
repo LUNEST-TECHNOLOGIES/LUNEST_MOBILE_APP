@@ -314,6 +314,19 @@ class DraftListingService {
   }
 
   /**
+   * Get a specific draft by ID synchronously from cache
+   * Use this for immediate merging during navigation
+   * @param {string} draftId - The draft ID
+   * @returns {Object|null} The cached draft listing or null
+   */
+  getDraftSync(draftId) {
+    if (draftCache.has(draftId)) {
+      return draftCache.get(draftId);
+    }
+    return null;
+  }
+
+  /**
    * Get a specific draft by ID
    * @param {string} draftId - The draft ID
    * @returns {Promise<Object|null>} The draft listing or null

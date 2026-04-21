@@ -19,6 +19,8 @@ import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import CancelConfirmationModal from '../../src/components/create-listing/CancelConfirmationModal';
 import useDraftListing from '../../src/hooks/useDraftListing';
 import draftListingService from '../../src/services/draftListingService';
+import toastService from '../../src/services/toastService';
+import ToastNotification from '../../src/components/common/ToastNotification';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -316,6 +318,21 @@ const SelectPropertyCategory = () => {
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [showCancelModal, setShowCancelModal] = useState(false);
 
+  // Toast Notification state
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
+  const [toastType, setToastType] = useState("SUCCESS");
+
+  // Subscribe to toast service
+  useEffect(() => {
+    const unsubscribe = toastService.subscribe(({ message, type }) => {
+      setToastMessage(message);
+      setToastType(type);
+      setToastVisible(true);
+    });
+    return unsubscribe;
+  }, []);
+
   // Load property type from draft when available
   useEffect(() => {
     if (draftData?.propertyType) {
@@ -462,6 +479,13 @@ const SelectPropertyCategory = () => {
         onCancel={handleCancelConfirm}
         onContinue={handleCancelDismiss}
         onClose={handleCancelDismiss}
+      />
+      {/* Toast Notification */}
+      <ToastNotification
+        visible={toastVisible}
+        message={toastMessage}
+        type={toastType}
+        onHide={() => setToastVisible(false)}
       />
     </SafeAreaView>
   );

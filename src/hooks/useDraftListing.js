@@ -69,8 +69,13 @@ export const useDraftListing = () => {
         return false;
       }
 
+      // CRITICAL: We merge with draftListingService cache first to prevent wiping out data
+      // if the local draftData state hasn't finished loading yet during navigation
+      const latestFromCache = draftListingService.getDraftSync(draftId);
+      const baseData = latestFromCache || draftData || {};
+
       const updatedDraft = {
-        ...draftData,
+        ...baseData,
         ...updates,
         draftId,
         lastModified: new Date().toISOString(),

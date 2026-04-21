@@ -19,6 +19,8 @@ import Svg, { Circle, Path } from 'react-native-svg';
 import CancelConfirmationModal from '../../src/components/create-listing/CancelConfirmationModal';
 import { useDraftListing } from '../../src/hooks/useDraftListing';
 import draftListingService from '../../src/services/draftListingService';
+import toastService from '../../src/services/toastService';
+import ToastNotification from '../../src/components/common/ToastNotification';
 
 // Close X Icon - with explicit dimensions for web
 const CloseIcon = ({ size = 24, color = '#000000' }) => (
@@ -276,6 +278,21 @@ const Amenities = () => {
   const [expandedCategories, setExpandedCategories] = useState(
     AMENITIES_CATEGORIES.reduce((acc, cat) => ({ ...acc, [cat.id]: true }), {})
   );
+
+  // Toast Notification state
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
+  const [toastType, setToastType] = useState("SUCCESS");
+
+  // Subscribe to toast service
+  useEffect(() => {
+    const unsubscribe = toastService.subscribe(({ message, type }) => {
+      setToastMessage(message);
+      setToastType(type);
+      setToastVisible(true);
+    });
+    return unsubscribe;
+  }, []);
 
   // Flatten all standard IDs for easy lookup
   const ALL_STANDARD_IDS = AMENITIES_CATEGORIES.reduce((acc, cat) => {
@@ -656,6 +673,14 @@ const Amenities = () => {
         onCancel={handleCancelConfirm}
         onContinue={handleCancelDismiss}
         onClose={handleCancelDismiss}
+      />
+
+      {/* Toast Notification */}
+      <ToastNotification
+        visible={toastVisible}
+        message={toastMessage}
+        type={toastType}
+        onHide={() => setToastVisible(false)}
       />
     </SafeAreaView>
   );

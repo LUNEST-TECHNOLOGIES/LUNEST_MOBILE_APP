@@ -9,7 +9,6 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Image,
   Platform,
   Pressable,
@@ -27,6 +26,7 @@ import draftListingService from "../../src/services/draftListingService";
 import imageCompressionService from "../../src/services/imageCompressionService";
 import listingService from "../../src/services/listingService";
 import toastService from "../../src/services/toastService";
+import ToastNotification from "../../src/components/common/ToastNotification";
 
 // Fallback for ActivityIndicator if needed (React 19 / RN 0.81 compatibility)
 const RNActivityIndicator = ActivityIndicator;
@@ -158,6 +158,21 @@ const Photos = () => {
   const [videoProgress, setVideoProgress] = useState(0); // Add progress state
   const [imageProgress, setImageProgress] = useState(0); // Add image progress state
   const [showCancelModal, setShowCancelModal] = useState(false);
+
+  // Toast Notification state
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
+  const [toastType, setToastType] = useState("SUCCESS");
+
+  // Subscribe to toast service
+  useEffect(() => {
+    const unsubscribe = toastService.subscribe(({ message, type }) => {
+      setToastMessage(message);
+      setToastType(type);
+      setToastVisible(true);
+    });
+    return unsubscribe;
+  }, []);
 
   // Flag to ensure we only load from draft/params once on mount
   const [initialLoadDone, setInitialLoadDone] = useState(false);
@@ -831,6 +846,14 @@ const Photos = () => {
         visible={showCancelModal}
         onConfirm={handleCancelConfirm}
         onDismiss={handleCancelDismiss}
+      />
+
+      {/* Toast Notification */}
+      <ToastNotification
+        visible={toastVisible}
+        message={toastMessage}
+        type={toastType}
+        onHide={() => setToastVisible(false)}
       />
     </SafeAreaView>
   );

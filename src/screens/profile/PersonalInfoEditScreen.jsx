@@ -182,6 +182,15 @@ const PersonalInfoEditScreen = () => {
   const [showPhoneVerificationModal, setShowPhoneVerificationModal] = useState(false);
   const [pendingPhoneUpdate, setPendingPhoneUpdate] = useState(null);
 
+  // Loading states
+  const [isLoading, setIsLoading] = useState(false);
+  const [isInitialLoading, setIsInitialLoading] = useState(false);
+
+  // Edit modal states
+  const [editField, setEditField] = useState({ key: "", label: "", isEmployment: false });
+  const [editValue, setEditValue] = useState("");
+  const [editError, setEditError] = useState("");
+
   // Toast Notification state
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState("");

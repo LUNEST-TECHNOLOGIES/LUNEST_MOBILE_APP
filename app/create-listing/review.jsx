@@ -1036,20 +1036,42 @@ const Review = () => {
             label="Title Type"
             value={mergedData.titleType || "N/A"}
           />
-          <SummaryRow
-            label="Bedrooms"
-            value={String(mergedData.bedrooms || "0")}
-          />
-          <SummaryRow
-            label="Bathrooms"
-            value={String(mergedData.bathrooms || "0")}
-          />
-          {!!mergedData.guestCapacity && (
-            <SummaryRow
-              label="Guest Capacity"
-              value={String(mergedData.guestCapacity || "0")}
-            />
+
+          {/* Conditional Fields based on Property Type */}
+          {!(["office", "warehouse", "shop", "land", "co-working", "event-center", "shopping-plaza", "factory", "farm-land"].includes(mergedData.propertyType)) ? (
+            <>
+              <SummaryRow
+                label="Bedrooms"
+                value={String(mergedData.bedrooms || "0")}
+              />
+              <SummaryRow
+                label="Bathrooms"
+                value={String(mergedData.bathrooms || "0")}
+              />
+              {!!mergedData.guestCapacity && (
+                <SummaryRow
+                  label="Guest Capacity"
+                  value={String(mergedData.guestCapacity || "0")}
+                />
+              )}
+            </>
+          ) : (
+            <>
+              {!!mergedData.totalSquareFootage && (
+                <SummaryRow
+                  label="Square Footage"
+                  value={String(mergedData.totalSquareFootage)}
+                />
+              )}
+              {!!mergedData.usageType && (
+                <SummaryRow
+                  label="Usage Type"
+                  value={String(mergedData.usageType)}
+                />
+              )}
+            </>
           )}
+
           {!!mergedData.propertyDescription && (
             <View style={styles.descriptionContainer}>
               <Text style={styles.summaryLabel}>Description</Text>

@@ -413,12 +413,15 @@ const PropertyDetails = () => {
     }, { background: true });
 
     router.replace({
-      pathname: "/create-listing/property-type",
+      pathname: "/create-listing/intent",
       params: { draftId: finalDraftId },
     });
   };
 
-  const isCommercial = ['office', 'warehouse', 'shop', 'land'].includes(draftData?.propertyType || params?.propertyType);
+  const isCommercial = [
+    'office', 'warehouse', 'shop', 'land', 'co-working', 
+    'event-center', 'shopping-plaza', 'factory', 'farm-land'
+  ].includes(draftData?.propertyType || params?.propertyType);
 
   const handleNext = async () => {
     // Validate required fields

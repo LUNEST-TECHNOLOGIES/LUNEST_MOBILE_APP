@@ -187,9 +187,9 @@ const SelectListingIntent = () => {
         draftId: finalDraftId,
       }, { background: true });
 
-      // Navigate immediately without waiting for API
+      // Navigate directly to Property Details (Step 3)
       router.push({
-        pathname: '/create-listing/property-type',
+        pathname: '/create-listing/property-details',
         params: { draftId: finalDraftId },
       });
     }
@@ -209,7 +209,7 @@ const SelectListingIntent = () => {
       </View>
 
       {/* Progress Bar */}
-      <ProgressBar currentStep={1} totalSteps={10} />
+      <ProgressBar currentStep={2} totalSteps={10} />
 
       {/* Content */}
       <View style={styles.content}>

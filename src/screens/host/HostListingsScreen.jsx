@@ -704,7 +704,7 @@ const HostListingsScreen = () => {
   const router = useRouter();
   const params = useLocalSearchParams();
   const insets = useSafeAreaInsets();
-  const cardWidth = Platform.OS === 'web' ? '48%' : (width - 40 - 15) / 2; // 2 columns with 20px padding each side and 15px gap
+  const cardWidth = (width - 40 - 15) / 2; // 2 columns with 20px padding each side and 15px gap
 
   const { currentMode, toggleMode } = useUserMode();
   const side = currentMode === USER_MODES.HOST ? "host" : "guest";
@@ -1831,7 +1831,7 @@ const HostListingsScreen = () => {
               <ListingCard
                 key={`${listing.status}_${listing.id}`}
                 listing={listing}
-                cardWidth={Platform.OS === 'web' ? 300 : cardWidth}
+                cardWidth={cardWidth}
                 onEdit={() => handleEditListing(listing)}
                 onDelete={() => handleDeleteListing(listing)}
                 onPause={() => handlePauseListing(listing)}

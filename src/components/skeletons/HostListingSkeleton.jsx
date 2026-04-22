@@ -1,16 +1,17 @@
 import React from 'react';
-import { View, StyleSheet, Dimensions } from 'react-native';
+import { View, StyleSheet, useWindowDimensions } from 'react-native';
 import SkeletonPlaceholder from './SkeletonPlaceholder';
-
-const { width } = Dimensions.get('window');
-const cardWidth = (width - 40 - 15) / 2;
 
 /**
  * HostListingSkeleton - Skeleton placeholder for a host's listing card
  * Matches the layout of ListingCard in HostListingsScreen.jsx
  */
-const HostListingSkeleton = () => (
-  <View style={[styles.card, { width: cardWidth }]}>
+const HostListingSkeleton = () => {
+  const { width } = useWindowDimensions();
+  const cardWidth = (width - 40 - 15) / 2;
+
+  return (
+    <View style={[styles.card, { width: cardWidth }]}>
     <SkeletonPlaceholder>
       {/* Property Image & Status Placeholder */}
       <View style={styles.imageContainer}>
@@ -50,9 +51,10 @@ const HostListingSkeleton = () => (
           <View style={styles.actionCircle} />
         </View>
       </View>
-    </SkeletonPlaceholder>
-  </View>
-);
+      </SkeletonPlaceholder>
+    </View>
+  );
+};
 
 const styles = StyleSheet.create({
   card: {

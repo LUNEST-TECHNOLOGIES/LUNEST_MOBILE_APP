@@ -1,23 +1,20 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-    ActivityIndicator,
-    Alert,
-    FlatList,
-    Image,
-    Pressable,
-    RefreshControl,
-    StyleSheet,
-    Text,
-    View,
+  FlatList,
+  Image,
+  Pressable,
+  StyleSheet,
+  Text,
+  View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import bookmarkService from "../../services/bookmarkService";
-import listingService from "../../services/listingService";
 import configService from "../../services/configService";
+import listingService from "../../services/listingService";
 import * as ImageUtils from "../../utils/imageUtils";
 
 
@@ -238,7 +235,7 @@ const SavedScreen = () => {
                 <Text style={styles.bookedBadgeText}>Booked</Text>
               </View>
             )}
-            {isBookmark && (
+            {activeTab === "saved" && isBookmark && (
               <Pressable
                 style={styles.bookmarkIcon}
                 onPress={() => handleRemoveBookmark(itemId, title)}
@@ -354,8 +351,6 @@ const SavedScreen = () => {
         contentContainerStyle={styles.listContent}
         columnWrapperStyle={styles.columnWrapper}
         ListEmptyComponent={renderEmptyState}
-                  />
-        }
       />
 
       {/* Toast Notification */}

@@ -213,6 +213,7 @@ const BookingsScreen = () => {
             bedrooms: listing.bedrooms || 0,
             bathrooms: listing.bathrooms || 0,
             guests: listing.guests || 1,
+            acceptRefund: listing.acceptRefund,
             amenities: listing.amenities || [],
             description: listing.description || "",
             hostId: listing.host?._id || listing.host,

@@ -15,7 +15,6 @@ import ChatIcon from "../../assets/icons/bookings/chat.svg";
 import TrashIcon from "../../assets/icons/bookings/trash-delete.svg";
 import configService from "../../services/configService";
 import { resolveImageUrlSync } from "../../utils/imageUtils";
-
 const BookingCard = ({
   booking,
   onViewDetails,

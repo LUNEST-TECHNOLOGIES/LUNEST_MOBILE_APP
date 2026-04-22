@@ -116,12 +116,12 @@ const ProgressBar = ({ currentStep, totalSteps }) => {
  * Category Option Component
  * Using the premium card styling from property-type.jsx
  */
-const CategoryOption = ({ category, selected, onPress }) => {
+const CategoryOption = ({ category, selected, onPress, width }) => {
   const IconComponent = category.icon;
   
   return (
     <Pressable
-      style={[styles.categoryOption, selected && styles.categoryOptionSelected]}
+      style={[styles.categoryOption, selected && styles.categoryOptionSelected, { width }]}
       onPress={onPress}
     >
       <IconComponent size={32} color={selected ? "#010135" : "#292929"} />
@@ -136,6 +136,12 @@ const SelectPropertyCategory = () => {
   const router = useRouter();
   const params = useLocalSearchParams();
   const { draftData, draftId, saveDraftData } = useDraftListing();
+  
+  // Grid Calculation
+  const { width: windowWidth } = Dimensions.get('window');
+  const padding = 20; // scrollContent paddingHorizontal
+  const gap = 15;
+  const itemWidth = (windowWidth - (padding * 2) - gap) / 2;
   
   // Initialize from draft or params
   const [selectedCategory, setSelectedCategory] = useState(null);
@@ -275,6 +281,7 @@ const SelectPropertyCategory = () => {
               category={category}
               selected={selectedCategory === category.id}
               onPress={() => handleSelectCategory(category.id)}
+              width={itemWidth}
             />
           ))}
         </View>
@@ -400,7 +407,6 @@ const styles = StyleSheet.create({
     gap: 15,
   },
   categoryOption: {
-    width: '48%',
     height: 100,
     borderRadius: 12,
     borderWidth: 2,

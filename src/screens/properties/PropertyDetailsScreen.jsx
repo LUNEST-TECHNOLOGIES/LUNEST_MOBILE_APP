@@ -1367,6 +1367,40 @@ const PropertyDetailsScreen = () => {
     );
   };
 
+  const renderCancellationPolicySection = () => {
+    const isNonRefundable = listing?.acceptRefund === false;
+    
+    return (
+      <View style={styles.policySection}>
+        <Text style={styles.sectionTitle}>Cancellation Policy</Text>
+        <View style={[
+          styles.policyContainer, 
+          isNonRefundable ? styles.nonRefundableContainer : styles.refundableContainer
+        ]}>
+          <View style={styles.policyHeaderRow}>
+            <Ionicons 
+              name={isNonRefundable ? "alert-circle-outline" : "shield-checkmark-outline"} 
+              size={20} 
+              color={isNonRefundable ? "#FD3131" : "#10B981"} 
+            />
+            <Text style={[
+              styles.policyTypeLabel,
+              { color: isNonRefundable ? "#FD3131" : "#10B981" }
+            ]}>
+              {isNonRefundable ? "Non-Refundable Policy" : "Lunest Standard Policy"}
+            </Text>
+          </View>
+          <Text style={styles.policyText}>
+            {isNonRefundable 
+              ? "Host Cancellation Policy: This property follows a Non-Refundable Policy. The host does not accept cancellations or refunds once the booking is confirmed."
+              : "Guests can cancel according to our fair refund timeline. Cancellation eligibility and refund amounts are calculated based on the check-in date."
+            }
+          </Text>
+        </View>
+      </View>
+    );
+  };
+
   const renderLandmarkSection = () => {
     const landmarks = (propertyData.landmarks || []).filter(
       (l) => l && String(l).trim() !== "",
@@ -1817,6 +1851,7 @@ const PropertyDetailsScreen = () => {
 
         {/* Regulations Section */}
         {renderRegulationsSection()}
+        {renderCancellationPolicySection()}
 
         {/* Landmark Section */}
         {renderLandmarkSection()}
@@ -2730,6 +2765,38 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#010135",
     marginBottom: 12,
+  },
+  policySection: {
+    paddingHorizontal: 16,
+    marginTop: 24,
+  },
+  policyContainer: {
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  refundableContainer: {
+    backgroundColor: "rgba(16, 185, 129, 0.05)",
+    borderColor: "rgba(16, 185, 129, 0.2)",
+  },
+  nonRefundableContainer: {
+    backgroundColor: "rgba(253, 49, 49, 0.05)",
+    borderColor: "rgba(253, 49, 49, 0.2)",
+  },
+  policyHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 8,
+  },
+  policyTypeLabel: {
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  policyText: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: "#4B5563",
   },
   descriptionText: {
     fontSize: 14,

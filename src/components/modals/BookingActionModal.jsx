@@ -85,10 +85,15 @@ const BookingActionModal = ({
         confirmBg: 'rgba(49, 235, 61, 0.1)',
       };
     } else {
+      const isNonRefundable = booking?.listing?.acceptRefund === false;
+      const baseMessage = isNonRefundable 
+        ? "Important: This listing is non-refundable. If you cancel, no refund will be issued."
+        : `Are you sure you want to cancel the booking from ${booking?.guestName || booking?.bookedBy?.fullName || 'guest'}? This action cannot be undone and the party will be notified.`;
+
       return {
         icon: <CloseIcon />,
         title: 'Cancel Booking?',
-        message: `Are you sure you want to cancel the booking from ${booking?.guestName || 'guest'}? This action cannot be undone and the guest will be notified.`,
+        message: isNonRefundable ? `${baseMessage} Do you still wish to proceed?` : baseMessage,
         confirmText: 'Yes, Cancel Booking',
         confirmColor: '#FD3131',
         confirmBg: 'rgba(253, 49, 49, 0.1)',

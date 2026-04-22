@@ -70,6 +70,7 @@ const Pricing = () => {
   const [securityDeposit, setSecurityDeposit] = useState("");
   const [serviceCharge, setServiceCharge] = useState("");
   const [salePrice, setSalePrice] = useState("");
+  const [acceptRefund, setAcceptRefund] = useState(null); // Force explicit selection
   const [showCancelModal, setShowCancelModal] = useState(false);
 
   // Toast Notification state
@@ -106,6 +107,7 @@ const Pricing = () => {
       if (periodValue) setSelectedPeriod(periodValue);
       if (securityValue) setSecurityDeposit(formatPrice(securityValue));
       if (serviceValue) setServiceCharge(formatPrice(serviceValue));
+      if (draftData.acceptRefund !== undefined) setAcceptRefund(draftData.acceptRefund);
       
       hasInitialized.current = true;
     }
@@ -128,6 +130,10 @@ const Pricing = () => {
         updates.serviceCharge !== undefined
           ? updates.serviceCharge
           : serviceCharge,
+      acceptRefund:
+        updates.acceptRefund !== undefined
+          ? updates.acceptRefund
+          : acceptRefund,
       currentStep: 7,
     };
 
@@ -144,6 +150,8 @@ const Pricing = () => {
       setSecurityDeposit(updates.securityDeposit);
     if (updates.serviceCharge !== undefined)
       setServiceCharge(updates.serviceCharge);
+    if (updates.acceptRefund !== undefined)
+      setAcceptRefund(updates.acceptRefund);
 
     saveDraftData(finalUpdates);
   };
@@ -166,6 +174,7 @@ const Pricing = () => {
         pricingPeriod: selectedPeriod,
         securityDeposit,
         serviceCharge,
+        acceptRefund: acceptRefund === null ? true : acceptRefund, // Default to true if not selected yet during save-on-close
         currentStep: 7,
         draftId: finalDraftId,
       });
@@ -199,6 +208,7 @@ const Pricing = () => {
       pricingPeriod: selectedPeriod,
       securityDeposit,
       serviceCharge,
+      acceptRefund,
       currentStep: 7,
       draftId: finalDraftId,
     }, { background: true });
@@ -234,6 +244,7 @@ const Pricing = () => {
       pricingPeriod: selectedPeriod,
       securityDeposit,
       serviceCharge,
+      acceptRefund,
       currentStep: 7,
       draftId: finalDraftId,
     }, { background: true });
@@ -259,7 +270,7 @@ const Pricing = () => {
   const isValid =
     intent === "sale"
       ? salePrice.length > 0
-      : price.length > 0 && selectedPeriod.length > 0;
+      : price.length > 0 && selectedPeriod.length > 0 && acceptRefund !== null;
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
@@ -382,6 +393,73 @@ const Pricing = () => {
                   }
                   keyboardType="number-pad"
                 />
+              </View>
+            </View>
+
+            {/* Accept Cancellation/Refund Policy */}
+            <View style={styles.inputGroup}>
+              <View style={styles.policyHeader}>
+                <Text style={styles.inputLabel}>Cancellation & Refund Policy *</Text>
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>
+                    {acceptRefund === null ? "Required" : acceptRefund ? "Standard" : "No Refund"}
+                  </Text>
+                </View>
+              </View>
+
+              <Text style={styles.policyIntroduction}>
+                By default, Lunest supports a flexible cancellation and refund policy to ensure trust. However, you can choose to opt-out for this specific listing.
+              </Text>
+              
+              <View style={styles.policyOptions}>
+                <Pressable
+                  style={[
+                    styles.policyItem,
+                    acceptRefund && styles.policyItemSelected
+                  ]}
+                  onPress={() => updatePricing({ acceptRefund: true })}
+                >
+                  <View style={[styles.radio, acceptRefund && styles.radioSelected]}>
+                    {acceptRefund && <View style={styles.radioInner} />}
+                  </View>
+                  <View style={styles.policyContent}>
+                    <Text style={[styles.policyTitle, acceptRefund && styles.policyTitleSelected]}>
+                      Accept Standard Policy (Recommended)
+                    </Text>
+                    <Text style={styles.policyDescription}>
+                      Allows guests to cancel per Lunest's standard refund timeline. Your earnings are safely held in escrow until the check-in date.
+                    </Text>
+                  </View>
+                </Pressable>
+
+                <Pressable
+                  style={[
+                    styles.policyItem,
+                    !acceptRefund && styles.policyItemSelected
+                  ]}
+                  onPress={() => updatePricing({ acceptRefund: false })}
+                >
+                  <View style={[styles.radio, !acceptRefund && styles.radioSelected]}>
+                    {!acceptRefund && <View style={styles.radioInner} />}
+                  </View>
+                  <View style={styles.policyContent}>
+                    <Text style={[styles.policyTitle, !acceptRefund && styles.policyTitleSelected]}>
+                      No Refund / 2-Hour Buffer Credit
+                    </Text>
+                    <Text style={styles.policyDescription}>
+                      Earnings are credited to your available balance 2 hours after the check-in time or immediately after guests confirm check-in. Guests are not eligible for automatic refunds.
+                    </Text>
+                  </View>
+                </Pressable>
+              </View>
+
+              {/* Policy Warning */}
+              <View style={[styles.noticeContainer, !acceptRefund && { backgroundColor: '#FFF5F5', borderLeftColor: '#EF4444' }]}>
+                <Text style={[styles.noticeText, !acceptRefund && { color: '#9B2C2C' }]}>
+                  {acceptRefund 
+                    ? "💡 Pro-Tip: Flexible policies often lead to 25% higher booking rates as guests feel more secure."
+                    : "⚠️ Note: Host earnings will be credited immediately to your wallet. Guests will see this as a 'Non-Refundable' listing."}
+                </Text>
               </View>
             </View>
           </>
@@ -774,6 +852,83 @@ const styles = StyleSheet.create({
     color: "#4A5568",
     lineHeight: 16,
     flexWrap: 'wrap',
+  },
+  policyIntroduction: {
+    fontSize: 13,
+    color: '#666',
+    lineHeight: 18,
+    marginBottom: 10,
+    fontStyle: 'italic',
+  },
+  policyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  policyOptions: {
+    gap: 12,
+  },
+  policyItem: {
+    flexDirection: 'row',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+    backgroundColor: '#FAFAFA',
+    gap: 12,
+  },
+  policyItemSelected: {
+    borderColor: '#010135',
+    backgroundColor: '#F0F4FF',
+  },
+  radio: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#999',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  radioSelected: {
+    borderColor: '#010135',
+  },
+  radioInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#010135',
+  },
+  policyContent: {
+    flex: 1,
+  },
+  policyTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#292929',
+    marginBottom: 4,
+  },
+  policyTitleSelected: {
+    color: '#010135',
+  },
+  policyDescription: {
+    fontSize: 12,
+    color: '#666',
+    lineHeight: 16,
+  },
+  badge: {
+    backgroundColor: '#EEF2FF',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  badgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#010135',
+    textTransform: 'uppercase',
   },
 });
 

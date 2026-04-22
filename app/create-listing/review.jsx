@@ -731,6 +731,7 @@ const Review = () => {
         title: mergedData.propertyTitle || mergedData.propertyName || "Listing",
         bedrooms: parseInt(mergedData.bedrooms) || 0,
         bathrooms: parseInt(mergedData.bathrooms) || 0,
+        acceptRefund: mergedData.acceptRefund !== false, // Explicitly pass the refund policy
         status: "PENDING",
       };
 
@@ -1110,6 +1111,14 @@ const Review = () => {
             />
           )}
 
+          {/* Refund Policy Summary */}
+          {mergedData.intent?.toLowerCase() !== "sale" && (
+            <SummaryRow
+              label="Refund Policy"
+              value={mergedData.acceptRefund !== false ? "Standard (Refundable)" : "No Refund (Immediate Credit)"}
+            />
+          )}
+
           {/* New Description Section */}
           <View style={{ marginTop: 24, paddingVertical: 16, borderTopWidth: 1, borderTopColor: "#F5F5F5" }}>
             <Text style={{ fontSize: 16, fontWeight: "700", color: "#000", marginBottom: 8 }}>
@@ -1334,8 +1343,22 @@ const Review = () => {
         {/* Terms & Agreement */}
         <View style={styles.section}>
           <Text style={styles.subsectionTitle}>Terms & Agreement</Text>
+          <View style={[
+            styles.termsBanner, 
+            !mergedData.termsAgreed && styles.termsBannerWarning
+          ]}>
+            <AlertCircle size={20} color={mergedData.termsAgreed ? "#16A34A" : "#DC2626"} />
+            <Text style={[
+              styles.termsBannerText,
+              !mergedData.termsAgreed && styles.termsBannerTextWarning
+            ]}>
+              {mergedData.termsAgreed 
+                ? "You have agreed to our Terms & Conditions" 
+                : "You MUST agree to the terms to proceed"}
+            </Text>
+          </View>
           <SummaryRow
-            label="Terms Agreed"
+            label="Legal Consent"
             value={mergedData.termsAgreed ? "Yes" : "No"}
           />
         </View>
@@ -1353,9 +1376,15 @@ const Review = () => {
         <Pressable
           style={[
             styles.submitButton,
-            isSubmitting && styles.submitButtonDisabled,
+            (isSubmitting || !mergedData.termsAgreed) && styles.submitButtonDisabled,
           ]}
-          onPress={handleSubmit}
+          onPress={() => {
+            if (!mergedData.termsAgreed) {
+                toastService.showWarning("Please agree to the terms and conditions first.");
+                return;
+            }
+            handleSubmit();
+          }}
           disabled={isSubmitting}
         >
           {isSubmitting ? (
@@ -1798,6 +1827,30 @@ const styles = StyleSheet.create({
     fontWeight: "700",
 
     color: "#FFFFFF",
+  },
+  termsBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#F0FDF4',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#DCFCE7',
+    marginBottom: 10,
+  },
+  termsBannerWarning: {
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FEE2E2',
+  },
+  termsBannerText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#16A34A',
+    flex: 1,
+  },
+  termsBannerTextWarning: {
+    color: '#DC2626',
   },
   videoPreviewWrapper: {
     width: 120,

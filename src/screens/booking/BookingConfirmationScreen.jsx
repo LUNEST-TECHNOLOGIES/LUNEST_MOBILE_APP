@@ -288,16 +288,16 @@ const BookingConfirmationScreen = () => {
       })()
     : params.checkIn || "-";
     
-  const isCheckInToday = (() => {
+  const isCheckInArrival = (() => {
     if (!booking?.checkIn) return false;
     try {
       const checkInDate = new Date(booking.checkIn);
       const today = new Date();
-      return (
-        checkInDate.getFullYear() === today.getFullYear() &&
-        checkInDate.getMonth() === today.getMonth() &&
-        checkInDate.getDate() === today.getDate()
-      );
+      // Reset times to compare only dates
+      const checkInReset = new Date(checkInDate.getFullYear(), checkInDate.getMonth(), checkInDate.getDate());
+      const todayReset = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      
+      return todayReset >= checkInReset;
     } catch {
       return false;
     }
@@ -1945,17 +1945,26 @@ const BookingConfirmationScreen = () => {
                         ) : statusLower === "confirmed" ? (
               <>
                 {isGuest && !booking?.guestCheckedIn ? (
-                  <Pressable
-                    style={[styles.primaryButton, styles.buttonFlex, { backgroundColor: '#22C55E' }]}
-                    onPress={handleCheckIn}
-                    disabled={isCheckingIn}
-                  >
-                    {isCheckingIn ? (
-                      <ActivityIndicator color="#fff" size="small" />
-                    ) : (
-                      <Text style={styles.primaryButtonText}>Confirm Check-in</Text>
-                    )}
-                  </Pressable>
+                  isCheckInArrival ? (
+                    <Pressable
+                      style={[styles.primaryButton, styles.buttonFlex, { backgroundColor: '#22C55E' }]}
+                      onPress={handleCheckIn}
+                      disabled={isCheckingIn}
+                    >
+                      {isCheckingIn ? (
+                        <ActivityIndicator color="#fff" size="small" />
+                      ) : (
+                        <Text style={styles.primaryButtonText}>Confirm Check-in</Text>
+                      )}
+                    </Pressable>
+                  ) : (
+                    <Pressable
+                      style={[styles.primaryButton, styles.buttonFlex]}
+                      onPress={handleShare}
+                    >
+                      <Text style={styles.primaryButtonText}>Share Booking</Text>
+                    </Pressable>
+                  )
                 ) : (
                   <Pressable
                     style={[styles.primaryButton, styles.buttonFlex]}
@@ -1964,12 +1973,23 @@ const BookingConfirmationScreen = () => {
                     <Text style={styles.primaryButtonText}>Share</Text>
                   </Pressable>
                 )}
-                {!isCheckInToday && (
+                {/* Cancellation Button (Only for refundable or Reserved) */}
+                {!isCheckInToday && (booking?.listing?.acceptRefund !== false) && (
                   <Pressable
                     style={[styles.outlineDangerButton, styles.buttonFlex]}
                     onPress={() => setShowCancelModal(true)}
                   >
                     <Text style={styles.outlineDangerButtonText}>Cancel Stay</Text>
+                  </Pressable>
+                )}
+
+                {/* Share Booking Button as replacement for Cancel when non-refundable */}
+                {(booking?.listing?.acceptRefund === false) && (isCheckInToday || isCheckInArrival) && (
+                  <Pressable
+                    style={[styles.outlineButton, styles.buttonFlex, { marginLeft: 10 }]}
+                    onPress={handleShare}
+                  >
+                    <Text style={styles.outlineButtonText}>Share Booking</Text>
                   </Pressable>
                 )}
                 <Pressable

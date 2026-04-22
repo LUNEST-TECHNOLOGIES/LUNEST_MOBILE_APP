@@ -61,6 +61,7 @@ const TransactionDetailScreen = () => {
     if (t.includes("booking") && (t.includes("payment") || t.includes("receipt"))) {
         if (s === "failed" || s === "cancelled") return "Transaction Failed";
         if (s === "pending" || s === "reserved") return "Transaction Pending";
+        if (s === "disputed") return "Transaction Disputed";
         if (s === "confirmed" || s === "success" || s === "completed")
           return "Transaction Successful";
         return `Transaction Status: ${status}`;
@@ -70,6 +71,7 @@ const TransactionDetailScreen = () => {
       case "booking":
         if (s === "failed" || s === "cancelled") return "Transaction Failed";
         if (s === "pending" || s === "reserved") return "Transaction Pending";
+        if (s === "disputed") return "Transaction Disputed";
         if (s === "confirmed" || s === "success" || s === "completed")
           return "Transaction Successful";
         return `Transaction Status: ${status}`;
@@ -127,6 +129,7 @@ const TransactionDetailScreen = () => {
             return `Transaction Status: ${status}`;
         }
         if (s === "on_hold" || s === "on hold") return "Funds Held";
+        if (s === "disputed") return "Funds Disputed";
         if (s === "failed" || s === "cancelled") return "Transaction Failed";
         if (s === "pending" || s === "reserved") return "Transaction Pending";
         if (s === "confirmed" || s === "success" || s === "completed")
@@ -359,6 +362,8 @@ const TransactionDetailScreen = () => {
       case "on_hold":
       case "on hold":
         return "#192DFF";
+      case "disputed":
+        return "#DC2626";
       default:
         return "#2E7D32";
     }
@@ -376,6 +381,8 @@ const TransactionDetailScreen = () => {
       case "on_hold":
       case "on hold":
         return "rgba(25, 45, 255, 0.1)";
+      case "disputed":
+        return "rgba(220, 38, 38, 0.1)";
       default:
         return "rgba(49, 235, 61, 0.3)";
     }
@@ -445,6 +452,8 @@ const TransactionDetailScreen = () => {
                     return <Ionicons name="time" size={60} color="#F59E0B" />;
                   } else if (s === "on_hold" || s === "on hold") {
                     return <Ionicons name="lock-closed" size={60} color="#192DFF" />;
+                  } else if (s === "disputed") {
+                    return <Ionicons name="warning" size={60} color="#DC2626" />;
                   } else {
                     return (
                       <Ionicons
@@ -483,9 +492,10 @@ const TransactionDetailScreen = () => {
                     if (type === "app charge" || type === "appcharge")
                       return "App charge is pending.";
                     return "Your transaction is pending.";
-                  } else if (s === "on_hold" || s === "on hold") {
                     if (type === "security deposit" || type === "caution fee") return "This caution fee is being held in escrow.";
                     return "These funds are currently on hold.";
+                  } else if (s === "disputed") {
+                    return "This transaction is currently under dispute.";
                   } else {
                     if (type === "payout" || type === "host payout")
                       return "Your payout has been completed successfully.";
@@ -785,18 +795,18 @@ const styles = StyleSheet.create({
     color: "#525252",
   },
   detailValue: {
-    fontSize: 16,
-    fontWeight: "500",
     color: "#000",
-    flex: 1,
+    flex: 2,
     textAlign: "right",
+    flexWrap: "wrap",
   },
   detailValueBold: {
     fontSize: 16,
     fontWeight: "700",
     color: "#000",
-    flex: 1,
+    flex: 2,
     textAlign: "right",
+    flexWrap: "wrap",
   },
   typeBadge: {
     backgroundColor: "#010135",

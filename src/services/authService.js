@@ -1397,7 +1397,6 @@ class AuthService {
         body: formData,
         headers: {
           Accept: "application/json",
-          "Content-Type": "multipart/form-data",
           Authorization: `Bearer ${token}`,
         },
       });

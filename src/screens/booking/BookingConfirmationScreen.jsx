@@ -303,6 +303,20 @@ const BookingConfirmationScreen = () => {
     }
   })();
 
+  const isCheckInToday = (() => {
+    if (!booking?.checkIn) return false;
+    try {
+      const checkInDate = new Date(booking.checkIn);
+      const today = new Date();
+      const checkInReset = new Date(checkInDate.getFullYear(), checkInDate.getMonth(), checkInDate.getDate());
+      const todayReset = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      
+      return todayReset.getTime() === checkInReset.getTime();
+    } catch {
+      return false;
+    }
+  })();
+
   const checkOut = booking?.checkOut
     ? (() => {
         try {

@@ -234,6 +234,7 @@ const PayWithWalletScreen = () => {
           // Refresh local wallet balance
           await fetchWalletBalance();
         } else {
+          console.error("❌ [PayWithWalletScreen] updateBookingStatus failure:", result);
           Alert.alert(
             "Payment Failed",
             result.message ||

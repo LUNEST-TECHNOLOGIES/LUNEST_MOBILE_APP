@@ -1,12 +1,12 @@
 import { Image } from "expo-image";
 import { useEffect, useState } from "react";
 import {
-    Platform,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    useWindowDimensions,
-    View,
+  Platform,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  useWindowDimensions,
+  View,
 } from "react-native";
 import Svg, { Circle, Path } from "react-native-svg";
 import configService from "../../services/configService";

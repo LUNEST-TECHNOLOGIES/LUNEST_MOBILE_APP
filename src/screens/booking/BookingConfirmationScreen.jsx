@@ -8,20 +8,20 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Sharing from "expo-sharing";
 import { useEffect, useRef, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    Dimensions,
-    Image,
-    ImageBackground,
-    Linking,
-    Modal,
-    Platform,
-    Pressable,
-    ScrollView,
-    Share,
-    StyleSheet,
-    Text,
-    View
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  Image,
+  ImageBackground,
+  Linking,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  Share,
+  StyleSheet,
+  Text,
+  View
 } from "react-native";
 import { TouchableOpacity } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -38,7 +38,7 @@ import CountdownTimer from "../../components/booking/confirmation/CountdownTimer
 import DownloadConfirmationModal from "../../components/common/DownloadConfirmationModal";
 import DownloadOptionsModal from "../../components/common/DownloadOptionsModal";
 import ToastNotification, {
-    TOAST_TYPE,
+  TOAST_TYPE,
 } from "../../components/common/ToastNotification";
 import CautionActionModal from "../../components/modals/CautionActionModal";
 import CautionDisputeModal from "../../components/modals/CautionDisputeModal";
@@ -317,6 +317,21 @@ const BookingConfirmationScreen = () => {
     }
   })();
 
+  // ── Cancellation Window Check ──
+  // Cancellation window has passed when check-in time has arrived or passed
+  // Once passed, show "Report Issue" instead of "Cancel Stay"
+  const cancellationWindowPassed = (() => {
+    if (!booking?.checkIn) return false;
+    try {
+      const checkInDate = new Date(booking.checkIn);
+      const now = new Date();
+      // Window passed if check-in date/time has arrived
+      return now >= checkInDate;
+    } catch {
+      return false;
+    }
+  })();
+
   const checkOut = booking?.checkOut
     ? (() => {
         try {
@@ -449,11 +464,12 @@ const BookingConfirmationScreen = () => {
     confirmed: { bg: "rgba(49, 235, 61, 0.3)", text: "#2e7d32" },
     pending: { bg: "rgba(255, 193, 7, 0.2)", text: "#f57f17" },
     cancelled: { bg: "rgba(244, 67, 54, 0.2)", text: "#c62828" },
+    refunded: { bg: "rgba(3, 8, 172, 0.15)", text: "#0308ac" }, // Refunded status (blue)
     completed: { bg: "rgba(33, 150, 243, 0.2)", text: "#1565c0" },
     reserved: { bg: "rgba(33, 150, 243, 0.15)", text: "#1976d2" },
     expired: { bg: "rgba(244, 67, 54, 0.1)", text: "#c62828" },
-    ongoing: { bg: "rgba(255, 152, 0, 0.2)", text: "#ef6c00" },
     failed: { bg: "rgba(244, 67, 54, 0.2)", text: "#c62828" },
+    ongoing: { bg: "rgba(156, 39, 176, 0.15)", text: "#7b1fa2" },
     pending_payment: { bg: "rgba(255, 193, 7, 0.2)", text: "#f57f17" },
   };
 
@@ -494,7 +510,10 @@ const BookingConfirmationScreen = () => {
       case "ongoing":
         return "Enjoy Your Stay!";
       case "cancelled":
-        return "Your Booking is Cancelled";
+        // Show Refunded if guest received a refund
+        return (isGuest && booking?.guestRefundAmount > 0) || booking?.refundCouponCode 
+          ? "Your Booking is Refunded" 
+          : "Your Booking is Cancelled";
       case "failed":
         return "Payment Failed";
       case "expired":
@@ -518,6 +537,13 @@ const BookingConfirmationScreen = () => {
       case "ongoing":
         return "Your stay is currently active. Let us know if you need anything!";
       case "cancelled":
+        // Show refund details if available
+        if (booking?.refundCouponCode) {
+          return `Cancelled. A refund coupon (${booking.refundCouponCode}) has been issued for future bookings.`;
+        }
+        if (booking?.guestRefundAmount > 0) {
+          return `Cancelled. ₦${booking.guestRefundAmount.toLocaleString()} has been refunded to your wallet.`;
+        }
         return "This booking has been cancelled. Contact support for any questions.";
       case "failed":
         return params.error || "Something went wrong with your payment. Please try again to secure your booking.";
@@ -1283,10 +1309,20 @@ const BookingConfirmationScreen = () => {
           <View style={styles.statusRow}>
             <Text style={styles.statusLabel}>Booking Status</Text>
             <View
-              style={[styles.statusBadge, { backgroundColor: badgeColor.bg }]}
+              style={[styles.statusBadge, { backgroundColor: 
+                statusLower === 'cancelled' && ((isGuest && booking?.guestRefundAmount > 0) || booking?.refundCouponCode)
+                  ? statusColors.refunded.bg 
+                  : badgeColor.bg 
+              }]}
             >
-              <Text style={[styles.statusText, { color: badgeColor.text }]}>
-                {status}
+              <Text style={[styles.statusText, { color: 
+                statusLower === 'cancelled' && ((isGuest && booking?.guestRefundAmount > 0) || booking?.refundCouponCode)
+                  ? statusColors.refunded.text 
+                  : badgeColor.text 
+              }]}>
+                {statusLower === 'cancelled' && ((isGuest && booking?.guestRefundAmount > 0) || booking?.refundCouponCode)
+                  ? 'Refunded' 
+                  : status}
               </Text>
             </View>
           </View>
@@ -2026,8 +2062,8 @@ const BookingConfirmationScreen = () => {
                     <Text style={styles.primaryButtonText}>Share</Text>
                   </Pressable>
                 )}
-                {/* Cancellation Button (Only for refundable or Reserved) */}
-                {!isCheckInToday && (booking?.listing?.acceptRefund !== false) && (
+                {/* Cancellation Button - Only if window hasn't passed and listing allows refunds */}
+                {!cancellationWindowPassed && !isCheckInToday && (booking?.listing?.acceptRefund !== false) && (
                   <Pressable
                     style={[styles.outlineDangerButton, styles.buttonFlex]}
                     onPress={() => setShowCancelModal(true)}
@@ -2045,12 +2081,24 @@ const BookingConfirmationScreen = () => {
                     <Text style={styles.outlineButtonText}>Share Booking</Text>
                   </Pressable>
                 )}
-                <Pressable
-                  style={[styles.outlineButton, { width: 50, height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center' }]}
-                  onPress={() => setShowDisputeModal(true)}
-                >
-                  <Ionicons name="alert-circle-outline" size={24} color="#fd3131" />
-                </Pressable>
+
+                {/* Report Issue Button - Only after cancellation window has passed */}
+                {cancellationWindowPassed ? (
+                  <Pressable
+                    style={[styles.outlineDangerButton, styles.buttonFlex]}
+                    onPress={() => setShowDisputeModal(true)}
+                  >
+                    <Text style={styles.outlineDangerButtonText}>Report Issue</Text>
+                  </Pressable>
+                ) : (
+                  /* Small icon button only visible after cancellation window */
+                  <Pressable
+                    style={[styles.outlineButton, { width: 50, height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center' }]}
+                    onPress={() => setShowDisputeModal(true)}
+                  >
+                    <Ionicons name="alert-circle-outline" size={24} color="#fd3131" />
+                  </Pressable>
+                )}
               </>
             ) : statusLower === "ongoing" && !isHostView ? (
               <>

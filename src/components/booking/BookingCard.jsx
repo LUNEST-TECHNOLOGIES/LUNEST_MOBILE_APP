@@ -49,6 +49,7 @@ const BookingCard = ({
     booking.status === "pending_payment" ||
     booking.status === "confirmed" ||
     booking.status === "ongoing" ||
+    booking.status === "disputed" ||
     booking.status === "expired";
 
   const isPending = booking.status === "pending";

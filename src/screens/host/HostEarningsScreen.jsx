@@ -9,20 +9,19 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import {
-    ActivityIndicator,
     RefreshControl,
     ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
     useWindowDimensions,
-    View,
+    View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
+import { HostEarningsSkeleton } from "../../components/skeletons";
 import authService from "../../services/authService";
 import configService from "../../services/configService";
-import { HostEarningsSkeleton } from "../../components/skeletons";
 
 const TrendUpIcon = ({ size = 20, color = "#4CAF50" }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -111,9 +110,11 @@ const STATUS_BADGE = {
     text: "#2E7D32",
     label: "Completed",
   },
-  ON_HOLD: { bg: "rgba(25, 45, 255, 0.15)", text: "#192DFF", label: "On Hold" },
+  ON_HOLD: { bg: "rgba(25, 45, 255, 0.15)", text: "#192DFF", label: "Processing" },
   PENDING: { bg: "rgba(253, 174, 49, 0.2)", text: "#EF6C00", label: "Pending" },
   FAILED: { bg: "rgba(241, 99, 99, 0.2)", text: "#FD3131", label: "Failed" },
+  CANCELLED: { bg: "rgba(183, 28, 28, 0.15)", text: "#B71C1C", label: "Refunded" },
+  REFUNDED: { bg: "rgba(3, 8, 172, 0.15)", text: "#0308AC", label: "Refunded" },
 };
 
 const HostEarningsScreen = () => {

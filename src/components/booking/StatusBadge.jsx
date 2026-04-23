@@ -67,6 +67,13 @@ const StatusBadge = ({ status }) => {
           width: 85,
           icon: <CloseIcon width={8} height={8} color="#9E9E9E" />,
         };
+      case "disputed":
+        return {
+          text: "DISPUTED",
+          color: "#FFBF00",
+          width: 90,
+          icon: <PendingIcon width={14} height={14} color="#FFBF00" />,
+        };
       default:
         return null;
     }

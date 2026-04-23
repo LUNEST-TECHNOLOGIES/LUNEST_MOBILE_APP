@@ -22,9 +22,9 @@ import {
     TouchableWithoutFeedback,
     View,
 } from "react-native";
-import UnifiedDatePicker from "../../components/common/UnifiedDatePicker";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
+import UnifiedDatePicker from "../../components/common/UnifiedDatePicker";
 import authService from "../../services/authService";
 import configService from "../../services/configService";
 
@@ -237,7 +237,17 @@ const STATUS_CONFIG = {
   ON_HOLD: {
     bg: "rgba(25, 45, 255, 0.2)",
     text: "#192DFF",
-    label: "On Hold",
+    label: "Processing",
+  },
+  CANCELLED: {
+    bg: "rgba(183, 28, 28, 0.2)",
+    text: "#B71C1C",
+    label: "Refunded",
+  },
+  REFUNDED: {
+    bg: "rgba(3, 8, 172, 0.2)",
+    text: "#0308AC",
+    label: "Refunded",
   },
 };
 

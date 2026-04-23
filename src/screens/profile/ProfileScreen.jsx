@@ -505,6 +505,7 @@ const ProfileScreen = ({ isHostMode: isHostModeProp = false }) => {
             verified={isVerified}
             avatarUri={profileData?.avatar}
             onEditPress={handleEditProfile}
+            onLogoutPress={() => setIsLogoutModalVisible(true)}
           />
           <View style={styles.spacer} />
           <WalletCard

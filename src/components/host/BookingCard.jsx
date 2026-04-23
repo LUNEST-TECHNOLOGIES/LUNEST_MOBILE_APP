@@ -1,11 +1,11 @@
 import { useRouter } from "expo-router";
 import {
-  ImageBackground,
-  Pressable,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
+    ImageBackground,
+    Pressable,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from "react-native";
 import Svg, { Circle, Path } from "react-native-svg";
 import ChatIcon from "../../assets/icons/bookings/chat.svg";
@@ -22,6 +22,11 @@ const STATUS_CONFIG = {
     label: "CANCELLED",
     color: "#FD3131",
     bgColor: "rgba(253, 49, 49, 0.1)",
+  },
+  DISPUTED: {
+    label: "DISPUTED",
+    color: "#DC2626",
+    bgColor: "rgba(220, 38, 38, 0.1)",
   },
   CONFIRMED: {
     label: "CONFIRMED",
@@ -104,6 +109,19 @@ const ClockIcon = ({ size = 14, color = "#FDAE31" }) => (
   </Svg>
 );
 
+const AlertIcon = ({ size = 14, color = "#DC2626" }) => (
+  <Svg width={size} height={size} viewBox="0 0 14 14" fill="none">
+    <Circle cx="7" cy="7" r="5.5" stroke={color} strokeWidth={1.5} />
+    <Path
+      d="M7 5V8"
+      stroke={color}
+      strokeWidth={1.5}
+      strokeLinecap="round"
+    />
+    <Circle cx="7" cy="10" r="0.5" fill={color} />
+  </Svg>
+);
+
 const StatusBadge = ({ status }) => {
   const config = STATUS_CONFIG[status] || STATUS_CONFIG.PENDING;
   const getIcon = () => {
@@ -111,6 +129,8 @@ const StatusBadge = ({ status }) => {
       case "CANCELED":
       case "CANCELLED":
         return <CloseIcon color={config.color} />;
+      case "DISPUTED":
+        return <AlertIcon color={config.color} />;
       case "CONFIRMED":
         return <CheckIcon color={config.color} />;
       case "COMPLETED":

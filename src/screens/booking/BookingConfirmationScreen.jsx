@@ -1,28 +1,28 @@
 import { Ionicons } from "@expo/vector-icons";
 import { format } from "date-fns";
 import { Asset } from "expo-asset"; // New Import
+import * as Clipboard from "expo-clipboard";
 import { File } from "expo-file-system";
 import * as Print from "expo-print";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Sharing from "expo-sharing";
 import { useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  Dimensions,
-  Image,
-  ImageBackground,
-  Linking,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  Share,
-  StyleSheet,
-  Text,
-  View
+    ActivityIndicator,
+    Alert,
+    Dimensions,
+    Image,
+    ImageBackground,
+    Linking,
+    Modal,
+    Platform,
+    Pressable,
+    ScrollView,
+    Share,
+    StyleSheet,
+    Text,
+    View
 } from "react-native";
-import * as Clipboard from "expo-clipboard";
 import { TouchableOpacity } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { captureRef } from "react-native-view-shot";
@@ -38,7 +38,7 @@ import CountdownTimer from "../../components/booking/confirmation/CountdownTimer
 import DownloadConfirmationModal from "../../components/common/DownloadConfirmationModal";
 import DownloadOptionsModal from "../../components/common/DownloadOptionsModal";
 import ToastNotification, {
-  TOAST_TYPE,
+    TOAST_TYPE,
 } from "../../components/common/ToastNotification";
 import CautionActionModal from "../../components/modals/CautionActionModal";
 import CautionDisputeModal from "../../components/modals/CautionDisputeModal";
@@ -982,23 +982,62 @@ const BookingConfirmationScreen = () => {
     if (!bookingId) return;
     try {
       setIsCancelling(true);
+      
+      // Show processing modal
+      setDownloadModalState({
+        visible: true,
+        type: 'loading',
+        title: 'Cancelling Booking...',
+        message: 'Processing your cancellation request. Please wait.'
+      });
+      
       const result = await bookingService.updateBookingStatus(
         bookingId,
         "CANCELLED",
       );
+      
       if (result.success) {
         setShowCancelModal(false);
-        Alert.alert(
-          "Reservation Cancelled",
-          "Your reservation has been cancelled successfully.",
-          [{ text: "OK", onPress: () => router.replace("/(tabs)") }],
-        );
+        
+        // Update booking status in real-time
+        setBooking((prev) => ({ 
+          ...prev, 
+          status: "CANCELLED",
+          cancelledAt: new Date().toISOString()
+        }));
+        
+        // Hide processing modal and show success
+        setDownloadModalState(prev => ({
+          ...prev,
+          type: 'success',
+          title: 'Booking Cancelled',
+          message: 'Your booking has been cancelled successfully.'
+        }));
+        
+        // Show success toast
+        showToastMessage("Booking cancelled successfully!", TOAST_TYPE.SUCCESS);
+        
+        // Auto-hide the modal after 2 seconds
+        setTimeout(() => {
+          setDownloadModalState(prev => ({ ...prev, visible: false }));
+        }, 2000);
+        
       } else {
-        Alert.alert("Error", result.message || "Failed to cancel reservation.");
+        setDownloadModalState(prev => ({
+          ...prev,
+          type: 'error',
+          title: 'Cancellation Failed',
+          message: result.message || "Failed to cancel booking."
+        }));
       }
     } catch (e) {
       console.warn("[BookingConfirmation] Cancellation failed:", e);
-      Alert.alert("Error", "An unexpected error occurred while cancelling.");
+      setDownloadModalState(prev => ({
+        ...prev,
+        type: 'error',
+        title: 'Error',
+        message: "An unexpected error occurred while cancelling."
+      }));
     } finally {
       setIsCancelling(false);
     }

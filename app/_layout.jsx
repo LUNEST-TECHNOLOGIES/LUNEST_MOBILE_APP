@@ -97,6 +97,7 @@ export default function RootLayout() {
     const inHostTabs = segments[0] === "(host-tabs)";
     const isPaymentCallback = segments[0] === "payment-callback";
     const isAddFunds = segments[0] === "add-funds";
+    const isVerify = segments[0] === "verify";
 
     // Let the index page handle initial routing
     if (inIndex) return;

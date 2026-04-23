@@ -91,10 +91,14 @@ const AddFundsScreen = () => {
         const ref = params?.reference || params?.trxref;
         if (ref && ref !== "null" && ref !== "undefined") {
           console.log("[AddFunds] Callback detected with reference:", ref);
+          
+          // CRITICAL: Clear amount immediately to prevent re-triggering logic on param change
+          setAmount(""); 
+          
           await handleVerifyPayment(ref);
           
           // Clear ALL potential params from URL to prevent loop on refresh
-          router.setParams({ status: null, reference: null, trxref: null });
+          router.setParams({ status: null, reference: null, trxref: null, type: null });
         }
       } catch (err) {
         console.error("[AddFunds] Mount verification failed:", err);
@@ -143,7 +147,9 @@ const AddFundsScreen = () => {
               fromBooking: "true",
               refreshed: "true",
               status: "success",
-              reference: reference
+              reference: reference,
+              amount: null, // Clear amount to prevent re-processing
+              type: null    // Clear type to prevent re-processing
             };
 
             router.replace({

@@ -431,7 +431,7 @@ class AuthService {
         
         // Don't refresh if we are already in the refresh endpoint
         if (!endpoint.includes("/v1/users/refresh")) {
-          const refreshed = await this._refreshAccessToken();
+          const refreshed = await this.refreshToken();
           if (refreshed) {
             console.log("♻️ [AuthService] Token refreshed successfully. Retrying request...");
             // Update token in options if it was manually provided

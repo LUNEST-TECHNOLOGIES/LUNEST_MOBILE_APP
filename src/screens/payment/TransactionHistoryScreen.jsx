@@ -208,6 +208,13 @@ const TRANSACTION_CONFIG = {
     flow: "inflow",
     description: "Refund from booking cancellation",
   },
+  CANCELLATION_CREDIT: {
+    icon: "pricetag-outline",
+    label: "Platform Booking Refund Credit",
+    color: "#2E7D32",
+    flow: "inflow",
+    description: "Refund credit issued as coupon",
+  },
 };
 
 // Status badge colors

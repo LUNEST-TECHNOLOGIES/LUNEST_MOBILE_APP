@@ -307,6 +307,7 @@ class NotificationService {
       points_earned: "gift-outline",
       caution_fee_resolved: "wallet-outline",
       caution_fee_disputed: "alert-circle-outline",
+      refund_coupon_issued: "ticket-outline",
       default: "notifications-outline",
     };
     return iconMap[type] || iconMap.default;

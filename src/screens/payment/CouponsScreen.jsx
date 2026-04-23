@@ -89,6 +89,10 @@ const CouponsScreen = () => {
               <View style={styles.expiredBadge}>
                 <Text style={styles.expiredText}>Expired</Text>
               </View>
+            ) : item.validity === null || item.validity === undefined || item.daysLeft === 0 ? (
+              <View style={styles.neverExpiresBadge}>
+                <Text style={styles.neverExpiresText}>Never Expires</Text>
+              </View>
             ) : (
               <Text style={styles.daysLeft}>
                 {item.daysLeft} day{item.daysLeft !== 1 ? "s" : ""} left
@@ -273,6 +277,17 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     color: "#E53935",
+  },
+  neverExpiresBadge: {
+    backgroundColor: "#FFF3E0",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  neverExpiresText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#E65100",
   },
   couponDivider: {
     height: 1,

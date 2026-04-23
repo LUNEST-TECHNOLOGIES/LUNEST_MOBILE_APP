@@ -244,63 +244,63 @@ const LandlordRequestForm = () => {
   const handleSubmit = async () => {
     // Strict Validation
     if (!userData.fullName?.trim()) {
-      toastService.error('Full Name is required.');
+      toastService.notify('Full name is required', 'error');
       return;
     }
     if (!userData.email?.trim()) {
-      toastService.error('Email Address is required.');
+      toastService.notify('Email address is required', 'error');
       return;
     }
     if (!gender) {
-      toastService.error('Please select your Gender.');
+      toastService.notify('Please select your gender', 'error');
       return;
     }
     if (!userData.phone?.trim()) {
-      toastService.error('Phone Number is required.');
+      toastService.notify('Phone number is required', 'error');
       return;
     }
     if (!userData.location?.trim()) {
-      toastService.error('Location is required.');
+      toastService.notify('Location is required', 'error');
       return;
     }
     if (!userData.nin?.trim() || userData.nin.length < 11) {
-      toastService.error('A valid 11-digit NIN is required.');
+      toastService.notify('Valid NIN (11 digits) is required', 'error');
       return;
     }
     if (selectedPropertyTypes.length === 0) {
-      toastService.error('Please select at least one Property Type.');
+      toastService.notify('Please select at least one property type', 'error');
       return;
     }
     if (!propertyLocation?.trim()) {
-      toastService.error('Property Location is required.');
+      toastService.notify('Property location is required', 'error');
       return;
     }
     if (!hostRole) {
-      toastService.error('Please select your role (Landlord, Manager or Developer/Realtor).');
+      toastService.notify('Please select your host role', 'error');
       return;
     }
     if (hostRole === 'realtor' && !companyName?.trim()) {
-      toastService.error('Company Name is required for Developers/Realtors.');
+      toastService.notify('Company name is required for realtors', 'error');
       return;
     }
     if (!propertyCount) {
-      toastService.error('Please select or enter the number of properties.');
+      toastService.notify('Please select property count', 'error');
       return;
     }
     if (isCustomPropertyCount && !customPropertyCount?.trim()) {
-      toastService.error('Please enter the exact number of properties.');
+      toastService.notify('Please enter custom property count', 'error');
       return;
     }
     if (propertyImages.length === 0) {
-      toastService.error('Please upload at least one property image.');
+      toastService.notify('At least one property image is required', 'error');
       return;
     }
     if (!validIdImage) {
-      toastService.error('Please upload a valid ID image.');
+      toastService.notify('Valid ID image is required', 'error');
       return;
     }
     if (isPropertyManager && !authorizationLetter) {
-      toastService.error('As an Authorised Property Manager, you must upload an authorization letter.');
+      toastService.notify('Authorization letter is required', 'error');
       return;
     }
 
@@ -340,7 +340,7 @@ const LandlordRequestForm = () => {
       if (!response.success) {
         // Log the failure for debugging
         console.warn('[LandlordRequest] Submission failed:', response.message);
-        toastService.error(response.message || 'Failed to submit host application');
+        toastService.notify(response.message || 'Failed to submit host application', 'error');
         setIsSubmitting(false); // Stop loading immediately on handled failure
         return;
       }
@@ -374,7 +374,7 @@ const LandlordRequestForm = () => {
       
       // Use toastService for better UI consistency
       const errorMessage = error.message || 'Failed to submit request. Please try again.';
-      toastService.error(errorMessage);
+      toastService.notify(errorMessage, 'error');
       
       // Falling back to Alert only for critical system failures
       if (error.status === 500) {

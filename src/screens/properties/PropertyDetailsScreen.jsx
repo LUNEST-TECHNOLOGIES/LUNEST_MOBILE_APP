@@ -1248,8 +1248,11 @@ const PropertyDetailsScreen = () => {
 
         {/* Virtual Tour Button - Now on RIGHT */}
         <Pressable style={styles.virtualTourButton}>
-          <ShieldTickIcon width={20} height={20} />
-          <Text style={styles.virtualTourText}>Take Virtual tour (Coming Soon)</Text>
+          <ShieldTickIcon width={18} height={18} />
+          <Text style={styles.virtualTourText}>Take Virtual tour</Text>
+          <View style={styles.comingSoonBadge}>
+            <Text style={styles.comingSoonText}>COMING SOON</Text>
+          </View>
         </Pressable>
       </View>
     );
@@ -2487,9 +2490,22 @@ const styles = StyleSheet.create({
     textAlign: "left",
   },
   virtualTourText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "700",
     color: "#010135",
+  },
+  comingSoonBadge: {
+    backgroundColor: "#010135",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginLeft: 2,
+  },
+  comingSoonText: {
+    fontSize: 7,
+    fontWeight: "900",
+    color: "#FFFFFF",
+    letterSpacing: 0.2,
   },
   overlayBackButton: {
     position: "absolute",

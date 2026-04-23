@@ -69,10 +69,17 @@ const StatusBadge = ({ status }) => {
         };
       case "disputed":
         return {
-          text: "DISPUTED",
+          text: "BOOKING DISPUTE",
           color: "#FFBF00",
-          width: 90,
+          width: 140,
           icon: <PendingIcon width={14} height={14} color="#FFBF00" />,
+        };
+      case "caution_disputed":
+        return {
+          text: "CAUTION DISPUTE",
+          color: "#DC2626",
+          width: 140,
+          icon: <PendingIcon width={14} height={14} color="#DC2626" />,
         };
       default:
         return null;

@@ -98,7 +98,15 @@ const BookingCard = ({
           onError={handleImageError}
         >
           {/* Status Badge Overlay */}
-          {showStatusBadge && <StatusBadge status={booking.status} />}
+          {showStatusBadge && (
+            <StatusBadge 
+              status={
+                booking.status === "completed" && (booking.cautionFeeStatus === "DISPUTED" || booking.securityDepositResolution?.status === "DISPUTED")
+                  ? "caution_disputed" 
+                  : booking.status
+              } 
+            />
+          )}
         </ImageBackground>
       </View>
 
@@ -351,6 +359,7 @@ const BookingCard = ({
           {/* Completed, Cancelled & Expired Status: Only View Details */}
           {(booking.status === "completed" ||
             booking.status === "cancelled" ||
+            booking.status === "disputed" ||
             booking.status === "expired") && (
             <Pressable
               style={[

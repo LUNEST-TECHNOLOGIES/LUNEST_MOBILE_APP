@@ -469,9 +469,11 @@ const BookingConfirmationScreen = () => {
     reserved: { bg: "rgba(33, 150, 243, 0.15)", text: "#1976d2" },
     expired: { bg: "rgba(244, 67, 54, 0.1)", text: "#c62828" },
     failed: { bg: "rgba(244, 67, 54, 0.2)", text: "#c62828" },
-    ongoing: { bg: "rgba(156, 39, 176, 0.15)", text: "#7b1fa2" },
-    pending_payment: { bg: "rgba(255, 193, 7, 0.2)", text: "#f57f17" },
-  };
+     ongoing: { bg: "rgba(156, 39, 176, 0.15)", text: "#7b1fa2" },
+     pending_payment: { bg: "rgba(255, 193, 7, 0.2)", text: "#f57f17" },
+     disputed: { bg: "rgba(255, 191, 0, 0.2)", text: "#FFBF00" },
+     caution_disputed: { bg: "rgba(239, 68, 68, 0.15)", text: "#DC2626" },
+   };
 
   // Status-specific icon for the hero banner
   const getStatusIcon = () => {
@@ -491,6 +493,8 @@ const BookingConfirmationScreen = () => {
       case "failed":
       case "expired":
         return <CancelIcon width={36} height={36} />;
+      case "disputed":
+        return <PendingStatusIcon width={36} height={36} />;
       default:
         return <ConfettiIcon width={40} height={40} />;
     }
@@ -518,6 +522,8 @@ const BookingConfirmationScreen = () => {
         return "Payment Failed";
       case "expired":
         return "Reservation Expired";
+      case "disputed":
+        return "Booking Under Dispute";
       default:
         return "You are Booked in Style!";
     }
@@ -549,6 +555,8 @@ const BookingConfirmationScreen = () => {
         return params.error || "Something went wrong with your payment. Please try again to secure your booking.";
       case "expired":
         return "Your reservation time has expired. Please make a new booking.";
+      case "disputed":
+        return "An issue has been reported. This booking is currently under review by our team and funds are held in escrow.";
       default:
         return null;
     }
@@ -1312,17 +1320,23 @@ const BookingConfirmationScreen = () => {
               style={[styles.statusBadge, { backgroundColor: 
                 statusLower === 'cancelled' && ((isGuest && booking?.guestRefundAmount > 0) || booking?.refundCouponCode)
                   ? statusColors.refunded.bg 
-                  : badgeColor.bg 
+                  : (statusLower === 'completed' && (booking?.cautionFeeStatus === 'DISPUTED' || booking?.securityDepositResolution?.status === 'DISPUTED')
+                      ? statusColors.caution_disputed.bg
+                      : (statusLower === 'disputed' ? statusColors.disputed.bg : badgeColor.bg))
               }]}
             >
               <Text style={[styles.statusText, { color: 
                 statusLower === 'cancelled' && ((isGuest && booking?.guestRefundAmount > 0) || booking?.refundCouponCode)
                   ? statusColors.refunded.text 
-                  : badgeColor.text 
+                  : (statusLower === 'completed' && (booking?.cautionFeeStatus === 'DISPUTED' || booking?.securityDepositResolution?.status === 'DISPUTED')
+                      ? statusColors.caution_disputed.text
+                      : (statusLower === 'disputed' ? statusColors.disputed.text : badgeColor.text))
               }]}>
                 {statusLower === 'cancelled' && ((isGuest && booking?.guestRefundAmount > 0) || booking?.refundCouponCode)
                   ? 'Refunded' 
-                  : status}
+                  : (statusLower === 'completed' && (booking?.cautionFeeStatus === 'DISPUTED' || booking?.securityDepositResolution?.status === 'DISPUTED')
+                      ? 'Caution Dispute'
+                      : (statusLower === 'disputed' ? 'Booking Dispute' : status))}
               </Text>
             </View>
           </View>
@@ -2082,21 +2096,13 @@ const BookingConfirmationScreen = () => {
                   </Pressable>
                 )}
 
-                {/* Report Issue Button - Only after cancellation window has passed */}
-                {cancellationWindowPassed ? (
+                {/* Report Issue Button - Only after cancellation window has passed or on check-in day */}
+                {(cancellationWindowPassed || isCheckInToday) && statusLower !== "disputed" && (
                   <Pressable
                     style={[styles.outlineDangerButton, styles.buttonFlex]}
                     onPress={() => setShowDisputeModal(true)}
                   >
                     <Text style={styles.outlineDangerButtonText}>Report Issue</Text>
-                  </Pressable>
-                ) : (
-                  /* Small icon button only visible after cancellation window */
-                  <Pressable
-                    style={[styles.outlineButton, { width: 50, height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center' }]}
-                    onPress={() => setShowDisputeModal(true)}
-                  >
-                    <Ionicons name="alert-circle-outline" size={24} color="#fd3131" />
                   </Pressable>
                 )}
               </>

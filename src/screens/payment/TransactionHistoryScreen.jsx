@@ -240,14 +240,19 @@ const STATUS_CONFIG = {
     label: "Processing",
   },
   CANCELLED: {
-    bg: "rgba(183, 28, 28, 0.2)",
+    bg: "rgba(183, 28, 28, 0.1)",
     text: "#B71C1C",
-    label: "Refunded",
+    label: "Cancelled",
   },
   REFUNDED: {
-    bg: "rgba(3, 8, 172, 0.2)",
+    bg: "rgba(3, 8, 172, 0.1)",
     text: "#0308AC",
     label: "Refunded",
+  },
+  REVERSED: {
+    bg: "rgba(120, 120, 120, 0.15)",
+    text: "#444444",
+    label: "Reversed",
   },
 };
 
@@ -907,6 +912,17 @@ const TransactionHistoryScreen = () => {
       displayLabel = bookingRef ? `${baseLabel} (${bookingRef})` : baseLabel;
     }
 
+    // Explicitly handle coupon refund labels (Guest-side)
+    if (item.type === "COUPON_REFUND") {
+      const couponCode = item.metadata?.couponCode || item.couponCode;
+      displayLabel = couponCode ? `Refund Credit (${couponCode})` : "Refund Credit";
+    }
+    
+    // Explicitly handle cash refund labels (Guest-side)
+    if (item.type === "CASH_REFUND") {
+      displayLabel = bookingRef ? `Cash Refund (${bookingRef})` : "Cash Refund";
+    }
+
     // Explicitly handle security deposit label for host/guest
     if (item.type === "SECURITY_DEPOSIT") {
       const resolutionStatus = item.metadata?.reconciliation?.cautionFeeStatus || item.metadata?.cautionFeeStatus;
@@ -984,7 +1000,7 @@ const TransactionHistoryScreen = () => {
             style={[styles.statusBadge, { backgroundColor: statusConfig.bg }]}
           >
             <Text style={[styles.statusText, { color: statusConfig.text }]}>
-              {statusConfig.label}
+              {item.type === "HOST_EARNING" && item.status === "CANCELLED" ? "Reversed" : statusConfig.label}
             </Text>
           </View>
           <Text

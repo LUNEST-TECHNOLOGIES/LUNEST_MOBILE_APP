@@ -29,6 +29,7 @@ const PayWithWalletScreen = () => {
   const [walletBalance, setWalletBalance] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
   const [user, setUser] = useState(null);
@@ -57,11 +58,12 @@ const PayWithWalletScreen = () => {
       // If we just came back from added funds, wait slightly before fetching
       // to ensure backend database state has propagated correctly
       if (params.fromBooking === "true") {
-        console.log("[PayWithWallet] Returning from booking funding, delaying refresh...");
-        setIsLoading(true);
+        console.log("[PayWithWallet] Returning from booking funding, verifying balance...");
+        setIsVerifying(true);
         setTimeout(() => {
           fetchWalletBalance();
           notificationService.success("Balance updated! You can now complete your booking.");
+          setIsVerifying(false);
           // Clear param to prevent multi-toasts on subsequent focus
           router.setParams({ fromBooking: null });
         }, 1500);
@@ -157,14 +159,19 @@ const PayWithWalletScreen = () => {
   };
 
   const renderProcessingOverlay = () => {
-    if (!isProcessing) return null;
+    if (!isProcessing && !isVerifying) return null;
+
+    const title = isVerifying ? "Verifying Payment" : "Processing Booking";
+    const subtitle = isVerifying 
+      ? "Checking your updated wallet balance..." 
+      : `Please wait while we confirm your stay at ${propertyName}...`;
 
     return (
       <View style={styles.processingOverlay}>
         <View style={styles.processingCard}>
           <ActivityIndicator size="large" color="#010135" />
-          <Text style={styles.processingTitle}>Processing Booking</Text>
-          <Text style={styles.processingSubtitle}>Please wait while we confirm your stay at {propertyName}...</Text>
+          <Text style={styles.processingTitle}>{title}</Text>
+          <Text style={styles.processingSubtitle}>{subtitle}</Text>
         </View>
       </View>
     );

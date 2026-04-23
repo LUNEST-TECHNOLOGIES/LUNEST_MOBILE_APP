@@ -1246,14 +1246,15 @@ const PropertyDetailsScreen = () => {
           </Text>
         </View>
 
-        {/* Virtual Tour Button - Now on RIGHT */}
-        <Pressable style={styles.virtualTourButton}>
-          <ShieldTickIcon width={18} height={18} />
-          <Text style={styles.virtualTourText}>Take Virtual tour</Text>
+        <View style={{ position: 'absolute', bottom: 20, right: 20 }}>
+          <Pressable style={styles.virtualTourButton}>
+            <ShieldTickIcon width={18} height={18} />
+            <Text style={styles.virtualTourText}>Take Virtual tour</Text>
+          </Pressable>
           <View style={styles.comingSoonBadge}>
             <Text style={styles.comingSoonText}>COMING SOON</Text>
           </View>
-        </Pressable>
+        </View>
       </View>
     );
   };
@@ -2399,16 +2400,13 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   virtualTourButton: {
-    position: "absolute",
-    bottom: 20,
-    right: 20, // Moved to RIGHT
     backgroundColor: "rgba(255,255,255,0.9)",
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 12, // Reduced size
-    paddingVertical: 8, // Reduced size
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 24,
-    gap: 6, // Reduced gap
+    gap: 6,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
@@ -2498,8 +2496,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#010135",
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 6,
-    marginLeft: 2,
+    borderRadius: 4,
+    position: 'absolute',
+    top: -6,
+    right: 4,
+    zIndex: 5,
   },
   comingSoonText: {
     fontSize: 7,

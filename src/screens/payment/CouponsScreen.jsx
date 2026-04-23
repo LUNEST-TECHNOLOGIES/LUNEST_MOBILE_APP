@@ -105,9 +105,7 @@ const CouponsScreen = () => {
           <View style={styles.couponFooter}>
             <View style={styles.codeContainer}>
               <Text style={styles.codeLabel}>Code</Text>
-              <Text style={styles.codeText}>
-                {item.code?.length > 6 ? item.code.substring(0, 6).toUpperCase() : item.code}
-              </Text>
+              <Text style={styles.codeText}>{item.code?.toUpperCase()}</Text>
             </View>
             <TouchableOpacity
               style={[styles.copyButton, isExpired && styles.copyButtonDisabled]}

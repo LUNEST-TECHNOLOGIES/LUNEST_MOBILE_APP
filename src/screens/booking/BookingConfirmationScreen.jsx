@@ -17,6 +17,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   Share,
   StyleSheet,
@@ -176,6 +177,7 @@ const BookingConfirmationScreen = () => {
   const [disputeReason, setDisputeReason] = useState("");
   const [isReportingIssue, setIsReportingIssue] = useState(false);
   const [isCheckingIn, setIsCheckingIn] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const showToastMessage = (message, type = TOAST_TYPE.SUCCESS) => {
     setToastConfig({ message, type });
@@ -225,6 +227,24 @@ const BookingConfirmationScreen = () => {
     return [];
   };
 
+  const fetchBookingData = async () => {
+    if (!bookingId) return;
+    try {
+      const result = await bookingService.fetchBookingById(bookingId);
+      if (result?.success && result?.booking) {
+        setBooking(result.booking);
+      }
+    } catch (err) {
+      console.error("[BookingConfirmation] Fetch error:", err);
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchBookingData();
+    setRefreshing(false);
+  };
+
   useEffect(() => {
     // Load dynamic base URL
     configService.getBaseURL().then(url => setBaseURL(url));
@@ -234,23 +254,10 @@ const BookingConfirmationScreen = () => {
       .then((data) => setUserData(data))
       .catch(() => {});
 
-    if (!bookingId) {
-      setLoading(false);
-      return;
+    if (bookingId) {
+      setLoading(true);
+      fetchBookingData().finally(() => setLoading(false));
     }
-
-    setLoading(true);
-    bookingService
-      .fetchBookingById(bookingId)
-      .then((result) => {
-        if (result?.success && result?.booking) {
-          setBooking(result.booking);
-        }
-      })
-      .catch((err) => {
-        console.error("[BookingConfirmation] Initial fetch error:", err);
-      })
-      .finally(() => setLoading(false));
   }, [bookingId]);
 
   // Helper: get value from fetched booking or route params
@@ -1300,6 +1307,9 @@ const BookingConfirmationScreen = () => {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
       >
         {/* Main Card */}
         <View ref={viewRef} collapsable={false} style={styles.card}>

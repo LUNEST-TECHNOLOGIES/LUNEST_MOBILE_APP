@@ -26,6 +26,7 @@ import {
   getUserData as getUserDataShared,
   setUserData as setUserDataShared,
 } from "./userDataService";
+import { Image as ImageCompressor } from 'react-native-compressor';
 
 const networkErrorHandler = NetworkErrorHandler;
 
@@ -424,14 +425,35 @@ class AuthService {
       console.log("✅ Response received in:", duration, "ms");
       console.log("Response status:", response.status);
 
+      // Handle 401 Unauthorized - trigger automatic token refresh
+      if (response.status === 401 && retryCount < 1) {
+        console.warn("🔐 [AuthService] 401 Unauthorized detected. Attempting token refresh...");
+        
+        // Don't refresh if we are already in the refresh endpoint
+        if (!endpoint.includes("/v1/users/refresh")) {
+          const refreshed = await this._refreshAccessToken();
+          if (refreshed) {
+            console.log("♻️ [AuthService] Token refreshed successfully. Retrying request...");
+            // Update token in options if it was manually provided
+            const newToken = await this.getToken();
+            if (options.headers && options.headers["Authorization"]) {
+              options.headers["Authorization"] = `Bearer ${newToken}`;
+            }
+            return this._secureRequest(endpoint, options, retryCount + 1);
+          }
+        }
+      }
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         console.log("❌ Error response data:", errorData);
         let errorMessage = errorData.message || errorData.error || errorData.msg || `HTTP ${response.status}`;
+        
+        // Handle validation errors
         if (Array.isArray(errorData.errors) && errorData.errors.length > 0) {
           const detailMessages = errorData.errors.map(err => {
             if (typeof err === "string") return err;
-            const pathPrefix = err.path ? (Array.isArray(err.path) ? (Array.isArray(err.path) ? err.path.join(".") : err.path) : err.path) + ": " : "";
+            const pathPrefix = err.path ? (Array.isArray(err.path) ? err.path.join(".") : err.path) + ": " : "";
             return `${pathPrefix}${err.message || err.msg || JSON.stringify(err)}`;
           }).join(", ");
           errorMessage = `Validation Error: ${detailMessages}`;
@@ -454,29 +476,31 @@ class AuthService {
       console.log("Error name:", error.name);
       console.log("Error message:", error.message);
 
-      if (error.message === "AbortError") {
+      // Handle timeouts
+      if (error.message === "AbortError" || error.message.includes("timed out")) {
         console.log("🚫 Request timeout of", this.timeout, "ms exceeded");
-        console.log("Retrying in 2 seconds...");
-
         if (retryCount < MAX_RETRIES) {
+          console.log(`🔄 Retrying due to timeout (${retryCount + 1}/3)...`);
           await new Promise((resolve) => setTimeout(resolve, 2000));
           return this._secureRequest(endpoint, options, retryCount + 1);
         }
-        throw new Error("Request timeout - please check your connection");
+        throw new Error("Request timed out - please check your internet connection");
       }
 
+      // Handle network changes / failures
       if (
         error.message === "Network request failed" ||
         error.message.includes("Network") ||
+        error.message.includes("network changed") ||
+        error.message.includes("ERR_NETWORK_CHANGED") ||
         error.message.includes("ECONNREFUSED")
       ) {
-        console.log("❌ Network error:");
-        console.log("Backend URL:", this.baseURL);
-        console.log("From Safari, visit:", this.baseURL);
-
+        console.log("📡 [AuthService] Network error/change detected:", error.message);
+        
         if (retryCount < MAX_RETRIES) {
-          console.log("Retrying in 2 seconds...");
-          await new Promise((resolve) => setTimeout(resolve, 2000));
+          console.log(`🔄 Retrying due to network state change (${retryCount + 1}/3)...`);
+          // Wait a bit longer for network to stabilize
+          await new Promise((resolve) => setTimeout(resolve, 3000));
           return this._secureRequest(endpoint, options, retryCount + 1);
         }
       }
@@ -1075,6 +1099,8 @@ class AuthService {
           body: JSON.stringify({ refreshToken }),
         });
 
+
+
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
           console.error(
@@ -1498,7 +1524,8 @@ class AuthService {
       Object.keys(otherData).forEach((key) => {
         if (otherData[key] !== undefined && otherData[key] !== null) {
           if (Array.isArray(otherData[key])) {
-            otherData[key].forEach((item) => formData.append(`${key}[]`, item));
+            // Fix: Backend expects just 'propertyTypes', not 'propertyTypes[]' for certain multipart parsers
+            otherData[key].forEach((item) => formData.append(key, item));
           } else if (typeof otherData[key] === "object") {
             formData.append(key, JSON.stringify(otherData[key]));
           } else {

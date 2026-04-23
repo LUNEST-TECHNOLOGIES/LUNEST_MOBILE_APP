@@ -58,7 +58,7 @@ axiosInstance.interceptors.response.use(
       console.warn("[Axios] Unauthorized - clearing session and redirecting");
       
       // Notify user
-      notificationService.notify({
+      notificationService.show({
         message: "Session expired. Please login again.",
         type: TOAST_TYPE.WARNING,
       });

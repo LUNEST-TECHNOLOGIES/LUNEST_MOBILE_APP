@@ -10,6 +10,8 @@ import { useEffect, useState } from 'react';
 import {
   Alert,
   Image,
+  Modal,
+  ActivityIndicator,
   ScrollView,
   StyleSheet,
   Text,
@@ -336,7 +338,11 @@ const LandlordRequestForm = () => {
       const response = await authService.applyForHost(applicationData);
       
       if (!response.success) {
-        throw new Error(response.message || 'Failed to submit host application');
+        // Log the failure for debugging
+        console.warn('[LandlordRequest] Submission failed:', response.message);
+        toastService.error(response.message || 'Failed to submit host application');
+        setIsSubmitting(false); // Stop loading immediately on handled failure
+        return;
       }
 
       // Update local profile to mark request as submitted
@@ -346,10 +352,13 @@ const LandlordRequestForm = () => {
       });
 
       // Refresh the host status context to update the UI on the profile screen
-      if (refreshHostStatus) {
+      if (typeof refreshHostStatus === 'function') {
         await refreshHostStatus();
       }
 
+      // Important: Stop the submitting modal before showing success
+      setIsSubmitting(false);
+      
       // Show pending modal and navigate to pending screen ONLY after success
       setShowPendingModal(true);
       
@@ -357,13 +366,20 @@ const LandlordRequestForm = () => {
       setTimeout(() => {
         setShowPendingModal(false);
         router.replace('/host-request-pending');
-      }, 2000);
+      }, 2500);
 
     } catch (error) {
       console.error('Error submitting form:', error);
-      Alert.alert('Error', error.message || 'Failed to submit request. Please try again.');
-    } finally {
-      setIsSubmitting(false);
+      setIsSubmitting(false); // Ensure loading stops on unexpected error
+      
+      // Use toastService for better UI consistency
+      const errorMessage = error.message || 'Failed to submit request. Please try again.';
+      toastService.error(errorMessage);
+      
+      // Falling back to Alert only for critical system failures
+      if (error.status === 500) {
+        Alert.alert('System Error', 'An unexpected server error occurred. Our team has been notified.');
+      }
     }
   };
 
@@ -780,6 +796,40 @@ const LandlordRequestForm = () => {
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
+
+      {/* Submitting Modal */}
+      <Modal
+        visible={isSubmitting}
+        transparent={true}
+        animationType="fade"
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.submittingModalContent}>
+            <ActivityIndicator size="large" color="#010135" />
+            <Text style={styles.submittingText}>Submitting Application...</Text>
+            <Text style={styles.submittingSubText}>Please wait while we process your request.</Text>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Success/Pending Modal */}
+      <Modal
+        visible={showPendingModal}
+        transparent={true}
+        animationType="slide"
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.successModalContent}>
+            <View style={styles.successIconCircle}>
+              <Ionicons name="checkmark" size={40} color="#FFFFFF" />
+            </View>
+            <Text style={styles.successTitle}>Application Submitted!</Text>
+            <Text style={styles.successMessage}>
+              Your request to become a host is being reviewed. We will notify you once it is approved.
+            </Text>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -1154,6 +1204,64 @@ const styles = StyleSheet.create({
   },
   roleChipTextSelected: {
     color: '#FFFFFF',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  submittingModalContent: {
+    backgroundColor: '#FFFFFF',
+    padding: 30,
+    borderRadius: 20,
+    alignItems: 'center',
+    gap: 15,
+    width: '80%',
+  },
+  submittingText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#010135',
+  },
+  submittingSubText: {
+    fontSize: 14,
+    color: '#656565',
+    textAlign: 'center',
+  },
+  successModalContent: {
+    backgroundColor: '#FFFFFF',
+    padding: 40,
+    borderRadius: 30,
+    alignItems: 'center',
+    width: '85%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  successIconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#4CAF50',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  successTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#010135',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  successMessage: {
+    fontSize: 16,
+    color: '#656565',
+    textAlign: 'center',
+    lineHeight: 24,
   },
 });
 

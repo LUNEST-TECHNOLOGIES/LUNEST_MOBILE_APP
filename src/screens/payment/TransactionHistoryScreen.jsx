@@ -203,14 +203,14 @@ const TRANSACTION_CONFIG = {
   },
   CANCELLATION_REFUND: {
     icon: "refresh-circle-outline",
-    label: "Cancellation Refund",
+    label: "Refund Credit",
     color: "#0308AC",
     flow: "inflow",
     description: "Refund from booking cancellation",
   },
   CANCELLATION_CREDIT: {
     icon: "pricetag-outline",
-    label: "Refund Coupon Credit",
+    label: "Refund Credit",
     color: "#2E7D32",
     flow: "inflow",
     description: "Refund credit issued as coupon",
@@ -915,14 +915,14 @@ const TransactionHistoryScreen = () => {
     }
 
     // Explicitly handle coupon refund labels (Guest-side)
-    if (item.type === "COUPON_REFUND") {
+    if (item.type === "CANCELLATION_CREDIT" || item.type === "COUPON_REFUND") {
       const couponCode = item.metadata?.couponCode || item.couponCode;
       displayLabel = couponCode ? `Refund Credit (${couponCode})` : "Refund Credit";
     }
     
     // Explicitly handle cash refund labels (Guest-side)
-    if (item.type === "CASH_REFUND") {
-      displayLabel = bookingRef ? `Cash Refund (${bookingRef})` : "Cash Refund";
+    if (item.type === "CANCELLATION_REFUND" || item.type === "CASH_REFUND") {
+      displayLabel = bookingRef ? `Refund Credit (${bookingRef})` : "Refund Credit";
     }
 
     // Explicitly handle security deposit label for host/guest

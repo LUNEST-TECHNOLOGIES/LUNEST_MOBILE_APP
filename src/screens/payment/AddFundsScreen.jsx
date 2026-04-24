@@ -169,8 +169,17 @@ const AddFundsScreen = () => {
             router.replace(Platform.OS === 'web' ? "/wallet" : "/(tabs)/wallet");
           }
         }, 2000);
+      } else if (verifyResult.status === "PENDING" || verifyResult.status === "ABANDONED") {
+        // Handle race conditions where Paystack hasn't fully updated yet
+        showToast("Payment is being processed. It will reflect in your wallet shortly.", "info");
+        
+        // Optional: Navigate back or to wallet to let them see it reflect
+        setTimeout(() => {
+           if (router.canGoBack()) router.back();
+           else router.replace(Platform.OS === 'web' ? "/wallet" : "/(tabs)/wallet");
+        }, 2000);
       } else {
-        showToast("Payment not successful. Status: " + verifyResult.status, "error");
+        showToast("Payment not successful. Status: " + (verifyResult.status || "Failed"), "error");
       }
     } catch (error) {
       console.error("[AddFunds] Verify error:", error);

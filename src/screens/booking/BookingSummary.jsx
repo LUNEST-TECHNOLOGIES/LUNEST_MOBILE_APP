@@ -41,6 +41,9 @@ const BookingSummary = () => {
   const [couponCode, setCouponCode] = useState("");
   const [couponDiscount, setCouponDiscount] = useState(0);
   const [couponApplied, setCouponApplied] = useState(false);
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [couponType, setCouponType] = useState(null); // 'FIXED' or 'PERCENTAGE'
+  const [couponValue, setCouponValue] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isInitializingPayment, setIsInitializingPayment] = useState(false);
   const [fetchedBooking, setFetchedBooking] = useState(null);
@@ -213,6 +216,8 @@ const BookingSummary = () => {
             if (result.booking.couponApplied) {
               setCouponCode(result.booking.couponApplied.code || "");
               setCouponDiscount(result.booking.couponApplied.discountApplied || 0);
+              setCouponType(result.booking.couponApplied.type || 'FIXED');
+              setCouponValue(result.booking.couponApplied.value || 0);
               setCouponApplied(true);
             }
           }
@@ -349,9 +354,6 @@ const BookingSummary = () => {
     pricingPeriod,
     periodLabel
   };
-
-  const [couponLoading, setCouponLoading] = useState(false);
-
   const handleApplyCoupon = async () => {
     // Toggle: if already applied, remove coupon
     if (couponApplied) {
@@ -411,7 +413,10 @@ const BookingSummary = () => {
           discount.type === "PERCENTAGE"
             ? Math.round(hostSubtotal * (discount.value / 100))
             : discount.value;
+        
         setCouponDiscount(amount);
+        setCouponType(discount.type);
+        setCouponValue(discount.value);
         setCouponApplied(true);
         
         // Log coupon application for debugging
@@ -1084,8 +1089,10 @@ const BookingSummary = () => {
             });
           } else if (verifyResult.status === "CANCELED") {
             showToast("Payment was canceled.", TOAST_TYPE.INFO);
+          } else if (verifyResult.status === "PENDING") {
+            showToast("Your payment is being processed. It will reflect in your bookings shortly.", TOAST_TYPE.INFO);
           } else {
-            showToast("Your payment is being processed.", TOAST_TYPE.INFO);
+            showToast("Payment not successful: " + (verifyResult.gateway_response || "Failed"), TOAST_TYPE.ERROR);
           }
         } catch (paystackError) {
           console.error("[BookingSummary] Paystack error:", paystackError);
@@ -1418,7 +1425,7 @@ const BookingSummary = () => {
                 <>
                   <View style={styles.priceRow}>
                     <Text style={[styles.priceLabel, { color: "#27AE60" }]}>
-                      Coupon Discount
+                      Coupon Discount {couponType === "PERCENTAGE" && couponValue > 0 ? `(${couponValue}%)` : ""}
                     </Text>
                     <Text style={[styles.priceAmount, { color: "#27AE60" }]}>
                       -₦

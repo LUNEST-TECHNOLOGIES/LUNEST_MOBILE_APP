@@ -124,7 +124,10 @@ const BookingConfirmationScreen = () => {
   const baseSecurityDeposit = pBreakdown?.securityDeposit || booking?.securityDeposit || 0;
   
   // Recalculated values if needed
-  const displayDiscountedTaxable = (baseRentFee + baseServiceCharge) - couponDiscount;
+  // Calculate display values safely to prevent negative numbers
+  const taxableSubtotal = baseRentFee + baseServiceCharge;
+  const safeCouponDiscount = Math.min(couponDiscount, taxableSubtotal);
+  const displayDiscountedTaxable = taxableSubtotal - safeCouponDiscount;
   const displayAfterCoupon = displayDiscountedTaxable + baseSecurityDeposit;
   
   const guestFeePercent = pBreakdown?.guestFeePercent || 5;
@@ -137,8 +140,11 @@ const BookingConfirmationScreen = () => {
   const subtotalBeforeDiscount = parseFloat(params.subtotalBeforeDiscount) || booking?.subtotalBeforeDiscount || pBreakdown?.subtotalBeforeCoupon || totalBaseBeforeDiscount || 0;
   
   // Use stored coupon value from booking data, not calculated from discount amount
+  const couponType = booking?.couponApplied?.type || (calculatedDiscount > 0 ? 'FIXED' : null);
   const storedCouponValue = booking?.couponApplied?.value || booking?.couponValue || 0;
-  const couponPercentage = storedCouponValue > 0 ? storedCouponValue : (subtotalBeforeDiscount > 0 ? Math.round((couponDiscount / subtotalBeforeDiscount) * 100) : 0);
+  
+  // ONLY show percentage if the type is explicitly PERCENTAGE
+  const couponPercentage = couponType === 'PERCENTAGE' ? storedCouponValue : 0;
   const isCouponFullCoverage = couponDiscount > 0 && subtotalBeforeDiscount > 0 && couponDiscount >= subtotalBeforeDiscount;
   const [showPolicyModal, setShowPolicyModal] = useState(false);
   const [showAgreementModal, setShowAgreementModal] = useState(false);
@@ -746,8 +752,8 @@ const BookingConfirmationScreen = () => {
               <div class="row"><span class="label">Rent Fee:</span><span class="value">₦${formatCurrency(rentFee)}</span></div>
               <div class="row"><span class="label">Service Charge:</span><span class="value">₦${formatCurrency(serviceCharge)}</span></div>
               <div class="row"><span class="label">Caution Fee:</span><span class="value">₦${formatCurrency(securityDeposit)} (${cautionStatusGuestText})</span></div>
-              ${couponApplied && couponDiscount > 0 ? `
-                <div class="row"><span class="label" style="color: #2E7D32;">Discount (${couponCode}):</span><span class="value" style="color: #2E7D32;">- ₦${formatCurrency(couponDiscount)}</span></div>
+              ${couponApplied && safeCouponDiscount > 0 ? `
+                <div class="row"><span class="label" style="color: #2E7D32;">Discount (${couponCode})${couponPercentage > 0 ? ` (${couponPercentage}%)` : ""}:</span><span class="value" style="color: #2E7D32;">- ₦${formatCurrency(safeCouponDiscount)}</span></div>
               ` : ""}
               ${
                 pBreakdown?.guestFee > 0
@@ -1542,10 +1548,10 @@ const BookingConfirmationScreen = () => {
                     </View>
                     <View style={[styles.detailRow, styles.breakdownRow, { marginBottom: 2 }]}>
                       <Text style={[styles.detailLabel, { color: "#2E7D32", fontWeight: "600" }]}>
-                        Coupon Discount {couponPercentage > 0 && `(${couponPercentage}%)`}:
+                        {couponPercentage > 0 ? `Coupon Discount (${couponPercentage}%):` : "Coupon Discount:"}
                       </Text>
                       <Text style={[styles.detailValue, { color: "#2E7D32", fontWeight: "600" }]}>
-                        -₦{formatCurrency(couponDiscount)}
+                        -₦{formatCurrency(safeCouponDiscount)}
                       </Text>
                     </View>
                     

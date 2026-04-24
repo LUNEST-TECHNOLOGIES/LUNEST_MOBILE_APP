@@ -210,7 +210,7 @@ const TRANSACTION_CONFIG = {
   },
   CANCELLATION_CREDIT: {
     icon: "pricetag-outline",
-    label: "Platform Booking Refund Credit",
+    label: "Refund Coupon Credit",
     color: "#2E7D32",
     flow: "inflow",
     description: "Refund credit issued as coupon",
@@ -354,6 +354,8 @@ const TransactionHistoryScreen = () => {
       "REWARD",
       "RENT",
       "SERVICE_CHARGE",
+      "CANCELLATION_CREDIT",
+      "COUPON_REFUND",
     ].includes(type);
   };
 

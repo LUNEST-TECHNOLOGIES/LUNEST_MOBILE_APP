@@ -58,6 +58,7 @@ const HostDashboardScreen = () => {
     totalEarnings: 0,
     walletBalance: 0,
     pendingBalance: 0,
+    pendingBalanceLabel: "Pending Balance:",
     totalBookings: 0,
     totalListings: 0,
     upcomingBookings: 0,
@@ -336,6 +337,7 @@ const HostDashboardScreen = () => {
           totalEarnings={dashboardData.totalEarnings}
           walletBalance={dashboardData.walletBalance}
           pendingBalance={dashboardData.pendingBalance}
+          pendingBalanceLabel={dashboardData.pendingBalanceLabel}
           totalBookings={dashboardData.totalBookings}
           totalListings={dashboardData.totalListings}
           hostRating={dashboardData.hostRating}

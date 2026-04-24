@@ -97,6 +97,7 @@ const DashboardStatsCards = ({
   totalEarnings = 0,
   walletBalance = 0,
   pendingBalance = 0,
+  pendingBalanceLabel = "Pending Earnings:",
   totalBookings = 0,
   totalListings = 0,
   hostRating = 0,
@@ -128,12 +129,10 @@ const DashboardStatsCards = ({
               <Text style={styles.walletBalanceLabel}>Available:</Text>
               <Text style={styles.walletBalanceValue}>{safeWalletValue}</Text>
             </View>
-            {pendingBalance > 0 && (
-              <View style={styles.pendingBalanceRow}>
-                <Text style={styles.pendingBalanceLabel}>Pending Earnings (2h):</Text>
-                <Text style={styles.pendingBalanceValue}>{safePendingValue}</Text>
-              </View>
-            )}
+            <View style={styles.pendingBalanceRow}>
+              <Text style={styles.pendingBalanceLabel}>{pendingBalanceLabel}</Text>
+              <Text style={styles.pendingBalanceValue}>{safePendingValue}</Text>
+            </View>
           </View>
         </View>
       </View>

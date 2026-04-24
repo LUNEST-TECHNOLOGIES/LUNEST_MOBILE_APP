@@ -86,9 +86,13 @@ const BookingConfirmationScreen = () => {
   const totalBaseBeforeDiscount = serviceBase + (pBreakdown?.securityDeposit || 0);
   const couponValue = booking?.couponApplied?.value || booking?.couponValue || 0;
   
-  // Always recalculate if we have coupon data to ensure accuracy
+  // Recalculate based on type (PERCENTAGE vs FIXED/AMOUNT)
+  const couponTypeRaw = booking?.couponApplied?.type || (params.couponType) || 'PERCENTAGE';
+  
   if (rawCouponApplied && couponValue > 0 && serviceBase > 0) {
-    const expectedDiscount = Math.round((serviceBase * couponValue) / 100);
+    const expectedDiscount = couponTypeRaw === 'PERCENTAGE' 
+        ? Math.round((serviceBase * couponValue) / 100)
+        : couponValue;
     // Use calculated if raw is 0 or differs significantly
     if (rawCouponDiscount === 0 || Math.abs(rawCouponDiscount - expectedDiscount) > serviceBase * 0.01) {
       calculatedDiscount = expectedDiscount;
@@ -140,7 +144,7 @@ const BookingConfirmationScreen = () => {
   const subtotalBeforeDiscount = parseFloat(params.subtotalBeforeDiscount) || booking?.subtotalBeforeDiscount || pBreakdown?.subtotalBeforeCoupon || totalBaseBeforeDiscount || 0;
   
   // Use stored coupon value from booking data, not calculated from discount amount
-  const couponType = booking?.couponApplied?.type || (calculatedDiscount > 0 ? 'FIXED' : null);
+  const couponType = booking?.couponApplied?.type || (params.couponType) || (calculatedDiscount > 0 ? 'FIXED' : null);
   const storedCouponValue = booking?.couponApplied?.value || booking?.couponValue || 0;
   
   // ONLY show percentage if the type is explicitly PERCENTAGE

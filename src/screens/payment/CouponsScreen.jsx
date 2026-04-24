@@ -68,14 +68,17 @@ const CouponsScreen = () => {
   };
 
   const renderCoupon = ({ item }) => {
-    const isExpired = item.isExpired;
+    const isUsed = item.isUsed;
+    const isExpired = item.isExpired && !isUsed;
+    const isInactive = isUsed || isExpired;
+    
     const discountText =
       item.discount?.type === "PERCENTAGE"
         ? `${item.discount.value}% Off`
         : `₦${(item.discount?.value || 0).toLocaleString()} Off`;
 
     return (
-      <View style={[styles.couponCard, isExpired && styles.couponExpired]}>
+      <View style={[styles.couponCard, isInactive && styles.couponInactive]}>
         {/* Decorative circles */}
         <View style={[styles.circle, styles.circleLeft]} />
         <View style={[styles.circle, styles.circleRight]} />
@@ -85,7 +88,11 @@ const CouponsScreen = () => {
             <View style={styles.discountBadge}>
               <Text style={styles.discountText}>{discountText}</Text>
             </View>
-            {isExpired ? (
+            {isUsed ? (
+              <View style={styles.usedBadge}>
+                <Text style={styles.usedText}>Used</Text>
+              </View>
+            ) : isExpired ? (
               <View style={styles.expiredBadge}>
                 <Text style={styles.expiredText}>Expired</Text>
               </View>
@@ -108,9 +115,9 @@ const CouponsScreen = () => {
               <Text style={styles.codeText}>{item.code?.toUpperCase()}</Text>
             </View>
             <TouchableOpacity
-              style={[styles.copyButton, isExpired && styles.copyButtonDisabled]}
-              onPress={() => !isExpired && handleCopy(item.code)}
-              disabled={isExpired}
+              style={[styles.copyButton, isInactive && styles.copyButtonDisabled]}
+              onPress={() => !isInactive && handleCopy(item.code)}
+              disabled={isInactive}
             >
               <Ionicons
                 name="copy-outline"
@@ -120,7 +127,7 @@ const CouponsScreen = () => {
               <Text
                 style={[
                   styles.copyButtonText,
-                  isExpired && styles.copyButtonTextDisabled,
+                  isInactive && styles.copyButtonTextDisabled,
                 ]}
               >
                 Copy
@@ -222,8 +229,8 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 3,
   },
-  couponExpired: {
-    opacity: 0.6,
+  couponInactive: {
+    opacity: 0.5,
   },
   circle: {
     position: "absolute",
@@ -286,6 +293,17 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
     color: "#E65100",
+  },
+  usedBadge: {
+    backgroundColor: "#E8F5E9",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  usedText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#2E7D32",
   },
   couponDivider: {
     height: 1,

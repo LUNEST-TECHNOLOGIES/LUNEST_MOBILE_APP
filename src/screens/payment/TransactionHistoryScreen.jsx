@@ -208,12 +208,41 @@ const TRANSACTION_CONFIG = {
     flow: "inflow",
     description: "Refund from booking cancellation",
   },
+  SECURITY_DEPOSIT_REFUND: {
+    icon: "refresh-circle-outline",
+    label: "Caution Fee Refund",
+    color: "#2E7D32",
+    flow: "inflow",
+    description: "Refund of security deposit/caution fee",
+  },
   CANCELLATION_CREDIT: {
     icon: "pricetag-outline",
     label: "Refund Credit",
     color: "#2E7D32",
     flow: "inflow",
     description: "Refund credit issued as coupon",
+  },
+  // ── Breakdown / split categories ──
+  RENT_AND_SERVICE: {
+    icon: "home-outline",
+    label: "Rent & Service",
+    color: "#192DFF",
+    flow: "outflow",
+    description: "Rent and service charge payment",
+  },
+  ADJUSTMENT: {
+    icon: "swap-horizontal-outline",
+    label: "Wallet Adjustment",
+    color: "#EF6C00",
+    flow: "inflow",
+    description: "Manual wallet adjustment",
+  },
+  COUPON_CREDIT: {
+    icon: "gift-outline",
+    label: "Coupon Credit",
+    color: "#9C27B0",
+    flow: "inflow",
+    description: "Excess coupon balance credited to wallet",
   },
 };
 
@@ -236,6 +265,12 @@ const STATUS_CONFIG = {
   },
   ON_HOLD: {
     bg: "rgba(25, 45, 255, 0.2)",
+    text: "#192DFF",
+    label: "On Hold",
+  },
+  // AUDIT FIX: PROCESSING was missing — host earnings in 2-hour escrow window showed no badge
+  PROCESSING: {
+    bg: "rgba(25, 45, 255, 0.15)",
     text: "#192DFF",
     label: "Processing",
   },

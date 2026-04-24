@@ -224,7 +224,6 @@ const BookingCard = ({
                   Cancel booking
                 </Text>
               </Pressable>
-
               {/* View Details Button */}
               <Pressable
                 style={[
@@ -271,7 +270,7 @@ const BookingCard = ({
                     />
                   </View>
                 </Pressable>
- 
+
                 {/* Pay Now Button */}
                 <Pressable
                   style={[

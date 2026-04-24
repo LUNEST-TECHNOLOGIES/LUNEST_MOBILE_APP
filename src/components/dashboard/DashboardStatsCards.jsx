@@ -130,7 +130,7 @@ const DashboardStatsCards = ({
             </View>
             {pendingBalance > 0 && (
               <View style={styles.pendingBalanceRow}>
-                <Text style={styles.pendingBalanceLabel}>Pending (24h):</Text>
+                <Text style={styles.pendingBalanceLabel}>Pending Earnings (2h):</Text>
                 <Text style={styles.pendingBalanceValue}>{safePendingValue}</Text>
               </View>
             )}

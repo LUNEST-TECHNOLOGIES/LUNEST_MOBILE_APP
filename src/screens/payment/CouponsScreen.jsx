@@ -96,6 +96,10 @@ const CouponsScreen = () => {
               <View style={styles.expiredBadge}>
                 <Text style={styles.expiredText}>Expired</Text>
               </View>
+            ) : item.isRefundCoupon ? (
+              <View style={styles.refundBadge}>
+                <Text style={styles.refundText}>Refund Credit</Text>
+              </View>
             ) : item.validity === null || item.validity === undefined || item.daysLeft === 0 ? (
               <View style={styles.neverExpiresBadge}>
                 <Text style={styles.neverExpiresText}>Never Expires</Text>
@@ -304,6 +308,17 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
     color: "#2E7D32",
+  },
+  refundBadge: {
+    backgroundColor: "#E0F2F1",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  refundText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#00695C",
   },
   couponDivider: {
     height: 1,

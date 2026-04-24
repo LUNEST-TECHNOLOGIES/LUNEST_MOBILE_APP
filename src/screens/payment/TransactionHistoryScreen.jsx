@@ -5,9 +5,10 @@
  */
 import { Ionicons } from "@expo/vector-icons";
 import { File, Paths } from "expo-file-system";
+import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import * as Sharing from "expo-sharing";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import {
     ActivityIndicator,
     Alert,
@@ -395,8 +396,9 @@ const TransactionHistoryScreen = () => {
   };
 
   // Fetch transactions from API
-  const fetchTransactions = async () => {
+  const fetchTransactions = async (showLoading = true) => {
     try {
+      if (showLoading) setLoading(true);
       setError(null);
       const token = await authService.getToken();
       const baseURL = await configService.getBaseURL();
@@ -525,6 +527,24 @@ const TransactionHistoryScreen = () => {
   useEffect(() => {
     fetchTransactions();
   }, []);
+
+  // Real-time updates: Refresh transactions every 30 seconds while screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      console.log("🔄 [TransactionHistory] Screen focused - starting refresh interval");
+      fetchTransactions(false); // Initial refresh on focus (silent)
+
+      const intervalId = setInterval(() => {
+        console.log("📡 [TransactionHistory] Polling for new transactions...");
+        fetchTransactions(false);
+      }, 30000);
+
+      return () => {
+        console.log("🛑 [TransactionHistory] Screen blurred - clearing interval");
+        clearInterval(intervalId);
+      };
+    }, [])
+  );
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);

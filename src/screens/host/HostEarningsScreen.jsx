@@ -265,8 +265,19 @@ const HostEarningsScreen = () => {
 
   useFocusEffect(
     useCallback(() => {
-      fetchEarningsData();
-    }, []),
+      console.log("🔄 [HostEarnings] Screen focused - starting refresh interval");
+      fetchEarningsData(false); // Silent initial refresh on focus
+
+      const intervalId = setInterval(() => {
+        console.log("📡 [HostEarnings] Polling for new earnings data...");
+        fetchEarningsData(false);
+      }, 30000);
+
+      return () => {
+        console.log("🛑 [HostEarnings] Screen blurred - clearing interval");
+        clearInterval(intervalId);
+      };
+    }, [])
   );
 
   const onRefresh = () => {
@@ -461,7 +472,7 @@ const HostEarningsScreen = () => {
         <View style={[styles.infoCard, { width: containerWidth }]}>
           <Ionicons name="information-circle-outline" size={16} color="#666" />
           <Text style={styles.infoText}>
-            Funds are released to available balance 24 hours after booking confirmation
+            Funds are released to available balance 2 hours after guest check-in
           </Text>
         </View>
 

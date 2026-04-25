@@ -204,7 +204,7 @@ const TRANSACTION_CONFIG = {
   },
   CANCELLATION_REFUND: {
     icon: "refresh-circle-outline",
-    label: "Refund Credit",
+    label: "Refund (Wallet)",
     color: "#0308AC",
     flow: "inflow",
     description: "Refund from booking cancellation",
@@ -218,7 +218,7 @@ const TRANSACTION_CONFIG = {
   },
   CANCELLATION_CREDIT: {
     icon: "pricetag-outline",
-    label: "Refund Credit",
+    label: "Refund (Coupon)",
     color: "#2E7D32",
     flow: "inflow",
     description: "Refund credit issued as coupon",
@@ -972,31 +972,42 @@ const TransactionHistoryScreen = () => {
     // Explicitly handle coupon refund labels (Guest-side)
     if (item.type === "CANCELLATION_CREDIT" || item.type === "COUPON_REFUND") {
       const couponCode = item.metadata?.couponCode || item.couponCode;
-      displayLabel = couponCode ? `Refund Credit (${couponCode})` : "Refund Credit";
+      displayLabel = couponCode ? `Refund (Coupon: ${couponCode})` : "Refund (Coupon)";
     }
     
     // Explicitly handle cash refund labels (Guest-side)
     if (item.type === "CANCELLATION_REFUND" || item.type === "CASH_REFUND") {
-      displayLabel = bookingRef ? `Refund Credit (${bookingRef})` : "Refund Credit";
+      displayLabel = bookingRef ? `Refund (Wallet) #${bookingRef}` : "Refund (Wallet)";
+    }
+
+    // Explicitly handle host earning labels with status indicators
+    if (item.type === "HOST_EARNING") {
+      if (item.status === "ON_HOLD" || item.status === "PROCESSING") {
+        displayLabel = `Pending Earning (Escrow)`;
+      } else {
+        displayLabel = `Host Earning`;
+      }
+      
+      if (bookingRef) {
+        displayLabel += ` (${bookingRef})`;
+      }
     }
 
     // Explicitly handle security deposit label for host/guest
     if (item.type === "SECURITY_DEPOSIT") {
+      const isOutflow = !isInflowTransaction(item.type, item.originalType);
+      const baseLabel = isOutflow ? "Caution Fee (Hold)" : "Caution Fee Refund";
       const resolutionStatus = item.metadata?.reconciliation?.cautionFeeStatus || item.metadata?.cautionFeeStatus;
-      const resolutionNote = item.metadata?.reconciliation?.resolutionReason || item.metadata?.resolutionReason;
       const isDisclosure = item.metadata?.isDisclosure;
+      
       const recipientName = item.metadata?.reconciliation?.recipientName || 
                            item.metadata?.recipientName || 
                            (resolutionStatus === 'RELEASED_TO_GUEST' ? 'Guest' : resolutionStatus === 'RELEASED_TO_HOST' ? 'Host' : '');
 
       if (resolutionStatus === 'RELEASED_TO_GUEST' || resolutionStatus === 'RELEASED_TO_HOST') {
-        if (!isDisclosure) {
-          displayLabel = `Credited to ${recipientName}`;
-        } else {
-          displayLabel = `Released to ${recipientName}`;
-        }
+        displayLabel = isDisclosure ? `Released to ${recipientName}` : `Credited to ${recipientName}`;
       } else {
-        displayLabel = item.description || "Caution Fee";
+        displayLabel = bookingRef ? `${baseLabel} (#${bookingRef})` : baseLabel;
       }
     }
     

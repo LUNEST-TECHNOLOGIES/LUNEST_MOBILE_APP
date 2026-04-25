@@ -446,35 +446,19 @@ class ListingService {
       };
     } catch (error) {
       console.error("[ListingService] Error fetching user listings:", error);
+      const categorized = NetworkErrorHandler.categorizeError(error);
+      
       logService.logError("Failed to fetch host listings", {
         message: error.message,
         status: error.response?.status,
+        categorized: categorized.type
       });
-
-      if (error.response?.status === 401) {
-        return {
-          success: false,
-          listings: [],
-          message: "Authentication required. Please log in again.",
-          error: "UNAUTHORIZED",
-        };
-      }
-
-      if (error.response?.status === 404) {
-        return {
-          success: true,
-          listings: [],
-          message: "No listings found",
-        };
-      }
 
       return {
         success: false,
         listings: [],
-        message:
-          error.response?.data?.message ||
-          error.message ||
-          "Failed to fetch listings",
+        message: error.response?.data?.message || categorized.userMessage || "Failed to fetch listings",
+        error: categorized.type,
       };
     }
   }
@@ -500,10 +484,12 @@ class ListingService {
       };
     } catch (error) {
       console.error("[ListingService] Error fetching listings:", error);
+      const categorized = NetworkErrorHandler.categorizeError(error);
       return {
         success: false,
         listings: [],
-        message: "Failed to fetch listings",
+        message: categorized.userMessage || "Failed to fetch listings",
+        error: categorized.type,
       };
     }
   }

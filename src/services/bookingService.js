@@ -172,15 +172,12 @@ class BookingService {
       };
     } catch (error) {
       console.error("❌ [BookingService] Error fetching host bookings:", error);
-      console.error("[BookingService] Error details:", {
-        message: error.message,
-        status: error.status,
-        response: error.response,
-      });
+      const categorized = NetworkErrorHandler.categorizeError(error);
       return {
         success: false,
         bookings: [],
-        message: error.message || "Failed to fetch bookings",
+        message: categorized.userMessage || "Failed to fetch bookings",
+        error: categorized.type,
       };
     }
   }
@@ -252,15 +249,12 @@ class BookingService {
         "❌ [BookingService] Error fetching guest bookings:",
         error,
       );
-      console.error("[BookingService] Error details:", {
-        message: error.message,
-        status: error.status,
-        response: error.response,
-      });
+      const categorized = NetworkErrorHandler.categorizeError(error);
       return {
         success: false,
         bookings: [],
-        message: error.message || "Failed to fetch bookings",
+        message: categorized.userMessage || "Failed to fetch bookings",
+        error: categorized.type,
       };
     }
   }
@@ -407,17 +401,12 @@ class BookingService {
       };
     } catch (error) {
       console.error("❌ [BookingService] Error fetching booking:", error);
-      if (error && error.response) {
-        console.error(
-          "[BookingService] Backend error response:",
-          error.response,
-        );
-      }
+      const categorized = NetworkErrorHandler.categorizeError(error);
       return {
         success: false,
         booking: null,
-        message: error.message || "Failed to fetch booking. Please try again.",
-        error: error,
+        message: categorized.userMessage || "Failed to fetch booking. Please try again.",
+        error: categorized.type,
       };
     }
   }

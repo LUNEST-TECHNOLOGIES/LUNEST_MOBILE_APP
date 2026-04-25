@@ -32,12 +32,14 @@ class NetworkErrorHandler {
             message.includes("fetch failed") ||
             message.includes("Unable to connect") ||
             message.includes("ECONNREFUSED") ||
-            message.includes("ETIMEDOUT")
+            message.includes("ETIMEDOUT") ||
+            message.includes("Network Error")
         ) {
             return {
                 type: "NETWORK_ERROR",
                 severity: "critical",
-                userMessage: this.getNetworkErrorMessage(),
+                userMessage: "Unable to connect to server. Please check your internet connection and try again.",
+                diagnostics: this.getNetworkErrorMessage(),
                 cause: "No network connectivity or server unreachable",
                 platform: Platform.OS,
             };
@@ -48,7 +50,8 @@ class NetworkErrorHandler {
             return {
                 type: "TIMEOUT_ERROR",
                 severity: "high",
-                userMessage: this.getTimeoutErrorMessage(),
+                userMessage: "The request timed out. Please try again.",
+                diagnostics: this.getTimeoutErrorMessage(),
                 cause: "Request exceeded timeout threshold",
                 platform: Platform.OS,
             };

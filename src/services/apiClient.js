@@ -157,18 +157,19 @@ class APIClient {
    */
   handleError(diagnostic, silent = false) {
     if (silent) {
-       console.log("[APIClient] Silent error suppressed toast:", diagnostic.message);
+       console.log("[APIClient] Silent error suppressed toast:", diagnostic?.userMessage || diagnostic?.message);
        return;
     }
 
     const now = Date.now();
     if (now - this.lastAlertTime < ALERT_THROTTLE_MS) {
-      console.log("[APIClient] Alert throttled:", diagnostic.message);
+      console.log("[APIClient] Alert throttled:", diagnostic?.userMessage || diagnostic?.message);
       return;
     }
 
     this.lastAlertTime = now;
-    toastService.showError(diagnostic.message);
+    const message = diagnostic?.userMessage || diagnostic?.message || "An unexpected error occurred";
+    toastService.showError(message);
   }
 
   /**
@@ -334,20 +335,16 @@ class APIClient {
     const cleanBase = this.baseURL.replace(/\/$/, "");
     const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
     const urlString = `${cleanBase}${cleanEndpoint}`;
-    try {
-      const { headers: customHeaders, ...restOptions } = options || {};
-      const headers = await this.buildHeaders(customHeaders);
-      
-      return await this._fetchWithRetry(urlString, {
-        method: "PUT",
-        headers,
-        body: JSON.stringify(data),
-        ...restOptions,
-      });
-    } catch (error) {
-      this.handleError(error, urlString);
-      throw error;
-    }
+    
+    const { headers: customHeaders, ...restOptions } = options || {};
+    const headers = await this.buildHeaders(customHeaders);
+    
+    return this._fetchWithRetry(urlString, {
+      method: "PUT",
+      headers,
+      body: JSON.stringify(data),
+      ...restOptions,
+    }, 1, options.silent || false);
   }
 
   /**
@@ -360,19 +357,15 @@ class APIClient {
     const cleanBase = this.baseURL.replace(/\/$/, "");
     const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
     const urlString = `${cleanBase}${cleanEndpoint}`;
-    try {
-      const { headers: customHeaders, ...restOptions } = options || {};
-      const headers = await this.buildHeaders(customHeaders);
+    
+    const { headers: customHeaders, ...restOptions } = options || {};
+    const headers = await this.buildHeaders(customHeaders);
 
-      return await this._fetchWithRetry(urlString, {
-        method: "DELETE",
-        headers,
-        ...restOptions,
-      });
-    } catch (error) {
-      this.handleError(error, urlString);
-      throw error;
-    }
+    return this._fetchWithRetry(urlString, {
+      method: "DELETE",
+      headers,
+      ...restOptions,
+    }, 1, options.silent || false);
   }
 
   /**
@@ -386,20 +379,16 @@ class APIClient {
     const cleanBase = this.baseURL.replace(/\/$/, "");
     const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
     const urlString = `${cleanBase}${cleanEndpoint}`;
-    try {
-      const { headers: customHeaders, ...restOptions } = options || {};
-      const headers = await this.buildHeaders(customHeaders);
+    
+    const { headers: customHeaders, ...restOptions } = options || {};
+    const headers = await this.buildHeaders(customHeaders);
 
-      return await this._fetchWithRetry(urlString, {
-        method: "PATCH",
-        headers,
-        body: JSON.stringify(data),
-        ...restOptions,
-      });
-    } catch (error) {
-      this.handleError(error, urlString);
-      throw error;
-    }
+    return this._fetchWithRetry(urlString, {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify(data),
+      ...restOptions,
+    }, 1, options.silent || false);
   }
 
   /**

@@ -450,9 +450,10 @@ const TransactionHistoryScreen = () => {
         // Remove duplicates based on unique identifiers
         const uniqueTxns = validTxns.filter((txn, index, self) => {
           // Create unique key based on multiple fields to identify duplicates
-          const uniqueKey = `${txn.type}_${txn.amount}_${txn.timestamp || txn.createdAt}_${txn.bookingRef || txn.metadata?.bookingRef || ''}`;
+          // AUDIT: Include category in uniqueKey to prevent different split items (Rent/Service) from being deduplicated
+          const uniqueKey = `${txn.type}_${txn.category || ''}_${txn.amount}_${txn.timestamp || txn.createdAt}_${txn.bookingRef || txn.metadata?.bookingRef || ''}`;
           return index === self.findIndex((t) => 
-            `${t.type}_${t.amount}_${t.timestamp || t.createdAt}_${t.bookingRef || t.metadata?.bookingRef || ''}` === uniqueKey
+            `${t.type}_${t.category || ''}_${t.amount}_${t.timestamp || t.createdAt}_${t.bookingRef || t.metadata?.bookingRef || ''}` === uniqueKey
           );
         });
         

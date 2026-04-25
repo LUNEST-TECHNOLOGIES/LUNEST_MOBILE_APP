@@ -902,7 +902,8 @@ const TransactionHistoryScreen = () => {
     }
 
     const config = TRANSACTION_CONFIG[item.type] || TRANSACTION_CONFIG.BOOKING;
-    const statusConfig = STATUS_CONFIG[item.status] || STATUS_CONFIG.COMPLETED;
+    const itemStatus = (item.status || "COMPLETED").toUpperCase();
+    const statusConfig = STATUS_CONFIG[itemStatus] || STATUS_CONFIG.COMPLETED;
     const isInflow = isInflowTransaction(item.type, item.originalType);
 
     // Format payment method for display

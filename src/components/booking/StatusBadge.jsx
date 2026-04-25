@@ -10,7 +10,8 @@ import ReservedIcon from "../../assets/icons/bookings/reserved.svg";
 
 const StatusBadge = ({ status }) => {
   const getStatusConfig = () => {
-    switch (status) {
+    const normalizedStatus = status?.toLowerCase();
+    switch (normalizedStatus) {
       case "cancelled":
         return {
           text: "CANCELED",

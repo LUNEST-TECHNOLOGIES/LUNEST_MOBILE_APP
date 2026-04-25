@@ -35,6 +35,7 @@ import DownloadOptionsModal from "../../components/common/DownloadOptionsModal";
 import ToastNotification, {
     TOAST_TYPE,
 } from "../../components/common/ToastNotification";
+import ActionSuccessModal from "../../components/common/ActionSuccessModal";
 import BookingActionModal, {
     BOOKING_ACTION,
 } from "../../components/modals/BookingActionModal";
@@ -113,6 +114,8 @@ const HostBookingDetailsScreen = () => {
   const [hasReviewed, setHasReviewed] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false); // Added missing state for screenshot capture flow
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successModalConfig, setSuccessModalConfig] = useState({ title: "", message: "" });
 
   // Modal state for booking actions (confirm/cancel)
   const [showActionModal, setShowActionModal] = useState(false);
@@ -493,9 +496,14 @@ const HostBookingDetailsScreen = () => {
       );
       if (result.success) {
         setShowCancelModal(false);
-        Alert.alert("Cancelled", "Booking has been cancelled.", [
-          { text: "OK", onPress: handleGoBack },
-        ]);
+        // Update local status immediately for real-time feel
+        setBooking(prev => ({ ...prev, status: "CANCELLED" }));
+        
+        setSuccessModalConfig({
+          title: "Booking Cancelled",
+          message: "The reservation has been successfully cancelled. The guest has been notified."
+        });
+        setShowSuccessModal(true);
       } else {
         Alert.alert("Error", result.message || "Failed to cancel.");
       }
@@ -1413,6 +1421,16 @@ const HostBookingDetailsScreen = () => {
       />
 
       {/* ── Cancel Booking Modal ── */}
+      <ActionSuccessModal 
+        visible={showSuccessModal}
+        onClose={() => {
+          setShowSuccessModal(false);
+          handleGoBack();
+        }}
+        title={successModalConfig.title}
+        message={successModalConfig.message}
+      />
+
       <CancelBookingModal
         visible={showCancelModal}
         onClose={() => setShowCancelModal(false)}

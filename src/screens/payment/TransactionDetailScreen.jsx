@@ -364,6 +364,9 @@ const TransactionDetailScreen = () => {
         return "#192DFF";
       case "disputed":
         return "#DC2626";
+      case "failed":
+      case "cancelled":
+        return "#EF4444";
       default:
         return "#2E7D32";
     }
@@ -383,6 +386,9 @@ const TransactionDetailScreen = () => {
         return "rgba(25, 45, 255, 0.1)";
       case "disputed":
         return "rgba(220, 38, 38, 0.1)";
+      case "failed":
+      case "cancelled":
+        return "rgba(239, 68, 68, 0.1)";
       default:
         return "rgba(49, 235, 61, 0.3)";
     }
@@ -465,7 +471,7 @@ const TransactionDetailScreen = () => {
                   }
                 })()}
               </View>
-              <Text style={styles.successMessage}>
+              <Text style={[styles.successMessage, { color: getStatusColor(transactionData.status) }]}>
                 {(() => {
                   const type = transactionData.transactionType?.toLowerCase();
                   const s = transactionData.status?.toLowerCase();

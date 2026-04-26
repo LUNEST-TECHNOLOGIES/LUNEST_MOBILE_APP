@@ -598,36 +598,71 @@ const TransactionDetailScreen = () => {
 
                   return (
                     <View style={styles.breakdownBox}>
-                      <Text style={styles.breakdownTitle}>Earnings Breakdown</Text>
-                      {breakdown.rent > 0 && (
+                      <Text style={styles.breakdownTitle}>{metadata.guestSide ? "Payment Breakdown" : "Earnings Breakdown"}</Text>
+                      
+                      {/* Rent & Service Charge (Common) */}
+                      {(breakdown.rent > 0 || (breakdown.total > 0 && metadata.guestSide)) && (
                         <View style={styles.breakdownRow}>
-                          <Text style={styles.breakdownLabel}>Base Rent</Text>
-                          <Text style={styles.breakdownValue}>₦{Number(breakdown.rent).toLocaleString()}</Text>
+                          <Text style={styles.breakdownLabel}>Property Rent</Text>
+                          <Text style={styles.breakdownValue}>₦{Number(breakdown.rent || 0).toLocaleString()}</Text>
                         </View>
                       )}
                       {breakdown.serviceCharge > 0 && (
                         <View style={styles.breakdownRow}>
-                          <Text style={styles.breakdownLabel}>Service Charge</Text>
+                          <Text style={styles.breakdownLabel}>Property Service Charge</Text>
                           <Text style={styles.breakdownValue}>₦{Number(breakdown.serviceCharge).toLocaleString()}</Text>
                         </View>
                       )}
-                      {breakdown.appFee > 0 && (
-                        <View style={styles.breakdownRow}>
-                          <Text style={styles.breakdownLabel}>App Charge ({metadata.calculation?.appFeePercent || 3}%)</Text>
-                          <Text style={[styles.breakdownValue, { color: '#B70808' }]}>-₦{Number(breakdown.appFee).toLocaleString()}</Text>
-                        </View>
+
+                      {/* Guest Side Specifics */}
+                      {metadata.guestSide ? (
+                        <>
+                          {breakdown.guestFee > 0 && (
+                            <View style={styles.breakdownRow}>
+                              <Text style={styles.breakdownLabel}>Lunest Service Fee</Text>
+                              <Text style={styles.breakdownValue}>₦{Number(breakdown.guestFee).toLocaleString()}</Text>
+                            </View>
+                          )}
+                          {breakdown.guestVat > 0 && (
+                            <View style={styles.breakdownRow}>
+                              <Text style={styles.breakdownLabel}>VAT on Service Fee</Text>
+                              <Text style={styles.breakdownValue}>₦{Number(breakdown.guestVat).toLocaleString()}</Text>
+                            </View>
+                          )}
+                          {breakdown.cautionFee > 0 && (
+                            <View style={styles.breakdownRow}>
+                              <Text style={styles.breakdownLabel}>Caution Fee (Refundable)</Text>
+                              <Text style={styles.breakdownValue}>₦{Number(breakdown.cautionFee).toLocaleString()}</Text>
+                            </View>
+                          )}
+                          <View style={styles.breakdownDivider} />
+                          <View style={styles.breakdownRow}>
+                            <Text style={styles.breakdownLabelBold}>Total Paid</Text>
+                            <Text style={styles.breakdownValueBold}>₦{Number(breakdown.total).toLocaleString()}</Text>
+                          </View>
+                        </>
+                      ) : (
+                        /* Host Side Specifics */
+                        <>
+                          {breakdown.appFee > 0 && (
+                            <View style={styles.breakdownRow}>
+                              <Text style={styles.breakdownLabel}>App Charge ({metadata.calculation?.appFeePercent || 3}%)</Text>
+                              <Text style={[styles.breakdownValue, { color: '#B70808' }]}>-₦{Number(breakdown.appFee).toLocaleString()}</Text>
+                            </View>
+                          )}
+                          {breakdown.vat > 0 && (
+                            <View style={styles.breakdownRow}>
+                              <Text style={styles.breakdownLabel}>VAT on App Charge</Text>
+                              <Text style={[styles.breakdownValue, { color: '#B70808' }]}>-₦{Number(breakdown.vat).toLocaleString()}</Text>
+                            </View>
+                          )}
+                          <View style={styles.breakdownDivider} />
+                          <View style={styles.breakdownRow}>
+                            <Text style={styles.breakdownLabelBold}>Net Earning</Text>
+                            <Text style={styles.breakdownValueBold}>₦{Number(breakdown.net).toLocaleString()}</Text>
+                          </View>
+                        </>
                       )}
-                      {breakdown.vat > 0 && (
-                        <View style={styles.breakdownRow}>
-                          <Text style={styles.breakdownLabel}>VAT on App Charge</Text>
-                          <Text style={[styles.breakdownValue, { color: '#B70808' }]}>-₦{Number(breakdown.vat).toLocaleString()}</Text>
-                        </View>
-                      )}
-                      <View style={styles.breakdownDivider} />
-                      <View style={styles.breakdownRow}>
-                        <Text style={styles.breakdownLabelBold}>Net Earning</Text>
-                        <Text style={styles.breakdownValueBold}>₦{Number(breakdown.net).toLocaleString()}</Text>
-                      </View>
                     </View>
                   );
                 } catch (e) {

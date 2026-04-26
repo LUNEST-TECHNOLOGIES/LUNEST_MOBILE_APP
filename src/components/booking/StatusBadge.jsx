@@ -44,7 +44,7 @@ const StatusBadge = ({ status }) => {
         return {
           text: "PENDING PAYMENT",
           color: "#FDAE31",
-          width: 140,
+          width: 130,
           icon: <PendingIcon width={14} height={14} color="#FDAE31" />,
         };
       case "confirmed":
@@ -72,14 +72,14 @@ const StatusBadge = ({ status }) => {
         return {
           text: "BOOKING DISPUTE",
           color: "#FFBF00",
-          width: 140,
+          width: 130,
           icon: <PendingIcon width={14} height={14} color="#FFBF00" />,
         };
       case "caution_disputed":
         return {
           text: "CAUTION DISPUTE",
           color: "#DC2626",
-          width: 140,
+          width: 130,
           icon: <PendingIcon width={14} height={14} color="#DC2626" />,
         };
       default:

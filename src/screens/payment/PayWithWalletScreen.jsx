@@ -47,6 +47,9 @@ const PayWithWalletScreen = () => {
   const children = params.children;
   const fromReservation = params.fromReservation === "true";
   const bookingId = params.bookingId;
+  const couponCode = params.couponCode || "";
+  const couponDiscount = parseFloat(params.couponDiscount) || 0;
+
 
   useEffect(() => {
     fetchWalletBalance();
@@ -210,7 +213,13 @@ const PayWithWalletScreen = () => {
         result = await bookingService.updateBookingStatus(
           bookingId,
           "CONFIRMED",
+          {
+            couponCode,
+            couponDiscount,
+            paymentMethod: "WALLET"
+          }
         );
+
 
         if (result.success) {
           refCode = result.booking?.referenceCode || generateRefCode();
@@ -267,7 +276,10 @@ const PayWithWalletScreen = () => {
           },
           bookedBy: currentUser?._id || currentUser?.id,
           status: "CONFIRMED",
+          couponCode,
+          couponDiscount,
         };
+
 
         result = await bookingService.createBooking(bookingData);
 

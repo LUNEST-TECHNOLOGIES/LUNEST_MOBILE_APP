@@ -22,6 +22,7 @@ const ArrowUpIcon = ({ size = 10, color = "#FFFFFF" }) => (
 const DashboardGreeting = ({
   userName = "User",
   planType = "Basic Plan",
+  lastUpdated = null
 }) => {
   // Get greeting based on time of day
   const getGreeting = () => {
@@ -39,9 +40,16 @@ const DashboardGreeting = ({
 
   return (
     <View style={styles.container}>
-      <Text style={styles.greeting}>
-        {getGreeting()}, {displayName}!
-      </Text>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.greeting}>
+          {getGreeting()}, {displayName}!
+        </Text>
+        {lastUpdated && (
+          <Text style={{ fontSize: 10, color: "#2E7D32", fontWeight: "600", marginTop: 2 }}>
+            ● LIVE · {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </Text>
+        )}
+      </View>
       <View style={styles.planSection}>
         <View style={styles.planBadgeContainer}>
           <Text style={styles.planText}>{safePlanType}</Text>

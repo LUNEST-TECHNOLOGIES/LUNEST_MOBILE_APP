@@ -175,7 +175,7 @@ const TRANSACTION_CONFIG = {
   },
   EARNING: {
     icon: "trending-up-outline",
-    label: "Earning",
+    label: "Host Earning (Net)",
     color: "#2E7D32",
     flow: "inflow",
     description: "Earned from booking",
@@ -308,6 +308,7 @@ const TransactionHistoryScreen = () => {
   const [totalInflow, setTotalInflow] = useState(0);
   const [totalOutflow, setTotalOutflow] = useState(0);
   const [error, setError] = useState(null);
+  const [lastUpdated, setLastUpdated] = useState(new Date());
 
   // States for Export Modal
   const [showExportModal, setShowExportModal] = useState(false);
@@ -477,6 +478,7 @@ const TransactionHistoryScreen = () => {
 
         console.log("[TransactionHistory] Mapped transactions:", mappedTxns);
         setTransactions(mappedTxns);
+        setLastUpdated(new Date());
 
         // Calculate totals
         let inflow = 0;
@@ -538,7 +540,7 @@ const TransactionHistoryScreen = () => {
       const intervalId = setInterval(() => {
         console.log("📡 [TransactionHistory] Polling for new transactions...");
         fetchTransactions(false);
-      }, 30000);
+      }, 15000); // Poll every 15 seconds for real-time feel
 
       return () => {
         console.log("🛑 [TransactionHistory] Screen blurred - clearing interval");
@@ -1034,6 +1036,7 @@ const TransactionHistoryScreen = () => {
               method: methodLabel,
               couponCode: item.couponCode || item.metadata?.couponCode || "",
               couponDiscount: item.couponDiscount || item.metadata?.couponDiscount || "",
+              metadata: JSON.stringify(item.metadata || {}),
             },
           });
         }}
@@ -1167,13 +1170,26 @@ const TransactionHistoryScreen = () => {
         <Pressable onPress={() => router.back()} style={styles.backButton}>
           <BackIcon size={24} color="#000" />
         </Pressable>
-        <Text style={styles.headerTitle}>Transaction History</Text>
-        <Pressable
-          onPress={() => setShowExportModal(true)}
-          style={styles.downloadButton}
-        >
-          <Ionicons name="download-outline" size={24} color="#000" />
-        </Pressable>
+        <View style={{ alignItems: "center" }}>
+          <Text style={styles.headerTitle}>Transaction History</Text>
+          <Text style={{ fontSize: 10, color: "#2E7D32", fontWeight: "600" }}>
+            ● LIVE {lastUpdated ? `· ${lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}` : ''}
+          </Text>
+        </View>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+          <Pressable
+            onPress={() => fetchTransactions(true)}
+            style={styles.downloadButton}
+          >
+            <Ionicons name="refresh-outline" size={24} color="#192DFF" />
+          </Pressable>
+          <Pressable
+            onPress={() => setShowExportModal(true)}
+            style={styles.downloadButton}
+          >
+            <Ionicons name="download-outline" size={24} color="#000" />
+          </Pressable>
+        </View>
       </View>
 
       {/* Filter Tabs */}

@@ -48,6 +48,7 @@ const HostDashboardScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(null);
+  const [lastUpdated, setLastUpdated] = useState(new Date());
 
   // Dashboard data state - initialized with defaults
   const [dashboardData, setDashboardData] = useState({
@@ -129,6 +130,7 @@ const HostDashboardScreen = () => {
           notificationCount:
             result.data.upcomingBookings + result.data.newMessages,
         }));
+        setLastUpdated(new Date());
         console.log("✅ [HostDashboard] Dashboard data loaded successfully");
       } else {
         console.warn(
@@ -180,7 +182,7 @@ const HostDashboardScreen = () => {
     const refreshInterval = setInterval(() => {
       console.log("💰 [HostDashboard] Refreshing wallet balance...");
       fetchDashboardData(false); // Refresh without showing loader
-    }, 30000); // Refresh every 30 seconds
+    }, 15000); // Refresh every 15 seconds for real-time feel
 
     return () => clearInterval(refreshInterval);
   }, [isAuthenticated]);
@@ -334,6 +336,7 @@ const HostDashboardScreen = () => {
         <DashboardGreeting
           userName={dashboardData.userName}
           planType={dashboardData.plan}
+          lastUpdated={lastUpdated}
         />
 
         {/* Stats Cards */}

@@ -128,7 +128,7 @@ const TransactionDetailScreen = () => {
               return "Transaction Successful";
             return `Transaction Status: ${status}`;
         }
-        if (s === "on_hold" || s === "on hold") return "Funds Held";
+        if (s === "on_hold" || s === "on hold" || s === "processing") return "Earnings in Escrow";
         if (s === "disputed") return "Funds Disputed";
         if (s === "failed" || s === "cancelled") return "Transaction Failed";
         if (s === "pending" || s === "reserved") return "Transaction Pending";
@@ -456,7 +456,7 @@ const TransactionDetailScreen = () => {
                     );
                   } else if (s === "pending" || s === "reserved") {
                     return <Ionicons name="time" size={60} color="#F59E0B" />;
-                  } else if (s === "on_hold" || s === "on hold") {
+                  } else if (s === "on_hold" || s === "on hold" || s === "processing") {
                     return <Ionicons name="lock-closed" size={60} color="#192DFF" />;
                   } else if (s === "disputed") {
                     return <Ionicons name="warning" size={60} color="#DC2626" />;
@@ -498,8 +498,10 @@ const TransactionDetailScreen = () => {
                     if (type === "app charge" || type === "appcharge")
                       return "App charge is pending.";
                     return "Your transaction is pending.";
-                    if (type === "security deposit" || type === "caution fee") return "This caution fee is being held in escrow.";
-                    return "These funds are currently on hold.";
+                  } else if (s === "on_hold" || s === "on hold" || s === "processing") {
+                    if (type?.toLowerCase().includes("security") || type?.toLowerCase().includes("caution")) 
+                        return "This caution fee is being held in escrow for your protection.";
+                    return "Your earnings are held in escrow and will be released upon guest check-in.";
                   } else if (s === "disputed") {
                     return "This transaction is currently under dispute.";
                   } else {

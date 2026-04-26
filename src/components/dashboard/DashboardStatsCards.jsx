@@ -98,6 +98,10 @@ const DashboardStatsCards = ({
   walletBalance = 0,
   pendingBalance = 0,
   pendingBalanceLabel = "Pending Earnings:",
+  onHoldEarnings = 0,
+  onHoldCaution = 0,
+  onHoldPlatformFee = 0,
+  onHoldVat = 0,
   totalBookings = 0,
   totalListings = 0,
   hostRating = 0,
@@ -109,6 +113,10 @@ const DashboardStatsCards = ({
   const safeEarningsValue = String(formatCurrency(totalEarnings));
   const safeWalletValue = String(formatCurrency(walletBalance));
   const safePendingValue = String(formatCurrency(pendingBalance));
+  const safeOnHoldEarnings = String(formatCurrency(onHoldEarnings));
+  const safeOnHoldCaution = String(formatCurrency(onHoldCaution));
+  const safeOnHoldFee = String(formatCurrency(onHoldPlatformFee));
+  const safeOnHoldVat = String(formatCurrency(onHoldVat));
   const safeBookingsValue = String(formatNumber(totalBookings));
   const safeListingsValue = String(totalListings);
   const safeEarningsPeriod = String(earningsPeriod);
@@ -125,13 +133,35 @@ const DashboardStatsCards = ({
               Total Earnings ({safeEarningsPeriod})
             </Text>
             <Text style={styles.earningsValue}>{safeEarningsValue}</Text>
+            
             <View style={styles.walletBalanceRow}>
-              <Text style={styles.walletBalanceLabel}>Available:</Text>
+              <Text style={styles.walletBalanceLabel}>Available Balance:</Text>
               <Text style={styles.walletBalanceValue}>{safeWalletValue}</Text>
             </View>
+
             <View style={styles.pendingBalanceRow}>
               <Text style={styles.pendingBalanceLabel}>{pendingBalanceLabel}</Text>
               <Text style={styles.pendingBalanceValue}>{safePendingValue}</Text>
+            </View>
+
+            {/* Real-time Escrow Breakdown */}
+            <View style={styles.breakdownContainer}>
+               <View style={styles.breakdownRow}>
+                  <Text style={styles.breakdownLabel}>• Expected Earning:</Text>
+                  <Text style={styles.breakdownValue}>{safeOnHoldEarnings}</Text>
+               </View>
+               <View style={styles.breakdownRow}>
+                  <Text style={styles.breakdownLabel}>• Caution Fee:</Text>
+                  <Text style={styles.breakdownValue}>{safeOnHoldCaution}</Text>
+               </View>
+               <View style={styles.breakdownRow}>
+                  <Text style={styles.breakdownLabel}>• App Fee Deducted:</Text>
+                  <Text style={styles.breakdownValue}>-{safeOnHoldFee}</Text>
+               </View>
+               <View style={styles.breakdownRow}>
+                  <Text style={styles.breakdownLabel}>• VAT Deducted:</Text>
+                  <Text style={styles.breakdownValue}>-{safeOnHoldVat}</Text>
+               </View>
             </View>
           </View>
         </View>
@@ -278,6 +308,30 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "600",
     color: "#FDB913",
+  },
+  breakdownContainer: {
+    marginTop: 6,
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255, 255, 255, 0.1)",
+    gap: 4,
+  },
+  breakdownRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  breakdownLabel: {
+    fontSize: 10,
+    fontWeight: "400",
+    color: "#FFFFFF",
+    opacity: 0.6,
+  },
+  breakdownValue: {
+    fontSize: 10,
+    fontWeight: "500",
+    color: "#FFFFFF",
+    opacity: 0.9,
   },
   bottomRow: {
     flexDirection: "row",

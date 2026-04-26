@@ -58,7 +58,11 @@ const HostDashboardScreen = () => {
     totalEarnings: 0,
     walletBalance: 0,
     pendingBalance: 0,
-    pendingBalanceLabel: "Pending Balance:",
+    pendingBalanceLabel: "Total On Hold:",
+    onHoldEarnings: 0,
+    onHoldCaution: 0,
+    onHoldPlatformFee: 0,
+    onHoldVat: 0,
     totalBookings: 0,
     totalListings: 0,
     upcomingBookings: 0,
@@ -338,6 +342,10 @@ const HostDashboardScreen = () => {
           walletBalance={dashboardData.walletBalance}
           pendingBalance={dashboardData.pendingBalance}
           pendingBalanceLabel={dashboardData.pendingBalanceLabel}
+          onHoldEarnings={dashboardData.onHoldEarnings}
+          onHoldCaution={dashboardData.onHoldCaution}
+          onHoldPlatformFee={dashboardData.onHoldPlatformFee}
+          onHoldVat={dashboardData.onHoldVat}
           totalBookings={dashboardData.totalBookings}
           totalListings={dashboardData.totalListings}
           hostRating={dashboardData.hostRating}

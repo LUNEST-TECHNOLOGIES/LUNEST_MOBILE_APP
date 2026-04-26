@@ -209,7 +209,13 @@ class DashboardService {
           plan,
           totalEarnings: totalBusinessEarnings, // Business earnings from bookings
           walletBalance, // Actual wallet balance
-          totalBookings,
+          pendingBalance: stats.pendingBalance || 0,
+          pendingBalanceLabel: stats.pendingBalanceLabel || "Total On Hold:",
+          onHoldEarnings: stats.onHoldEarnings || 0,
+          onHoldCaution: stats.onHoldCaution || 0,
+          onHoldPlatformFee: stats.onHoldPlatformFee || 0,
+          onHoldVat: stats.onHoldVat || 0,
+          totalBookings: stats.totalBookings,
           totalListings,
           upcomingBookings,
           hostRating: stats.hostRating || 0,

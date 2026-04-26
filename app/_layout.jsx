@@ -75,12 +75,20 @@ export default function RootLayout() {
     prepare();
   }, []);
 
-  // Dismiss splash screen when ready
+  // Dismiss native splash screen
   useEffect(() => {
-    if (fontsLoaded && !isLoading) {
-      SplashScreen.hideAsync().catch(() => {});
+    if (fontsLoaded) {
+      if (Platform.OS === 'web') {
+        // On web, hide native splash early so our custom AppSplashScreen can show
+        SplashScreen.hideAsync().catch(() => {});
+      } else if (!isLoading) {
+        // On native, hide only when fully ready
+        SplashScreen.hideAsync().catch(() => {});
+      }
     }
   }, [fontsLoaded, isLoading]);
+
+  // ... (navigation logic stays the same)
 
   // Handle navigation based on onboarding and auth status
   useEffect(() => {
@@ -201,7 +209,7 @@ export default function RootLayout() {
               <SafeAreaProvider>
                 <GlobalOverlayManager />
                 {isLoading ? (
-                  <AppSplashScreen />
+                  Platform.OS === 'web' ? <AppSplashScreen /> : null
                 ) : (
                   <Stack
                     screenOptions={{

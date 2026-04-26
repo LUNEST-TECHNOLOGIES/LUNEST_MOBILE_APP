@@ -32,6 +32,8 @@ const UnifiedDatePicker = ({
   const [mounted, setMounted] = useState(false);
   const [viewDate, setViewDate] = useState(value || new Date());
   const [selectedDate, setSelectedDate] = useState(value);
+  const [isMonthSelectVisible, setIsMonthSelectVisible] = useState(false);
+  const [isYearSelectVisible, setIsYearSelectVisible] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -158,25 +160,99 @@ const UnifiedDatePicker = ({
               <TouchableOpacity onPress={() => navigateMonth(-1)} style={styles.webNavBtn}>
                 <Text style={styles.webNavBtnText}>‹</Text>
               </TouchableOpacity>
-              <Text style={styles.webCurrentMonth}>
-                {months[month]} {year}
-              </Text>
+              
+              <View style={styles.webMonthYearContainer}>
+                <TouchableOpacity 
+                  onPress={() => {
+                    setIsMonthSelectVisible(!isMonthSelectVisible);
+                    setIsYearSelectVisible(false);
+                  }}
+                  style={styles.webMonthSelector}
+                >
+                  <Text style={styles.webCurrentMonth}>{months[month]}</Text>
+                  <Text style={styles.webSelectorArrow}>▾</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  onPress={() => {
+                    setIsYearSelectVisible(!isYearSelectVisible);
+                    setIsMonthSelectVisible(false);
+                  }}
+                  style={styles.webYearSelector}
+                >
+                  <Text style={styles.webCurrentMonth}>{year}</Text>
+                  <Text style={styles.webSelectorArrow}>▾</Text>
+                </TouchableOpacity>
+              </View>
+
               <TouchableOpacity onPress={() => navigateMonth(1)} style={styles.webNavBtn}>
                 <Text style={styles.webNavBtnText}>›</Text>
               </TouchableOpacity>
             </View>
 
-            <View style={styles.webWeekdaysRow}>
-              {daysOfWeek.map((d) => (
-                <Text key={d} style={styles.webWeekdayText}>
-                  {d}
-                </Text>
-              ))}
-            </View>
+            {/* Month Selection Overlay */}
+            {isMonthSelectVisible && (
+              <View style={styles.webSelectionOverlay}>
+                <View style={styles.webSelectionGrid}>
+                  {months.map((m, idx) => (
+                    <TouchableOpacity 
+                      key={m} 
+                      style={[styles.webSelectionItem, month === idx && styles.webSelectionItemActive]}
+                      onPress={() => {
+                        setViewDate(new Date(year, idx, 1));
+                        setIsMonthSelectVisible(false);
+                      }}
+                    >
+                      <Text style={[styles.webSelectionItemText, month === idx && styles.webSelectionItemTextActive]}>
+                        {m.substring(0, 3)}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            )}
 
-            <View style={styles.webDaysGrid}>
-              {renderCalendarDays()}
-            </View>
+            {/* Year Selection Overlay */}
+            {isYearSelectVisible && (
+              <View style={styles.webSelectionOverlay}>
+                <ScrollView 
+                  style={{ maxHeight: 200 }} 
+                  contentContainerStyle={styles.webSelectionGrid}
+                  showsVerticalScrollIndicator={false}
+                >
+                  {Array.from({ length: 21 }, (_, i) => year - 5 + i).map((y) => (
+                    <TouchableOpacity 
+                      key={y} 
+                      style={[styles.webSelectionItem, year === y && styles.webSelectionItemActive]}
+                      onPress={() => {
+                        setViewDate(new Date(y, month, 1));
+                        setIsYearSelectVisible(false);
+                      }}
+                    >
+                      <Text style={[styles.webSelectionItemText, year === y && styles.webSelectionItemTextActive]}>
+                        {y}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+
+            {!isMonthSelectVisible && !isYearSelectVisible && (
+              <>
+                <View style={styles.webWeekdaysRow}>
+                  {daysOfWeek.map((d) => (
+                    <Text key={d} style={styles.webWeekdayText}>
+                      {d}
+                    </Text>
+                  ))}
+                </View>
+
+                <View style={styles.webDaysGrid}>
+                  {renderCalendarDays()}
+                </View>
+              </>
+            )}
 
             <View style={styles.webFooter}>
               <TouchableOpacity style={styles.webCancelBtn} onPress={onClose}>
@@ -294,8 +370,64 @@ const styles = StyleSheet.create({
   },
   webCurrentMonth: {
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: "700",
     color: "#010135",
+  },
+  webMonthYearContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  webMonthSelector: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+    backgroundColor: "#F5F5F7",
+  },
+  webYearSelector: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+    backgroundColor: "#F5F5F7",
+  },
+  webSelectorArrow: {
+    fontSize: 10,
+    color: "#010135",
+    marginLeft: 4,
+    opacity: 0.5,
+  },
+  webSelectionOverlay: {
+    paddingVertical: 10,
+    minHeight: 200,
+    justifyContent: "center",
+  },
+  webSelectionGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+  },
+  webSelectionItem: {
+    width: "30%",
+    paddingVertical: 10,
+    alignItems: "center",
+    marginBottom: 8,
+    borderRadius: 8,
+  },
+  webSelectionItemActive: {
+    backgroundColor: "#010135",
+  },
+  webSelectionItemText: {
+    fontSize: 14,
+    color: "#010135",
+    fontWeight: "500",
+  },
+  webSelectionItemTextActive: {
+    color: "#FFFFFF",
+    fontWeight: "700",
   },
   webWeekdaysRow: {
     flexDirection: "row",

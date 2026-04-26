@@ -11,6 +11,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import "../global.css";
 import ToastNotification, { TOAST_TYPE } from "../src/components/common/ToastNotification";
 import WebContainer from "../src/components/common/WebContainer";
+import AppSplashScreen from "../src/components/common/AppSplashScreen";
 import { ModeSwitchingOverlay } from "../src/components/shared";
 import { AccountStatusProvider, UserModeProvider, useUserMode } from "../src/context";
 import { useReferralTracker } from "../src/hooks/useReferralTracker";
@@ -200,16 +201,7 @@ export default function RootLayout() {
               <SafeAreaProvider>
                 <GlobalOverlayManager />
                 {isLoading ? (
-                  <View
-                    style={{
-                      flex: 1,
-                      justifyContent: "center",
-                      alignItems: "center",
-                      backgroundColor: "#FFFFFF",
-                    }}
-                  >
-                    <ActivityIndicator size="large" color="#010135" />
-                  </View>
+                  <AppSplashScreen />
                 ) : (
                   <Stack
                     screenOptions={{

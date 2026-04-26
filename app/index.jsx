@@ -8,6 +8,7 @@ import { useRouter, useRootNavigationState } from "expo-router";
 import { useEffect } from "react";
 import { ActivityIndicator, View } from "react-native";
 import authService from "../src/services/authService";
+import storageService from "../src/services/storageService";
 
 const ONBOARDING_KEY = "@lunest_onboarding_complete";
 
@@ -26,10 +27,33 @@ export default function Index() {
       const isLoggedIn = await authService.isLoggedIn();
 
       if (isLoggedIn) {
-        // User is authenticated - always start on guest tabs
-        // User must explicitly use "Switch to Host/Landlord" button on profile to access host mode
-        // This prevents accidental swipe navigation and ensures proper mode context
-        router.replace("/(tabs)");
+        // Determine target route based on saved user mode
+        const userData = await authService.getUserData();
+        const userId = userData?.id || userData?.email;
+        let targetRoute = "/(tabs)"; // Default to guest mode
+
+        if (userId) {
+          try {
+            const savedMode = await storageService.getUserItem(userId, "userMode");
+            if (savedMode === "HOST") {
+              // Only redirect to host tabs if the user actually has host privileges
+              const isHost = 
+                userData?.userType === "HOST" || 
+                userData?.userType === "ADMIN" || 
+                userData?.userType === "SUPERADMIN" ||
+                userData?.hostApplicationStatus === "APPROVED";
+                
+              if (isHost) {
+                targetRoute = "/(host-tabs)";
+              }
+            }
+          } catch (storageErr) {
+            console.warn("[Index] Error reading saved mode:", storageErr);
+          }
+        }
+
+        console.log(`[Index] Redirecting logged in user to: ${targetRoute}`);
+        router.replace(targetRoute);
       } else {
         // Check if onboarding is complete
         const onboardingComplete = await AsyncStorage.getItem(ONBOARDING_KEY);

@@ -110,7 +110,21 @@ export default function RootLayout() {
         // User is logged in - go to home if on auth/onboarding screens
         wasAuthenticated.current = true;
         if (inAuth || inOnboarding) {
-          router.replace("/(tabs)");
+          // Check saved mode before redirecting
+          const userData = await authService.getUserData();
+          const userId = userData?.id || userData?.email;
+          let targetRoute = "/(tabs)";
+
+          if (userId) {
+            const storageService = require("../src/services/storageService").default;
+            const savedMode = await storageService.getUserItem(userId, "userMode");
+            if (savedMode === "HOST") {
+              targetRoute = "/(host-tabs)";
+            }
+          }
+          
+          console.log(`[Layout] Redirecting to: ${targetRoute}`);
+          router.replace(targetRoute);
         }
       } else {
         // User is NOT logged in

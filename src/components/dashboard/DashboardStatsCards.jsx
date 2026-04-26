@@ -143,26 +143,6 @@ const DashboardStatsCards = ({
               <Text style={styles.pendingBalanceLabel}>{pendingBalanceLabel}</Text>
               <Text style={styles.pendingBalanceValue}>{safePendingValue}</Text>
             </View>
-
-            {/* Real-time Escrow Breakdown */}
-            <View style={styles.breakdownContainer}>
-               <View style={styles.breakdownRow}>
-                  <Text style={styles.breakdownLabel}>• Expected Earning:</Text>
-                  <Text style={styles.breakdownValue}>{safeOnHoldEarnings}</Text>
-               </View>
-               <View style={styles.breakdownRow}>
-                  <Text style={styles.breakdownLabel}>• Caution Fee:</Text>
-                  <Text style={styles.breakdownValue}>{safeOnHoldCaution}</Text>
-               </View>
-               <View style={styles.breakdownRow}>
-                  <Text style={styles.breakdownLabel}>• App Fee Deducted:</Text>
-                  <Text style={styles.breakdownValue}>-{safeOnHoldFee}</Text>
-               </View>
-               <View style={styles.breakdownRow}>
-                  <Text style={styles.breakdownLabel}>• VAT Deducted:</Text>
-                  <Text style={styles.breakdownValue}>-{safeOnHoldVat}</Text>
-               </View>
-            </View>
           </View>
         </View>
       </View>

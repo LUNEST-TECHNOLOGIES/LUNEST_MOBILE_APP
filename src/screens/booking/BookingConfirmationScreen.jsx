@@ -43,6 +43,7 @@ import ToastNotification, {
 } from "../../components/common/ToastNotification";
 import CautionActionModal from "../../components/modals/CautionActionModal";
 import CautionDisputeModal from "../../components/modals/CautionDisputeModal";
+import CheckInConfirmationModal from "../../components/modals/CheckInConfirmationModal";
 import CheckoutConfirmationModal from "../../components/modals/CheckoutConfirmationModal";
 import ReviewFeedbackModal from "../../components/modals/ReviewFeedbackModal";
 import { DEMO_TERMS } from "../../constants/termsConfig";
@@ -164,6 +165,7 @@ const BookingConfirmationScreen = () => {
     message: 'Please wait while we prepare your document.'
   }); // New state for capture
   const [showCheckoutModal, setShowCheckoutModal] = useState(false); // New state for checkout confirmation
+  const [showCheckInModal, setShowCheckInModal] = useState(false); // New state for check-in confirmation
 
   // Review state
   const [showReviewModal, setShowReviewModal] = useState(false);
@@ -309,12 +311,12 @@ const BookingConfirmationScreen = () => {
     if (!booking?.checkIn) return false;
     try {
       const checkInDate = new Date(booking.checkIn);
-      const today = new Date();
-      // Reset times to compare only dates
-      const checkInReset = new Date(checkInDate.getFullYear(), checkInDate.getMonth(), checkInDate.getDate());
-      const todayReset = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      const now = new Date();
       
-      return todayReset >= checkInReset;
+      const checkInReset = new Date(checkInDate.getFullYear(), checkInDate.getMonth(), checkInDate.getDate());
+      const nowReset = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      
+      return nowReset >= checkInReset;
     } catch {
       return false;
     }
@@ -625,37 +627,30 @@ const BookingConfirmationScreen = () => {
   };
 
   // ── Manual Check-in ──
-  const handleCheckIn = async () => {
+  const handleCheckIn = () => {
+    setShowCheckInModal(true);
+  };
+
+  const onConfirmCheckIn = async () => {
     if (!bookingId) return;
 
-    Alert.alert(
-      "Confirm Check-in",
-      "Are you already at the property and successfully checked in? By confirming, you verify your arrival and the host will be credited with their earnings for this stay.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Yes, Checked-in",
-          onPress: async () => {
-            setIsCheckingIn(true);
-            try {
-              const result = await bookingService.checkInBooking(bookingId);
-              if (result.success) {
-                showToastMessage(result.message, TOAST_TYPE.SUCCESS);
-                // Refresh booking data
-                const fresh = await bookingService.fetchBookingById(bookingId);
-                if (fresh?.success) setBooking(fresh.booking);
-              } else {
-                showToastMessage(result.message, TOAST_TYPE.ERROR);
-              }
-            } catch (error) {
-              showToastMessage("Something went wrong", TOAST_TYPE.ERROR);
-            } finally {
-              setIsCheckingIn(false);
-            }
-          },
-        },
-      ]
-    );
+    setIsCheckingIn(true);
+    try {
+      const result = await bookingService.checkInBooking(bookingId);
+      if (result.success) {
+        showToastMessage(result.message, TOAST_TYPE.SUCCESS);
+        setShowCheckInModal(false);
+        // Refresh booking data
+        const fresh = await bookingService.fetchBookingById(bookingId);
+        if (fresh?.success) setBooking(fresh.booking);
+      } else {
+        showToastMessage(result.message, TOAST_TYPE.ERROR);
+      }
+    } catch (error) {
+      showToastMessage("Something went wrong", TOAST_TYPE.ERROR);
+    } finally {
+      setIsCheckingIn(false);
+    }
   };
 
   // ── Calculate Sliding Scale Refund Estimate for UI ──
@@ -1935,7 +1930,6 @@ const BookingConfirmationScreen = () => {
         )}
       </ScrollView>
 
-      {/* Checkout Confirmation Modal */}
       <CheckoutConfirmationModal
         visible={showCheckoutModal}
         onClose={() => setShowCheckoutModal(false)}
@@ -1946,6 +1940,13 @@ const BookingConfirmationScreen = () => {
         warningText="Please ensure you have packed all belongings and followed host's checkout instructions."
         cancelLabel="Cancel"
         confirmLabel="Confirm Check-out"
+      />
+
+      <CheckInConfirmationModal
+        visible={showCheckInModal}
+        onClose={() => setShowCheckInModal(false)}
+        onConfirm={onConfirmCheckIn}
+        isLoading={isCheckingIn}
       />
 
       {/* Review Modal */}
@@ -2065,9 +2066,9 @@ const BookingConfirmationScreen = () => {
                     <Text style={styles.outlineButtonText}>Go Home</Text>
                   </Pressable>
                 </>
-                        ) : statusLower === "confirmed" ? (
-              <>
-                {isGuest && !booking?.guestCheckedIn ? (
+              ) : statusLower === "confirmed" ? (
+                <>
+                  {isGuest && !booking?.guestCheckedIn ? (
                   isCheckInArrival ? (
                     <Pressable
                       style={[styles.primaryButton, styles.buttonFlex, { backgroundColor: '#22C55E' }]}
@@ -2128,19 +2129,6 @@ const BookingConfirmationScreen = () => {
               </>
             ) : statusLower === "ongoing" && !isHostView ? (
               <>
-                {isGuest && !booking?.guestCheckedIn && (
-                  <Pressable
-                    style={[styles.primaryButton, styles.buttonFlex, { backgroundColor: '#22C55E', marginRight: 8 }]}
-                    onPress={handleCheckIn}
-                    disabled={isCheckingIn}
-                  >
-                    {isCheckingIn ? (
-                      <ActivityIndicator color="#fff" size="small" />
-                    ) : (
-                      <Text style={styles.primaryButtonText}>Check-in</Text>
-                    )}
-                  </Pressable>
-                )}
                 <Pressable
                   style={[styles.primaryButton, styles.buttonFlex]}
                   onPress={() => setShowCheckoutModal(true)}
@@ -2148,7 +2136,7 @@ const BookingConfirmationScreen = () => {
                   <Text style={styles.primaryButtonText}>Check-out</Text>
                 </Pressable>
                 <Pressable
-                  style={[styles.outlineDangerButton, styles.buttonFlex]}
+                  style={[styles.outlineDangerButton, styles.buttonFlex, { marginLeft: 10 }]}
                   onPress={() => setShowDisputeModal(true)}
                 >
                   <Text style={styles.outlineDangerButtonText}>Report Issue</Text>

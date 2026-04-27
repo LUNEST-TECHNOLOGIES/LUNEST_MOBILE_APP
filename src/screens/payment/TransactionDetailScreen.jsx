@@ -638,7 +638,7 @@ const TransactionDetailScreen = () => {
                           <View style={styles.breakdownDivider} />
                           <View style={styles.breakdownRow}>
                             <Text style={styles.breakdownLabelBold}>Total Paid</Text>
-                            <Text style={styles.breakdownValueBold}>₦{Number(breakdown.total).toLocaleString()}</Text>
+                            <Text style={styles.breakdownValueBold}>₦{Number(breakdown.total || breakdown.amount || 0).toLocaleString()}</Text>
                           </View>
                         </>
                       ) : (
@@ -652,14 +652,20 @@ const TransactionDetailScreen = () => {
                           )}
                           {breakdown.vat > 0 && (
                             <View style={styles.breakdownRow}>
-                              <Text style={styles.breakdownLabel}>VAT on App Charge</Text>
+                              <Text style={styles.breakdownLabel}>VAT (7.5%)</Text>
                               <Text style={[styles.breakdownValue, { color: '#B70808' }]}>-₦{Number(breakdown.vat).toLocaleString()}</Text>
+                            </View>
+                          )}
+                          {breakdown.cautionFee > 0 && (
+                            <View style={styles.breakdownRow}>
+                              <Text style={styles.breakdownLabel}>Caution Fee (Escrow)</Text>
+                              <Text style={styles.breakdownValue}>₦{Number(breakdown.cautionFee).toLocaleString()}</Text>
                             </View>
                           )}
                           <View style={styles.breakdownDivider} />
                           <View style={styles.breakdownRow}>
                             <Text style={styles.breakdownLabelBold}>Net Earning</Text>
-                            <Text style={styles.breakdownValueBold}>₦{Number(breakdown.net).toLocaleString()}</Text>
+                            <Text style={styles.breakdownValueBold}>₦{Number(breakdown.netEarning || breakdown.net || 0).toLocaleString()}</Text>
                           </View>
                         </>
                       )}

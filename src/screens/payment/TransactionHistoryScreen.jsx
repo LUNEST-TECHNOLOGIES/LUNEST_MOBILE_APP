@@ -393,6 +393,10 @@ const TransactionHistoryScreen = () => {
       "SERVICE_CHARGE",
       "CANCELLATION_CREDIT",
       "COUPON_REFUND",
+      "SECURITY_DEPOSIT",
+      "HOST_EARNING",
+      "Property Rent",
+      "Property Service Charge"
     ].includes(type);
   };
 
@@ -992,6 +996,13 @@ const TransactionHistoryScreen = () => {
         displayLabel = `Host Earning`;
       }
       
+      if (bookingRef) {
+        displayLabel += ` (${bookingRef})`;
+      }
+    }
+
+    if (item.type === "SECURITY_DEPOSIT" && (item.status === "ON_HOLD" || item.status === "PROCESSING")) {
+      displayLabel = `Caution Fee (Escrow)`;
       if (bookingRef) {
         displayLabel += ` (${bookingRef})`;
       }

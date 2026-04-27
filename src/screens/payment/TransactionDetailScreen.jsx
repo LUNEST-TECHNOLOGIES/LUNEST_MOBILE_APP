@@ -592,16 +592,33 @@ const TransactionDetailScreen = () => {
               {/* Breakdown Section (Optional, from metadata) */}
               {params.metadata && (() => {
                 try {
-                  const metadata = typeof params.metadata === 'string' ? JSON.parse(params.metadata) : params.metadata;
-                  const breakdown = metadata.breakdown;
+                  const metadata = typeof params.metadata === 'string' ? JSON.parse(params.metadata) : (params.metadata || {});
+                  let breakdown = metadata.breakdown;
+                  
+                  // Special mapping for COUPON_PAYMENT or transactions with coupon data but no breakdown
+                  if (!breakdown && metadata.couponCode) {
+                    breakdown = {
+                      rent: metadata.originalAmount || 0,
+                      couponDiscount: metadata.discountAmount || metadata.couponDiscount || 0,
+                      total: metadata.finalAmount || 0,
+                    };
+                  }
+
                   if (!breakdown) return null;
+
+                  // Infer guestSide if missing
+                  const isGuestSide = metadata.guestSide ?? (
+                    transactionData.transactionType?.toLowerCase().includes("booking payment") || 
+                    transactionData.transactionType === "Booking" ||
+                    transactionData.transactionType?.toLowerCase().includes("coupon")
+                  );
 
                   return (
                     <View style={styles.breakdownBox}>
-                      <Text style={styles.breakdownTitle}>{metadata.guestSide ? "Payment Breakdown" : "Earnings Breakdown"}</Text>
+                      <Text style={styles.breakdownTitle}>{isGuestSide ? "Payment Breakdown" : "Earnings Breakdown"}</Text>
                       
                       {/* Rent & Service Charge (Common) */}
-                      {(breakdown.rent > 0 || (breakdown.total > 0 && metadata.guestSide)) && (
+                      {(breakdown.rent > 0 || (breakdown.total > 0 && isGuestSide)) && (
                         <View style={styles.breakdownRow}>
                           <Text style={styles.breakdownLabel}>Property Rent</Text>
                           <Text style={styles.breakdownValue}>₦{Number(breakdown.rent || 0).toLocaleString()}</Text>
@@ -615,7 +632,7 @@ const TransactionDetailScreen = () => {
                       )}
 
                       {/* Guest Side Specifics */}
-                      {metadata.guestSide ? (
+                      {isGuestSide ? (
                         <>
                           {breakdown.guestFee > 0 && (
                             <View style={styles.breakdownRow}>
@@ -623,10 +640,10 @@ const TransactionDetailScreen = () => {
                               <Text style={styles.breakdownValue}>₦{Number(breakdown.guestFee).toLocaleString()}</Text>
                             </View>
                           )}
-                          {breakdown.guestVat > 0 && (
+                          {(breakdown.guestVat > 0 || breakdown.vat > 0) && (
                             <View style={styles.breakdownRow}>
                               <Text style={styles.breakdownLabel}>VAT on Service Fee</Text>
-                              <Text style={styles.breakdownValue}>₦{Number(breakdown.guestVat).toLocaleString()}</Text>
+                              <Text style={styles.breakdownValue}>₦{Number(breakdown.guestVat || breakdown.vat || 0).toLocaleString()}</Text>
                             </View>
                           )}
                           {breakdown.cautionFee > 0 && (
@@ -644,16 +661,16 @@ const TransactionDetailScreen = () => {
                       ) : (
                         /* Host Side Specifics */
                         <>
-                          {breakdown.appFee > 0 && (
+                          {(breakdown.appFee > 0 || breakdown.hostFee > 0) && (
                             <View style={styles.breakdownRow}>
                               <Text style={styles.breakdownLabel}>App Charge ({metadata.calculation?.appFeePercent || 3}%)</Text>
-                              <Text style={[styles.breakdownValue, { color: '#B70808' }]}>-₦{Number(breakdown.appFee).toLocaleString()}</Text>
+                              <Text style={[styles.breakdownValue, { color: '#B70808' }]}>-₦{Number(breakdown.appFee || breakdown.hostFee || 0).toLocaleString()}</Text>
                             </View>
                           )}
-                          {breakdown.vat > 0 && (
+                          {(breakdown.vat > 0 || breakdown.hostVat > 0) && (
                             <View style={styles.breakdownRow}>
                               <Text style={styles.breakdownLabel}>VAT (7.5%)</Text>
-                              <Text style={[styles.breakdownValue, { color: '#B70808' }]}>-₦{Number(breakdown.vat).toLocaleString()}</Text>
+                              <Text style={[styles.breakdownValue, { color: '#B70808' }]}>-₦{Number(breakdown.vat || breakdown.hostVat || 0).toLocaleString()}</Text>
                             </View>
                           )}
                           {breakdown.cautionFee > 0 && (

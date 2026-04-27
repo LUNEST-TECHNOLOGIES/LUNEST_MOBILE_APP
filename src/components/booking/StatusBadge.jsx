@@ -45,6 +45,7 @@ const StatusBadge = ({ status }) => {
           text: "PENDING PAYMENT",
           color: "#FDAE31",
           width: 130,
+          fontSize: 8, // Smaller font for long text
           icon: <PendingIcon width={14} height={14} color="#FDAE31" />,
         };
       case "confirmed":
@@ -95,7 +96,7 @@ const StatusBadge = ({ status }) => {
       <BlurView intensity={40} tint="dark" style={styles.blurView}>
         <View style={styles.statusBadgeContent}>
           <View style={styles.statusIconContainer}>{config.icon}</View>
-          <Text style={[styles.statusText, { color: config.color }]}>
+          <Text style={[styles.statusText, { color: config.color, fontSize: config.fontSize || 10 }]}>
             {config.text}
           </Text>
         </View>

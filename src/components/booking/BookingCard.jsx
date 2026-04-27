@@ -1,5 +1,6 @@
 import { useState } from "react";
 import {
+    Alert,
     ImageBackground,
     Pressable,
     StyleSheet,
@@ -13,8 +14,11 @@ import StatusBadge from "./StatusBadge";
 import CalendarIcon from "../../assets/icons/bookings/calendar.svg";
 import ChatIcon from "../../assets/icons/bookings/chat.svg";
 import TrashIcon from "../../assets/icons/bookings/trash-delete.svg";
+import authService from "../../services/authService";
 import configService from "../../services/configService";
 import { resolveImageUrlSync } from "../../utils/imageUtils";
+
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || "https://api.lunest.app/v1";
 const BookingCard = ({
   booking,
   onViewDetails,
@@ -260,7 +264,71 @@ const BookingCard = ({
                       paddingVertical: buttonPadding.vertical,
                     },
                   ]}
-                  onPress={() => onCancelBooking?.(booking)}
+                  onPress={async () => {
+                    // For PENDING_PAYMENT status, verify payment status first
+                    if (booking.status === "pending_payment") {
+                      try {
+                        const token = await authService.getToken();
+                        if (!token) {
+                          Alert.alert("Error", "Please log in to cancel booking");
+                          return;
+                        }
+
+                        // Check payment status via API
+                        const response = await fetch(
+                          `${API_BASE_URL}/payment/status/${booking.paymentReference || booking._id}`,
+                          {
+                            headers: {
+                              'Authorization': `Bearer ${token}`,
+                              'Content-Type': 'application/json'
+                            }
+                          }
+                        );
+
+                        const data = await response.json();
+                        
+                        // If payment was successful, user should get refunded
+                        const hasSuccessfulPayment = data.success && 
+                          (data.status === 'COMPLETED' || data.gatewayStatus === 'success');
+
+                        if (hasSuccessfulPayment) {
+                          Alert.alert(
+                            "⚠️ Payment Already Made",
+                            "You have already paid for this booking. Canceling will initiate a refund. Do you want to proceed?",
+                            [
+                              { text: "No", style: "cancel" },
+                              {
+                                text: "Yes, Cancel & Refund",
+                                style: "destructive",
+                                onPress: () => onCancelBooking?.(booking)
+                              }
+                            ]
+                          );
+                        } else {
+                          // No payment made, safe to cancel without refund
+                          Alert.alert(
+                            "Cancel Booking",
+                            "Are you sure you want to cancel this booking? No payment has been made yet.",
+                            [
+                              { text: "No", style: "cancel" },
+                              {
+                                text: "Yes, Cancel",
+                                style: "destructive",
+                                onPress: () => onCancelBooking?.(booking)
+                              }
+                            ]
+                          );
+                        }
+                      } catch (error) {
+                        console.error("[BookingCard] Error checking payment status:", error);
+                        // Fallback: proceed with normal cancellation
+                        onCancelBooking?.(booking);
+                      }
+                    } else {
+                      // For other statuses, use normal cancellation
+                      onCancelBooking?.(booking);
+                    }
+                  }}
                 >
                   <View style={styles.trashIconContainer}>
                     <TrashIcon

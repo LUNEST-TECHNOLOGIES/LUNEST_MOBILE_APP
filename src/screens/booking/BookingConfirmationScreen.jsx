@@ -35,6 +35,7 @@ import ConfettiIcon from "../../assets/icons/bookings/confetti.svg";
 import DownloadIcon from "../../assets/icons/bookings/download.svg";
 import PendingStatusIcon from "../../assets/icons/bookings/pending-status.svg";
 import ReservedIcon from "../../assets/icons/bookings/reserved.svg";
+import BookingRecoveryButton from "../../components/booking/BookingRecoveryButton";
 import CountdownTimer from "../../components/booking/confirmation/CountdownTimer";
 import DownloadConfirmationModal from "../../components/common/DownloadConfirmationModal";
 import DownloadOptionsModal from "../../components/common/DownloadOptionsModal";
@@ -1381,6 +1382,24 @@ const BookingConfirmationScreen = () => {
               )}
             </View>
           </ImageBackground>
+
+          {/* Payment Recovery Button - Only for PENDING_PAYMENT status */}
+          {statusLower === "pending_payment" && booking?._id && (
+            <BookingRecoveryButton
+              bookingId={booking._id}
+              currentStatus={booking.status}
+              onRecovered={(updatedBooking) => {
+                // Refresh booking data after successful recovery
+                fetchBookingDetails(bookingId);
+                ToastNotification.show({
+                  type: TOAST_TYPE.SUCCESS,
+                  title: "Booking Confirmed",
+                  message: "Your booking has been successfully confirmed!"
+                });
+              }}
+              style={{ marginHorizontal: 16, marginTop: 16 }}
+            />
+          )}
 
           {/* Details Section */}
           <View style={styles.detailsSection}>

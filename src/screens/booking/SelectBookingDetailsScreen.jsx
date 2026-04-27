@@ -19,6 +19,7 @@ import ArrowLeftIcon from "../../assets/icons/bookings/arrow-left.svg";
 import CalendarIcon from "../../assets/icons/vuesax/outline/calendar.svg";
 import profileService from "../../services/profileService";
 import UnifiedDatePicker from "../../components/common/UnifiedDatePicker";
+import ToastNotification, { TOAST_TYPE } from "../../components/common/ToastNotification";
 
 // Utility Helper Functions
 const formatDate = (date) => {
@@ -78,6 +79,16 @@ const SelectBookingDetailsScreen = () => {
   const [showDatePicker, setShowDatePicker] = React.useState(null);
   const [notes, setNotes] = React.useState("");
   const [showPhoneModal, setShowPhoneModal] = React.useState(false);
+  const [toastVisible, setToastVisible] = React.useState(false);
+  const [toastConfig, setToastConfig] = React.useState({
+    type: TOAST_TYPE.SUCCESS,
+    message: "",
+  });
+
+  const showToast = (message, type = TOAST_TYPE.SUCCESS) => {
+    setToastConfig({ message, type });
+    setToastVisible(true);
+  };
 
   // Price breakdown state derived from selections
   const calculateBreakdown = () => {
@@ -203,7 +214,11 @@ const SelectBookingDetailsScreen = () => {
     if (isBookingAvailable()) {
       const validation = validateBookingPeriod();
       if (!validation.valid) {
-        Alert.alert("Invalid booking period", validation.message);
+        if (Platform.OS === 'web') {
+          showToast(validation.message, TOAST_TYPE.ERROR);
+        } else {
+          Alert.alert("Invalid booking period", validation.message);
+        }
         return;
       }
       router.push({
@@ -587,6 +602,14 @@ const SelectBookingDetailsScreen = () => {
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
+
+        {/* Toast Notification for Web/Mobile */}
+        <ToastNotification
+          visible={toastVisible}
+          type={toastConfig.type}
+          message={toastConfig.message}
+          onHide={() => setToastVisible(false)}
+        />
 
         <View
           style={[

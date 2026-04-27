@@ -65,6 +65,64 @@ const BookingConfirmationScreen = () => {
   const [booking, setBooking] = useState(null);
   const [loading, setLoading] = useState(true);
   const [baseURL, setBaseURL] = useState("");
+  const [userData, setUserData] = useState(null);
+
+  // Helper: get value from fetched booking or route params
+  const val = (bookingKey, paramKey, fallback = "-") => {
+    if (booking?.[bookingKey] !== undefined && booking?.[bookingKey] !== null) {
+      return String(booking[bookingKey]);
+    }
+    if (params[paramKey || bookingKey]) {
+      return String(params[paramKey || bookingKey]);
+    }
+    return fallback;
+  };
+
+  // ── Step 1: Core Status & Metadata ──
+  const status = val("status", "status", "Pending");
+  const statusLower = status.toLowerCase();
+
+  // Helper function to convert image URLs to full URLs
+  const convertImageUrl = (image) => {
+    if (!image) return null;
+    let path = typeof image === "object" ? image.url || image.uri : image;
+    return resolveImageUrlSync(path, baseURL);
+  };
+
+  // Parse review images robustly (handles JSON strings and arrays)
+  const parseImages = (imagesData) => {
+    if (!imagesData) return [];
+    if (Array.isArray(imagesData)) return imagesData.filter((img) => !!img);
+    if (typeof imagesData === "string" && imagesData.trim().startsWith("[")) {
+      try {
+        const parsed = JSON.parse(imagesData);
+        return Array.isArray(parsed) ? parsed.filter((img) => !!img) : [];
+      } catch (e) {
+        return [imagesData];
+      }
+    }
+    if (typeof imagesData === "string" && imagesData.length > 0)
+      return [imagesData];
+    return [];
+  };
+
+  const fetchBookingData = async () => {
+    if (!bookingId) return;
+    try {
+      const result = await bookingService.fetchBookingById(bookingId);
+      if (result?.success && result?.booking) {
+        setBooking(result.booking);
+      }
+    } catch (err) {
+      console.error("[BookingConfirmation] Fetch error:", err);
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchBookingData();
+    setRefreshing(false);
+  };
 
   // ── Caution Action State ──
   const [showCautionActionModal, setShowCautionActionModal] = useState(false);
@@ -217,49 +275,6 @@ const BookingConfirmationScreen = () => {
   // 10 minutes (600s) for PENDING_PAYMENT, 1 hour (3600s) for standard RESERVED
   const countdownTime = statusLower === "pending_payment" ? 600 : (parseInt(params.countdownTime) || 3600);
 
-  const [userData, setUserData] = useState(null);
-
-  // Helper function to convert image URLs to full URLs
-  const convertImageUrl = (image) => {
-    if (!image) return null;
-    let path = typeof image === "object" ? image.url || image.uri : image;
-    return resolveImageUrlSync(path, baseURL);
-  };
-
-  // Parse review images robustly (handles JSON strings and arrays)
-  const parseImages = (imagesData) => {
-    if (!imagesData) return [];
-    if (Array.isArray(imagesData)) return imagesData.filter((img) => !!img);
-    if (typeof imagesData === "string" && imagesData.trim().startsWith("[")) {
-      try {
-        const parsed = JSON.parse(imagesData);
-        return Array.isArray(parsed) ? parsed.filter((img) => !!img) : [];
-      } catch (e) {
-        return [imagesData];
-      }
-    }
-    if (typeof imagesData === "string" && imagesData.length > 0)
-      return [imagesData];
-    return [];
-  };
-
-  const fetchBookingData = async () => {
-    if (!bookingId) return;
-    try {
-      const result = await bookingService.fetchBookingById(bookingId);
-      if (result?.success && result?.booking) {
-        setBooking(result.booking);
-      }
-    } catch (err) {
-      console.error("[BookingConfirmation] Fetch error:", err);
-    }
-  };
-
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await fetchBookingData();
-    setRefreshing(false);
-  };
 
   useEffect(() => {
     // Load dynamic base URL
@@ -276,20 +291,7 @@ const BookingConfirmationScreen = () => {
     }
   }, [bookingId]);
 
-  // Helper: get value from fetched booking or route params
-  const val = (bookingKey, paramKey, fallback = "-") => {
-    if (booking?.[bookingKey] !== undefined && booking?.[bookingKey] !== null) {
-      return String(booking[bookingKey]);
-    }
-    if (params[paramKey || bookingKey]) {
-      return String(params[paramKey || bookingKey]);
-    }
-    return fallback;
-  };
-  
-  // ── Step 1: Core Status & Metadata ──
-  const status = val("status", "status", "Pending");
-  const statusLower = status.toLowerCase();
+  // ── Step 1: Core Status & Metadata ── (Moved up)
   const bookingType = val("bookingType", "bookingType");
   const guests = val("guests", "guests", "1");
   const paymentMethod = val("paymentMethod", "paymentMethod");

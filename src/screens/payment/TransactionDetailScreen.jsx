@@ -5,6 +5,7 @@
 
 import { Ionicons } from "@expo/vector-icons";
 import { Asset } from "expo-asset";
+import * as Clipboard from "expo-clipboard";
 import { File } from "expo-file-system";
 import * as Print from "expo-print";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -41,6 +42,7 @@ const TransactionDetailScreen = () => {
   const transactionData = {
     status: params.status || "Confirmed",
     transactionId: params.transactionId || params.refCode || "LNST2569311",
+    reference: params.reference || params.paymentReference || "",
     transactionType: params.transactionType || "Booking",
     amount: params.amount || params.total || "₦70,000",
     paymentMethod: params.paymentMethod || "Wallet",
@@ -156,6 +158,15 @@ const TransactionDetailScreen = () => {
 
   const handleBackToHome = () => {
     router.replace("/(tabs)");
+  };
+
+  const handleCopyReference = async (text) => {
+    try {
+      await Clipboard.setStringAsync(text);
+      Alert.alert("Copied", "Reference copied to clipboard");
+    } catch (error) {
+      console.error("Error copying to clipboard:", error);
+    }
   };
 
   const handleDownloadPress = () => {
@@ -545,6 +556,25 @@ const TransactionDetailScreen = () => {
                 </Text>
               </View>
 
+              {/* Payment Reference */}
+              {transactionData.reference ? (
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Payment Reference:</Text>
+                  <View style={styles.referenceContainer}>
+                    <Text style={[styles.detailValue, styles.referenceText]} numberOfLines={1}>
+                      {transactionData.reference}
+                    </Text>
+                    <Pressable
+                      onPress={() => handleCopyReference(transactionData.reference)}
+                      style={styles.copyButton}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      <Ionicons name="copy-outline" size={18} color="#192DFF" />
+                    </Pressable>
+                  </View>
+                </View>
+              ) : null}
+
               {/* Transaction Type */}
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Transaction Type</Text>
@@ -892,11 +922,30 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 20,
+    flexShrink: 1,
   },
   typeText: {
     fontSize: 12,
     fontWeight: "500",
     color: "#E5EFFF",
+    textAlign: 'center',
+  },
+  referenceContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 2,
+    justifyContent: "flex-end",
+    gap: 8,
+  },
+  referenceText: {
+    fontSize: 13,
+    color: "#666",
+    maxWidth: "80%",
+  },
+  copyButton: {
+    padding: 6,
+    backgroundColor: "#F0F4FF",
+    borderRadius: 6,
   },
   noticeContainer: {
     flexDirection: "row",

@@ -209,9 +209,13 @@ const BookingConfirmationScreen = () => {
   // Check if this is a reserved booking with countdown
   const isReserved =
     (params.status || "").toLowerCase() === "reserved" ||
+    (params.status || "").toLowerCase() === "pending_payment" ||
     params.reserveAndPayLater === "true" ||
-    (booking?.status || "").toLowerCase() === "reserved";
-  const countdownTime = parseInt(params.countdownTime) || 3600;
+    (booking?.status || "").toLowerCase() === "reserved" ||
+    (booking?.status || "").toLowerCase() === "pending_payment";
+    
+  // 10 minutes (600s) for PENDING_PAYMENT, 1 hour (3600s) for standard RESERVED
+  const countdownTime = statusLower === "pending_payment" ? 600 : (parseInt(params.countdownTime) || 3600);
 
   const [userData, setUserData] = useState(null);
 
@@ -509,9 +513,8 @@ const BookingConfirmationScreen = () => {
         return <ReservedIcon width={36} height={36} />;
       case "ongoing":
         return <ConfettiIcon width={40} height={40} />;
-      case "failed":
-      case "expired":
-        return <CancelIcon width={36} height={36} />;
+      case "pending_payment":
+        return <PendingStatusIcon width={36} height={36} />;
       case "disputed":
         return <PendingStatusIcon width={36} height={36} />;
       default:
@@ -537,10 +540,8 @@ const BookingConfirmationScreen = () => {
         return (isGuest && booking?.guestRefundAmount > 0) || booking?.refundCouponCode 
           ? "Your Booking is Refunded" 
           : "Your Booking is Cancelled";
-      case "failed":
-        return "Payment Failed";
-      case "expired":
-        return "Reservation Expired";
+      case "pending_payment":
+        return "Payment is Pending";
       case "disputed":
         return "Booking Under Dispute";
       default:
@@ -570,10 +571,8 @@ const BookingConfirmationScreen = () => {
           return `Cancelled. ₦${booking.guestRefundAmount.toLocaleString()} has been refunded to your wallet.`;
         }
         return "This booking has been cancelled. Contact support for any questions.";
-      case "failed":
-        return params.error || "Something went wrong with your payment. Please try again to secure your booking.";
-      case "expired":
-        return "Your reservation time has expired. Please make a new booking.";
+      case "pending_payment":
+        return "We are verifying your payment with Paystack. Please stay on this screen. Your booking will be confirmed automatically once verified.";
       case "disputed":
         return "An issue has been reported. This booking is currently under review by our team and funds are held in escrow.";
       default:
@@ -2068,7 +2067,7 @@ const BookingConfirmationScreen = () => {
                 </>
               ) : statusLower === "confirmed" ? (
                 <>
-                  {isGuest && !booking?.guestCheckedIn ? (
+                  {(isGuest || isHostView) && !booking?.guestCheckedIn && statusLower === "confirmed" ? (
                   isCheckInArrival ? (
                     <Pressable
                       style={[styles.primaryButton, styles.buttonFlex, { backgroundColor: '#22C55E' }]}

@@ -595,6 +595,19 @@ const TransactionDetailScreen = () => {
                   const metadata = typeof params.metadata === 'string' ? JSON.parse(params.metadata) : (params.metadata || {});
                   let breakdown = metadata.breakdown;
                   
+                  // NEW: Support pricingBreakdown from BookingRepo summary transactions
+                  if (!breakdown && metadata.pricingBreakdown) {
+                    const pb = metadata.pricingBreakdown;
+                    breakdown = {
+                      rent: pb.rentFee || 0,
+                      serviceCharge: pb.serviceCharge || 0,
+                      guestFee: pb.guestFee || 0,
+                      guestVat: pb.guestVat || pb.vat || 0,
+                      cautionFee: pb.securityDeposit || pb.cautionFee || 0,
+                      total: pb.guestTotal || pb.total || 0
+                    };
+                  }
+
                   // Special mapping for COUPON_PAYMENT or transactions with coupon data but no breakdown
                   if (!breakdown && metadata.couponCode) {
                     breakdown = {

@@ -21,6 +21,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import ArrowLeftIcon from "../../assets/icons/bookings/arrow-left.svg";
 import CalendarIcon from "../../assets/icons/vuesax/outline/calendar.svg";
 import ToastNotification, { TOAST_TYPE } from "../../components/common/ToastNotification";
+import ConfirmBookingModal from "../../components/modals/ConfirmBookingModal";
 import PaymentMethodModal from "../../components/modals/PaymentMethodModal";
 import authService from "../../services/authService";
 import bookingService from "../../services/bookingService";
@@ -33,6 +34,7 @@ const BookingSummary = () => {
   const router = useRouter();
   const params = useLocalSearchParams();
   const insets = useSafeAreaInsets();
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showCancelPolicy, setShowCancelPolicy] = useState(false);
   // Show payment modal immediately if coming from reservation Pay Now
   const [showPaymentModal, setShowPaymentModal] = useState(
@@ -74,6 +76,7 @@ const BookingSummary = () => {
   const listingId = params.listingId;
   const propertyName = params.propertyName || "Property";
   const propertyLocation = params.location || "Lagos, Nigeria";
+  const hostId = params.hostId;
   
   // Extract additional notes from params
   const additionalNotes = params.notes || "";
@@ -373,90 +376,63 @@ const BookingSummary = () => {
         .default;
       // Pass the discountable booking amount for validation checks
       const result = await referralService.validateCoupon(couponCode.trim(), hostSubtotal);
-      if (result.success) {
-        const couponData = result.data;
-        const discount = couponData.discount;
+      
+      if (!result.success) {
+        // Handle specific error codes from referralService
+        const errorMsg = result.message || "Invalid coupon code";
         
-        // Check if coupon has already been used by this user (NO REUSE)
-        if (couponData.hasBeenUsedByUser) {
-          const errorMsg = "This coupon has already been used by you. You can only use each coupon once.";
-          showToast(errorMsg, TOAST_TYPE.ERROR);
-          setCouponCode("");
-          setCouponDiscount(0);
-          setCouponApplied(false);
-          setCouponLoading(false);
-          return;
-        }
-        
-        // Check if coupon has usage limits
-        if (couponData.maxUses && couponData.usedCount >= couponData.maxUses) {
-          showToast("This coupon has reached its usage limit", TOAST_TYPE.ERROR);
-          setCouponCode("");
-          setCouponDiscount(0);
-          setCouponApplied(false);
-          setCouponLoading(false);
-          return;
-        }
-        
-        // Check if coupon is expired
-        if (couponData.expiryDate && new Date(couponData.expiryDate) < new Date()) {
+        if (result.code === "COUPON_ALREADY_USED") {
+          showToast("This coupon has already been used. You can only use percentage coupons once.", TOAST_TYPE.ERROR);
+        } else if (result.code === "COUPON_NO_BALANCE") {
+          showToast("This coupon has no remaining balance. The fixed amount has been fully used.", TOAST_TYPE.ERROR);
+        } else if (errorMsg.toLowerCase().includes("expired")) {
           showToast("This coupon has expired", TOAST_TYPE.ERROR);
-          setCouponCode("");
-          setCouponDiscount(0);
-          setCouponApplied(false);
-          setCouponLoading(false);
-          return;
+        } else {
+          showToast(errorMsg, TOAST_TYPE.ERROR);
         }
         
-        // FIXED → flat amount, PERCENTAGE → % of discountable subtotal (rent + service)
-        const amount =
-          discount.type === "PERCENTAGE"
-            ? Math.round(hostSubtotal * (discount.value / 100))
-            : discount.value;
-        
-        setCouponDiscount(amount);
-        setCouponType(discount.type);
-        setCouponValue(discount.value);
-        setCouponApplied(true);
-        
-        // Log coupon application for debugging
-        console.log("[BookingSummary] Coupon applied successfully:", {
-          code: couponCode.trim(),
-          discountType: discount.type,
-          discountValue: discount.value,
-          calculatedAmount: amount,
-          hostSubtotal: hostSubtotal,
-          newTotal: hostTotal - amount,
-        });
-        
-        // Show success toast
+        setCouponCode("");
+        setCouponDiscount(0);
+        setCouponApplied(false);
+        setCouponLoading(false);
+        return;
+      }
+      
+      const couponData = result.data;
+      const discount = couponData.discount;
+      
+      // FIXED → flat amount, PERCENTAGE → % of discountable subtotal (rent + service)
+      const amount =
+        discount.type === "PERCENTAGE"
+          ? Math.round(hostSubtotal * (discount.value / 100))
+          : discount.value;
+      
+      setCouponDiscount(amount);
+      setCouponType(discount.type);
+      setCouponValue(discount.value);
+      setCouponApplied(true);
+      
+      // Log coupon application for debugging
+      console.log("[BookingSummary] Coupon applied successfully:", {
+        code: couponCode.trim(),
+        discountType: discount.type,
+        discountValue: discount.value,
+        calculatedAmount: amount,
+        hostSubtotal: hostSubtotal,
+        newTotal: hostTotal - amount,
+      });
+      
+      // Show success toast with appropriate message based on coupon type
+      if (discount.type === "FIXED" && couponData.remainingBalance > 0) {
+        showToast(
+          `Coupon applied! ₦${amount.toLocaleString()} discount (₦${couponData.remainingBalance.toLocaleString()} remaining)`,
+          TOAST_TYPE.SUCCESS
+        );
+      } else {
         showToast(
           `Coupon applied! You save ₦${amount.toLocaleString()}`,
           TOAST_TYPE.SUCCESS
         );
-      } else {
-        // Handle specific coupon validation errors with clear user-friendly messages
-        let errorMsg = "Invalid coupon code";
-        
-        if (result.message) {
-          const msg = result.message.toLowerCase();
-          if (msg.includes("not found") || msg.includes("doesn't exist") || msg.includes("invalid")) {
-            errorMsg = "This coupon code doesn't exist. Please check and try again.";
-          } else if (msg.includes("expired")) {
-            errorMsg = "This coupon has expired and can no longer be used.";
-          } else if (msg.includes("usage") || msg.includes("limit")) {
-            errorMsg = "This coupon has reached its usage limit.";
-          } else if (msg.includes("minimum") || msg.includes("amount")) {
-            errorMsg = "This booking doesn't meet the minimum amount required for this coupon.";
-          } else {
-            errorMsg = result.message;
-          }
-        }
-        
-        showToast(errorMsg, TOAST_TYPE.ERROR);
-        setCouponCode("");
-        setCouponDiscount(0);
-        setCouponApplied(false);
       }
     } catch (error) {
       console.error("[BookingSummary] Coupon validation error:", error);
@@ -592,190 +568,191 @@ const BookingSummary = () => {
   };
 
   const handleProceedToPayment = async () => {
-    // If coupon covers the full amount (total = 0), create booking directly without payment modal
+    // Show confirmation modal first
+    setShowConfirmModal(true);
+  };
+
+  const handleConfirmedStep = () => {
+    setShowConfirmModal(false);
+    
+    // If coupon covers the full amount (total = 0), create booking directly
     if (couponApplied && couponDiscount > 0 && bookingSummary.pricing.total === 0) {
-      setIsProcessing(true);
-      try {
-        const user = await authService.getUserData();
+      processFreeBooking();
+    } else {
+      // Show payment method selection modal
+      setShowPaymentModal(true);
+    }
+  };
 
-        const parseDate = (dateStr) => {
-          if (!dateStr) return new Date().toISOString();
-          
-          console.log("[BookingSummary] parseDate input:", dateStr);
-          
-          if (typeof dateStr === "string" && dateStr.includes("-")) {
-            // Handle both YYYY-MM-DD and D-M-YYYY
-            const parts = dateStr.split("-");
-            if (parts.length === 3) {
-              const year = parts[0].length === 4 ? parts[0] : parts[2];
-              const month = parts[0].length === 4 ? parts[1] : parts[1];
-              const day = parts[0].length === 4 ? parts[2] : parts[0];
-              
-              const parsedDate = new Date(
-                parseInt(year),
-                parseInt(month) - 1,
-                parseInt(day),
-              );
-              console.log("[BookingSummary] parseDate result:", parsedDate.toISOString());
-              return parsedDate.toISOString();
-            }
+  const processFreeBooking = async () => {
+    setIsProcessing(true);
+    try {
+      const user = await authService.getUserData();
+      
+      const parseDate = (dateStr) => {
+        if (!dateStr) return new Date().toISOString();
+        
+        if (typeof dateStr === "string" && dateStr.includes("-")) {
+          const parts = dateStr.split("-");
+          if (parts.length === 3) {
+            const year = parts[0].length === 4 ? parts[0] : parts[2];
+            const month = parts[0].length === 4 ? parts[1] : parts[1];
+            const day = parts[0].length === 4 ? parts[2] : parts[0];
+            
+            const parsedDate = new Date(
+              parseInt(year),
+              parseInt(month) - 1,
+              parseInt(day),
+            );
+            return parsedDate.toISOString();
           }
-          
-          // Try other formats
-          if (typeof dateStr === "string" && dateStr.includes("/")) {
-            const parts = dateStr.split("/");
-            if (parts.length === 3) {
-              const [day, month, year] = parts;
-              const parsedDate = new Date(
-                parseInt(year),
-                parseInt(month) - 1,
-                parseInt(day),
-              );
-              console.log("[BookingSummary] parseDate (d/M/yyyy):", parsedDate.toISOString());
-              return parsedDate.toISOString();
-            }
+        }
+        
+        if (typeof dateStr === "string" && dateStr.includes("/")) {
+          const parts = dateStr.split("/");
+          if (parts.length === 3) {
+            const [day, month, year] = parts;
+            const parsedDate = new Date(
+              parseInt(year),
+              parseInt(month) - 1,
+              parseInt(day),
+            );
+            return parsedDate.toISOString();
           }
-          
-          const parsed = new Date(dateStr);
-          const result = isNaN(parsed.getTime())
-            ? new Date().toISOString()
-            : parsed.toISOString();
-          console.log("[BookingSummary] parseDate (fallback):", result);
-          return result;
+        }
+        
+        const parsed = new Date(dateStr);
+        return isNaN(parsed.getTime())
+          ? new Date().toISOString()
+          : parsed.toISOString();
+      };
+
+      const mapBookingType = (type) => {
+        if (!type) return "DAILY";
+        const upperType = type.toUpperCase();
+        if (upperType.includes("/")) {
+          const firstType = upperType.split("/")[0].trim();
+          if (["DAILY", "WEEKLY", "MONTHLY", "YEARLY"].includes(firstType))
+            return firstType;
+        }
+        const typeMap = {
+          DAILY: "DAILY",
+          WEEKLY: "WEEKLY",
+          MONTHLY: "MONTHLY",
+          YEARLY: "YEARLY",
+          ANNUALLY: "YEARLY",
+          ANNUAL: "YEARLY",
+          NIGHT: "DAILY",
+          NIGHTLY: "DAILY",
         };
+        return typeMap[upperType] || "DAILY";
+      };
 
-        const mapBookingType = (type) => {
-          if (!type) return "DAILY";
-          const upperType = type.toUpperCase();
-          if (upperType.includes("/")) {
-            const firstType = upperType.split("/")[0].trim();
-            if (["DAILY", "WEEKLY", "MONTHLY", "YEARLY"].includes(firstType))
-              return firstType;
-          }
-          const typeMap = {
-            DAILY: "DAILY",
-            WEEKLY: "WEEKLY",
-            MONTHLY: "MONTHLY",
-            YEARLY: "YEARLY",
-            ANNUALLY: "YEARLY",
-            ANNUAL: "YEARLY",
-            NIGHT: "DAILY",
-            NIGHTLY: "DAILY",
-          };
-          return typeMap[upperType] || "DAILY";
-        };
+      const displayHostTotal = bookingSummary.pricing.hostTotal;
+      const displayRentalSubtotal = bookingSummary.pricing.rentalSubtotal;
+      const displayServiceCharge = bookingSummary.pricing.serviceCharge || 0;
+      const displaySecurityDeposit =
+        bookingSummary.pricing.securityDeposit || 0;
+      const displayAppCharge = bookingSummary.pricing.appCharge || 0;
+      const displayTotal = bookingSummary.pricing.total || 0;
 
-        const displayHostTotal = bookingSummary.pricing.hostTotal;
-        const displayRentalSubtotal = bookingSummary.pricing.rentalSubtotal;
-        const displayServiceCharge = bookingSummary.pricing.serviceCharge || 0;
-        const displaySecurityDeposit =
-          bookingSummary.pricing.securityDeposit || 0;
-        const displayAppCharge = bookingSummary.pricing.appCharge || 0;
-        const displayTotal = bookingSummary.pricing.total || 0;
-
-        const bookingData = {
-          listing: params?.listingId,
-          type: mapBookingType(bookingSummary.property.bookingType),
-          guests: {
-            adults:
-              parseInt(params?.adults) || bookingSummary.property.guests.adults,
-            children:
-              parseInt(params?.children) ||
-              bookingSummary.property.guests.children,
-            pets: 0,
-          },
-          checkIn: parseDate(
-            params?.checkInDate || bookingSummary.property.checkIn,
-          ),
-          checkOut: parseDate(
-            params?.checkOutDate || bookingSummary.property.checkOut,
-          ),
-          // Coupon covers full amount - no external payment needed
-          paymentMethod: null,
-          status: "CONFIRMED",
-          totalAmount: { price: displayHostTotal, currency: "NGN" },
-          priceBreakdown: {
-            rentalSubtotal: displayRentalSubtotal,
-            serviceCharge: displayServiceCharge,
-            securityDeposit: displaySecurityDeposit,
-            hostTotal: displayHostTotal,
-            guestFee: displayAppCharge,
-            subtotalBeforeDiscount: displayHostTotal + displayAppCharge,
-            couponApplied: true,
-            couponCode: couponCode.trim(),
-            couponDiscount: couponDiscount,
-            amountAfterCoupon: displayTotal,
-            guestTotal: displayTotal,
-            paymentMethodUsed: "COUPON",
-            amountPaidViaPayment: 0, // Coupon covers full amount
-            couponType: "FULL_COVERAGE", // Indicates coupon fully covered the cost
-          },
-          bookedBy: user?._id || user?.id,
+      const bookingData = {
+        listing: params?.listingId,
+        type: mapBookingType(bookingSummary.property.bookingType),
+        guests: {
+          adults: parseInt(params?.adults) || bookingSummary.property.guests.adults,
+          children: parseInt(params?.children) || bookingSummary.property.guests.children,
+          pets: 0,
+        },
+        checkIn: parseDate(params?.checkInDate || bookingSummary.property.checkIn),
+        checkOut: parseDate(params?.checkOutDate || bookingSummary.property.checkOut),
+        paymentMethod: null,
+        status: "CONFIRMED",
+        totalAmount: { price: displayHostTotal, currency: "NGN" },
+        priceBreakdown: {
+          rentalSubtotal: displayRentalSubtotal,
+          serviceCharge: displayServiceCharge,
+          securityDeposit: displaySecurityDeposit,
+          hostTotal: displayHostTotal,
+          guestFee: displayAppCharge,
+          subtotalBeforeDiscount: displayHostTotal + displayAppCharge,
+          couponApplied: true,
           couponCode: couponCode.trim(),
           couponDiscount: couponDiscount,
-          additionalNotes: additionalNotes, // Add additional notes
-        };
+          amountAfterCoupon: displayTotal,
+          guestTotal: displayTotal,
+          paymentMethodUsed: "COUPON",
+          amountPaidViaPayment: 0,
+          couponType: "FULL_COVERAGE",
+        },
+        bookedBy: user?._id || user?.id,
+        couponCode: couponCode.trim(),
+        couponDiscount: couponDiscount,
+        additionalNotes: additionalNotes,
+      };
 
-        const existingBookingId = params?.bookingId; // Assuming bookingId can be passed as a param for updates
+      const existingBookingId = params?.bookingId;
 
-        const result = existingBookingId
-          ? await bookingService.updateBookingStatus(existingBookingId, "CONFIRMED", {
-              paymentMethod: "COUPON",
-              paymentReference: null,
-              pricingBreakdown: bookingData.priceBreakdown,
-              couponCode: bookingData.couponCode,
-              couponDiscount: bookingData.couponDiscount,
-            })
-          : await bookingService.createBooking(bookingData);
+      const result = existingBookingId
+        ? await bookingService.updateBookingStatus(existingBookingId, "CONFIRMED", {
+            paymentMethod: "COUPON",
+            paymentReference: null,
+            pricingBreakdown: bookingData.priceBreakdown,
+            couponCode: bookingData.couponCode,
+            couponDiscount: bookingData.couponDiscount,
+          })
+        : await bookingService.createBooking(bookingData);
 
-        if (result.success) {
-          // Track coupon usage if a coupon was applied
-          if (couponApplied && couponCode.trim()) {
-            const referralService = (await import("../../services/referralService")).default;
-            await referralService.trackCouponUsage(
-              couponCode.trim(),
-              result.booking?._id,
-              couponDiscount
-            ).catch(err => {
-              console.warn("[BookingSummary] Failed to track coupon usage:", err);
-              // Don't fail the booking if tracking fails
-            });
-          }
-
-          router.replace({
-            pathname: "/booking-confirmation",
-            params: {
-              status: "Confirmed",
-              propertyName: bookingSummary.property.title,
-              location: bookingSummary.property.location,
-              coverImage: bookingSummary.property.coverImage || "",
-              bookingType: bookingSummary.property.bookingType,
-              checkIn: bookingSummary.property.checkIn,
-              checkOut: bookingSummary.property.checkOut,
-              paymentMethod: "Coupon",
-              total: `₦${displayTotal.toLocaleString()}`,
-              refCode: result.booking?.referenceCode || generateRefCode(),
-              bookingId: result.booking?._id,
-              listingId: params?.listingId,
-              couponApplied: couponApplied ? "true" : "false",
-              couponCode: couponCode.trim() || "",
-              couponDiscount: couponDiscount || 0,
-              subtotalBeforeDiscount: displayHostTotal + displayAppCharge,
-            },
+      if (result.success) {
+        if (couponApplied && couponCode.trim()) {
+          const referralService = (await import("../../services/referralService")).default;
+          await referralService.trackCouponUsage(
+            couponCode.trim(),
+            result.booking?._id,
+            couponDiscount
+          ).catch(err => {
+            console.warn("[BookingSummary] Failed to track coupon usage:", err);
           });
-        } else {
-          showToast(result.message || "Failed to create booking. Please try again.", TOAST_TYPE.ERROR);
         }
-      } catch (error) {
-        console.error("[BookingSummary] Coupon booking error:", error);
-        showToast("An error occurred while processing your booking. Please try again.", TOAST_TYPE.ERROR);
-      } finally {
-        setIsProcessing(false);
+
+        router.replace({
+          pathname: "/booking-confirmation",
+          params: {
+            status: "Confirmed",
+            propertyName: bookingSummary.property.title,
+            location: bookingSummary.property.location,
+            coverImage: bookingSummary.property.coverImage || "",
+            bookingType: bookingSummary.property.bookingType,
+            checkIn: bookingSummary.property.checkIn,
+            checkOut: bookingSummary.property.checkOut,
+            paymentMethod: "Coupon",
+            total: `₦${displayTotal.toLocaleString()}`,
+            refCode: result.booking?.referenceCode || generateRefCode(),
+            bookingId: result.booking?._id,
+            listingId: params?.listingId,
+            couponApplied: couponApplied ? "true" : "false",
+            couponCode: couponCode.trim() || "",
+            couponDiscount: couponDiscount || 0,
+            subtotalBeforeDiscount: displayHostTotal + displayAppCharge,
+          },
+        });
+      } else {
+        showToast(result.message || "Failed to create booking. Please try again.", TOAST_TYPE.ERROR);
       }
-      return;
+    } catch (error) {
+      console.error("[BookingSummary] Coupon booking error:", error);
+      showToast("An error occurred while processing your booking. Please try again.", TOAST_TYPE.ERROR);
+    } finally {
+      setIsProcessing(false);
     }
-    // Show payment method selection modal
-    setShowPaymentModal(true);
+  };
+
+    } catch (error) {
+      console.error("[BookingSummary] Coupon booking error:", error);
+      showToast("An error occurred while processing your booking. Please try again.", TOAST_TYPE.ERROR);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handlePaymentMethodSelect = async (paymentData) => {
@@ -998,6 +975,8 @@ const BookingSummary = () => {
             {
               type: "BOOKING",
               bookingId: bId, // Crucial for backend identification
+              guestId: user?._id || user?.id,
+              hostId: hostId || params?.hostId,
               listingId: params?.listingId,
               description: `Booking for ${bookingSummary.property.title}`,
               origin: "mobile", 
@@ -1571,11 +1550,7 @@ const BookingSummary = () => {
             onPress={handleProceedToPayment}
           >
             <Text style={styles.proceedButtonText}>
-              {couponApplied &&
-                couponDiscount > 0 &&
-                bookingSummary.pricing.total === 0
-                ? "Proceed to booking"
-                : "Proceed to Payment"}
+              Confirm Booking
             </Text>
           </Pressable>
         </View>
@@ -1611,6 +1586,27 @@ const BookingSummary = () => {
             </View>
           </View>
         </Modal>
+  
+        {/* Booking Confirmation Modal */}
+        <ConfirmBookingModal
+          visible={showConfirmModal}
+          onClose={() => setShowConfirmModal(false)}
+          onConfirm={handleConfirmedStep}
+          bookingDetails={{
+            propertyName: bookingSummary.property.title,
+            location: bookingSummary.property.location,
+            checkIn: params?.checkInDate || bookingSummary.property.checkIn,
+            checkOut: params?.checkOutDate || bookingSummary.property.checkOut,
+          }}
+          pricing={{
+            subtotal: bookingSummary.pricing.rentalSubtotal,
+            serviceCharge: bookingSummary.pricing.serviceCharge,
+            appCharge: bookingSummary.pricing.appCharge,
+            securityDeposit: bookingSummary.pricing.securityDeposit,
+            couponDiscount: couponDiscount,
+            total: bookingSummary.pricing.total,
+          }}
+        />
 
         {/* Payment Method Selection Modal */}
         <PaymentMethodModal

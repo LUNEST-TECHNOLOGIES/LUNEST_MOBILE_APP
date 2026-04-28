@@ -176,14 +176,28 @@ const referralService = {
       const response = await apiClient.post("/v1/coupons/validate", payload);
       if (response.success || response.data?.status === "SUCCESS") {
         const coupon = response.body || response.data?.data || {};
+        const discountType = coupon.discount?.type || "PERCENTAGE";
+        const remainingBalance = coupon.remainingBalance || 0;
         
-        // Check if this coupon has already been used by the current user
-        if (coupon.hasBeenUsedByUser || coupon.userHasUsed || coupon.alreadyUsed) {
-          return {
-            success: false,
-            message: "This coupon has already been used by you. You can only use each coupon once.",
-            code: "COUPON_ALREADY_USED"
-          };
+        // Check coupon usage based on type
+        if (discountType === "PERCENTAGE") {
+          // PERCENTAGE coupons can only be used once
+          if (coupon.isUsed || coupon.hasBeenUsedByUser || coupon.userHasUsed || coupon.alreadyUsed) {
+            return {
+              success: false,
+              message: "This coupon has already been used by you. You can only use each coupon once.",
+              code: "COUPON_ALREADY_USED"
+            };
+          }
+        } else if (discountType === "FIXED") {
+          // FIXED coupons can be reused if they have remaining balance
+          if (remainingBalance <= 0) {
+            return {
+              success: false,
+              message: "This coupon has no remaining balance.",
+              code: "COUPON_NO_BALANCE"
+            };
+          }
         }
         
         return { 
@@ -191,6 +205,7 @@ const referralService = {
           data: {
             ...coupon,
             discount: coupon.discount || { type: "FIXED", value: 0 },
+            remainingBalance: remainingBalance,
             maxUses: coupon.maxUses,
             usedCount: coupon.usedCount || 0,
             expiryDate: coupon.expiryDate,

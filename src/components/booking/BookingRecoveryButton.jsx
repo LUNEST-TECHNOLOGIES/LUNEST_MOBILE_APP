@@ -69,7 +69,7 @@ const BookingRecoveryButton = ({
       console.log(`[BookingRecovery] Checking booking: ${bookingId}`);
 
       const response = await fetch(
-        `${API_BASE_URL}/payment/recover-booking/${bookingId}?userId=${userData?.id || ''}`,
+        `${API_BASE_URL}/v1/payment/recover-booking/${bookingId}?userId=${userData?.id || ''}`,
         {
           method: 'GET',
           headers: {
@@ -143,22 +143,23 @@ const BookingRecoveryButton = ({
 
   return (
     <Pressable 
-      style={[styles.container, style]} 
+      style={[styles.container, style, isRecovering && styles.containerDisabled]} 
       onPress={handleRecover}
       disabled={isRecovering}
     >
       <View style={styles.content}>
-        <Ionicons 
-          name={isRecovering ? "sync" : "refresh-circle"} 
-          size={20} 
-          color="#192DFF" 
-        />
-        <Text style={styles.text}>
-          {isRecovering ? "Checking..." : "Payment Done? Confirm Booking"}
-        </Text>
-        {isRecovering && (
+        {isRecovering ? (
           <ActivityIndicator size="small" color="#192DFF" style={styles.loader} />
+        ) : (
+          <Ionicons 
+            name="refresh-circle" 
+            size={20} 
+            color="#192DFF" 
+          />
         )}
+        <Text style={[styles.text, isRecovering && styles.textDisabled]}>
+          {isRecovering ? "Verifying payment..." : "Payment Done? Confirm Booking"}
+        </Text>
       </View>
     </Pressable>
   );

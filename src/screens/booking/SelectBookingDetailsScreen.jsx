@@ -67,6 +67,7 @@ const SelectBookingDetailsScreen = () => {
   const propertySecurityDeposit = params.securityDeposit;
   const propertyServiceCharge = params.serviceCharge;
   const pricingPeriod = params.pricingPeriod || "night";
+  const hostId = params.hostId || "";
 
   const [pets, setPets] = React.useState(null);
   const [showBookingTypeDropdown, setShowBookingTypeDropdown] =
@@ -240,6 +241,7 @@ const SelectBookingDetailsScreen = () => {
           checkOutDate: checkOutDate ? formatDate(checkOutDate) : null,
           notes: notes,
           pricingPeriod: pricingPeriod,
+          hostId: hostId,
         },
       });
     }

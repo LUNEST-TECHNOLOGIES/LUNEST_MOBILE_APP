@@ -114,11 +114,11 @@ class NetworkErrorHandler {
         }
 
         // Client errors
-        if (status >= 400) {
+        if (status >= 400 && status < 500) {
             return {
                 type: "CLIENT_ERROR",
                 severity: "medium",
-                userMessage: "Invalid request. Please check your input.",
+                userMessage: message || "Invalid request. Please check your input.",
                 cause: `HTTP ${status}`,
                 platform: Platform.OS,
             };

@@ -177,6 +177,16 @@ class APIClient {
    * @private
    */
   async _isOffline() {
+    // Proactive check bypass for local development
+    // Allows requests to proceed even if the browser/device thinks it's offline
+    const isLocal = this.baseURL.includes('localhost') || 
+                    this.baseURL.includes('127.0.0.1') || 
+                    this.baseURL.includes('10.0.2.2');
+    
+    if (isLocal) {
+        return false;
+    }
+
     if (Platform.OS === 'web') {
       // Direct navigator check for web is fastest
       if (typeof navigator !== 'undefined' && !navigator.onLine) {

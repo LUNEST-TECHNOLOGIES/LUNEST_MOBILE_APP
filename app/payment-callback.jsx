@@ -131,9 +131,12 @@ export default function PaymentCallbackScreen() {
       console.log("[PaymentCallback] Verification successful result:", result);
 
       if (result.status === "COMPLETED" || result.status === "success") {
-        queryClient.refetchQueries({ queryKey: ["walletInfo"] });
-        queryClient.refetchQueries({ queryKey: ["userProfile"] });
-        queryClient.refetchQueries({ queryKey: ["transactions"] });
+        // Short delay to allow backend to finish background processing
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        await queryClient.invalidateQueries({ queryKey: ["walletInfo"] });
+        await queryClient.invalidateQueries({ queryKey: ["userProfile"] });
+        await queryClient.invalidateQueries({ queryKey: ["transactions"] });
 
         // 1. Check for stored context (Prioritize redirection context)
         try {
@@ -226,10 +229,18 @@ export default function PaymentCallbackScreen() {
 
         setMessage("Payment verified successfully! Redirecting...");
         navigateAfterDelay(DEFAULT_PROFILE_ROUTE, 2500);
-      } else if (result.status === "PENDING") {
-        setStatus("info");
-        setMessage("Payment is still being processed. Please check back later.");
-        navigateAfterDelay(DEFAULT_PROFILE_ROUTE, 4000);
+      } else if (result.status === "PENDING" || result.status === "PROCESSING") {
+        // If it's processing, retry a few more times before giving up
+        if (retryCount < 5) {
+          setStatus("processing");
+          setMessage(result.status === "PROCESSING" ? "Payment received! Finalizing..." : "Still verifying...");
+          setRetryCount(prev => prev + 1);
+          setTimeout(() => verifyPayment(ref), 2500);
+        } else {
+          setStatus("info");
+          setMessage("Payment is taking longer than expected. It will reflect in your wallet shortly.");
+          navigateAfterDelay(DEFAULT_PROFILE_ROUTE, 5000);
+        }
       } else {
         setStatus("error");
         setMessage(result.message || "Payment verification failed.");

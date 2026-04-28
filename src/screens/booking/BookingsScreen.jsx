@@ -10,27 +10,24 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import {
-    ActivityIndicator,
     Alert,
     RefreshControl,
     ScrollView,
     StyleSheet,
-    Text,
-    View,
+    View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import useCachedFetch from "../../hooks/useCachedFetch";
 
 
-import EmptyState from "../../components/common/EmptyState";
 import ToastNotification, { TOAST_TYPE } from "../../components/common/ToastNotification";
 
 // Import booking components
 import {
     BookingCard,
     BookingsHeader,
-    EmptyBookingState,
     BookingSkeleton,
+    EmptyBookingState,
 } from "../../components/booking";
 
 // Import Host Profile Modal
@@ -509,8 +506,51 @@ const BookingsScreen = () => {
     }
   };
 
-  const handlePayNow = (booking) => {
+  const handlePayNow = async (booking) => {
     console.log("Pay now:", booking.id);
+    
+    // For PENDING_PAYMENT bookings, verify payment status first to avoid double payment
+    if (booking.status === "pending_payment" && booking.paymentReference) {
+      try {
+        const token = await authService.getToken();
+        if (!token) {
+          showToast("Please log in to proceed with payment", TOAST_TYPE.ERROR);
+          return;
+        }
+
+        const baseURL = await configService.getBaseURL();
+        const response = await fetch(
+          `${baseURL}/v1/payment/status/${booking.paymentReference}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+
+        const data = await response.json();
+        
+        // If payment was already successful, redirect to booking details
+        if (data.success && (data.status === 'COMPLETED' || data.gatewayStatus === 'success')) {
+          Alert.alert(
+            "Payment Already Completed",
+            "Your payment for this booking was successful. Redirecting to booking details...",
+            [
+              {
+                text: "View Booking",
+                onPress: () => handleViewDetails(booking)
+              }
+            ]
+          );
+          return;
+        }
+      } catch (error) {
+        console.error("[BookingsScreen] Error checking payment status:", error);
+        // Continue to payment if check fails (fallback)
+      }
+    }
+
     // Navigate to booking summary with payment modal to select payment method
     router.push({
       pathname: "/booking-summary",

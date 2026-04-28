@@ -276,7 +276,7 @@ const BookingCard = ({
 
                         // Check payment status via API
                         const response = await fetch(
-                          `${API_BASE_URL}/payment/status/${booking.paymentReference || booking._id}`,
+                          `${API_BASE_URL}/v1/payment/status/${booking.paymentReference || booking._id}`,
                           {
                             headers: {
                               'Authorization': `Bearer ${token}`,

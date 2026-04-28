@@ -70,12 +70,57 @@ const CouponsScreen = () => {
   const renderCoupon = ({ item }) => {
     const isUsed = item.isUsed;
     const isExpired = item.isExpired && !isUsed;
-    const isInactive = isUsed || isExpired;
+    const discountType = item.discount?.type || "PERCENTAGE";
+    const remainingBalance = item.remainingBalance || 0;
+    
+    // For FIXED coupons, check if there's remaining balance
+    const hasRemainingBalance = discountType === "FIXED" && remainingBalance > 0;
+    const isInactive = isUsed && !hasRemainingBalance || isExpired;
     
     const discountText =
-      item.discount?.type === "PERCENTAGE"
+      discountType === "PERCENTAGE"
         ? `${item.discount.value}% Off`
         : `₦${(item.discount?.value || 0).toLocaleString()} Off`;
+
+    // Determine status badge
+    let statusBadge = null;
+    if (isExpired) {
+      statusBadge = (
+        <View style={styles.expiredBadge}>
+          <Text style={styles.expiredText}>Expired</Text>
+        </View>
+      );
+    } else if (hasRemainingBalance) {
+      statusBadge = (
+        <View style={styles.remainingBadge}>
+          <Text style={styles.remainingText}>₦{remainingBalance.toLocaleString()} left</Text>
+        </View>
+      );
+    } else if (isUsed) {
+      statusBadge = (
+        <View style={styles.usedBadge}>
+          <Text style={styles.usedText}>Used</Text>
+        </View>
+      );
+    } else if (item.isRefundCoupon) {
+      statusBadge = (
+        <View style={styles.refundBadge}>
+          <Text style={styles.refundText}>Refund Credit</Text>
+        </View>
+      );
+    } else if (item.validity === null || item.validity === undefined || item.daysLeft === 0) {
+      statusBadge = (
+        <View style={styles.neverExpiresBadge}>
+          <Text style={styles.neverExpiresText}>Never Expires</Text>
+        </View>
+      );
+    } else {
+      statusBadge = (
+        <Text style={styles.daysLeft}>
+          {item.daysLeft} day{item.daysLeft !== 1 ? "s" : ""} left
+        </Text>
+      );
+    }
 
     return (
       <View style={[styles.couponCard, isInactive && styles.couponInactive]}>
@@ -88,28 +133,16 @@ const CouponsScreen = () => {
             <View style={styles.discountBadge}>
               <Text style={styles.discountText}>{discountText}</Text>
             </View>
-            {isUsed ? (
-              <View style={styles.usedBadge}>
-                <Text style={styles.usedText}>Used</Text>
-              </View>
-            ) : isExpired ? (
-              <View style={styles.expiredBadge}>
-                <Text style={styles.expiredText}>Expired</Text>
-              </View>
-            ) : item.isRefundCoupon ? (
-              <View style={styles.refundBadge}>
-                <Text style={styles.refundText}>Refund Credit</Text>
-              </View>
-            ) : item.validity === null || item.validity === undefined || item.daysLeft === 0 ? (
-              <View style={styles.neverExpiresBadge}>
-                <Text style={styles.neverExpiresText}>Never Expires</Text>
-              </View>
-            ) : (
-              <Text style={styles.daysLeft}>
-                {item.daysLeft} day{item.daysLeft !== 1 ? "s" : ""} left
-              </Text>
-            )}
+            {statusBadge}
           </View>
+
+          {hasRemainingBalance && (
+            <View style={styles.balanceInfo}>
+              <Text style={styles.balanceInfoText}>
+                Original: ₦{(item.discount?.value || 0).toLocaleString()} • Remaining: ₦{remainingBalance.toLocaleString()}
+              </Text>
+            </View>
+          )}
 
           <View style={styles.couponDivider} />
 
@@ -319,6 +352,25 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
     color: "#00695C",
+  },
+  remainingBadge: {
+    backgroundColor: "#E3F2FD",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  remainingText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#1976D2",
+  },
+  balanceInfo: {
+    marginBottom: 12,
+  },
+  balanceInfoText: {
+    fontSize: 12,
+    color: "#666",
+    textAlign: "center",
   },
   couponDivider: {
     height: 1,

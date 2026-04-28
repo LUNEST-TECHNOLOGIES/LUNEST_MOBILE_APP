@@ -2021,6 +2021,7 @@ const PropertyDetailsScreen = () => {
                 serviceCharge: listing.serviceCharge || 0,
                 petsFriendly: listing.petsFriendly ? "true" : "false",
                 childrenAllowed: listing.childrenAllowed ? "true" : "false",
+                hostId: listing.hostInfo?._id || listing.host?._id || "",
               },
             });
           }}

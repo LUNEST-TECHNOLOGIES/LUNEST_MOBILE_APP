@@ -50,7 +50,6 @@ const PayWithWalletScreen = () => {
   const couponCode = params.couponCode || "";
   const couponDiscount = parseFloat(params.couponDiscount) || 0;
 
-
   useEffect(() => {
     fetchWalletBalance();
   }, []);

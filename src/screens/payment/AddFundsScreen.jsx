@@ -117,9 +117,13 @@ const AddFundsScreen = () => {
       if (verifyResult.status === "COMPLETED" || verifyResult.status === "success") {
         showToast(`₦${(Number(amount) || 0).toLocaleString()} added to your wallet successfully!`, "success");
         
-        // Ensure ALL wallet/profile related queries are marked as stale and refetched
-        await queryClient.refetchQueries({ queryKey: ["walletInfo"], type: "all" });
-        await queryClient.refetchQueries({ queryKey: ["userProfile"], type: "all" });
+        // Short delay to allow backend to finish background processing
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Ensure ALL wallet/profile related queries are invalidated to force a fresh fetch
+        await queryClient.invalidateQueries({ queryKey: ["walletInfo"] });
+        await queryClient.invalidateQueries({ queryKey: ["userProfile"] });
+        await queryClient.invalidateQueries({ queryKey: ["transactions"] });
         
         // Smart redirection for Web & Native
         const storedContext = Platform.OS === "web"
@@ -169,17 +173,14 @@ const AddFundsScreen = () => {
             router.replace(Platform.OS === 'web' ? "/wallet" : "/(tabs)/wallet");
           }
         }, 2000);
-      } else if (verifyResult.status === "PENDING" || verifyResult.status === "ABANDONED") {
-        // Handle race conditions where Paystack hasn't fully updated yet
-        showToast("Payment is being processed. It will reflect in your wallet shortly.", "info");
-        
-        // Optional: Navigate back or to wallet to let them see it reflect
-        setTimeout(() => {
-           if (router.canGoBack()) router.back();
-           else router.replace(Platform.OS === 'web' ? "/wallet" : "/(tabs)/wallet");
-        }, 2000);
+      } else if (verifyResult.status === "PROCESSING" || verifyResult.status === "PENDING") {
+          // If the backend says it is still processing, retry after a few seconds
+          console.log("[AddFunds] Payment still processing, retrying in 3s...");
+          setLoading({ active: true, message: "Finalizing your transaction..." });
+          setTimeout(() => handleVerifyPayment(reference), 3000);
       } else {
-        showToast("Payment not successful. Status: " + (verifyResult.status || "Failed"), "error");
+          showToast(verifyResult.message || "Verification failed. Please check your history.", "error");
+          setLoading({ active: false, message: "" });
       }
     } catch (error) {
       console.error("[AddFunds] Verify error:", error);
@@ -281,6 +282,7 @@ const AddFundsScreen = () => {
         email,
         {
           type: "WALLET_FUNDING",
+          userId: userData?._id || userData?.id,
           description: `Add ${formatCurrency(numericAmount)} to wallet`,
           callback_url: callbackUrl,
           origin: "mobile", // Explicitly track origin for backend redirection

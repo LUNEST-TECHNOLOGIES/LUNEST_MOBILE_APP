@@ -51,6 +51,7 @@ import { DEMO_TERMS } from "../../constants/termsConfig";
 import authService from "../../services/authService";
 import bookingService from "../../services/bookingService";
 import configService from "../../services/configService";
+import paymentService from "../../services/paymentService";
 import { downloadFile, saveRefAsImage } from "../../utils/downloadUtils";
 import { resolveImageUrlSync } from "../../utils/imageUtils";
 
@@ -446,6 +447,75 @@ const BookingConfirmationScreen = () => {
     guestTotal,
     propertyAddress: propertyAddress.substring(0, 50) + '...'
   });
+
+  // ── Handling Failed Payments ──
+  useEffect(() => {
+    if (params.fromFailedPayment === "true") {
+      notificationService.show("Payment failed or was cancelled. You can try again using the 'Continue to Payment' button.", TOAST_TYPE.ERROR);
+      // Clear the param to prevent re-triggering toast on refresh
+      router.setParams({ fromFailedPayment: null });
+    }
+  }, [params.fromFailedPayment]);
+
+  // ── Auto-Recovery for Pending Payments ──
+  // If we arrive from a payment callback with isPending=true, 
+  // automatically trigger the verification process.
+  useEffect(() => {
+    if (params.isPending === "true" && bookingId && statusLower === "pending_payment") {
+      console.log("🔄 [BookingConfirmation] Auto-triggering recovery for pending booking...");
+      
+      // We can't directly call the button's internal state, so we simulate the verification
+      // using the same logic the button uses, but via the UI modal for feedback.
+      const triggerRecovery = async () => {
+        setDownloadModalState({
+          visible: true,
+          type: 'loading',
+          title: 'Verifying Payment',
+          message: 'Please wait while we confirm your payment status with Paystack...'
+        });
+
+        try {
+          // Add a small delay to allow webhook processing if possible
+          await new Promise(resolve => setTimeout(resolve, 1500));
+          
+          const result = await paymentService.recoverBooking(bookingId);
+          
+          if (result.success && result.booking?.status === 'CONFIRMED') {
+            setDownloadModalState({
+              visible: true,
+              type: 'success',
+              title: 'Payment Confirmed',
+              message: 'Your booking has been successfully confirmed!'
+            });
+            await fetchBookingData();
+            
+            setTimeout(() => {
+              setDownloadModalState(prev => ({ ...prev, visible: false }));
+              // Clear the isPending param to prevent re-triggering on refresh
+              router.setParams({ isPending: null });
+            }, 3000);
+          } else {
+            // If still pending, just close the modal and let the user use the manual button if they wish
+            // but show a hint that it might still be processing
+            setDownloadModalState(prev => ({ 
+              ...prev, 
+              type: 'loading',
+              message: 'Payment still processing. We will keep checking in the background.'
+            }));
+            
+            setTimeout(() => {
+              setDownloadModalState(prev => ({ ...prev, visible: false }));
+            }, 2000);
+          }
+        } catch (err) {
+          console.error("[BookingConfirmation] Auto-recovery error:", err);
+          setDownloadModalState(prev => ({ ...prev, visible: false }));
+        }
+      };
+
+      triggerRecovery();
+    }
+  }, [params.isPending, bookingId, statusLower]);
 
   // Polling logic for PENDING bookings
   useEffect(() => {
@@ -1388,13 +1458,34 @@ const BookingConfirmationScreen = () => {
             <BookingRecoveryButton
               bookingId={booking._id}
               currentStatus={booking.status}
+              onStartRecovery={() => {
+                setDownloadModalState({
+                  visible: true,
+                  type: 'loading',
+                  title: 'Verifying Payment',
+                  message: 'Please wait while we confirm your payment status with Paystack...'
+                });
+              }}
               onRecovered={(updatedBooking) => {
+                setDownloadModalState({
+                  visible: true,
+                  type: 'success',
+                  title: 'Payment Confirmed',
+                  message: 'Your booking has been successfully confirmed!'
+                });
                 // Refresh booking data after successful recovery
-                fetchBookingDetails(bookingId);
-                ToastNotification.show({
-                  type: TOAST_TYPE.SUCCESS,
-                  title: "Booking Confirmed",
-                  message: "Your booking has been successfully confirmed!"
+                fetchBookingData();
+                
+                setTimeout(() => {
+                  setDownloadModalState(prev => ({ ...prev, visible: false }));
+                }, 2000);
+              }}
+              onFailed={(errorMsg) => {
+                setDownloadModalState({
+                  visible: true,
+                  type: 'error',
+                  title: 'Verification Failed',
+                  message: errorMsg || 'Could not verify your payment. If you were charged, please contact support.'
                 });
               }}
               style={{ marginHorizontal: 16, marginTop: 16 }}

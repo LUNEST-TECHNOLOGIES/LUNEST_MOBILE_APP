@@ -4,27 +4,24 @@
  * Enhanced UI with better error handling and retry mechanism
  */
 import { Ionicons } from "@expo/vector-icons";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useState } from "react";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Animated,
-  Easing,
-  Platform,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-  ActivityIndicator,
-  Modal
+    Animated,
+    Easing,
+    Platform,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import bookingService from "../src/services/bookingService";
-import paymentService from "../src/services/paymentService";
-import notificationService from "../src/services/notificationService";
 import { TOAST_TYPE } from "../src/components/common/ToastNotification";
-import { useRef } from "react";
+import bookingService from "../src/services/bookingService";
+import notificationService from "../src/services/notificationService";
+import paymentService from "../src/services/paymentService";
 
 export default function PaymentCallbackScreen() {
   const router = useRouter();
@@ -77,13 +74,30 @@ export default function PaymentCallbackScreen() {
 
   const navigateAfterDelay = useCallback((path, delay, additionalParams = null) => {
     setTimeout(() => {
-      if (additionalParams) {
-        router.replace({
-          pathname: path,
-          params: additionalParams
-        });
+      if (Platform.OS === "web") {
+        let targetUrl = path.startsWith("http") ? path : `${window.location.origin}${path}`;
+        
+        if (additionalParams) {
+          const url = new URL(targetUrl);
+          Object.keys(additionalParams).forEach(key => {
+            if (additionalParams[key] !== null && additionalParams[key] !== undefined) {
+              url.searchParams.append(key, String(additionalParams[key]));
+            }
+          });
+          targetUrl = url.toString();
+        }
+        
+        console.log("[PaymentCallback] Web Redirecting to:", targetUrl);
+        window.location.href = targetUrl;
       } else {
-        router.replace(path);
+        if (additionalParams) {
+          router.replace({
+            pathname: path,
+            params: additionalParams
+          });
+        } else {
+          router.replace(path);
+        }
       }
     }, delay);
   }, [router]);
@@ -99,8 +113,21 @@ export default function PaymentCallbackScreen() {
 
       if (storedContext) {
         const context = JSON.parse(storedContext);
-        if (context.type === "BOOKING" && context.listingId) {
-          setMessage(prev => prev + " Redirecting you back to the booking page...");
+        if (context.bookingId) {
+          setMessage(prev => prev + " Returning to your booking...");
+          setTimeout(() => {
+            router.replace({
+              pathname: "/booking-confirmation",
+              params: { 
+                bookingId: context.bookingId,
+                status: "Pending", // Or whatever the status is
+                fromFailedPayment: "true"
+              }
+            });
+          }, 3000);
+          return;
+        } else if (context.type === "BOOKING" && context.listingId) {
+          setMessage(prev => prev + " Redirecting you back to the property page...");
           setTimeout(() => {
             router.replace({
               pathname: "/property-details",
@@ -110,12 +137,28 @@ export default function PaymentCallbackScreen() {
           return;
         }
       }
+      // Also check params as a fallback for failure
+      if (params.bookingId || params.listingId) {
+          setMessage(prev => prev + " Returning to your booking...");
+          const targetPath = params.bookingId ? "/booking-confirmation" : "/property-details";
+          const targetParams = params.bookingId 
+            ? { bookingId: params.bookingId, status: "Pending", fromFailedPayment: "true" }
+            : { listingId: params.listingId };
+            
+          setTimeout(() => {
+            router.replace({
+              pathname: targetPath,
+              params: targetParams
+            });
+          }, 3000);
+          return;
+      }
     } catch (e) {
       console.warn("[PaymentCallback] Failure redirect error:", e);
     }
     
     navigateAfterDelay(DEFAULT_PROFILE_ROUTE, 4000);
-  }, [DEFAULT_PROFILE_ROUTE, navigateAfterDelay, router]);
+  }, [DEFAULT_PROFILE_ROUTE, navigateAfterDelay, router, params]);
 
   const verifyPayment = useCallback(async (ref) => {
     try {
@@ -155,12 +198,12 @@ export default function PaymentCallbackScreen() {
               }
             };
 
-            if (context.type === "BOOKING" && context.bookingId) {
+            if (context.type === "BOOKING" || context.bookingId) {
+              const bId = context.bookingId || params.bookingId;
               setIsFinalizingBooking(true);
-              // Maintain success status but update message for booking finalization
               setMessage("Payment Confirmed! Finalizing your booking...");
               
-              const verifyBooking = await bookingService.fetchBookingById(context.bookingId);
+              const verifyBooking = await bookingService.fetchBookingById(bId);
               
               if (verifyBooking.success && (['CONFIRMED', 'SUCCESS', 'ONGOING'].includes(verifyBooking.booking?.status))) {
                 setMessage("Payment Confirmed! Booking finalized.");
@@ -169,9 +212,9 @@ export default function PaymentCallbackScreen() {
                 router.replace({
                   pathname: "/booking-confirmation",
                   params: {
-                    bookingId: context.bookingId,
+                    bookingId: bId,
                     status: "Confirmed",
-                    propertyName: context.propertyName 
+                    propertyName: context.propertyName || verifyBooking.booking?.listing?.propertyName
                   }
                 });
                 await cleanupContext();
@@ -183,7 +226,7 @@ export default function PaymentCallbackScreen() {
                   router.replace({
                     pathname: "/booking-confirmation",
                     params: {
-                      bookingId: context.bookingId,
+                      bookingId: bId,
                       status: "Confirmed",
                       propertyName: context.propertyName,
                       isPending: "true" 
@@ -214,17 +257,50 @@ export default function PaymentCallbackScreen() {
         // 2. Fallback to param identification if no context is found
         if (params.type === "WALLET_FUNDING" || params.type === "wallet_funding") {
           setMessage("Transaction Verified! Funds added to your wallet.");
-          const amountDisplay = params.amount ? `₦${params.amount}` : "Funds";
+          // Try to get amount from params or context
+          let amount = params.amount;
+          if (!amount) {
+            try {
+              const contextData = Platform.OS === "web" 
+                ? localStorage.getItem("lunest_payment_context")
+                : await AsyncStorage.getItem("lunest_payment_context");
+              if (contextData) {
+                const context = JSON.parse(contextData);
+                amount = context.params?.amount;
+              }
+            } catch (e) {
+              console.error("[PaymentCallback] Failed to parse context for amount:", e);
+            }
+          }
+          const amountDisplay = amount ? `₦${amount}` : "Funds";
           notificationService.show(`${amountDisplay} added to your wallet successfully`, TOAST_TYPE.SUCCESS);
           
+          // Ensure ALL wallet/profile related queries are invalidated to force a fresh fetch
+          await queryClient.invalidateQueries({ queryKey: ["walletInfo"] });
+          await queryClient.invalidateQueries({ queryKey: ["userProfile"] });
+          await queryClient.invalidateQueries({ queryKey: ["transactions"] });
+
           const fallbackUrl = params.returnUrl || DEFAULT_PROFILE_ROUTE;
           const fallbackParams = { ...params };
           delete fallbackParams.status;
           delete fallbackParams.reference;
           delete fallbackParams.trxref;
 
-          navigateAfterDelay(fallbackUrl, 3000, fallbackParams);
+          navigateAfterDelay(fallbackUrl, 2500, fallbackParams);
           return;
+        } else if ((params.type === "booking_payment" || params.type === "BOOKING") && params.bookingId) {
+           setMessage("Payment Verified! Redirecting to your booking...");
+           notificationService.showSuccess("Booking payment successful!");
+           
+           router.replace({
+             pathname: "/booking-confirmation",
+             params: {
+               bookingId: params.bookingId,
+               status: "Confirmed",
+               isPending: "true" // Use auto-verify on landing
+             }
+           });
+           return;
         }
 
         setMessage("Payment verified successfully! Redirecting...");
@@ -295,6 +371,8 @@ export default function PaymentCallbackScreen() {
         } else if (['failed', 'cancelled', 'error'].includes(callbackStatus)) {
           setStatus("error");
           setMessage(params.message || "Payment was not successful.");
+          // Trigger failure redirection to booking if applicable
+          handleFailureRedirection();
         } else {
           if (ref) verifyPayment(ref);
         }

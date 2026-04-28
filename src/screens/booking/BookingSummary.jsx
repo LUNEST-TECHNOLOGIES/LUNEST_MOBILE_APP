@@ -948,17 +948,28 @@ const BookingSummary = () => {
             return;
           }
 
-          // 1. Create booking in PENDING_PAYMENT status first
+          // 1. Create or Update booking in PENDING_PAYMENT status
           bookingData.status = "PENDING_PAYMENT";
-          const bookingResult = await bookingService.createBooking(bookingData);
+          
+          let bookingResult;
+          if (existingBookingId) {
+            console.log("[BookingSummary] Updating existing booking for payment:", existingBookingId);
+            bookingResult = await bookingService.updateBookingStatus(existingBookingId, "PENDING_PAYMENT", {
+              pricingBreakdown: bookingData.priceBreakdown,
+              couponCode: bookingData.couponCode,
+              couponDiscount: bookingData.couponDiscount
+            });
+          } else {
+            bookingResult = await bookingService.createBooking(bookingData);
+          }
           
           if (!bookingResult.success) {
-            showToast(bookingResult.message || "Failed to create booking. Please try again.", TOAST_TYPE.ERROR);
+            showToast(bookingResult.message || "Failed to prepare booking. Please try again.", TOAST_TYPE.ERROR);
             setIsInitializingPayment(false);
             return;
           }
 
-          const bId = bookingResult.booking?._id;
+          const bId = bookingResult.booking?._id || existingBookingId;
 
           // 2. Initialize Paystack payment with bookingId in metadata
           const paymentResult = await paymentService.initializePayment(
@@ -971,7 +982,7 @@ const BookingSummary = () => {
               hostId: hostId || params?.hostId,
               listingId: params?.listingId,
               description: `Booking for ${bookingSummary.property.title}`,
-              origin: "mobile", 
+              origin: Platform.OS === "web" ? "web" : "mobile", 
             },
           );
 
@@ -986,7 +997,8 @@ const BookingSummary = () => {
           // Create callback URL for deep linking back to app
           let callbackUrl;
           if (Platform.OS === "web") {
-            callbackUrl = window.location.origin + "/payment-callback";
+            // Include type, bookingId and amount in web callback URL
+            callbackUrl = `${window.location.origin}/payment-callback?type=booking_payment&bookingId=${bId}&amount=${displayTotal.toString()}`;
           } else {
             callbackUrl = Linking.createURL("payment-callback", {
               queryParams: {

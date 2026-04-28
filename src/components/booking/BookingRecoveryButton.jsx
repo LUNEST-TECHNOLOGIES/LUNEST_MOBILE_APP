@@ -29,7 +29,9 @@ const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || "https://api.lunest.app/
 const BookingRecoveryButton = ({ 
   bookingId, 
   currentStatus,
+  onStartRecovery,
   onRecovered,
+  onFailed,
   style = {}
 }) => {
   const [isRecovering, setIsRecovering] = useState(false);
@@ -41,14 +43,17 @@ const BookingRecoveryButton = ({
 
   const handleRecover = async () => {
     Alert.alert(
-      "Confirm Booking Status",
-      "Check if your payment was successful and confirm your booking?",
+      "Confirm Payment",
+      "Did you complete the payment? We will check with our servers to confirm your booking.",
       [
-        { text: "Cancel", style: "cancel" },
+        { text: "No, Cancel", style: "cancel" },
         { 
-          text: "Check & Confirm", 
+          text: "Yes, Confirm", 
           style: "default",
-          onPress: performRecovery 
+          onPress: () => {
+             if (onStartRecovery) onStartRecovery();
+             performRecovery();
+          } 
         }
       ]
     );
@@ -69,7 +74,7 @@ const BookingRecoveryButton = ({
       console.log(`[BookingRecovery] Checking booking: ${bookingId}`);
 
       const response = await fetch(
-        `${API_BASE_URL}/v1/payment/recover-booking/${bookingId}?userId=${userData?.id || ''}`,
+        `${API_BASE_URL}/payment/recover-booking/${bookingId}?userId=${userData?.id || ''}`,
         {
           method: 'GET',
           headers: {
@@ -113,21 +118,16 @@ const BookingRecoveryButton = ({
           onRecovered(data.booking);
         }
       } else {
-        // Recovery failed - show appropriate message
-        Alert.alert(
-          "❌ Unable to Confirm",
-          data.message || "Could not confirm your booking. Please contact support.",
-          [
-            { text: "OK" },
-            { 
-              text: "Contact Support", 
-              onPress: () => {
-                // Navigate to support or open email
-                // navigation.navigate('Support');
-              }
-            }
-          ]
-        );
+        // Recovery failed - notify parent
+        if (onFailed) {
+           onFailed(data.message);
+        } else {
+          // Fallback Alert if no callback
+          Alert.alert(
+            "❌ Unable to Confirm",
+            data.message || "Could not confirm your booking. Please contact support."
+          );
+        }
       }
 
     } catch (error) {

@@ -1,10 +1,10 @@
 /**
  * AddFundsScreen - Add money to wallet via Paystack
  */
-import * as Linking from "expo-linking";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useQueryClient } from "@tanstack/react-query";
-import { useRouter, useLocalSearchParams } from "expo-router";
+import * as Linking from "expo-linking";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { useEffect, useState } from "react";
 import {
@@ -254,8 +254,8 @@ const AddFundsScreen = () => {
       // Create deep link callback URL for Paystack to redirect back to the app
       let callbackUrl;
       if (Platform.OS === "web") {
-        // On web, use the dedicated payment-callback route
-        callbackUrl = window.location.origin + "/payment-callback";
+        // On web, use the dedicated payment-callback route with amount in query params
+        callbackUrl = `${window.location.origin}/payment-callback?type=wallet_funding&amount=${numericAmount.toString()}`;
         console.log("[AddFunds] Web Callback URL:", callbackUrl);
       } else {
         // Use a more reliable callback URL for deep linking
@@ -310,7 +310,8 @@ const AddFundsScreen = () => {
             status: null, 
             reference: null, 
             trxref: null,
-            fromBooking: "true"
+            fromBooking: "true",
+            amount: numericAmount.toString()
           },
         };
 

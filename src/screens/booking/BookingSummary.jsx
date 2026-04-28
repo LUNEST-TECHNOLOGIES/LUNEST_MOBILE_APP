@@ -747,14 +747,6 @@ const BookingSummary = () => {
     }
   };
 
-    } catch (error) {
-      console.error("[BookingSummary] Coupon booking error:", error);
-      showToast("An error occurred while processing your booking. Please try again.", TOAST_TYPE.ERROR);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
   const handlePaymentMethodSelect = async (paymentData) => {
     console.log("[BookingSummary] Payment method selected:", paymentData);
     console.log("[BookingSummary] Coupon details:", {

@@ -103,7 +103,7 @@ const BookingSummary = () => {
 
   // Host's original rental price per period
   const rentalPrice =
-    parseFloat(params.price) || parseFloat(params.amount) || 1200000;
+    parseFloat(params.price) || parseFloat(params.amount) || 0;
 
   // Calculate number of nights from check-in and check-out dates
   const calculateNumberOfNights = () => {
@@ -365,6 +365,17 @@ const BookingSummary = () => {
     pricingPeriod,
     periodLabel
   };
+
+  // Helper to get the correct guest total (prioritize server field name)
+  const finalGuestTotal = displayPricing.guestTotal || 
+                          displayPricing.total || 
+                          (fetchedBooking?.totalAmount?.price) || 
+                          (typeof displayPricing.totalAmount === 'object' ? displayPricing.totalAmount.price : displayPricing.totalAmount) || 
+                          total;
+  // Helper to get the correct host total (Rent + Service + Caution)
+  const finalHostTotal = displayPricing.hostTotal || 
+                        ((displayPricing.taxableAmount || (rentalSubtotal + serviceCharge)) + 
+                         (displayPricing.securityDeposit || securityDeposit));
   const handleApplyCoupon = async () => {
     // Toggle: if already applied, remove coupon
     if (couponApplied) {
@@ -495,11 +506,12 @@ const BookingSummary = () => {
       securityDeposit: displayPricing.securityDeposit || securityDeposit,
 
       // Totals
-      hostTotal: displayPricing.hostTotal || hostTotal,
+      hostTotal: finalHostTotal,
       appCharge: displayPricing.appCharge || appCharge,
-      amount: displayPricing.total,
+      total: finalGuestTotal,
+      amount: finalGuestTotal,
       totalAmount: {
-        price: displayPricing.total,
+        price: finalGuestTotal,
         currency: "NGN",
       },
       discount: displayPricing.couponDiscount || couponDiscount,
@@ -985,7 +997,7 @@ const BookingSummary = () => {
 
           // 2. Initialize Paystack payment with bookingId in metadata
           const paymentResult = await paymentService.initializePayment(
-            displayTotal,
+            finalGuestTotal,
             email,
             {
               type: "BOOKING",

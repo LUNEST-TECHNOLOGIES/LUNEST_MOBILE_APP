@@ -174,12 +174,26 @@ export default function PaymentCallbackScreen() {
       console.log("[PaymentCallback] Verification successful result:", result);
 
       if (result.status === "COMPLETED" || result.status === "success") {
-        // Short delay to allow backend to finish background processing
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // INSTANT UI UPDATE
+        if (result.newBalance !== undefined) {
+          console.log("[PaymentCallback] Instant balance update from server:", result.newBalance);
+          queryClient.setQueryData(["walletInfo"], (old) => ({
+            ...old,
+            balance: result.newBalance,
+            availableBalance: result.newBalance
+          }));
+        }
+
+        // Increase delay for robust state sync
+        await new Promise(resolve => setTimeout(resolve, 1500));
         
-        await queryClient.invalidateQueries({ queryKey: ["walletInfo"] });
-        await queryClient.invalidateQueries({ queryKey: ["userProfile"] });
-        await queryClient.invalidateQueries({ queryKey: ["transactions"] });
+        queryClient.invalidateQueries({ queryKey: ["walletInfo"] });
+        queryClient.invalidateQueries({ queryKey: ["userProfile"] });
+        queryClient.invalidateQueries({ queryKey: ["transactions"] });
+
+        // Force fresh data
+        await queryClient.refetchQueries({ queryKey: ["walletInfo"] });
+        await queryClient.refetchQueries({ queryKey: ["userProfile"] });
 
         // 1. Check for stored context (Prioritize redirection context)
         try {

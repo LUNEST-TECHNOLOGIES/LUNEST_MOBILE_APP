@@ -104,18 +104,31 @@ export const UserModeProvider = ({ children }) => {
           currentUserId,
           USER_MODE_KEY,
         );
+        
+        // Fallback: Check last visited side (last_side_key)
+        const lastSide = await AsyncStorage.getItem(LAST_SIDE_KEY);
+        
         if (savedMode && Object.values(USER_MODES).includes(savedMode)) {
           // Only allow host mode if user has host privileges
           if (savedMode === USER_MODES.HOST && !userIsHost) {
             setMode(USER_MODES.GUEST);
           } else {
             setMode(savedMode);
+            console.log(`🔄 [UserMode] Restored saved mode for ${currentUserId}: ${savedMode}`);
           }
+        } else if (lastSide && (lastSide === 'host' || lastSide === 'guest')) {
+            const restoredMode = lastSide === 'host' ? USER_MODES.HOST : USER_MODES.GUEST;
+            if (restoredMode === USER_MODES.HOST && !userIsHost) {
+                setMode(USER_MODES.GUEST);
+            } else {
+                setMode(restoredMode);
+                console.log(`🔄 [UserMode] Restored last side for ${currentUserId}: ${restoredMode}`);
+            }
         } else if (userIsHost) {
-          // If no preference yet and user is a host, default to HOST mode 
-          // to ensure they see their dashboard/listings immediately
-          console.log("🔄 [UserMode] New session detected for host, defaulting to HOST mode");
-          setMode(USER_MODES.HOST);
+          // Default to HOST only if it's a completely new session with no record at all
+          // However, many users prefer starting in GUEST mode to browse
+          console.log("🔄 [UserMode] New host session, defaulting to GUEST mode for browsing");
+          setMode(USER_MODES.GUEST);
         }
       }
     } catch (error) {

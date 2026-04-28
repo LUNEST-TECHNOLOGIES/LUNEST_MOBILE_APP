@@ -117,13 +117,27 @@ const AddFundsScreen = () => {
       if (verifyResult.status === "COMPLETED" || verifyResult.status === "success") {
         showToast(`₦${(Number(amount) || 0).toLocaleString()} added to your wallet successfully!`, "success");
         
-        // Short delay to allow backend to finish background processing
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // INSTANT UI UPDATE: Use the new balance returned from the server to update cache immediately
+        if (verifyResult.newBalance !== undefined) {
+          console.log("[AddFunds] Instant balance update from server:", verifyResult.newBalance);
+          queryClient.setQueryData(["walletInfo"], (old) => ({
+            ...old,
+            balance: verifyResult.newBalance,
+            availableBalance: verifyResult.newBalance
+          }));
+        }
+
+        // Background refresh to ensure everything is in sync (email, logs, etc.)
+        await new Promise(resolve => setTimeout(resolve, 1500));
         
-        // Ensure ALL wallet/profile related queries are invalidated to force a fresh fetch
-        await queryClient.invalidateQueries({ queryKey: ["walletInfo"] });
-        await queryClient.invalidateQueries({ queryKey: ["userProfile"] });
-        await queryClient.invalidateQueries({ queryKey: ["transactions"] });
+        // Final source-of-truth refresh
+        queryClient.invalidateQueries({ queryKey: ["walletInfo"] });
+        queryClient.invalidateQueries({ queryKey: ["userProfile"] });
+        queryClient.invalidateQueries({ queryKey: ["transactions"] });
+        
+        // Force immediate refetch
+        await queryClient.refetchQueries({ queryKey: ["walletInfo"] });
+        await queryClient.refetchQueries({ queryKey: ["userProfile"] });
         
         // Smart redirection for Web & Native
         const storedContext = Platform.OS === "web"
@@ -334,8 +348,8 @@ const AddFundsScreen = () => {
                 const supported = await Linking.canOpenURL(authUrl);
                 if (supported) {
                     await Linking.openURL(authUrl);
-                    // Start verification loop since we don't get a result from Linking
-                    setTimeout(() => handleVerifyPayment(paymentReference), 2000);
+                    // Increase delay for Android background verification
+                    setTimeout(() => handleVerifyPayment(paymentReference), 3500);
                     return;
                 }
             } catch (linkError) {

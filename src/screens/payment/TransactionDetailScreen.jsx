@@ -757,16 +757,7 @@ const TransactionDetailScreen = () => {
           </View>
         </ViewShot>
 
-        {/* Refund Notice */}
-        <View style={styles.noticeContainer}>
-          <Ionicons name="information-circle" size={18} color="#EF4444" />
-          <Text style={styles.noticeText}>
-            <Text style={styles.noticeTextRed}>
-              This booking is non-refundable.{" "}
-            </Text>
-            <Text style={styles.noticeTextLink}>View Policy</Text>
-          </Text>
-        </View>
+
       </ScrollView>
 
       {/* Footer Buttons */}

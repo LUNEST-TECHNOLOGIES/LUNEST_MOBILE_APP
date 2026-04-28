@@ -8,6 +8,7 @@ import { useCallback, useState } from "react";
 import {
     Dimensions,
     Modal,
+    Platform,
     Pressable,
     StyleSheet,
     Switch,

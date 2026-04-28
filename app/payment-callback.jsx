@@ -174,6 +174,8 @@ export default function PaymentCallbackScreen() {
       console.log("[PaymentCallback] Verification successful result:", result);
 
       if (result.status === "COMPLETED" || result.status === "success") {
+        setStatus("success");
+        setMessage("Payment Successful!");
         // INSTANT UI UPDATE
         if (result.newBalance !== undefined) {
           console.log("[PaymentCallback] Instant balance update from server:", result.newBalance);

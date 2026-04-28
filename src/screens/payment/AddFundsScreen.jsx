@@ -115,6 +115,7 @@ const AddFundsScreen = () => {
       console.log("[AddFunds] Verify result:", verifyResult);
 
       if (verifyResult.status === "COMPLETED" || verifyResult.status === "success") {
+        setLoading({ active: true, message: "Payment Successful!" });
         showToast(`₦${(Number(amount) || 0).toLocaleString()} added to your wallet successfully!`, "success");
         
         // INSTANT UI UPDATE: Use the new balance returned from the server to update cache immediately

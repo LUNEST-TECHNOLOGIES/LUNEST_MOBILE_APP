@@ -1058,7 +1058,7 @@ const BookingConfirmationScreen = () => {
         listingId: booking?.listing?._id || params.listingId,
         propertyName: propertyName || booking?.listing?.propertyName,
         location: booking?.listing?.location || params.location,
-        price: booking?.totalAmount?.price || params.price,
+        price: booking?.pricingBreakdown?.rentalPrice || params.price,
         checkInDate: params.checkInDate || params.checkIn || (booking?.checkIn ? format(new Date(booking.checkIn), "d-M-yyyy") : ""),
         checkOutDate: params.checkOutDate || params.checkOut || (booking?.checkOut ? format(new Date(booking.checkOut), "d-M-yyyy") : ""),
         adults: guests || guestsInfo.adults || "2",

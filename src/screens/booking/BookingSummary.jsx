@@ -510,17 +510,18 @@ const BookingSummary = () => {
 
     if (passedBreakdown && typeof passedBreakdown === "object") {
       bookingSummary.pricing.rentalSubtotal =
-        passedBreakdown.baseAmount ?? bookingSummary.pricing.rentalSubtotal;
+        passedBreakdown.rentalSubtotal ?? passedBreakdown.baseAmount ?? bookingSummary.pricing.rentalSubtotal;
       bookingSummary.pricing.numberOfUnits =
-        passedBreakdown.units ?? bookingSummary.pricing.numberOfUnits;
+        passedBreakdown.numberOfUnits ?? passedBreakdown.units ?? bookingSummary.pricing.numberOfUnits;
       bookingSummary.pricing.periodUnits =
         passedBreakdown.periodUnits ?? bookingSummary.pricing.periodUnits;
       bookingSummary.pricing.periodLabel =
         passedBreakdown.periodLabel ?? bookingSummary.pricing.periodLabel;
-      // Use the passed service fee as a platform/processing fee display (may differ from host serviceCharge)
-      bookingSummary.pricing.serviceFee = passedBreakdown.serviceFee ?? 0;
+      // Use the passed service fee or host serviceCharge
+      bookingSummary.pricing.serviceCharge = 
+        passedBreakdown.serviceCharge ?? passedBreakdown.serviceFee ?? bookingSummary.pricing.serviceCharge;
       bookingSummary.pricing.securityDeposit =
-        passedBreakdown.deposit ?? bookingSummary.pricing.securityDeposit;
+        passedBreakdown.securityDeposit ?? passedBreakdown.deposit ?? bookingSummary.pricing.securityDeposit;
 
       const hostSubtotalNew =
         bookingSummary.pricing.rentalSubtotal +
@@ -1063,6 +1064,7 @@ const BookingSummary = () => {
                 refCode: verifyResult.reference || generateRefCode(),
                 bookingId: bId,
                 listingId: params?.listingId,
+                isPending: "true",
                 propertyImage: bookingSummary.property.coverImage || "",
                 couponApplied: couponApplied ? "true" : "false",
                 couponCode: couponCode || "",
@@ -1126,6 +1128,7 @@ const BookingSummary = () => {
               refCode: result.booking?.referenceCode || generateRefCode(),
               bookingId: result.booking?._id,
               listingId: params?.listingId,
+              isPending: "true", // Add this to trigger auto-verify on return
               couponApplied: couponApplied ? "true" : "false",
               couponCode: couponCode || "",
               couponDiscount: couponDiscount.toString(),

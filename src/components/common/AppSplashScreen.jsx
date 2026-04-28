@@ -1,5 +1,5 @@
-import React, { useEffect, useRef } from 'react';
-import { View, Image, Animated, Text, StyleSheet, Dimensions } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { Animated, Dimensions, Image, StyleSheet, Text, View } from 'react-native';
 
 const { width } = Dimensions.get('window');
 
@@ -45,17 +45,12 @@ const AppSplashScreen = () => {
         ]}
       >
         <Image
-          source={require('../../../assets/images/app-logo.png')}
+          source={require('../../../assets/images/icon.png')}
           style={styles.logo}
           resizeMode="contain"
         />
         
-        <Animated.View style={{ opacity: textFadeAnim, alignItems: 'center' }}>
-          <Text style={styles.brandName}>LUNEST</Text>
-          <View style={styles.taglineContainer}>
-            <Text style={styles.tagline}>Redefining Urban Living</Text>
-          </View>
-        </Animated.View>
+       
       </Animated.View>
 
       <View style={styles.footer}>

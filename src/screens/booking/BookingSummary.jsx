@@ -281,22 +281,30 @@ const BookingSummary = () => {
 
   switch (pricingPeriod.toLowerCase()) {
     case "night":
-      rentalSubtotal = rentalPrice * numberOfNights;
+      rentalSubtotal = (params.fromReservation === "true" || params.bookingId) 
+        ? rentalPrice 
+        : rentalPrice * numberOfNights;
       periodUnits = numberOfNights;
       periodLabel = "night";
       break;
     case "month":
-      rentalSubtotal = rentalPrice * numberOfMonths;
+      rentalSubtotal = (params.fromReservation === "true" || params.bookingId) 
+        ? rentalPrice 
+        : rentalPrice * numberOfMonths;
       periodUnits = numberOfMonths;
       periodLabel = "month";
       break;
     case "year":
-      rentalSubtotal = rentalPrice * numberOfYears;
+      rentalSubtotal = (params.fromReservation === "true" || params.bookingId) 
+        ? rentalPrice 
+        : rentalPrice * numberOfYears;
       periodUnits = numberOfYears;
       periodLabel = "year";
       break;
     default:
-      rentalSubtotal = rentalPrice * numberOfNights;
+      rentalSubtotal = (params.fromReservation === "true" || params.bookingId) 
+        ? rentalPrice 
+        : rentalPrice * numberOfNights;
       periodUnits = numberOfNights;
       periodLabel = "night";
   }
@@ -510,7 +518,10 @@ const BookingSummary = () => {
 
     if (passedBreakdown && typeof passedBreakdown === "object") {
       bookingSummary.pricing.rentalSubtotal =
-        passedBreakdown.rentalSubtotal ?? passedBreakdown.baseAmount ?? bookingSummary.pricing.rentalSubtotal;
+        passedBreakdown.rentalSubtotal ?? 
+        passedBreakdown.rentFee ?? 
+        passedBreakdown.baseAmount ?? 
+        bookingSummary.pricing.rentalSubtotal;
       bookingSummary.pricing.numberOfUnits =
         passedBreakdown.numberOfUnits ?? passedBreakdown.units ?? bookingSummary.pricing.numberOfUnits;
       bookingSummary.pricing.periodUnits =

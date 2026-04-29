@@ -2361,6 +2361,7 @@ const BookingConfirmationScreen = () => {
         onDownloadReceipt={handleReceiptDownload}
         onDownloadAgreement={handleAgreementDownload}
         loading={isDownloading}
+        showAgreement={["confirmed", "ongoing", "completed"].includes(statusLower)}
       />
 
       <DownloadConfirmationModal

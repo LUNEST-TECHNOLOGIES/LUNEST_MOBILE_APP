@@ -2,7 +2,7 @@
  * PaystackWebView - In-app Paystack payment component
  */
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View, Platform } from 'react-native';
 import { PaystackWebView as Paystack } from 'react-native-paystack-webview';
 import apiClient from '../../services/apiClient';
 
@@ -56,34 +56,56 @@ const PaystackWebView = ({
   }
 
   return (
-    <View style={styles.container}>
-      <Paystack
-        ref={paystackWebViewRef}
-        paystackKey={publicKey}
-        amount={amount}
-        email={email}
-        reference={reference}
-        onSuccess={(response) => {
-          console.log("[PaystackWebView] Payment successful:", response);
-          onSuccess(response);
-        }}
-        onCancel={() => {
-          console.log("[PaystackWebView] Payment cancelled");
-          onCancel();
-        }}
-        onError={(error) => {
-          console.error("[PaystackWebView] Payment error:", error);
-          onError(error);
-        }}
-        autoStart={true}
-      />
+    <View style={styles.overlay}>
+      <View style={styles.container}>
+        <Paystack
+          ref={paystackWebViewRef}
+          paystackKey={publicKey}
+          amount={amount}
+          email={email}
+          reference={reference}
+          onSuccess={(response) => {
+            console.log("[PaystackWebView] Payment successful:", response);
+            onSuccess(response);
+          }}
+          onCancel={() => {
+            console.log("[PaystackWebView] Payment cancelled");
+            onCancel();
+          }}
+          onError={(error) => {
+            console.error("[PaystackWebView] Payment error:", error);
+            onError(error);
+          }}
+          autoStart={true}
+        />
+      </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: Platform.OS === 'web' ? 'rgba(0,0,0,0.5)' : 'transparent',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   container: {
     flex: 1,
+    width: '100%',
+    height: '100%',
+    backgroundColor: 'white',
+    ...(Platform.OS === 'web' && {
+      maxWidth: 500,
+      maxHeight: '90%',
+      borderRadius: 24,
+      overflow: 'hidden',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: 0.25,
+      shadowRadius: 15,
+      elevation: 10,
+    }),
   },
   loadingContainer: {
     flex: 1,

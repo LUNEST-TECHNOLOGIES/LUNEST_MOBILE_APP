@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import {
   Modal,
   View,
@@ -6,11 +6,15 @@ import {
   StyleSheet,
   Pressable,
   ScrollView,
-  Dimensions
+  Dimensions,
+  Animated,
+  PanResponder,
+  Platform
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const ConfirmBookingModal = ({
   visible,
@@ -19,6 +23,49 @@ const ConfirmBookingModal = ({
   bookingDetails,
   pricing,
 }) => {
+  const insets = useSafeAreaInsets();
+  
+  // Animation and Gestures for Swipe-to-Close
+  const panY = useRef(new Animated.Value(0)).current;
+  
+  const resetPositionAnim = Animated.timing(panY, {
+    toValue: 0,
+    duration: 300,
+    useNativeDriver: true,
+  });
+
+  const closeAnim = Animated.timing(panY, {
+    toValue: SCREEN_HEIGHT,
+    duration: 300,
+    useNativeDriver: true,
+  });
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, gestureState) => gestureState.dy > 5,
+      onPanResponderMove: (_, gestureState) => {
+        if (gestureState.dy > 0) {
+          panY.setValue(gestureState.dy);
+        }
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        if (gestureState.dy > 120 || gestureState.vy > 0.5) {
+          closeAnim.start(onClose);
+        } else {
+          resetPositionAnim.start();
+        }
+      },
+    })
+  ).current;
+
+  // Reset pan position when modal becomes visible
+  useEffect(() => {
+    if (visible) {
+      panY.setValue(0);
+    }
+  }, [visible, panY]);
+
   const formatCurrency = (amount) => {
     return `₦${Number(amount || 0).toLocaleString('en-NG', {
       minimumFractionDigits: 2,
@@ -30,20 +77,42 @@ const ConfirmBookingModal = ({
     <Modal
       visible={visible}
       transparent
-      animationType="fade"
+      animationType="slide"
       onRequestClose={onClose}
     >
       <View style={styles.overlay}>
-        <Pressable style={styles.backdrop} onPress={onClose} />
-        <View style={styles.modalContainer}>
+        <Animated.View 
+          style={[
+            styles.modalContainer,
+            { 
+              paddingBottom: Math.max(insets.bottom, 20),
+              transform: [{ translateY: panY }] 
+            }
+          ]}
+        >
+          {/* Swipe Handle & Gesture Area for Mobile */}
+          {Platform.OS !== 'web' ? (
+            <View {...panResponder.panHandlers} style={styles.gestureArea}>
+              <View style={styles.swipeHandle} />
+            </View>
+          ) : null}
+
           <View style={styles.header}>
             <Text style={styles.title}>Confirm Your Booking</Text>
-            <Pressable onPress={onClose} style={styles.closeButton}>
+            <Pressable 
+              onPress={onClose} 
+              style={styles.closeButton}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
               <Ionicons name="close" size={24} color="#374151" />
             </Pressable>
           </View>
 
-          <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+          <ScrollView 
+            style={styles.content} 
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.scrollContentContainer}
+          >
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Property Details</Text>
               <Text style={styles.propertyName}>{bookingDetails.propertyName}</Text>
@@ -130,7 +199,7 @@ const ConfirmBookingModal = ({
               </Text>
             </Pressable>
           </View>
-        </View>
+        </Animated.View>
       </View>
     </Modal>
   );
@@ -140,23 +209,38 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    justifyContent: 'center',
+    justifyContent: Platform.OS === 'web' ? 'center' : 'flex-end',
     alignItems: 'center',
   },
-  backdrop: {
-    ...StyleSheet.absoluteFillObject,
-  },
   modalContainer: {
-    width: SCREEN_WIDTH * 0.9,
+    width: Platform.OS === 'web' ? '95%' : '100%',
+    maxWidth: Platform.OS === 'web' ? 500 : '100%',
     backgroundColor: 'white',
-    borderRadius: 24,
-    padding: 24,
-    maxHeight: '85%',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderBottomLeftRadius: Platform.OS === 'web' ? 24 : 0,
+    borderBottomRightRadius: Platform.OS === 'web' ? 24 : 0,
+    paddingHorizontal: 24,
+    paddingTop: Platform.OS === 'web' ? 24 : 12,
+    paddingBottom: 40,
+    maxHeight: Platform.OS === 'web' ? '90%' : '95%',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
+    shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.25,
     shadowRadius: 15,
-    elevation: 10,
+    elevation: 20,
+  },
+  gestureArea: {
+    width: '100%',
+    paddingTop: 12,
+    paddingBottom: 8,
+    alignItems: 'center',
+  },
+  swipeHandle: {
+    width: 40,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: '#E5E7EB',
   },
   header: {
     flexDirection: 'row',
@@ -170,10 +254,15 @@ const styles = StyleSheet.create({
     color: '#111827',
   },
   closeButton: {
-    padding: 4,
+    padding: 8,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 20,
   },
   content: {
     flexGrow: 0,
+  },
+  scrollContentContainer: {
+    paddingBottom: 10,
   },
   section: {
     marginBottom: 16,

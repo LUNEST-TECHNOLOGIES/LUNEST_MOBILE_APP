@@ -1553,17 +1553,29 @@ class AuthService {
         }
       };
 
-      // Helper to append image to FormData
-      const appendImage = (fieldName, uri) => {
+      // Helper to append file to FormData with proper MIME detection
+      const appendFile = (fieldName, uri) => {
         if (!uri) return;
-        const filename = uri.split("/").pop() || "upload.jpg";
-        const match = /\.(\w+)$/.exec(filename);
-        const type = match
-          ? `image/${match[1] === "jpg" ? "jpeg" : match[1]}`
-          : `image/jpeg`;
+        const filename = uri.split("/").pop() || `${fieldName}_upload.jpg`;
+        const ext = filename.split('.').pop().toLowerCase();
+        
+        // Comprehensive MIME type mapping to match backend applicationFileFilter
+        let type = 'image/jpeg';
+        if (['jpg', 'jpeg'].includes(ext)) type = 'image/jpeg';
+        else if (ext === 'png') type = 'image/png';
+        else if (ext === 'webp') type = 'image/webp';
+        else if (ext === 'gif') type = 'image/gif';
+        else if (ext === 'pdf') type = 'application/pdf';
+        else if (ext === 'mp4') type = 'video/mp4';
+        else if (ext === 'mov' || ext === 'qt') type = 'video/quicktime';
+        else if (ext === 'avi') type = 'video/x-msvideo';
+        else if (ext === 'mkv') type = 'video/x-matroska';
+        else if (ext === 'webm') type = 'video/webm';
+
+        console.log(`[AuthService] Appending ${fieldName}:`, { filename, type, uri });
 
         formData.append(fieldName, {
-          uri: Platform.OS === "android" ? uri : uri.replace("file://", ""),
+          uri: uri, // [STABILIZATION] Keep file:// prefix for all platforms
           name: filename,
           type,
         });
@@ -1574,7 +1586,7 @@ class AuthService {
         const compressedPropertyImages = await Promise.all(
           propertyImages.map(uri => compressImage(uri))
         );
-        compressedPropertyImages.filter(uri => !!uri).forEach((uri) => appendImage("propertyImages", uri));
+        compressedPropertyImages.filter(uri => !!uri).forEach((uri) => appendFile("propertyImages", uri));
       }
 
       // Compress and append single images
@@ -1583,8 +1595,8 @@ class AuthService {
         compressImage(authorizationLetter),
       ]);
 
-      appendImage("validIdImage", compressedId);
-      appendImage("authorizationLetter", compressedLetter);
+      appendFile("validIdImage", compressedId);
+      appendFile("authorizationLetter", compressedLetter);
 
       const response = await this._secureRequest(
         `${this.baseURL}/v1/users/apply-host`,

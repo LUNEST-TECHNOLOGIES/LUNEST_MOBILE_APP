@@ -4,12 +4,15 @@
  */
 
 import { Ionicons } from "@expo/vector-icons";
-import { useCallback, useState } from "react";
+import { useCallback, useState, useRef, useEffect } from "react";
 import {
+    Animated,
     Dimensions,
     Modal,
+    PanResponder,
     Platform,
     Pressable,
+    ScrollView,
     StyleSheet,
     Switch,
     Text,
@@ -17,7 +20,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 // Payment method options
 const PAYMENT_METHODS = [
@@ -53,6 +56,47 @@ const PaymentMethodModal = ({
   const insets = useSafeAreaInsets();
   const [selectedMethod, setSelectedMethod] = useState(null);
   const [reserveAndPayLater, setReserveAndPayLater] = useState(false);
+  
+  // Animation and Gestures for Swipe-to-Close
+  const panY = useRef(new Animated.Value(0)).current;
+  
+  const resetPositionAnim = Animated.timing(panY, {
+    toValue: 0,
+    duration: 300,
+    useNativeDriver: true,
+  });
+
+  const closeAnim = Animated.timing(panY, {
+    toValue: SCREEN_HEIGHT,
+    duration: 300,
+    useNativeDriver: true,
+  });
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, gestureState) => gestureState.dy > 5,
+      onPanResponderMove: (_, gestureState) => {
+        if (gestureState.dy > 0) {
+          panY.setValue(gestureState.dy);
+        }
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        if (gestureState.dy > 120 || gestureState.vy > 0.5) {
+          closeAnim.start(onClose);
+        } else {
+          resetPositionAnim.start();
+        }
+      },
+    })
+  ).current;
+
+  // Reset pan position when modal becomes visible
+  useEffect(() => {
+    if (visible) {
+      panY.setValue(0);
+    }
+  }, [visible, panY]);
 
   const handleMethodSelect = (methodId) => {
     // If reserve and pay later is selected, deselect it when selecting a payment method
@@ -109,114 +153,134 @@ const PaymentMethodModal = ({
       onRequestClose={onClose}
     >
       <View style={styles.overlay}>
-        <View
+        <Animated.View
           style={[
             styles.modalContainer,
-            { paddingBottom: Math.max(insets.bottom, 20) },
+            { 
+              paddingBottom: Math.max(insets.bottom, 20),
+              transform: [{ translateY: panY }] 
+            },
           ]}
         >
-          {/* Header */}
+          {/* Swipe Handle & Gesture Area for Mobile */}
+          {Platform.OS !== 'web' ? (
+            <View {...panResponder.panHandlers} style={styles.gestureArea}>
+              <View style={styles.swipeHandle} />
+            </View>
+          ) : null}
+
+          {/* Header (Sticky) */}
           <View style={styles.header}>
             <Text style={styles.headerTitle}>Payment Method</Text>
-            <Pressable style={styles.closeButton} onPress={onClose}>
+            <Pressable 
+                style={styles.closeButton} 
+                onPress={onClose}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
               <Ionicons name="close" size={24} color="#374151" />
             </Pressable>
           </View>
 
-          {/* Amount Display */}
-          {totalAmount > 0 && (
-            <View style={styles.amountContainer}>
-              <Text style={styles.amountLabel}>Amount to Pay</Text>
-              <Text style={styles.amountValue}>{formatAmount(totalAmount)}</Text>
-            </View>
-          )}
+          <ScrollView 
+            style={styles.scrollContent} 
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.scrollContentContainer}
+          >
+            {/* Amount Display */}
+            {totalAmount > 0 && (
+              <View style={styles.amountContainer}>
+                <Text style={styles.amountLabel}>Amount to Pay</Text>
+                <Text style={styles.amountValue}>{formatAmount(totalAmount)}</Text>
+              </View>
+            )}
 
-          {/* Payment Options */}
-          <View style={styles.optionsContainer}>
-            <Text style={styles.sectionTitle}>Choose a Payment Option:</Text>
-            <View style={styles.optionsList}>
-              {PAYMENT_METHODS.map((method) => (
-                <Pressable
-                  key={method.id}
-                  style={[
-                    styles.optionCard,
-                    selectedMethod === method.id && styles.optionCardSelected,
-                    reserveAndPayLater && styles.optionCardDisabled,
-                  ]}
-                  onPress={() => handleMethodSelect(method.id)}
-                  disabled={reserveAndPayLater}
-                >
-                  <View style={styles.optionContent}>
-                    <View
-                      style={[
-                        styles.optionIconContainer,
-                        selectedMethod === method.id &&
-                          styles.optionIconSelected,
-                      ]}
-                    >
-                      <Ionicons
-                        name={method.icon}
-                        size={24}
-                        color={
-                          selectedMethod === method.id ? "#FFFFFF" : "#6B7280"
-                        }
-                      />
-                    </View>
-                    <View style={styles.optionTextContainer}>
-                      <Text
+            {/* Payment Options */}
+            <View style={styles.optionsContainer}>
+              <Text style={styles.sectionTitle}>Choose a Payment Option:</Text>
+              <View style={styles.optionsList}>
+                {PAYMENT_METHODS.map((method) => (
+                  <Pressable
+                    key={method.id}
+                    style={[
+                      styles.optionCard,
+                      selectedMethod === method.id && styles.optionCardSelected,
+                      reserveAndPayLater && styles.optionCardDisabled,
+                    ]}
+                    onPress={() => handleMethodSelect(method.id)}
+                    disabled={reserveAndPayLater}
+                  >
+                    <View style={styles.optionContent}>
+                      <View
                         style={[
-                          styles.optionName,
+                          styles.optionIconContainer,
                           selectedMethod === method.id &&
-                            styles.optionNameSelected,
+                            styles.optionIconSelected,
                         ]}
                       >
-                        {method.name}
-                      </Text>
-                      <Text style={styles.optionDescription}>
-                        {method.description}
-                      </Text>
+                        <Ionicons
+                          name={method.icon}
+                          size={24}
+                          color={
+                            selectedMethod === method.id ? "#FFFFFF" : "#6B7280"
+                          }
+                        />
+                      </View>
+                      <View style={styles.optionTextContainer}>
+                        <Text
+                          style={[
+                            styles.optionName,
+                            selectedMethod === method.id &&
+                              styles.optionNameSelected,
+                          ]}
+                        >
+                          {method.name}
+                        </Text>
+                        <Text style={styles.optionDescription}>
+                          {method.description}
+                        </Text>
+                      </View>
                     </View>
-                  </View>
-                  <View
-                    style={[
-                      styles.radioOuter,
-                      selectedMethod === method.id && styles.radioOuterSelected,
-                    ]}
-                  >
-                    {selectedMethod === method.id && (
-                      <View style={styles.radioInner} />
-                    )}
-                  </View>
-                </Pressable>
-              ))}
+                    <View
+                      style={[
+                        styles.radioOuter,
+                        selectedMethod === method.id && styles.radioOuterSelected,
+                      ]}
+                    >
+                      {selectedMethod === method.id && (
+                        <View style={styles.radioInner} />
+                      )}
+                    </View>
+                  </Pressable>
+                ))}
+              </View>
             </View>
-          </View>
 
-          {/* Separator */}
-          <View style={styles.separatorContainer}>
-            <View style={styles.separatorLine} />
-            <Text style={styles.separatorText}>OR</Text>
-            <View style={styles.separatorLine} />
-          </View>
-
-          {/* Reserve and Pay Later */}
-        {!hideReserveOption && (
-          <View style={styles.reserveContainer}>
-            <View style={styles.reserveInfo}>
-              <Text style={styles.reserveTitle}>Reserve and Pay Later</Text>
-              <Text style={styles.reserveSubtitle}>
-                Secure this property now and complete payment within 1 hour.
-              </Text>
+            {/* Separator */}
+            <View style={styles.separatorContainer}>
+              <View style={styles.separatorLine} />
+              <Text style={styles.separatorText}>OR</Text>
+              <View style={styles.separatorLine} />
             </View>
-            <Switch
-              value={reserveAndPayLater}
-              onValueChange={handleReserveToggle}
-              trackColor={{ false: "#D1D1D6", true: "#010135" }}
-              thumbColor="#FFFFFF"
-              ios_backgroundColor="#D1D1D6"
-            />
-          </View>
-        )}
+
+            {/* Reserve and Pay Later */}
+            {!hideReserveOption && (
+              <View style={styles.reserveContainer}>
+                <View style={styles.reserveInfo}>
+                  <Text style={styles.reserveTitle}>Reserve and Pay Later</Text>
+                  <Text style={styles.reserveSubtitle}>
+                    Secure this property now and complete payment within 1 hour.
+                  </Text>
+                </View>
+                <Switch
+                  value={reserveAndPayLater}
+                  onValueChange={handleReserveToggle}
+                  trackColor={{ false: "#D1D1D6", true: "#010135" }}
+                  thumbColor="#FFFFFF"
+                  ios_backgroundColor="#D1D1D6"
+                />
+              </View>
+            )}
+          </ScrollView>
 
           {/* Footer */}
           <View style={styles.footer}>
@@ -247,7 +311,7 @@ const PaymentMethodModal = ({
               </Text>
             </Pressable>
           </View>
-        </View>
+        </Animated.View>
       </View>
     </Modal>
   );
@@ -268,9 +332,9 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: Platform.OS === 'web' ? 24 : 0,
     borderBottomRightRadius: Platform.OS === 'web' ? 24 : 0,
     paddingHorizontal: 24,
-    paddingTop: 24,
+    paddingTop: Platform.OS === 'web' ? 24 : 12, // Less padding for handle
     paddingBottom: 40,
-    minHeight: Platform.OS === 'web' ? 'auto' : 450,
+    maxHeight: Platform.OS === 'web' ? '90%' : '95%',
     width: Platform.OS === 'web' ? '95%' : '100%',
     maxWidth: Platform.OS === 'web' ? 500 : '100%',
     shadowColor: "#000",
@@ -278,6 +342,24 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 10,
     elevation: 20,
+  },
+  gestureArea: {
+    width: '100%',
+    paddingTop: 12,
+    paddingBottom: 8,
+    alignItems: 'center',
+  },
+  swipeHandle: {
+    width: 40,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: '#E5E7EB',
+  },
+  scrollContent: {
+    flexGrow: 0,
+  },
+  scrollContentContainer: {
+    paddingBottom: 10,
   },
   header: {
     flexDirection: "row",

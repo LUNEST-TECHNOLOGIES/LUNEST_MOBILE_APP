@@ -1410,7 +1410,8 @@ const PropertyDetailsScreen = () => {
       (l) => l && String(l).trim() !== "",
     );
 
-    if (landmarks.length === 0 && !propertyData.latitude && !propertyData.longitude)
+    // We show the section if we have landmarks, OR if we have location info (to show the map)
+    if (landmarks.length === 0 && !propertyData.latitude && !propertyData.longitude && !propertyData.location)
       return null;
 
     return (
@@ -1523,10 +1524,17 @@ const PropertyDetailsScreen = () => {
             <View style={styles.mapPlaceholder}>
               <View style={styles.mapPlaceholderContent}>
                 <Ionicons name="location-outline" size={40} color="#010135" />
-                <Text style={styles.mapPlaceholderText}>Map not available</Text>
-                <Text style={styles.mapPlaceholderSubtext}>
-                  Location coordinates not provided
+                <Text style={styles.mapPlaceholderText}>
+                  {(!propertyData.latitude && propertyData.location) ? "Locating on map..." : "Map not available"}
                 </Text>
+                <Text style={styles.mapPlaceholderSubtext}>
+                  {(!propertyData.latitude && propertyData.location) 
+                    ? "Getting precise coordinates for this location" 
+                    : "Location coordinates not provided"}
+                </Text>
+                {(!propertyData.latitude && propertyData.location) && (
+                  <ActivityIndicator size="small" color="#010135" style={{ marginTop: 10 }} />
+                )}
               </View>
             </View>
           )}

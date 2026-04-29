@@ -36,6 +36,7 @@ const TransactionDetailScreen = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [confirmationVisible, setConfirmationVisible] = useState(false);
   const [confirmationMessage, setConfirmationMessage] = useState("");
+  const [isCopied, setIsCopied] = useState(false);
   const viewShotRef = useRef(null);
 
   // Parse transaction data from params
@@ -163,7 +164,8 @@ const TransactionDetailScreen = () => {
   const handleCopyReference = async (text) => {
     try {
       await Clipboard.setStringAsync(text);
-      Alert.alert("Copied", "Reference copied to clipboard");
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2000);
     } catch (error) {
       console.error("Error copying to clipboard:", error);
     }
@@ -583,10 +585,14 @@ const TransactionDetailScreen = () => {
                     </Text>
                     <Pressable
                       onPress={() => handleCopyReference(transactionData.reference)}
-                      style={styles.copyButton}
+                      style={[styles.copyButton, isCopied && { backgroundColor: '#E8F5E9' }]}
                       hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     >
-                      <Ionicons name="copy-outline" size={18} color="#192DFF" />
+                      <Ionicons 
+                        name={isCopied ? "checkmark-outline" : "copy-outline"} 
+                        size={14} 
+                        color={isCopied ? "#2E7D32" : "#192DFF"} 
+                      />
                     </Pressable>
                   </View>
                 </View>

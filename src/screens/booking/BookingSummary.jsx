@@ -1296,9 +1296,11 @@ const BookingSummary = () => {
               </View>
 
               {/* Edit Button */}
-              <Pressable style={styles.editButton} onPress={handleEdit}>
-                <Text style={styles.editButtonText}>Edit</Text>
-              </Pressable>
+              {!fromReservation && (
+                <Pressable style={styles.editButton} onPress={handleEdit}>
+                  <Text style={styles.editButtonText}>Edit</Text>
+                </Pressable>
+              )}
             </View>
           </View>
 

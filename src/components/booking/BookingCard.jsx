@@ -9,6 +9,7 @@ import {
     View,
 } from "react-native";
 import StatusBadge from "./StatusBadge";
+import BookingRecoveryButton from "./BookingRecoveryButton";
 
 // Import icons
 import CalendarIcon from "../../assets/icons/bookings/calendar.svg";
@@ -19,6 +20,7 @@ import configService from "../../services/configService";
 import { resolveImageUrlSync } from "../../utils/imageUtils";
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || "https://api.lunest.app/v1";
+
 const BookingCard = ({
   booking,
   onViewDetails,
@@ -62,19 +64,17 @@ const BookingCard = ({
   const isConfirmed = booking.status === "confirmed";
   const isOngoing = booking.status === "ongoing";
   const isExpired = booking.status === "expired";
-  const isCancelled =
-    booking.status === "cancelled" || booking.status === "expired";
-
+  
   // Dynamic button padding based on screen size
   const buttonPadding = {
     horizontal: isSmallScreen ? 10 : 14,
     vertical: isSmallScreen ? 5 : 6,
   };
 
-  // Handle image source - support both local require() and remote URLs
+  // Handle image source
   const getImageSource = () => {
     if (imageError || !booking.image) {
-      return null; // Removed fallback
+      return null;
     }
     const baseUrl = configService.getBaseURLSync();
     const resolvedUrl = resolveImageUrlSync(booking.image, baseUrl);
@@ -251,201 +251,115 @@ const BookingCard = ({
             </>
           )}
 
-          {/* Reserved / Pending Payment Status: Trash Icon + Pay Now Button + View Details */}
+          {/* Reserved / Pending Payment Status */}
           {(isReserved || isPendingPayment) && (
-            <>
-              <View style={styles.reservedButtonsContainer}>
-                {/* Trash Delete Button (Cancel) */}
-                <Pressable
-                  style={[
-                    styles.trashDeleteButton,
-                    {
-                      paddingHorizontal: isSmallScreen ? 5 : 7,
-                      paddingVertical: buttonPadding.vertical,
-                    },
-                  ]}
-                  onPress={async () => {
-                    // For PENDING_PAYMENT status, verify payment status first
-                    if (booking.status === "pending_payment") {
-                      try {
-                        const token = await authService.getToken();
-                        if (!token) {
-                          Alert.alert("Error", "Please log in to cancel booking");
-                          return;
-                        }
-
-                        // Check payment status via API
-                        const response = await fetch(
-                          `${API_BASE_URL}/v1/payment/status/${booking.paymentReference || booking._id}`,
-                          {
-                            headers: {
-                              'Authorization': `Bearer ${token}`,
-                              'Content-Type': 'application/json'
-                            }
+            <View style={styles.actionsColumn}>
+              <View style={styles.buttonContainerInline}>
+                <View style={styles.reservedButtonsContainer}>
+                  {/* Trash Delete Button (Cancel) */}
+                  <Pressable
+                    style={[
+                      styles.trashDeleteButton,
+                      {
+                        paddingHorizontal: isSmallScreen ? 5 : 7,
+                        paddingVertical: buttonPadding.vertical,
+                      },
+                    ]}
+                    onPress={async () => {
+                      if (booking.status === "pending_payment") {
+                        try {
+                          const token = await authService.getToken();
+                          if (!token) {
+                            Alert.alert("Error", "Please log in to cancel booking");
+                            return;
                           }
-                        );
-
-                        const data = await response.json();
-                        
-                        // If payment was successful, user should get refunded
-                        const hasSuccessfulPayment = data.success && 
-                          (data.status === 'COMPLETED' || data.gatewayStatus === 'success');
-
-                        if (hasSuccessfulPayment) {
-                          Alert.alert(
-                            "⚠️ Payment Already Made",
-                            "You have already paid for this booking. Canceling will initiate a refund. Do you want to proceed?",
-                            [
-                              { text: "No", style: "cancel" },
-                              {
-                                text: "Yes, Cancel & Refund",
-                                style: "destructive",
-                                onPress: () => onCancelBooking?.(booking)
-                              }
-                            ]
+                          const response = await fetch(
+                            `${API_BASE_URL}/v1/payment/status/${booking.paymentReference || booking._id}`,
+                            { headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' } }
                           );
-                        } else {
-                          // No payment made, safe to cancel without refund
-                          Alert.alert(
-                            "Cancel Booking",
-                            "Are you sure you want to cancel this booking? No payment has been made yet.",
-                            [
+                          const data = await response.json();
+                          const hasSuccessfulPayment = data.success && (data.status === 'COMPLETED' || data.gatewayStatus === 'success');
+                          if (hasSuccessfulPayment) {
+                            Alert.alert("⚠️ Payment Already Made", "You have already paid for this booking. Canceling will initiate a refund. Do you want to proceed?", [
                               { text: "No", style: "cancel" },
-                              {
-                                text: "Yes, Cancel",
-                                style: "destructive",
-                                onPress: () => onCancelBooking?.(booking)
-                              }
-                            ]
-                          );
+                              { text: "Yes, Cancel & Refund", style: "destructive", onPress: () => onCancelBooking?.(booking) }
+                            ]);
+                          } else {
+                            Alert.alert("Cancel Booking", "Are you sure you want to cancel this booking? No payment has been made yet.", [
+                              { text: "No", style: "cancel" },
+                              { text: "Yes, Cancel", style: "destructive", onPress: () => onCancelBooking?.(booking) }
+                            ]);
+                          }
+                        } catch (error) {
+                          onCancelBooking?.(booking);
                         }
-                      } catch (error) {
-                        console.error("[BookingCard] Error checking payment status:", error);
-                        // Fallback: proceed with normal cancellation
+                      } else {
                         onCancelBooking?.(booking);
                       }
-                    } else {
-                      // For other statuses, use normal cancellation
-                      onCancelBooking?.(booking);
-                    }
-                  }}
-                >
-                  <View style={styles.trashIconContainer}>
-                    <TrashIcon
-                      width={isSmallScreen ? 12 : 14}
-                      height={isSmallScreen ? 12 : 14}
-                      color="#FFFFFF"
-                    />
-                  </View>
-                </Pressable>
+                    }}
+                  >
+                    <View style={styles.trashIconContainer}>
+                      <TrashIcon width={isSmallScreen ? 12 : 14} height={isSmallScreen ? 12 : 14} color="#FFFFFF" />
+                    </View>
+                  </Pressable>
 
-                {/* Pay Now Button */}
+                  {/* Pay Now Button */}
+                  <Pressable
+                    style={[
+                      styles.payNowButton,
+                      { paddingHorizontal: buttonPadding.horizontal, paddingVertical: buttonPadding.vertical },
+                    ]}
+                    onPress={() => onPayNow?.(booking)}
+                  >
+                    <Text style={[styles.payNowText, { fontSize: fontSizes.buttonText }]}>Pay now</Text>
+                  </Pressable>
+                </View>
+
+                {/* View Details Button */}
                 <Pressable
                   style={[
-                    styles.payNowButton,
-                    {
-                      paddingHorizontal: buttonPadding.horizontal,
-                      paddingVertical: buttonPadding.vertical,
-                    },
+                    styles.viewDetailsButton,
+                    { paddingHorizontal: buttonPadding.horizontal, paddingVertical: buttonPadding.vertical },
                   ]}
-                  onPress={() => onPayNow?.(booking)}
+                  onPress={() => onViewDetails?.(booking)}
                 >
-                  <Text
-                    style={[
-                      styles.payNowText,
-                      { fontSize: fontSizes.buttonText },
-                    ]}
-                  >
-                    Pay now
-                  </Text>
+                  <Text style={[styles.viewDetailsText, { fontSize: fontSizes.buttonText }]}>View details</Text>
                 </Pressable>
               </View>
- 
-              {/* View Details Button */}
-              <Pressable
-                style={[
-                  styles.viewDetailsButton,
-                  {
-                    paddingHorizontal: buttonPadding.horizontal,
-                    paddingVertical: buttonPadding.vertical,
-                  },
-                ]}
-                onPress={() => onViewDetails?.(booking)}
-              >
-                <Text
-                  style={[
-                    styles.viewDetailsText,
-                    { fontSize: fontSizes.buttonText },
-                  ]}
-                >
-                  View details
-                </Text>
-              </Pressable>
-            </>
+
+              {/* Recovery Button (Verify payment) */}
+              <BookingRecoveryButton 
+                bookingId={booking._id} 
+                currentStatus={booking.status}
+                onRecovered={() => onViewDetails?.(booking)}
+                style={styles.recoveryButton}
+              />
+            </View>
           )}
 
-          {/* Confirmed & Ongoing Status: Chat Icon (Left) + View Details (Right) */}
+          {/* Confirmed & Ongoing Status */}
           {(isConfirmed || isOngoing) && (
             <>
-              {/* Chat Button */}
-              <Pressable
-                style={styles.chatButton}
-                onPress={() => onChat?.(booking)}
-              >
-                <ChatIcon
-                  width={isSmallScreen ? 13 : 14}
-                  height={isSmallScreen ? 14 : 17}
-                />
+              <Pressable style={styles.chatButton} onPress={() => onChat?.(booking)}>
+                <ChatIcon width={isSmallScreen ? 13 : 14} height={isSmallScreen ? 14 : 17} />
               </Pressable>
-
               <View style={styles.spacer} />
-
-              {/* View Details Button */}
               <Pressable
-                style={[
-                  styles.viewDetailsButton,
-                  {
-                    paddingHorizontal: buttonPadding.horizontal,
-                    paddingVertical: buttonPadding.vertical,
-                  },
-                ]}
+                style={[styles.viewDetailsButton, { paddingHorizontal: buttonPadding.horizontal, paddingVertical: buttonPadding.vertical }]}
                 onPress={() => onViewDetails?.(booking)}
               >
-                <Text
-                  style={[
-                    styles.viewDetailsText,
-                    { fontSize: fontSizes.buttonText },
-                  ]}
-                >
-                  View details
-                </Text>
+                <Text style={[styles.viewDetailsText, { fontSize: fontSizes.buttonText }]}>View details</Text>
               </Pressable>
             </>
           )}
 
-          {/* Completed, Cancelled & Expired Status: Only View Details */}
-          {(booking.status === "completed" ||
-            booking.status === "cancelled" ||
-            booking.status === "disputed" ||
-            booking.status === "expired") && (
+          {/* Other statuses */}
+          {(booking.status === "completed" || booking.status === "cancelled" || booking.status === "disputed" || booking.status === "expired") && (
             <Pressable
-              style={[
-                styles.viewDetailsButton,
-                {
-                  paddingHorizontal: buttonPadding.horizontal,
-                  paddingVertical: buttonPadding.vertical,
-                },
-              ]}
+              style={[styles.viewDetailsButton, { paddingHorizontal: buttonPadding.horizontal, paddingVertical: buttonPadding.vertical, marginLeft: 'auto' }]}
               onPress={() => onViewDetails?.(booking)}
             >
-              <Text
-                style={[
-                  styles.viewDetailsText,
-                  { fontSize: fontSizes.buttonText },
-                ]}
-              >
-                View details
-              </Text>
+              <Text style={[styles.viewDetailsText, { fontSize: fontSizes.buttonText }]}>View details</Text>
             </Pressable>
           )}
         </View>
@@ -455,7 +369,6 @@ const BookingCard = ({
 };
 
 const styles = StyleSheet.create({
-  // Booking Card Styles
   bookingCard: {
     flexDirection: "row",
     backgroundColor: "#FFFFFF",
@@ -481,8 +394,6 @@ const styles = StyleSheet.create({
   propertyImageStyle: {
     borderRadius: 5,
   },
-
-  // Card Content
   cardContent: {
     flex: 1,
     paddingVertical: 8,
@@ -544,8 +455,6 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     color: "#000000",
   },
-
-  // Action Buttons
   buttonContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -553,8 +462,18 @@ const styles = StyleSheet.create({
     marginTop: 8,
     gap: 8,
   },
-
-  // Pending - Cancel Booking Button
+  buttonContainerInline: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    width: '100%',
+    gap: 8,
+  },
+  actionsColumn: {
+    flex: 1,
+    width: '100%',
+    gap: 6,
+  },
   cancelBookingButton: {
     flexDirection: "row",
     alignItems: "center",
@@ -566,8 +485,6 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     color: "#FFFFFF",
   },
-
-  // Reserved - Trash + Pay Now Buttons
   reservedButtonsContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -595,8 +512,6 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     color: "#FFFFFF",
   },
-
-  // Confirmed - Chat Button
   chatButton: {
     width: 24,
     height: 24,
@@ -605,13 +520,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#010135",
   },
-
-  // Spacer for confirmed card layout
   spacer: {
     flex: 1,
   },
-
-  // View Details Button
   viewDetailsButton: {
     borderRadius: 16,
     borderWidth: 1,
@@ -622,6 +533,11 @@ const styles = StyleSheet.create({
   viewDetailsText: {
     fontWeight: "500",
     color: "#292929",
+  },
+  recoveryButton: {
+    paddingVertical: 8,
+    marginVertical: 0,
+    borderRadius: 8,
   },
 });
 

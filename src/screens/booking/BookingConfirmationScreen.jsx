@@ -1452,8 +1452,8 @@ const BookingConfirmationScreen = () => {
               )}
             </View>
           </ImageBackground>
-
-          {/* Payment Recovery Button - Only for PENDING_PAYMENT status */}
+ 
+          {/* Payment Recovery Button - Only for PENDING_PAYMENT status (stuck payments) */}
           {statusLower === "pending_payment" && booking?._id && (
             <BookingRecoveryButton
               bookingId={booking._id}

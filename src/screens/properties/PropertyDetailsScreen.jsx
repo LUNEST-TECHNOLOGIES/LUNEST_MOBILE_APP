@@ -620,16 +620,26 @@ const PropertyDetailsScreen = () => {
 
       try {
         console.log("[PropertyDetailsScreen] Geocoding address:", address);
-        const coords = await locationService.getCoordinatesFromAddress(address);
+        
+        // Add a safety timeout for the geocoding request
+        const geocodePromise = locationService.getCoordinatesFromAddress(address);
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error("Geocoding timeout")), 8000)
+        );
+
+        const coords = await Promise.race([geocodePromise, timeoutPromise]);
+        
         if (coords && coords.latitude && coords.longitude) {
           console.log("[PropertyDetailsScreen] Geocoded coordinates:", coords);
           setGeocodedCoords(coords);
         } else {
           console.warn("[PropertyDetailsScreen] Geocoding returned no coordinates");
+          // Set a flag or special value to indicate geocoding finished but failed
+          setGeocodedCoords({ latitude: null, longitude: null, failed: true });
         }
       } catch (error) {
         console.warn("[PropertyDetailsScreen] Error geocoding address:", error.message);
-        // Silently fail - map will show placeholder
+        setGeocodedCoords({ latitude: null, longitude: null, failed: true });
       }
     };
 
@@ -1416,7 +1426,7 @@ const PropertyDetailsScreen = () => {
 
     return (
       <View style={styles.landmarkSection}>
-        {landmarks.length > 0 && (
+        {landmarks.length > 0 ? (
           <>
             <Text style={styles.sectionTitle}>Landmark</Text>
             <View style={styles.landmarkContainer}>
@@ -1432,6 +1442,8 @@ const PropertyDetailsScreen = () => {
               ))}
             </View>
           </>
+        ) : (
+          <Text style={styles.sectionTitle}>Location</Text>
         )}
 
         {/* Map Preview */}
@@ -1525,14 +1537,16 @@ const PropertyDetailsScreen = () => {
               <View style={styles.mapPlaceholderContent}>
                 <Ionicons name="location-outline" size={40} color="#010135" />
                 <Text style={styles.mapPlaceholderText}>
-                  {(!propertyData.latitude && propertyData.location) ? "Locating on map..." : "Map not available"}
+                  {(!propertyData.latitude && propertyData.location && !geocodedCoords?.failed) 
+                    ? "Locating on map..." 
+                    : "Map not available"}
                 </Text>
                 <Text style={styles.mapPlaceholderSubtext}>
-                  {(!propertyData.latitude && propertyData.location) 
+                  {(!propertyData.latitude && propertyData.location && !geocodedCoords?.failed) 
                     ? "Getting precise coordinates for this location" 
-                    : "Location coordinates not provided"}
+                    : "Coordinates for this address could not be determined. Please contact host for exact location."}
                 </Text>
-                {(!propertyData.latitude && propertyData.location) && (
+                {(!propertyData.latitude && propertyData.location && !geocodedCoords?.failed) && (
                   <ActivityIndicator size="small" color="#010135" style={{ marginTop: 10 }} />
                 )}
               </View>
@@ -2793,8 +2807,9 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   policySection: {
-    paddingHorizontal: 16,
-    marginTop: 24,
+    paddingHorizontal: 20,
+    marginTop: 32,
+    marginBottom: 12,
   },
   policyContainer: {
     padding: 16,
@@ -2899,6 +2914,13 @@ const styles = StyleSheet.create({
   },
   regulationsSection: {
     padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F5F5F5",
+  },
+  landmarkSection: {
+    padding: 20,
+    marginTop: 20,
+    marginBottom: 10,
     borderBottomWidth: 1,
     borderBottomColor: "#F5F5F5",
   },

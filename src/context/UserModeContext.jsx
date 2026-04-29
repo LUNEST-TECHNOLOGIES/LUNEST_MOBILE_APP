@@ -48,6 +48,7 @@ export const UserModeProvider = ({ children }) => {
 
   // Load saved mode on mount
   useEffect(() => {
+    // Initial silent load from storage/URL
     loadUserMode();
   }, []);
 
@@ -98,6 +99,21 @@ export const UserModeProvider = ({ children }) => {
         console.warn("[UserMode] Could not fetch server profile, using local data:", profileErr);
       }
 
+      // Fallback: Check last visited side (last_side_key) - globally persistent even if userId is missing
+      const lastSide = await AsyncStorage.getItem(LAST_SIDE_KEY);
+      
+      // Web Hint: If we are on web, check the URL for mode hints
+      let urlModeHint = null;
+      if (Platform.OS === 'web') {
+        const path = window.location.pathname;
+        if (path.includes('/host') || path.includes('/create-listing')) {
+          urlModeHint = USER_MODES.HOST;
+        } else if (path.includes('/guest')) {
+          urlModeHint = USER_MODES.GUEST;
+        }
+        console.log(`🌐 [UserMode] Web URL Mode Hint: ${urlModeHint} (Path: ${path})`);
+      }
+
       if (currentUserId) {
         // Load user-specific mode preference
         const savedMode = await storageService.getUserItem(
@@ -105,30 +121,28 @@ export const UserModeProvider = ({ children }) => {
           USER_MODE_KEY,
         );
         
-        // Fallback: Check last visited side (last_side_key)
-        const lastSide = await AsyncStorage.getItem(LAST_SIDE_KEY);
-        
-        if (savedMode && Object.values(USER_MODES).includes(savedMode)) {
+        // Priority: 1. URL Hint (Web) | 2. Saved Preference | 3. Last Side Fallback
+        const preferredMode = urlModeHint || savedMode || (lastSide === 'host' ? USER_MODES.HOST : USER_MODES.GUEST);
+
+        if (preferredMode && Object.values(USER_MODES).includes(preferredMode)) {
           // Only allow host mode if user has host privileges
-          if (savedMode === USER_MODES.HOST && !userIsHost) {
+          if (preferredMode === USER_MODES.HOST && !userIsHost) {
             setMode(USER_MODES.GUEST);
           } else {
-            setMode(savedMode);
-            console.log(`🔄 [UserMode] Restored saved mode for ${currentUserId}: ${savedMode}`);
+            setMode(preferredMode);
+            console.log(`🔄 [UserMode] Restored mode for ${currentUserId}: ${preferredMode}`);
           }
-        } else if (lastSide && (lastSide === 'host' || lastSide === 'guest')) {
-            const restoredMode = lastSide === 'host' ? USER_MODES.HOST : USER_MODES.GUEST;
-            if (restoredMode === USER_MODES.HOST && !userIsHost) {
-                setMode(USER_MODES.GUEST);
-            } else {
-                setMode(restoredMode);
-                console.log(`🔄 [UserMode] Restored last side for ${currentUserId}: ${restoredMode}`);
-            }
         } else if (userIsHost) {
-          // Default to HOST only if it's a completely new session with no record at all
-          // However, many users prefer starting in GUEST mode to browse
           console.log("🔄 [UserMode] New host session, defaulting to GUEST mode for browsing");
           setMode(USER_MODES.GUEST);
+        }
+      } else {
+        // Logged out or still initializing - use URL or Last Side
+        const guestOrPublicMode = urlModeHint || (lastSide === 'host' ? USER_MODES.HOST : USER_MODES.GUEST);
+        if (guestOrPublicMode && Object.values(USER_MODES).includes(guestOrPublicMode)) {
+            // Even if logged out, we might want to stay on the 'host' visual side if that's where the refresh happened
+            setMode(guestOrPublicMode);
+            console.log(`🔄 [UserMode] Public/Initializing mode restored: ${guestOrPublicMode}`);
         }
       }
     } catch (error) {

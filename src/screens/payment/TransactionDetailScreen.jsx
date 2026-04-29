@@ -556,10 +556,27 @@ const TransactionDetailScreen = () => {
                 </Text>
               </View>
 
+              {/* Booking Reference (Extracted from metadata) */}
+              {(() => {
+                try {
+                  const metadata = typeof params.metadata === 'string' ? JSON.parse(params.metadata) : (params.metadata || {});
+                  const bRef = metadata.bookingReference || metadata.bookingRef;
+                  if (bRef) {
+                    return (
+                      <View style={styles.detailRow}>
+                        <Text style={styles.detailLabel}>Booking Reference:</Text>
+                        <Text style={[styles.detailValue, { fontWeight: '700' }]}>#{bRef}</Text>
+                      </View>
+                    );
+                  }
+                } catch (e) {}
+                return null;
+              })()}
+
               {/* Payment Reference */}
               {transactionData.reference ? (
                 <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Payment Reference:</Text>
+                  <Text style={styles.detailLabel}>Transaction Ref:</Text>
                   <View style={styles.referenceContainer}>
                     <Text style={[styles.detailValue, styles.referenceText]} numberOfLines={1}>
                       {transactionData.reference}

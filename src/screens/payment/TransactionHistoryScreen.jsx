@@ -1049,6 +1049,7 @@ const TransactionHistoryScreen = () => {
               method: methodLabel,
               couponCode: item.couponCode || item.metadata?.couponCode || "",
               couponDiscount: item.couponDiscount || item.metadata?.couponDiscount || "",
+              reference: item.reference || "",
               metadata: JSON.stringify(item.metadata || {}),
             },
           });

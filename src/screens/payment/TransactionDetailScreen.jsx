@@ -583,6 +583,9 @@ const TransactionDetailScreen = () => {
                     <Text style={[styles.detailValue, styles.referenceText]} numberOfLines={1}>
                       {transactionData.reference}
                     </Text>
+                    {isCopied && (
+                      <Text style={{ fontSize: 10, color: '#2E7D32', fontWeight: '600', marginRight: 4 }}>Copied!</Text>
+                    )}
                     <Pressable
                       onPress={() => handleCopyReference(transactionData.reference)}
                       style={[styles.copyButton, isCopied && { backgroundColor: '#E8F5E9' }]}

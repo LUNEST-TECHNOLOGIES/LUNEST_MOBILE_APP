@@ -37,6 +37,7 @@ const TransactionDetailScreen = () => {
   const [confirmationVisible, setConfirmationVisible] = useState(false);
   const [confirmationMessage, setConfirmationMessage] = useState("");
   const [isCopied, setIsCopied] = useState(false);
+  const [isResolving, setIsResolving] = useState(false);
   const viewShotRef = useRef(null);
 
   // Parse transaction data from params
@@ -54,6 +55,7 @@ const TransactionDetailScreen = () => {
     bookingId: params.bookingId,
     couponCode: params.couponCode || "",
     couponDiscount: params.couponDiscount || "",
+    category: params.category || (params.transactionType?.toUpperCase().includes("BOOKING") ? "BOOKING" : "")
   };
 
   // Dynamic status message for all transaction types
@@ -159,6 +161,39 @@ const TransactionDetailScreen = () => {
 
   const handleBackToHome = () => {
     router.replace("/(tabs)");
+  };
+  
+  const handleResolveStatus = async () => {
+    if (!transactionData.reference && !transactionData.transactionId) {
+      Alert.alert("Error", "No reference found to verify.");
+      return;
+    }
+    
+    setIsResolving(true);
+    try {
+      // Import bookingService dynamically
+      const bookingService = require("../../services/bookingService").default;
+      const ref = transactionData.reference || transactionData.transactionId;
+      
+      console.log("[TransactionDetail] Resolving status for:", ref);
+      const result = await bookingService.verifyPayment(ref);
+      
+      if (result.success) {
+        Alert.alert("Success", "Booking status has been updated and resolved!", [
+          { text: "OK", onPress: () => router.replace("/bookings") }
+        ]);
+      } else {
+        Alert.alert(
+          "Verification Pending", 
+          result.message || "We couldn't verify the payment status yet. If you have been debited, please wait a few minutes and try again."
+        );
+      }
+    } catch (err) {
+      console.error("[TransactionDetail] Resolve error:", err);
+      Alert.alert("Error", "An error occurred while verifying status. Please try again later.");
+    } finally {
+      setIsResolving(false);
+    }
   };
 
   const handleCopyReference = async (text) => {
@@ -807,23 +842,41 @@ const TransactionDetailScreen = () => {
 
       {/* Footer Buttons */}
       <View style={styles.footer}>
-        <Pressable
-          style={styles.downloadButton}
-          onPress={handleDownloadPress}
-          disabled={isDownloading}
-        >
-          {isDownloading ? (
-            <ActivityIndicator size="small" color="#FFF" />
-          ) : (
-            <>
-              <Ionicons name="download-outline" size={20} color="#FFF" />
-              <Text style={styles.downloadButtonText}>Download</Text>
-            </>
-          )}
-        </Pressable>
-        <Pressable style={styles.homeButton} onPress={handleBackToHome}>
-          <Text style={styles.homeButtonText}>Back to Home</Text>
-        </Pressable>
+        {/* Resolve Button - Only for Pending Bookings */}
+        {transactionData.status.toUpperCase() === "PENDING" && 
+         transactionData.category === "BOOKING" && (
+          <Pressable
+            style={[styles.resolveButton, isResolving && { opacity: 0.7 }]}
+            onPress={handleResolveStatus}
+            disabled={isResolving}
+          >
+            {isResolving ? (
+              <ActivityIndicator size="small" color="#FFF" />
+            ) : (
+              <Text style={styles.resolveButtonText}>Resolve Booking Status</Text>
+            )}
+          </Pressable>
+        )}
+
+        <View style={styles.buttonRow}>
+          <Pressable
+            style={styles.downloadButton}
+            onPress={handleDownloadPress}
+            disabled={isDownloading}
+          >
+            {isDownloading ? (
+              <ActivityIndicator size="small" color="#FFF" />
+            ) : (
+              <>
+                <Ionicons name="download-outline" size={20} color="#FFF" />
+                <Text style={styles.downloadButtonText}>Download</Text>
+              </>
+            )}
+          </Pressable>
+          <Pressable style={styles.homeButton} onPress={handleBackToHome}>
+            <Text style={styles.homeButtonText}>Back to Home</Text>
+          </Pressable>
+        </View>
       </View>
 
       <DownloadOptionsModal
@@ -1053,13 +1106,15 @@ const styles = StyleSheet.create({
     lineHeight: 14,
   },
   footer: {
-    flexDirection: "row",
-    gap: 16,
     paddingHorizontal: 20,
     paddingVertical: 16,
     paddingBottom: 32,
     borderTopWidth: 1,
     borderTopColor: "#F5F5F5",
+  },
+  buttonRow: {
+    flexDirection: "row",
+    gap: 16,
   },
   downloadButton: {
     flex: 1,
@@ -1089,6 +1144,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
     color: "#000",
+  },
+  resolveButton: {
+    backgroundColor: "#2E7D32",
+    height: 52,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  resolveButtonText: {
+    color: "#FFF",
+    fontSize: 16,
+    fontWeight: "700",
   },
 });
 

@@ -899,7 +899,8 @@ const HostBookingDetailsScreen = () => {
 
   // ───── Render ─────
   const isCancellable =
-    status === "CONFIRMED" || status === "PENDING" || status === "RESERVED";
+    (status === "CONFIRMED" || status === "PENDING" || status === "RESERVED") &&
+    new Date(booking?.checkIn || params.checkIn) > new Date();
   const isCompleted = status === "COMPLETED";
   const alreadyReviewed = hasReviewed || !!booking?.hostReview?.rating;
 

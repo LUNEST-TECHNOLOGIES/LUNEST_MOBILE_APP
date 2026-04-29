@@ -361,6 +361,7 @@ const BookingSummary = () => {
     total,
     guestTotal: total,
     rentalPrice,
+    rentFee: rentalSubtotal, // Added for fallback support
     numberOfUnits: periodUnits,
     pricingPeriod,
     periodLabel
@@ -493,8 +494,9 @@ const BookingSummary = () => {
       },
     },
     pricing: {
-      // Rental breakdown using displayPricing helper
-      rentalPrice: displayPricing.rentalPrice || rentalPrice,
+      // Rental breakdown using displayPricing helper with improved fallbacks
+      rentalPrice: displayPricing.rentalPrice || displayPricing.rentFee || rentalPrice,
+      rentalSubtotal: displayPricing.rentalSubtotal || displayPricing.rentFee || rentalSubtotal,
       numberOfUnits: displayPricing.numberOfUnits || periodUnits,
       pricingPeriod: displayPricing.pricingPeriod || pricingPeriod,
       periodLabel: displayPricing.periodLabel || periodLabel,

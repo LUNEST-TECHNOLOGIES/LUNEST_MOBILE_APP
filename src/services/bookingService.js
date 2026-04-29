@@ -1075,6 +1075,34 @@ class BookingService {
       };
     }
   }
+
+  /**
+   * Manually verify a payment and resolve booking status
+   * Used when a payment is successful but the booking remains PENDING
+   * @param {string} reference - Payment or booking reference
+   */
+  async verifyPayment(reference) {
+    console.log("💳 [BookingService] Manually verifying payment:", reference);
+    try {
+      const token = await authService.getToken();
+      const response = await apiClient.get(`/v1/bookings/verify-payment/${reference}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+
+      return {
+        success: true,
+        message: response?.message || "Payment verified successfully",
+        data: (response && response.body) || (response && response.data),
+      };
+    } catch (error) {
+      console.error("❌ [BookingService] Verify payment error:", error);
+      const categorized = NetworkErrorHandler.categorizeError(error);
+      return {
+        success: false,
+        message: categorized.userMessage || "Payment verification failed",
+      };
+    }
+  }
 }
 
 const bookingService = new BookingService();

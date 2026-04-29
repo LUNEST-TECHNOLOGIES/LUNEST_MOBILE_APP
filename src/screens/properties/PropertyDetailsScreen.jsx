@@ -1875,12 +1875,14 @@ const PropertyDetailsScreen = () => {
           </View>
         </View>
 
-        {/* Regulations Section */}
+        {/* Landmark/Location Section */}
+        {renderLandmarkSection()}
+
+        <View style={{ height: 20 }} />
+
+        {/* Regulations and Policy */}
         {renderRegulationsSection()}
         {renderCancellationPolicySection()}
-
-        {/* Landmark Section */}
-        {renderLandmarkSection()}
 
         {/* Host Section */}
         {renderHostSection()}

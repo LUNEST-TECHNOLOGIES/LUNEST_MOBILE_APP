@@ -130,7 +130,7 @@ const TransactionDetailScreen = () => {
               return "Transaction Successful";
             return `Transaction Status: ${status}`;
         }
-        if (s === "on_hold" || s === "on hold" || s === "processing") return "Earnings in Escrow";
+        if (s === "on_hold" || s === "on hold" || s === "processing") return "In Escrow";
         if (s === "disputed") return "Funds Disputed";
         if (s === "failed" || s === "cancelled") return "Transaction Failed";
         if (s === "pending" || s === "reserved") return "Transaction Pending";
@@ -625,16 +625,30 @@ const TransactionDetailScreen = () => {
                   const metadata = typeof params.metadata === 'string' ? JSON.parse(params.metadata) : (params.metadata || {});
                   let breakdown = metadata.breakdown;
                   
-                  // NEW: Support pricingBreakdown from BookingRepo summary transactions
+                   // NEW: Support pricingBreakdown from BookingRepo summary transactions
                   if (!breakdown && metadata.pricingBreakdown) {
                     const pb = metadata.pricingBreakdown;
                     breakdown = {
-                      rent: pb.rentFee || 0,
+                      rent: pb.rentFee || pb.rentAmount || 0,
                       serviceCharge: pb.serviceCharge || 0,
                       guestFee: pb.guestFee || 0,
                       guestVat: pb.guestVat || pb.vat || 0,
                       cautionFee: pb.securityDeposit || pb.cautionFee || 0,
-                      total: pb.guestTotal || pb.total || 0
+                      total: pb.guestTotal || pb.total || 0,
+                      netEarning: pb.hostEarnings || pb.netEarning || 0
+                    };
+                  }
+
+                  // NEW: Support Host-side flat metadata (from HOST_EARNING transactions)
+                  if (!breakdown && metadata.hostSide) {
+                    breakdown = {
+                      rent: metadata.rentAmount || 0,
+                      serviceCharge: metadata.serviceCharge || 0,
+                      hostFee: metadata.hostFee || metadata.appFee || 0,
+                      hostVat: metadata.hostVat || metadata.vat || 0,
+                      cautionFee: metadata.cautionFee || 0,
+                      netEarning: metadata.hostEarnings || metadata.netEarning || 0,
+                      total: metadata.hostEarnings || 0
                     };
                   }
 
@@ -718,7 +732,7 @@ const TransactionDetailScreen = () => {
                           )}
                           {breakdown.cautionFee > 0 && (
                             <View style={styles.breakdownRow}>
-                              <Text style={styles.breakdownLabel}>Caution Fee (Escrow)</Text>
+                              <Text style={styles.breakdownLabel}>Caution Fee (Held in Escrow)</Text>
                               <Text style={styles.breakdownValue}>₦{Number(breakdown.cautionFee).toLocaleString()}</Text>
                             </View>
                           )}
@@ -727,6 +741,11 @@ const TransactionDetailScreen = () => {
                             <Text style={styles.breakdownLabelBold}>Net Earning</Text>
                             <Text style={styles.breakdownValueBold}>₦{Number(breakdown.netEarning || breakdown.net || 0).toLocaleString()}</Text>
                           </View>
+                          {breakdown.cautionFee > 0 && (
+                            <Text style={styles.escrowNote}>
+                              * The Caution Fee is recorded as a separate transaction and held in escrow.
+                            </Text>
+                          )}
                         </>
                       )}
                     </View>
@@ -998,6 +1017,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "800",
     color: "#010135",
+  },
+  escrowNote: {
+    fontSize: 11,
+    fontStyle: 'italic',
+    color: '#666',
+    marginTop: 8,
+    textAlign: 'center',
+    lineHeight: 14,
   },
   footer: {
     flexDirection: "row",

@@ -59,10 +59,19 @@ class DraftListingService {
       // Stage 2: Capture all values immediately to local variables to avoid closure issues
       const inputDraftId = listingData?.draftId;
       const editingId = listingData?.editingListingId;
+      const mongoId = listingData?._id || listingData?.id;
       const timestamp = new Date().toISOString();
+      
+      // Robust ID resolution:
+      // 1. Use inputDraftId if already set
+      // 2. If it's a valid MongoDB ObjectId, use it (crucial for updating existing records)
+      // 3. If we're editing a specific listing ID, use that
+      // 4. Fallback to a new temporary draft ID
+      const isValidObjectId = mongoId && /^[a-fA-F0-9]{24}$/.test(String(mongoId));
       
       const resolvedDraftId =
         inputDraftId ||
+        (isValidObjectId ? String(mongoId) : null) ||
         (editingId ? `edit_${editingId}` : `draft_${Date.now()}`);
 
       if (!resolvedDraftId) {
@@ -87,7 +96,12 @@ class DraftListingService {
       const existingDrafts = (await this.getAllDrafts()) || [];
       const updatedDraftsList = [...existingDrafts];
       
-      const existingIndex = updatedDraftsList.findIndex((d) => d?.draftId === resolvedDraftId);
+      const existingIndex = updatedDraftsList.findIndex((d) => 
+        (d?.draftId === resolvedDraftId) || 
+        (d?._id && d?._id === listingData?._id) ||
+        (d?.draftId && d?.draftId === (listingData?._id || listingData?.id))
+      );
+      
       if (existingIndex >= 0) {
         updatedDraftsList[existingIndex] = draftToSave;
       } else {
@@ -340,7 +354,11 @@ class DraftListingService {
       }
 
       const drafts = await this.getAllDrafts();
-      const draft = drafts.find((d) => d.draftId === draftId) || null;
+      const draft = drafts.find((d) => 
+        d.draftId === draftId || 
+        d._id === draftId || 
+        (d._id && d._id === draftId.replace('edit_', ''))
+      ) || null;
       
       // Seed cache if found in storage
       if (draft) {
@@ -372,7 +390,11 @@ class DraftListingService {
       // Local-only drafts (without _id) don't exist on backend
       const backendIdToDelete = targetDraft?._id;
 
-      const filteredDrafts = drafts.filter((d) => d.draftId !== draftId);
+      const filteredDrafts = drafts.filter((d) => 
+        d.draftId !== draftId && 
+        d._id !== draftId &&
+        !(d._id && d._id === draftId.replace('edit_', ''))
+      );
       await storageService.setItem(draftsKey, filteredDrafts);
       console.log("💾 Draft deleted locally:", draftId);
 

@@ -1129,37 +1129,6 @@ const Review = () => {
             </Text>
           </View>
 
-          {/* Host Profile Info - REAL DATA */}
-          <View style={{ marginTop: 24, paddingVertical: 16, borderTopWidth: 1, borderTopColor: "#F5F5F5" }}>
-            <Text style={{ fontSize: 16, fontWeight: "700", color: "#000", marginBottom: 12 }}>
-              Host Information
-            </Text>
-            <View style={{ flexDirection: "row", alignItems: "center" }}>
-              <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: "#F3F4F6", overflow: "hidden", marginRight: 12 }}>
-                {hostStats.avatar ? (
-                  <Image source={{ uri: getHostAvatarUrl(hostStats.avatar) }} style={{ width: "100%", height: "100%" }} />
-                ) : (
-                  <View style={{ width: "100%", height: "100%", alignItems: "center", justifyContent: "center" }}>
-                    <Text style={{ fontSize: 18, color: "#9CA3AF" }}>{hostStats.fullName?.charAt(0) || "H"}</Text>
-                  </View>
-                )}
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 16, fontWeight: "600", color: "#1F2937" }}>{hostStats.fullName}</Text>
-                <View style={{ flexDirection: "row", alignItems: "center", marginTop: 2 }}>
-                  <Star size={14} color="#FDB913" fill="#FDB913" />
-                  <Text style={{ fontSize: 13, color: "#4B5563", marginLeft: 4 }}>
-                    {Number(hostStats.rating || 0).toFixed(1)} ({hostStats.reviews} reviews)
-                  </Text>
-                  <Text style={{ fontSize: 13, color: "#9CA3AF", marginHorizontal: 8 }}>•</Text>
-                  <Text style={{ fontSize: 13, color: "#4B5563" }}>
-                    {hostStats.totalListings} Listings
-                  </Text>
-                </View>
-              </View>
-            </View>
-          </View>
-
 
           {/* Breakdown for Rentals */}
           {mergedData.intent?.toLowerCase() !== "sale" && mergedData.price && (
@@ -1270,6 +1239,7 @@ const Review = () => {
           )}
         </View>
 
+
         {/* Availability */}
         <View style={styles.section}>
           <Text style={styles.subsectionTitle}>Availability & Check-in</Text>
@@ -1339,6 +1309,36 @@ const Review = () => {
             )}
           </View>
         )}
+
+        {/* Host Profile Info - REAL DATA */}
+        <View style={styles.section}>
+          <Text style={styles.subsectionTitle}>Host Information</Text>
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: "#F3F4F6", overflow: "hidden", marginRight: 12 }}>
+              {hostStats.avatar ? (
+                <Image source={{ uri: getHostAvatarUrl(hostStats.avatar) }} style={{ width: "100%", height: "100%" }} />
+              ) : (
+                <View style={{ width: "100%", height: "100%", alignItems: "center", justifyContent: "center" }}>
+                  <Text style={{ fontSize: 18, color: "#9CA3AF" }}>{hostStats.fullName?.charAt(0) || "H"}</Text>
+                </View>
+              )}
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 16, fontWeight: "600", color: "#1F2937" }}>{hostStats.fullName}</Text>
+              <View style={{ flexDirection: "row", alignItems: "center", marginTop: 2 }}>
+                <Star size={14} color="#FDB913" fill="#FDB913" />
+                <Text style={{ fontSize: 13, color: "#4B5563", marginLeft: 4 }}>
+                  {Number(hostStats.rating || 0).toFixed(1)} ({hostStats.reviews} reviews)
+                </Text>
+                <Text style={{ fontSize: 13, color: "#9CA3AF", marginHorizontal: 8 }}>•</Text>
+                <Text style={{ fontSize: 13, color: "#4B5563" }}>
+                  {hostStats.totalListings} Listings
+                </Text>
+              </View>
+            </View>
+          </View>
+        </View>
+
 
         {/* Terms & Agreement */}
         <View style={styles.section}>

@@ -58,10 +58,31 @@ const TermsAgreement = () => {
   const draftId = params.draftId || null;
   const { draftData, saveDraftData } = useDraftListing();
   
-  const [termsAgreed, setTermsAgreed] = useState(false);
+  const [termsAgreed, setTermsAgreed] = useState(draftData?.termsAgreed || false);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [selectedTerm, setSelectedTerm] = useState(null);
   const [showTermsModal, setShowTermsModal] = useState(false);
+
+  // Sync termsAgreed with draftData when it loads
+  useEffect(() => {
+    if (draftData?.termsAgreed !== undefined) {
+      setTermsAgreed(draftData.termsAgreed);
+    }
+  }, [draftData]);
+
+  const handleToggleAgreement = () => {
+    const newValue = !termsAgreed;
+    setTermsAgreed(newValue);
+    
+    // Optimized: Immediate background save when toggled
+    const finalDraftId = (draftData && draftData.draftId) || draftId;
+    saveDraftData({
+      ...draftData,
+      termsAgreed: newValue,
+      currentStep: 8,
+      draftId: finalDraftId,
+    }, { background: true });
+  };
 
   // Toast Notification state
   const [toastVisible, setToastVisible] = useState(false);
@@ -135,7 +156,7 @@ const TermsAgreement = () => {
       const finalDraftId = (draftData && draftData.draftId) || draftId || draftListingService.generateDraftId();
       
       // OPTIMIZATION: Trigger save in background and navigate immediately
-      await saveDraftData({
+      saveDraftData({
         ...draftData,  // Preserve all existing data
         termsAgreed: true,
         currentStep: 9,
@@ -215,7 +236,7 @@ const TermsAgreement = () => {
         {/* Agreement Checkbox */}
         <Pressable 
           style={styles.agreementContainer} 
-          onPress={() => setTermsAgreed(!termsAgreed)}
+          onPress={handleToggleAgreement}
         >
           <View style={[
             styles.checkbox,

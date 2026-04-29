@@ -110,7 +110,7 @@ const STATUS_BADGE = {
     text: "#2E7D32",
     label: "Completed",
   },
-  ON_HOLD: { bg: "rgba(25, 45, 255, 0.15)", text: "#192DFF", label: "Processing" },
+  ON_HOLD: { bg: "rgba(25, 45, 255, 0.15)", text: "#192DFF", label: "In Escrow" },
   PENDING: { bg: "rgba(253, 174, 49, 0.2)", text: "#EF6C00", label: "Pending" },
   FAILED: { bg: "rgba(241, 99, 99, 0.2)", text: "#FD3131", label: "Failed" },
   CANCELLED: { bg: "rgba(183, 28, 28, 0.15)", text: "#B71C1C", label: "Refunded" },
@@ -271,7 +271,7 @@ const HostEarningsScreen = () => {
       const intervalId = setInterval(() => {
         console.log("📡 [HostEarnings] Polling for new earnings data...");
         fetchEarningsData(false);
-      }, 30000);
+      }, 10000);
 
       return () => {
         console.log("🛑 [HostEarnings] Screen blurred - clearing interval");
@@ -342,7 +342,15 @@ const HostEarningsScreen = () => {
           </View>
           <View style={styles.txnInfo}>
             <Text style={styles.txnLabel} numberOfLines={1}>
-              {item.displayType === 'RENT' && item.description ? item.description : config.label}
+              {item.displayType === "HOST_EARNING" &&
+              (item.status === "ON_HOLD" || item.status === "PROCESSING")
+                ? "Booking Earning (Held in Escrow)"
+                : item.displayType === "SECURITY_DEPOSIT" &&
+                  (item.status === "ON_HOLD" || item.status === "PROCESSING")
+                  ? "Caution Fee (Held in Escrow)"
+                  : item.displayType === "RENT" && item.description
+                    ? item.description
+                    : config.label}
             </Text>
             <Text style={styles.txnDate}>{formatDate(item.timestamp)}</Text>
           </View>

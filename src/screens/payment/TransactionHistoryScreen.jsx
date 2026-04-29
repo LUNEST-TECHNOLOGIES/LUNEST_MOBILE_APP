@@ -992,6 +992,8 @@ const TransactionHistoryScreen = () => {
     if (item.type === "HOST_EARNING") {
       if (item.status === "ON_HOLD" || item.status === "PROCESSING") {
         displayLabel = `Pending Earning (Escrow)`;
+      } else if (item.status === "CANCELLED") {
+        displayLabel = `Reversed Host Earning`;
       } else {
         displayLabel = `Host Earning`;
       }
@@ -1002,7 +1004,7 @@ const TransactionHistoryScreen = () => {
     }
 
     if (item.type === "SECURITY_DEPOSIT" && (item.status === "ON_HOLD" || item.status === "PROCESSING")) {
-      displayLabel = `Caution Fee (Escrow)`;
+      displayLabel = `Caution Fee (Held in Escrow)`;
       if (bookingRef) {
         displayLabel += ` (${bookingRef})`;
       }
@@ -1084,7 +1086,11 @@ const TransactionHistoryScreen = () => {
             style={[styles.statusBadge, { backgroundColor: statusConfig.bg }]}
           >
             <Text style={[styles.statusText, { color: statusConfig.text }]}>
-              {item.type === "HOST_EARNING" && item.status === "CANCELLED" ? "Reversed" : statusConfig.label}
+              {item.type === "HOST_EARNING" && item.status === "CANCELLED" 
+                ? "Reversed" 
+                : ((item.type === "HOST_EARNING" || item.type === "SECURITY_DEPOSIT") && (item.status === "ON_HOLD" || item.status === "PROCESSING"))
+                  ? "In Escrow"
+                  : (item.status === "COMPLETED" ? "Paid to Wallet" : statusConfig.label)}
             </Text>
           </View>
           <Text

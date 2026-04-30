@@ -97,25 +97,32 @@ const SelectBookingDetailsScreen = () => {
     const depositNum = Number(propertySecurityDeposit) || 0;
     const serviceChargeNum = Number(propertyServiceCharge) || 0;
     let durationCount = 1;
+    const period = pricingPeriod.toLowerCase();
+
     if (checkInDate && checkOutDate) {
-      if (pricingPeriod.toLowerCase() === "night") {
+      if (period === "night") {
         const start = new Date(checkInDate);
         const end = new Date(checkOutDate);
         const diffMs = Math.max(0, end.setHours(0, 0, 0, 0) - start.setHours(0, 0, 0, 0));
         durationCount = Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
-      } else if (pricingPeriod.toLowerCase() === "month") {
+      } else if (period === "month") {
         durationCount = Math.max(1, monthsBetween(checkInDate, checkOutDate));
-      } else if (pricingPeriod.toLowerCase() === "year") {
+      } else if (period === "year") {
         durationCount = Math.max(1, yearsBetween(checkInDate, checkOutDate));
       }
     }
 
     const baseAmount = priceNum * durationCount;
+    
+    // For yearly rentals, service charge and caution fee scale with duration (e.g. 2 years = double fees)
+    const isYearly = period === "year";
+    const effectiveServiceCharge = isYearly ? (serviceChargeNum * durationCount) : serviceChargeNum;
+    const effectiveDeposit = depositNum; // Caution Fee does NOT scale with duration
 
-    // Guest Subtotal = Rent + Service Charge + Security Deposit
-    const guestSubtotal = baseAmount + serviceChargeNum + depositNum;
+    // Guest Subtotal = Rent + Scaled Service Charge + Scaled Security Deposit
+    const guestSubtotal = baseAmount + effectiveServiceCharge + effectiveDeposit;
 
-    // Guest Fee is 5% of full guest base (Rent + Service Charge + Caution Fee)
+    // Guest Fee is 5% of full guest base
     const guestFee = +(guestSubtotal * 0.05).toFixed(2);
 
     // VAT is 7.5% of the Guest Fee
@@ -130,11 +137,11 @@ const SelectBookingDetailsScreen = () => {
     return {
       durationCount,
       baseAmount,
-      serviceCharge: serviceChargeNum,
+      serviceCharge: effectiveServiceCharge,
       guestFee,
       vat,
       appCharge,
-      deposit: depositNum,
+      deposit: effectiveDeposit,
       total,
     };
   };
@@ -255,9 +262,11 @@ const SelectBookingDetailsScreen = () => {
         message: "Please select check-in and check-out dates.",
       };
 
-    if (pricingPeriod.toLowerCase() === "night") {
-      const start = new Date(checkInDate);
-      const end = new Date(checkOutDate);
+    const period = pricingPeriod.toLowerCase();
+    const start = new Date(checkInDate);
+    const end = new Date(checkOutDate);
+
+    if (period === "night") {
       const diffDays = Math.ceil(
         (end.setHours(0, 0, 0, 0) - start.setHours(0, 0, 0, 0)) /
           (1000 * 60 * 60 * 24),
@@ -270,7 +279,7 @@ const SelectBookingDetailsScreen = () => {
       return { valid: true };
     }
 
-    if (pricingPeriod.toLowerCase() === "month") {
+    if (period === "month") {
       const months = monthsBetween(checkInDate, checkOutDate);
       if (months < 1)
         return {
@@ -281,14 +290,33 @@ const SelectBookingDetailsScreen = () => {
       return { valid: true };
     }
 
-    if (pricingPeriod.toLowerCase() === "year") {
+    if (period === "year") {
       const years = yearsBetween(checkInDate, checkOutDate);
+      
+      // Strict yearly validation: Must be exactly N years (same day/month)
+      const expectedEnd = new Date(start);
+      expectedEnd.setFullYear(start.getFullYear() + years);
+      
+      // We allow a small tolerance of 1 day for leap years or checkout time logic
+      const actualEnd = new Date(end);
+      actualEnd.setHours(0,0,0,0);
+      expectedEnd.setHours(0,0,0,0);
+      
+      const isExactYear = actualEnd.getTime() === expectedEnd.getTime();
+
       if (years < 1)
         return {
           valid: false,
-          message:
-            "This listing is charged annually. Minimum booking is 1 year.",
+          message: "This listing is charged annually. Minimum booking is 1 year.",
         };
+        
+      if (!isExactYear) {
+        return {
+          valid: false,
+          message: `Yearly rentals must be in exact 1-year increments (e.g., 1 year, 2 years). Please adjust your check-out date to ${formatDate(expectedEnd)}.`,
+        };
+      }
+      
       return { valid: true };
     }
 
@@ -780,6 +808,14 @@ const SelectBookingDetailsScreen = () => {
             </View>
           </View>
         </Modal>
+        
+        {/* Toast Notification for Web/Mobile Parity */}
+        <ToastNotification
+          visible={toastVisible}
+          message={toastConfig.message}
+          type={toastConfig.type}
+          onHide={() => setToastVisible(false)}
+        />
       </View>
     </SafeAreaView>
   );

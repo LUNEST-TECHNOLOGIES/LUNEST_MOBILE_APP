@@ -48,6 +48,8 @@ const BookingSummary = () => {
   const [couponValue, setCouponValue] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isInitializingPayment, setIsInitializingPayment] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
   const [fetchedBooking, setFetchedBooking] = useState(null);
   const [isFetchingBooking, setIsFetchingBooking] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -622,7 +624,7 @@ const BookingSummary = () => {
           const parts = dateStr.split("-");
           if (parts.length === 3) {
             const year = parts[0].length === 4 ? parts[0] : parts[2];
-            const month = parts[0].length === 4 ? parts[1] : parts[1];
+            const month = parts[1];
             const day = parts[0].length === 4 ? parts[2] : parts[0];
             
             const parsedDate = new Date(
@@ -730,6 +732,9 @@ const BookingSummary = () => {
         : await bookingService.createBooking(bookingData);
 
       if (result.success) {
+        setIsSuccess(true);
+        setSuccessMessage("Booking Confirmed!");
+        
         if (couponApplied && couponCode.trim()) {
           const referralService = (await import("../../services/referralService")).default;
           await referralService.trackCouponUsage(
@@ -740,6 +745,9 @@ const BookingSummary = () => {
             console.warn("[BookingSummary] Failed to track coupon usage:", err);
           });
         }
+
+        // Small delay to let user see the success state
+        await new Promise(resolve => setTimeout(resolve, 1500));
 
         router.replace({
           pathname: "/booking-confirmation",
@@ -775,38 +783,23 @@ const BookingSummary = () => {
 
   const handlePaymentMethodSelect = async (paymentData) => {
     console.log("[BookingSummary] Payment method selected:", paymentData);
-    console.log("[BookingSummary] Coupon details:", {
-      couponApplied,
-      couponCode,
-      couponDiscount,
-      hostTotal,
-      total: bookingSummary.pricing.total,
-      displayTotal: bookingSummary.pricing.total || total,
-    });
     setShowPaymentModal(false);
     setIsProcessing(true);
 
     try {
-      // Get current user info
       const user = await authService.getUserData();
-      // Helper function to convert date string to ISO format
       const parseDate = (dateStr) => {
         if (!dateStr) return new Date().toISOString();
-        
-        // If it's already a valid date string (like ISO), use it
         const dateObj = new Date(dateStr);
         if (!isNaN(dateObj.getTime())) {
           return dateObj.toISOString();
         }
-
-        // Handle both YYYY-MM-DD and D-M-YYYY
         if (typeof dateStr === "string" && dateStr.includes("-")) {
           const parts = dateStr.split("-");
           if (parts.length === 3) {
             const year = parts[0].length === 4 ? parts[0] : parts[2];
-            const month = parts[0].length === 4 ? parts[1] : parts[1];
+            const month = parts[1];
             const day = parts[0].length === 4 ? parts[2] : parts[0];
-            
             const parsed = new Date(
               parseInt(year),
               parseInt(month) - 1,
@@ -817,23 +810,18 @@ const BookingSummary = () => {
             }
           }
         }
-        
-        // Final fallback
         return new Date().toISOString();
       };
 
-      // Map booking type to valid enum values
       const mapBookingType = (type) => {
         if (!type) return "DAILY";
         const upperType = type.toUpperCase();
-        // Handle combined types like "DAILY/WEEKLY"
         if (upperType.includes("/")) {
           const firstType = upperType.split("/")[0].trim();
           if (["DAILY", "WEEKLY", "MONTHLY", "YEARLY"].includes(firstType)) {
             return firstType;
           }
         }
-        // Map variations to valid enum values
         const typeMap = {
           DAILY: "DAILY",
           WEEKLY: "WEEKLY",
@@ -847,8 +835,6 @@ const BookingSummary = () => {
         return typeMap[upperType] || "DAILY";
       };
 
-      // Prepare booking data
-      // Send hostTotal to backend - backend will calculate guest total (hostTotal + 5%)
       const displayHostTotal = bookingSummary.pricing.hostTotal;
       const displayRentalSubtotal = bookingSummary.pricing.rentalSubtotal;
       const displayServiceCharge = bookingSummary.pricing.serviceCharge || 0;
@@ -856,60 +842,49 @@ const BookingSummary = () => {
         bookingSummary.pricing.securityDeposit || 0;
       const displayAppCharge = bookingSummary.pricing.appCharge || 0;
       const displayTotal = bookingSummary.pricing.total || total;
+      
       const bookingData = {
         listing: params?.listingId,
         type: mapBookingType(bookingSummary.property.bookingType),
         guests: {
-          adults:
-            parseInt(params?.adults) || bookingSummary.property.guests.adults,
-          children:
-            parseInt(params?.children) ||
-            bookingSummary.property.guests.children,
+          adults: parseInt(params?.adults) || bookingSummary.property.guests.adults,
+          children: parseInt(params?.children) || bookingSummary.property.guests.children,
           pets: 0,
         },
-        checkIn: parseDate(
-          params?.checkInDate || bookingSummary.property.checkIn,
-        ),
-        checkOut: parseDate(
-          params?.checkOutDate || bookingSummary.property.checkOut,
-        ),
+        checkIn: parseDate(params?.checkInDate || bookingSummary.property.checkIn),
+        checkOut: parseDate(params?.checkOutDate || bookingSummary.property.checkOut),
         paymentMethod: paymentData.reserveAndPayLater
           ? null
           : paymentData.paymentMethod?.toUpperCase(),
-        // Send hostTotal (before 5% guest fee) - backend adds 5% when processing payment
         totalAmount: {
-          price: displayHostTotal, // Backend expects host's total, it calculates guest total
+          price: displayHostTotal,
           currency: "NGN",
         },
-        // Enhanced price breakdown with coupon and payment tracking
         priceBreakdown: {
           rentalSubtotal: displayRentalSubtotal,
           serviceCharge: displayServiceCharge,
           securityDeposit: displaySecurityDeposit,
           hostTotal: displayHostTotal,
           guestFee: displayAppCharge,
-          subtotalBeforeDiscount: displayHostTotal + displayAppCharge, // Total before coupon
+          subtotalBeforeDiscount: displayHostTotal + displayAppCharge,
           couponApplied: couponApplied,
           couponCode: couponCode.trim() || null,
-          couponDiscount: couponDiscount || 0, // Discount amount from coupon
-          amountAfterCoupon: displayTotal, // Amount to pay after coupon deduction
+          couponDiscount: couponDiscount || 0,
+          amountAfterCoupon: displayTotal,
           guestTotal: displayTotal,
           paymentMethodUsed: paymentData.reserveAndPayLater
             ? "RESERVE_AND_PAY_LATER"
             : paymentData.paymentMethod?.toUpperCase() || "WALLET",
-          amountPaidViaPayment: displayTotal, // What user actually paid through payment method
+          amountPaidViaPayment: displayTotal,
         },
         bookedBy: user?._id || user?.id,
         couponCode: couponCode.trim() || undefined,
         couponDiscount: couponDiscount || undefined,
-        additionalNotes: additionalNotes, // Add additional notes
+        additionalNotes: additionalNotes,
       };
 
-      // Determine booking status based on payment method
       if (paymentData.reserveAndPayLater) {
-        // Reserve and Pay Later - Create booking with RESERVED status
         bookingData.status = "RESERVED";
-
         const result = existingBookingId
           ? await bookingService.updateBookingStatus(existingBookingId, "RESERVED", {
               pricingBreakdown: bookingData.priceBreakdown,
@@ -919,7 +894,6 @@ const BookingSummary = () => {
           : await bookingService.createBooking(bookingData);
 
         if (result.success) {
-          // Track coupon usage if a coupon was applied
           if (couponApplied && couponCode.trim()) {
             const referralService = (await import("../../services/referralService")).default;
             await referralService.trackCouponUsage(
@@ -931,7 +905,6 @@ const BookingSummary = () => {
             });
           }
 
-          // Navigate to booking confirmation with reserved status
           router.replace({
             pathname: "/booking-confirmation",
             params: {
@@ -946,7 +919,6 @@ const BookingSummary = () => {
               total: `₦${displayTotal.toLocaleString()}`,
               refCode: result.booking?.referenceCode || generateRefCode(),
               reserveAndPayLater: "true",
-              // Countdown: 1 hour to pay (3600 seconds)
               countdownTime: "3600",
               bookingId: result.booking?._id,
               listingId: params?.listingId,
@@ -963,10 +935,8 @@ const BookingSummary = () => {
         paymentData.paymentMethod === "paystack" ||
         paymentData.paymentMethod === "card"
       ) {
-        // Paystack/Card payment - Use Paystack checkout
         try {
           setIsInitializingPayment(true);
-          // Get user email
           const email = user?.email || user?.emailAddress;
           if (!email) {
             showToast("Please update your profile with an email address", TOAST_TYPE.ERROR);
@@ -974,12 +944,9 @@ const BookingSummary = () => {
             return;
           }
 
-          // 1. Create or Update booking in PENDING_PAYMENT status
           bookingData.status = "PENDING_PAYMENT";
-          
           let bookingResult;
           if (existingBookingId) {
-            console.log("[BookingSummary] Updating existing booking for payment:", existingBookingId);
             bookingResult = await bookingService.updateBookingStatus(existingBookingId, "PENDING_PAYMENT", {
               pricingBreakdown: bookingData.priceBreakdown,
               couponCode: bookingData.couponCode,
@@ -996,14 +963,12 @@ const BookingSummary = () => {
           }
 
           const bId = bookingResult.booking?._id || existingBookingId;
-
-          // 2. Initialize Paystack payment with bookingId in metadata
           const paymentResult = await paymentService.initializePayment(
             finalGuestTotal,
             email,
             {
               type: "BOOKING",
-              bookingId: bId, // Crucial for backend identification
+              bookingId: bId,
               guestId: user?._id || user?.id,
               hostId: hostId || params?.hostId,
               listingId: params?.listingId,
@@ -1018,12 +983,8 @@ const BookingSummary = () => {
             return;
           }
 
-          console.log("[BookingSummary] Paystack payment initialized with bookingId:", bId);
-
-          // Create callback URL for deep linking back to app
           let callbackUrl;
           if (Platform.OS === "web") {
-            // Include type, bookingId and amount in web callback URL
             callbackUrl = `${window.location.origin}/payment-callback?type=booking_payment&bookingId=${bId}&amount=${displayTotal.toString()}`;
           } else {
             callbackUrl = Linking.createURL("payment-callback", {
@@ -1035,7 +996,6 @@ const BookingSummary = () => {
             });
           }
 
-          // PERSIST CONTEXT (Mainly for UI/State persistence)
           const paymentContext = {
             type: "BOOKING",
             bookingId: bId,
@@ -1057,23 +1017,22 @@ const BookingSummary = () => {
             await AsyncStorage.setItem("lunest_payment_context", JSON.stringify(paymentContext));
           }
 
-          // Open Paystack checkout
           const browserResult = await WebBrowser.openAuthSessionAsync(
             paymentResult.authorization_url,
             callbackUrl,
           );
 
-          console.log("[BookingSummary] Browser result:", browserResult);
-
           if (browserResult.type === "success") {
-            console.log("[BookingSummary] Deep link successful");
             return;
           }
 
-          // Fallback verification
           const verifyResult = await paymentService.verifyPayment(paymentResult.reference);
 
           if (verifyResult.status === "COMPLETED") {
+            setIsSuccess(true);
+            setSuccessMessage("Payment Confirmed!");
+            await new Promise(resolve => setTimeout(resolve, 1500));
+
             router.replace({
               pathname: "/booking-confirmation",
               params: {
@@ -1111,9 +1070,7 @@ const BookingSummary = () => {
           setIsInitializingPayment(false);
         }
       } else {
-        // Wallet payment - Create booking with CONFIRMED status
         bookingData.status = "CONFIRMED";
-
         const existingBookingIdFromParams = params?.bookingId || params?.existingBookingId;
         const result = existingBookingIdFromParams
           ? await bookingService.updateBookingStatus(existingBookingIdFromParams, "CONFIRMED", {
@@ -1125,7 +1082,9 @@ const BookingSummary = () => {
           : await bookingService.createBooking(bookingData);
 
         if (result.success) {
-          // Track coupon usage if a coupon was applied
+          setIsSuccess(true);
+          setSuccessMessage("Booking Confirmed!");
+
           if (couponApplied && couponCode.trim()) {
             const referralService = (await import("../../services/referralService")).default;
             await referralService.trackCouponUsage(
@@ -1137,7 +1096,8 @@ const BookingSummary = () => {
             });
           }
 
-          // Navigate to booking confirmation with confirmed status
+          await new Promise(resolve => setTimeout(resolve, 1500));
+
           router.replace({
             pathname: "/booking-confirmation",
             params: {
@@ -1153,7 +1113,7 @@ const BookingSummary = () => {
               refCode: result.booking?.referenceCode || generateRefCode(),
               bookingId: result.booking?._id,
               listingId: params?.listingId,
-              isPending: "true", // Add this to trigger auto-verify on return
+              isPending: "true",
               couponApplied: couponApplied ? "true" : "false",
               couponCode: couponCode || "",
               couponDiscount: couponDiscount.toString(),
@@ -1161,14 +1121,12 @@ const BookingSummary = () => {
             },
           });
         } else {
-          const errorMsg = result.message || "Failed to process payment. Please try again.";
-          showToast(errorMsg, TOAST_TYPE.ERROR);
+          showToast(result.message || "Failed to process payment. Please try again.", TOAST_TYPE.ERROR);
         }
       }
     } catch (error) {
       console.error("[BookingSummary] Error processing payment:", error);
-      const errorMsg = error?.message || "An error occurred. Please try again.";
-      showToast(errorMsg, TOAST_TYPE.ERROR);
+      showToast(error?.message || "An error occurred. Please try again.", TOAST_TYPE.ERROR);
     } finally {
       setIsProcessing(false);
       setIsInitializingPayment(false);
@@ -1658,10 +1616,21 @@ const BookingSummary = () => {
         {isProcessing && (
           <View style={styles.processingOverlay}>
             <View style={styles.processingCard}>
-              <ActivityIndicator size="large" color="#192DFF" />
-              <Text style={styles.processingText}>
-                Processing your booking...
-              </Text>
+              {isSuccess ? (
+                <View style={{ alignItems: 'center' }}>
+                  <Ionicons name="checkmark-circle" size={60} color="#2E7D32" />
+                  <Text style={[styles.processingText, { color: '#2E7D32' }]}>
+                    {successMessage || "Booking Confirmed!"}
+                  </Text>
+                </View>
+              ) : (
+                <>
+                  <ActivityIndicator size="large" color="#192DFF" />
+                  <Text style={styles.processingText}>
+                    Processing your booking...
+                  </Text>
+                </>
+              )}
             </View>
           </View>
         )}

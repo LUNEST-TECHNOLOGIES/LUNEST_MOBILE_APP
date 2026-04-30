@@ -1458,37 +1458,12 @@ const BookingConfirmationScreen = () => {
             <BookingRecoveryButton
               bookingId={booking._id}
               currentStatus={booking.status}
-              onStartRecovery={() => {
-                setDownloadModalState({
-                  visible: true,
-                  type: 'loading',
-                  title: 'Verifying Payment',
-                  message: 'Please wait while we confirm your payment status with Paystack...'
-                });
-              }}
-              onRecovered={(updatedBooking) => {
-                setDownloadModalState({
-                  visible: true,
-                  type: 'success',
-                  title: 'Payment Confirmed',
-                  message: 'Your booking has been successfully confirmed!'
-                });
+              variant="light"
+              onRecovered={() => {
                 // Refresh booking data after successful recovery
                 fetchBookingData();
-                
-                setTimeout(() => {
-                  setDownloadModalState(prev => ({ ...prev, visible: false }));
-                }, 2000);
               }}
-              onFailed={(errorMsg) => {
-                setDownloadModalState({
-                  visible: true,
-                  type: 'error',
-                  title: 'Verification Failed',
-                  message: errorMsg || 'Could not verify your payment. If you were charged, please contact support.'
-                });
-              }}
-              style={{ marginHorizontal: 16, marginTop: 16 }}
+              style={{ marginHorizontal: 20, marginTop: 15, marginBottom: 15 }}
             />
           )}
 

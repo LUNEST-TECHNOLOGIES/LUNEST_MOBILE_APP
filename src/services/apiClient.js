@@ -34,7 +34,7 @@ class APIClient {
     this.baseURL = detectAPIURL();
     this.timeout = process.env.EXPO_PUBLIC_API_TIMEOUT
       ? parseInt(process.env.EXPO_PUBLIC_API_TIMEOUT)
-      : 60000; // Increased default timeout to 60s
+      : 90000; // Increased default timeout to 90s for heavy booking ops
     this.headers = {
       "Content-Type": "application/json",
       Accept: "application/json",
@@ -222,7 +222,7 @@ class APIClient {
       throw error;
     }
 
-    const maxRetries = options.retries || 3;
+    const maxRetries = options.retries !== undefined ? options.retries : (options.method === 'GET' ? 3 : 0);
     const retryDelay = options.retryDelay || 2000;
 
     try {

@@ -1,179 +1,307 @@
-/**
- * BookingRecoveryButton
- * 
- * A button component that allows users to manually check and recover
- * a booking that is stuck in PENDING_PAYMENT status when payment was successful.
- */
-
 import { Ionicons } from "@expo/vector-icons";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   ActivityIndicator,
   Alert,
-  TouchableOpacity,
+  Modal,
   StyleSheet,
   Text,
+  Pressable,
   View,
+  Animated,
 } from "react-native";
 import apiClient from "../../services/apiClient";
 
 const BookingRecoveryButton = ({ 
   bookingId, 
   currentStatus,
-  onStartRecovery,
   onRecovered,
   onFailed,
+  variant = 'dark', // 'dark' or 'light'
   style = {}
 }) => {
   const [isRecovering, setIsRecovering] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [verificationStatus, setVerificationStatus] = useState('checking'); // 'checking', 'success', 'not_found'
+  
+  // Animation for slick button feel
+  const scaleAnim = useRef(new Animated.Value(1)).current;
 
   // Only show if booking is in PENDING_PAYMENT status (stuck payment)
-  const showButton = currentStatus?.toUpperCase() === 'PENDING_PAYMENT' || currentStatus?.toUpperCase() === 'RESERVED';
+  const isEligible = 
+    currentStatus?.toUpperCase() === 'PENDING_PAYMENT' || 
+    currentStatus?.toUpperCase() === 'RESERVED' ||
+    currentStatus?.toUpperCase() === 'PENDING';
   
-  if (!showButton) {
+  if (!isEligible) {
     return null;
   }
 
-  const handleRecover = async () => {
-    console.log(`[BookingRecovery] Button tapped for booking: ${bookingId}`);
-    Alert.alert(
-      "Confirm Payment",
-      "Did you complete the payment? We will check with our servers to confirm your booking.",
-      [
-        { text: "No, Cancel", style: "cancel" },
-        { 
-          text: "Yes, Confirm", 
-          style: "default",
-          onPress: () => {
-             if (onStartRecovery) onStartRecovery();
-             performRecovery();
-          } 
-        }
-      ]
-    );
+  const handlePressIn = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 0.96,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handleStartRecovery = () => {
+    setModalVisible(true);
+    setVerificationStatus('checking');
+    performRecovery();
   };
 
   const performRecovery = async () => {
     try {
       setIsRecovering(true);
       
-      console.log(`[BookingRecovery] Checking booking: ${bookingId}`);
+      console.log(`[BookingRecovery] Verifying booking: ${bookingId}`);
 
-      // FIX: URL pluralization from /v1/booking to /v1/bookings
+      // Call the backend recovery route
       const response = await apiClient.post('/v1/bookings/resolve-stuck-payment', {
         bookingId: bookingId
       });
 
       console.log('[BookingRecovery] Response:', response);
 
-      if (response.success || response.processed > 0) {
-        // Booking was recovered or already confirmed
-        const confirmed = response.processed > 0 || (response.data && response.data.status === 'CONFIRMED');
+      // Add a slight delay for better UX (so the modal doesn't flash)
+      await new Promise(resolve => setTimeout(resolve, 2500));
+
+      if (response.success && response.processed > 0) {
+        setVerificationStatus('success');
         
-        if (confirmed) {
-          Alert.alert(
-            "✅ Booking Confirmed!",
-            "Your payment has been verified and your booking is now confirmed.",
-            [
-              { 
-                text: "Great!", 
-                onPress: () => onRecovered && onRecovered()
-              }
-            ]
-          );
-        } else {
-          Alert.alert(
-            "⏳ Still Processing",
-            "We couldn't find a successful payment yet. If you just paid, it might take a minute to reflect. Please try again shortly.",
-            [
-              { text: "OK" }
-            ]
-          );
-        }
-        
-        // Notify parent component to refresh data
-        if (onRecovered) {
-          onRecovered();
-        }
+        // Wait a bit before closing and notifying
+        setTimeout(() => {
+          setModalVisible(false);
+          if (onRecovered) onRecovered();
+        }, 3000);
       } else {
-        // Recovery failed - notify parent
-        const errorMessage = response.message || "Could not verify your payment at this time.";
-        if (onFailed) {
-           onFailed(errorMessage);
-        } else {
-          Alert.alert("❌ Verification Failed", errorMessage);
-        }
+        setVerificationStatus('not_found');
       }
 
     } catch (error) {
       console.error('[BookingRecovery] Error:', error);
-      Alert.alert(
-        "Error",
-        "Failed to check booking status. Please try again or contact support if the issue persists."
-      );
+      setVerificationStatus('not_found');
     } finally {
       setIsRecovering(false);
     }
   };
 
+  const isLight = variant === 'light';
+
   return (
-    <TouchableOpacity 
-      style={[styles.container, style, isRecovering && styles.containerDisabled]} 
-      onPress={handleRecover}
-      disabled={isRecovering}
-      activeOpacity={0.7}
-      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-    >
-      <View style={styles.content}>
-        {isRecovering ? (
-          <ActivityIndicator size="small" color="#192DFF" style={styles.loader} />
-        ) : (
-          <Ionicons 
-            name="refresh-circle" 
-            size={20} 
-            color="#192DFF" 
-          />
-        )}
-        <Text style={[styles.text, isRecovering && styles.textDisabled]}>
-          {isRecovering ? "Verifying payment..." : "Paid but still pending? Verify here"}
-        </Text>
-      </View>
-    </TouchableOpacity>
+    <View style={[styles.wrapper, style]}>
+      <Pressable 
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        onPress={handleStartRecovery}
+      >
+        <Animated.View style={[
+          styles.slickButton, 
+          isLight && styles.lightButton,
+          { transform: [{ scale: scaleAnim }] }
+        ]}>
+          <View style={styles.slickButtonContent}>
+            <Ionicons 
+              name="shield-checkmark-outline" 
+              size={18} 
+              color={isLight ? "#192DFF" : "#FFFFFF"} 
+            />
+            <Text style={[
+              styles.slickButtonText,
+              isLight && styles.lightButtonText
+            ]}>
+              Paid but still pending? Verify here
+            </Text>
+            <Ionicons 
+              name="chevron-forward" 
+              size={16} 
+              color={isLight ? "#192DFF" : "#FFFFFF"} 
+              opacity={0.7} 
+            />
+          </View>
+        </Animated.View>
+      </Pressable>
+
+      {/* Verification Modal */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={() => !isRecovering && setModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            {verificationStatus === 'checking' && (
+              <View style={styles.statusView}>
+                <View style={styles.loaderContainer}>
+                  <ActivityIndicator size="large" color="#192DFF" />
+                </View>
+                <Text style={styles.modalTitle}>Verifying Payment</Text>
+                <Text style={styles.modalSubtext}>
+                  We are checking with our payment gateway to confirm your booking. Please hold on...
+                </Text>
+              </View>
+            )}
+
+            {verificationStatus === 'success' && (
+              <View style={styles.statusView}>
+                <View style={styles.iconCircleSuccess}>
+                  <Ionicons name="checkmark-done" size={40} color="#FFFFFF" />
+                </View>
+                <Text style={styles.modalTitle}>Verification Successful!</Text>
+                <Text style={styles.modalSubtext}>
+                  Great news! Your payment has been confirmed. Your booking is now secure.
+                </Text>
+              </View>
+            )}
+
+            {verificationStatus === 'not_found' && (
+              <View style={styles.statusView}>
+                <View style={styles.iconCircleError}>
+                  <Ionicons name="alert-circle" size={40} color="#FFFFFF" />
+                </View>
+                <Text style={styles.modalTitle}>Not Yet Confirmed</Text>
+                <Text style={styles.modalSubtext}>
+                  We couldn't confirm your payment just yet. If you just paid, it might take a moment to reflect.
+                </Text>
+                <Pressable 
+                  style={styles.closeButton}
+                  onPress={() => setModalVisible(false)}
+                >
+                  <Text style={styles.closeButtonText}>Close & Try Later</Text>
+                </Pressable>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    backgroundColor: '#F0F4FF',
+  wrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'stretch', // Allow parent margins to work
+  },
+  slickButton: {
+    backgroundColor: '#010135',
     borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderWidth: 1,
-    borderColor: '#192DFF',
-    marginVertical: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
     width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  containerDisabled: {
-    opacity: 0.7,
-    borderColor: '#D1D5DB',
-    backgroundColor: '#F9FAFB',
+  lightButton: {
+    backgroundColor: '#F0F4FF',
+    borderWidth: 1,
+    borderColor: '#D1DBFF',
+    shadowOpacity: 0.05,
+    elevation: 1,
   },
-  content: {
+  slickButtonContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 12,
   },
-  text: {
-    color: '#192DFF',
+  slickButtonText: {
+    color: '#FFFFFF',
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
+    letterSpacing: 0.2,
+    textAlign: 'center',
   },
-  textDisabled: {
-    color: '#6B7280',
+  lightButtonText: {
+    color: '#192DFF',
   },
-  loader: {
-    marginRight: 4,
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 30,
+    width: '100%',
+    maxWidth: 340,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  loaderContainer: {
+    height: 70,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  statusView: {
+    alignItems: 'center',
+    width: '100%',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#010135',
+    marginTop: 20,
+    textAlign: 'center',
+  },
+  modalSubtext: {
+    fontSize: 15,
+    color: '#64748B',
+    textAlign: 'center',
+    marginTop: 10,
+    lineHeight: 22,
+    paddingHorizontal: 10,
+  },
+  iconCircleSuccess: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: '#22C55E',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  iconCircleError: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: '#64748B',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  closeButton: {
+    marginTop: 25,
+    backgroundColor: '#F1F5F9',
+    paddingVertical: 12,
+    paddingHorizontal: 25,
+    borderRadius: 12,
+    width: '100%',
+    alignItems: 'center',
+  },
+  closeButtonText: {
+    color: '#010135',
+    fontSize: 15,
+    fontWeight: '700',
   }
 });
 

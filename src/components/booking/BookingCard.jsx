@@ -248,6 +248,14 @@ const BookingCard = ({
                   View details
                 </Text>
               </Pressable>
+
+              {/* Recovery Button (Verify payment) */}
+              <BookingRecoveryButton 
+                bookingId={booking._id} 
+                currentStatus={booking.status}
+                onRecovered={() => onViewDetails?.(booking)}
+                style={styles.recoveryButtonCard}
+              />
             </>
           )}
 
@@ -332,7 +340,7 @@ const BookingCard = ({
                 bookingId={booking._id} 
                 currentStatus={booking.status}
                 onRecovered={() => onViewDetails?.(booking)}
-                style={styles.recoveryButton}
+                style={styles.recoveryButtonCard}
               />
             </View>
           )}
@@ -534,10 +542,9 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     color: "#292929",
   },
-  recoveryButton: {
-    paddingVertical: 8,
-    marginVertical: 0,
-    borderRadius: 8,
+  recoveryButtonCard: {
+    marginTop: 4,
+    width: '100%',
   },
 });
 

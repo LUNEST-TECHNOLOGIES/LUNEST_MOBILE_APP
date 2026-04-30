@@ -786,23 +786,24 @@ const TransactionDetailScreen = () => {
                     <View style={styles.breakdownBox}>
                       <Text style={styles.breakdownTitle}>{isGuestSide ? "Payment Breakdown" : "Earnings Breakdown"}</Text>
                       
-                      {/* Rent & Service Charge (Common) */}
-                      {(breakdown.rent > 0 || (breakdown.total > 0 && isGuestSide)) && (
-                        <View style={styles.breakdownRow}>
-                          <Text style={styles.breakdownLabel}>Property Rent</Text>
-                          <Text style={styles.breakdownValue}>₦{Number(breakdown.rent || 0).toLocaleString()}</Text>
-                        </View>
-                      )}
-                      {breakdown.serviceCharge > 0 && (
-                        <View style={styles.breakdownRow}>
-                          <Text style={styles.breakdownLabel}>Property Service Charge</Text>
-                          <Text style={styles.breakdownValue}>₦{Number(breakdown.serviceCharge).toLocaleString()}</Text>
-                        </View>
-                      )}
-
-                      {/* Guest Side Specifics */}
                       {isGuestSide ? (
                         <>
+                          {/* Property Rent */}
+                          {breakdown.rent > 0 && (
+                            <View style={styles.breakdownRow}>
+                              <Text style={styles.breakdownLabel}>Property Rent</Text>
+                              <Text style={styles.breakdownValue}>₦{Number(breakdown.rent || 0).toLocaleString()}</Text>
+                            </View>
+                          )}
+
+                          {/* Property Service Charge */}
+                          {breakdown.serviceCharge > 0 && (
+                            <View style={styles.breakdownRow}>
+                              <Text style={styles.breakdownLabel}>Property Service Charge</Text>
+                              <Text style={styles.breakdownValue}>₦{Number(breakdown.serviceCharge || 0).toLocaleString()}</Text>
+                            </View>
+                          )}
+
                           {breakdown.guestFee > 0 && (
                             <View style={styles.breakdownRow}>
                               <Text style={styles.breakdownLabel}>Lunest Service Fee</Text>
@@ -828,30 +829,39 @@ const TransactionDetailScreen = () => {
                           </View>
                         </>
                       ) : (
-                        /* Host Side Specifics */
                         <>
-                          <View style={styles.breakdownRow}>
-                            <Text style={styles.breakdownLabel}>Property Rent</Text>
-                            <Text style={styles.breakdownValue}>₦{Number(breakdown.rent || 0).toLocaleString()}</Text>
-                          </View>
+                          {/* Property Rent */}
+                          {breakdown.rent > 0 && (
+                            <View style={styles.breakdownRow}>
+                              <Text style={styles.breakdownLabel}>Property Rent</Text>
+                              <Text style={styles.breakdownValue}>₦{Number(breakdown.rent || 0).toLocaleString()}</Text>
+                            </View>
+                          )}
+
+                          {/* Property Service Charge */}
                           {breakdown.serviceCharge > 0 && (
                             <View style={styles.breakdownRow}>
                               <Text style={styles.breakdownLabel}>Property Service Charge</Text>
-                              <Text style={styles.breakdownValue}>₦{Number(breakdown.serviceCharge).toLocaleString()}</Text>
+                              <Text style={styles.breakdownValue}>₦{Number(breakdown.serviceCharge || 0).toLocaleString()}</Text>
                             </View>
                           )}
+
+                          {/* App Charge (3%) */}
                           {(breakdown.appFee > 0 || breakdown.hostFee > 0) && (
                             <View style={styles.breakdownRow}>
                               <Text style={styles.breakdownLabel}>App Charge (3%)</Text>
                               <Text style={[styles.breakdownValue, { color: '#B70808' }]}>-₦{Number(breakdown.appFee || breakdown.hostFee || 0).toLocaleString()}</Text>
                             </View>
                           )}
-                          {(breakdown.vat > 0 || breakdown.hostVat > 0) && (
+
+                          {/* VAT (7.5%) */}
+                          {(breakdown.hostVat > 0 || breakdown.vat > 0) && (
                             <View style={styles.breakdownRow}>
                               <Text style={styles.breakdownLabel}>VAT (7.5%)</Text>
-                              <Text style={[styles.breakdownValue, { color: '#B70808' }]}>-₦{Number(breakdown.vat || breakdown.hostVat || 0).toLocaleString()}</Text>
+                              <Text style={[styles.breakdownValue, { color: '#B70808' }]}>-₦{Number(breakdown.hostVat || breakdown.vat || 0).toLocaleString()}</Text>
                             </View>
                           )}
+
                           {breakdown.cautionFee > 0 && (
                             <View style={styles.breakdownRow}>
                               <Text style={styles.breakdownLabel}>Caution Fee (Held in Escrow)</Text>

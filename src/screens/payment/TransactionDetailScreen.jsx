@@ -64,6 +64,80 @@ const TransactionDetailScreen = () => {
     category: params.category || (params.transactionType?.toUpperCase().includes("BOOKING") ? "BOOKING" : "")
   };
 
+  // REUSABLE BREAKDOWN CALCULATION
+  const getBreakdown = () => {
+    if (!params.metadata) return null;
+    try {
+      const metadata = typeof params.metadata === 'string' ? JSON.parse(params.metadata) : (params.metadata || {});
+      let breakdown = metadata.breakdown;
+      
+      // Support pricingBreakdown from BookingRepo summary transactions
+      if (!breakdown && metadata.pricingBreakdown) {
+        const pb = metadata.pricingBreakdown;
+        breakdown = {
+          rent: pb.rentFee || pb.rentAmount || pb.rent || 0,
+          serviceCharge: pb.serviceCharge || 0,
+          guestFee: pb.guestFee || 0,
+          guestVat: pb.guestVat || pb.vat || 0,
+          cautionFee: pb.securityDeposit || pb.cautionFee || 0,
+          total: pb.guestTotal || pb.total || 0,
+          netEarning: pb.hostEarnings || pb.netEarning || 0
+        };
+      }
+
+      // Support Host-side flat metadata (from HOST_EARNING transactions)
+      if (!breakdown && (metadata.hostSide || metadata.type === 'HOST')) {
+        breakdown = {
+          rent: metadata.rentAmount || metadata.rentFee || metadata.rent || 0,
+          serviceCharge: metadata.serviceCharge || 0,
+          hostFee: metadata.hostFee || metadata.appFee || 0,
+          hostVat: metadata.hostVat || metadata.vat || 0,
+          cautionFee: metadata.cautionFee || metadata.securityDeposit || 0,
+          netEarning: metadata.hostEarnings || metadata.netEarning || metadata.net || 0,
+        };
+        breakdown.total = metadata.total || (Number(breakdown.netEarning) + Number(breakdown.cautionFee));
+      }
+
+      // Special mapping for COUPON_PAYMENT
+      if (!breakdown && metadata.couponCode) {
+        breakdown = {
+          rent: metadata.originalAmount || 0,
+          couponDiscount: metadata.discountAmount || metadata.couponDiscount || 0,
+          total: metadata.finalAmount || 0,
+        };
+      }
+
+      if (!breakdown) return null;
+
+      // Normalize breakdown keys for consistency
+      const normalizedBreakdown = {
+        rent: breakdown.rent || breakdown.rentAmount || breakdown.rentFee || 0,
+        serviceCharge: breakdown.serviceCharge || 0,
+        guestFee: breakdown.guestFee || breakdown.appFee || 0,
+        guestVat: breakdown.guestVat || breakdown.vat || 0,
+        hostFee: breakdown.hostFee || breakdown.appFee || 0,
+        hostVat: breakdown.hostVat || breakdown.vat || 0,
+        cautionFee: breakdown.cautionFee || breakdown.securityDeposit || breakdown.caution || 0,
+        netEarning: breakdown.netEarning || breakdown.net || breakdown.hostEarnings || 0,
+        total: breakdown.total || breakdown.amount || 0,
+        couponDiscount: breakdown.couponDiscount || breakdown.discount || 0
+      };
+
+      // Infer side
+      const isGuestSide = metadata.guestSide ?? (
+        transactionData.transactionType?.toLowerCase().includes("booking payment") || 
+        transactionData.transactionType === "Booking" ||
+        transactionData.transactionType?.toLowerCase().includes("coupon")
+      );
+
+      return { ...normalizedBreakdown, isGuestSide };
+    } catch (e) {
+      return null;
+    }
+  };
+
+  const currentBreakdown = getBreakdown();
+
   // Dynamic status message for all transaction types
   function getStatusMessage(type, status) {
     const s = status?.toLowerCase();
@@ -396,9 +470,43 @@ const TransactionDetailScreen = () => {
                  ? `<tr><td class="label">Check-out</td><td class="value">${transactionData.checkOut}</td></tr>`
                  : ""
              }
-            <tr>
-              <td class="value amount">${transactionData.amount}</td>
-            </tr>
+            
+            ${
+              currentBreakdown ? `
+              <tr>
+                <td colspan="2" style="background-color: #f8f9ff; font-weight: 700; font-size: 11px; color: #010135; padding: 12px 15px; text-transform: uppercase; border-top: 2px solid #eee;">
+                  ${currentBreakdown.isGuestSide ? "Payment Breakdown" : "Earnings Breakdown"}
+                </td>
+              </tr>
+              ${currentBreakdown.isGuestSide ? `
+                ${currentBreakdown.rent ? `<tr><td class="label">Property Rent</td><td class="value">₦${Number(currentBreakdown.rent).toLocaleString()}</td></tr>` : ''}
+                ${currentBreakdown.serviceCharge ? `<tr><td class="label">Service Charge</td><td class="value">₦${Number(currentBreakdown.serviceCharge).toLocaleString()}</td></tr>` : ''}
+                ${currentBreakdown.guestFee ? `<tr><td class="label">Lunest Service Fee</td><td class="value">₦${Number(currentBreakdown.guestFee).toLocaleString()}</td></tr>` : ''}
+                ${(currentBreakdown.guestVat || currentBreakdown.vat) ? `<tr><td class="label">VAT on Fee</td><td class="value">₦${Number(currentBreakdown.guestVat || currentBreakdown.vat).toLocaleString()}</td></tr>` : ''}
+                ${currentBreakdown.cautionFee ? `<tr><td class="label">Caution Fee (Refundable)</td><td class="value">₦${Number(currentBreakdown.cautionFee).toLocaleString()}</td></tr>` : ''}
+                <tr class="amount-row">
+                  <td class="label" style="font-size: 14px; color: #010135;">Total Paid</td>
+                  <td class="value amount">₦${Number(currentBreakdown.total || currentBreakdown.amount).toLocaleString()}</td>
+                </tr>
+              ` : `
+                ${currentBreakdown.rent ? `<tr><td class="label">Property Rent</td><td class="value">₦${Number(currentBreakdown.rent).toLocaleString()}</td></tr>` : ''}
+                ${currentBreakdown.serviceCharge ? `<tr><td class="label">Service Charge</td><td class="value">₦${Number(currentBreakdown.serviceCharge).toLocaleString()}</td></tr>` : ''}
+                ${(currentBreakdown.appFee || currentBreakdown.hostFee) ? `<tr><td class="label">App Charge (3%)</td><td class="value" style="color: #B70808">-₦${Number(currentBreakdown.appFee || currentBreakdown.hostFee).toLocaleString()}</td></tr>` : ''}
+                ${(currentBreakdown.hostVat || currentBreakdown.vat) ? `<tr><td class="label">VAT (7.5%)</td><td class="value" style="color: #B70808">-₦${Number(currentBreakdown.hostVat || currentBreakdown.vat).toLocaleString()}</td></tr>` : ''}
+                ${currentBreakdown.netEarning ? `<tr><td class="label">Net Rent Earning</td><td class="value">₦${Number(currentBreakdown.netEarning).toLocaleString()}</td></tr>` : ''}
+                ${currentBreakdown.cautionFee ? `<tr><td class="label">Caution Fee (Escrow)</td><td class="value">₦${Number(currentBreakdown.cautionFee).toLocaleString()}</td></tr>` : ''}
+                <tr class="amount-row">
+                  <td class="label" style="font-size: 14px; color: #010135;">Total Earning</td>
+                  <td class="value amount">₦${Number(currentBreakdown.total).toLocaleString()}</td>
+                </tr>
+              `}
+              ` : `
+              <tr class="amount-row">
+                <td class="label" style="font-size: 14px; color: #010135;">Amount</td>
+                <td class="value amount">${transactionData.amount}</td>
+              </tr>
+              `
+            }
             ${
               transactionData.couponCode
                 ? `<tr><td class="label">Coupon Applied (${transactionData.couponCode})</td><td class="value" style="color: #2E7D32">-₦${Number(transactionData.couponDiscount).toLocaleString()}</td></tr>`
@@ -729,163 +837,120 @@ const TransactionDetailScreen = () => {
                 </Text>
               </View>
 
-              {/* Breakdown Section (Optional, from metadata) */}
-              {params.metadata && (() => {
-                try {
-                  const metadata = typeof params.metadata === 'string' ? JSON.parse(params.metadata) : (params.metadata || {});
-                  let breakdown = metadata.breakdown;
+              {/* Breakdown Section */}
+              {currentBreakdown && (
+                <View style={styles.breakdownBox}>
+                  <Text style={styles.breakdownTitle}>{currentBreakdown.isGuestSide ? "Payment Breakdown" : "Earnings Breakdown"}</Text>
                   
-                   // NEW: Support pricingBreakdown from BookingRepo summary transactions
-                  if (!breakdown && metadata.pricingBreakdown) {
-                    const pb = metadata.pricingBreakdown;
-                    breakdown = {
-                      rent: pb.rentFee || pb.rentAmount || pb.rent || 0,
-                      serviceCharge: pb.serviceCharge || 0,
-                      guestFee: pb.guestFee || 0,
-                      guestVat: pb.guestVat || pb.vat || 0,
-                      hostFee: pb.hostFee || pb.appFee || 0,
-                      hostVat: pb.hostVat || 0,
-                      cautionFee: pb.securityDeposit || pb.cautionFee || 0,
-                      total: pb.guestTotal || pb.total || 0,
-                      netEarning: pb.hostEarnings || pb.netEarning || 0
-                    };
-                  }
-
-                  // NEW: Support Host-side flat metadata (from HOST_EARNING transactions)
-                  if (!breakdown && metadata.hostSide) {
-                    breakdown = {
-                      rent: metadata.rentAmount || metadata.rentFee || metadata.rent || 0,
-                      serviceCharge: metadata.serviceCharge || 0,
-                      hostFee: metadata.hostFee || metadata.appFee || 0,
-                      hostVat: metadata.hostVat || metadata.vat || 0,
-                      cautionFee: metadata.cautionFee || 0,
-                      netEarning: metadata.hostEarnings || metadata.netEarning || 0,
-                      total: metadata.hostEarnings || 0
-                    };
-                  }
-
-                  // Special mapping for COUPON_PAYMENT or transactions with coupon data but no breakdown
-                  if (!breakdown && metadata.couponCode) {
-                    breakdown = {
-                      rent: metadata.originalAmount || 0,
-                      couponDiscount: metadata.discountAmount || metadata.couponDiscount || 0,
-                      total: metadata.finalAmount || 0,
-                    };
-                  }
-
-                  if (!breakdown) return null;
-
-                  // Infer guestSide if missing
-                  const isGuestSide = metadata.guestSide ?? (
-                    transactionData.transactionType?.toLowerCase().includes("booking payment") || 
-                    transactionData.transactionType === "Booking" ||
-                    transactionData.transactionType?.toLowerCase().includes("coupon")
-                  );
-
-                  return (
-                    <View style={styles.breakdownBox}>
-                      <Text style={styles.breakdownTitle}>{isGuestSide ? "Payment Breakdown" : "Earnings Breakdown"}</Text>
-                      
-                      {isGuestSide ? (
-                        <>
-                          {/* Property Rent */}
-                          {breakdown.rent > 0 && (
-                            <View style={styles.breakdownRow}>
-                              <Text style={styles.breakdownLabel}>Property Rent</Text>
-                              <Text style={styles.breakdownValue}>₦{Number(breakdown.rent || 0).toLocaleString()}</Text>
-                            </View>
-                          )}
-
-                          {/* Property Service Charge */}
-                          {breakdown.serviceCharge > 0 && (
-                            <View style={styles.breakdownRow}>
-                              <Text style={styles.breakdownLabel}>Property Service Charge</Text>
-                              <Text style={styles.breakdownValue}>₦{Number(breakdown.serviceCharge || 0).toLocaleString()}</Text>
-                            </View>
-                          )}
-
-                          {breakdown.guestFee > 0 && (
-                            <View style={styles.breakdownRow}>
-                              <Text style={styles.breakdownLabel}>Lunest Service Fee</Text>
-                              <Text style={styles.breakdownValue}>₦{Number(breakdown.guestFee).toLocaleString()}</Text>
-                            </View>
-                          )}
-                          {(breakdown.guestVat > 0 || breakdown.vat > 0) && (
-                            <View style={styles.breakdownRow}>
-                              <Text style={styles.breakdownLabel}>VAT on Service Fee</Text>
-                              <Text style={styles.breakdownValue}>₦{Number(breakdown.guestVat || breakdown.vat || 0).toLocaleString()}</Text>
-                            </View>
-                          )}
-                          {breakdown.cautionFee > 0 && (
-                            <View style={styles.breakdownRow}>
-                              <Text style={styles.breakdownLabel}>Caution Fee (Refundable)</Text>
-                              <Text style={styles.breakdownValue}>₦{Number(breakdown.cautionFee).toLocaleString()}</Text>
-                            </View>
-                          )}
-                          <View style={styles.breakdownDivider} />
-                          <View style={styles.breakdownRow}>
-                            <Text style={styles.breakdownLabelBold}>Total Paid</Text>
-                            <Text style={styles.breakdownValueBold}>₦{Number(breakdown.total || breakdown.amount || 0).toLocaleString()}</Text>
-                          </View>
-                        </>
-                      ) : (
-                        <>
-                          {/* Property Rent */}
-                          {breakdown.rent > 0 && (
-                            <View style={styles.breakdownRow}>
-                              <Text style={styles.breakdownLabel}>Property Rent</Text>
-                              <Text style={styles.breakdownValue}>₦{Number(breakdown.rent || 0).toLocaleString()}</Text>
-                            </View>
-                          )}
-
-                          {/* Property Service Charge */}
-                          {breakdown.serviceCharge > 0 && (
-                            <View style={styles.breakdownRow}>
-                              <Text style={styles.breakdownLabel}>Property Service Charge</Text>
-                              <Text style={styles.breakdownValue}>₦{Number(breakdown.serviceCharge || 0).toLocaleString()}</Text>
-                            </View>
-                          )}
-
-                          {/* App Charge (3%) */}
-                          {(breakdown.appFee > 0 || breakdown.hostFee > 0) && (
-                            <View style={styles.breakdownRow}>
-                              <Text style={styles.breakdownLabel}>App Charge (3%)</Text>
-                              <Text style={[styles.breakdownValue, { color: '#B70808' }]}>-₦{Number(breakdown.appFee || breakdown.hostFee || 0).toLocaleString()}</Text>
-                            </View>
-                          )}
-
-                          {/* VAT (7.5%) */}
-                          {(breakdown.hostVat > 0 || breakdown.vat > 0) && (
-                            <View style={styles.breakdownRow}>
-                              <Text style={styles.breakdownLabel}>VAT (7.5%)</Text>
-                              <Text style={[styles.breakdownValue, { color: '#B70808' }]}>-₦{Number(breakdown.hostVat || breakdown.vat || 0).toLocaleString()}</Text>
-                            </View>
-                          )}
-
-                          {breakdown.cautionFee > 0 && (
-                            <View style={styles.breakdownRow}>
-                              <Text style={styles.breakdownLabel}>Caution Fee (Held in Escrow)</Text>
-                              <Text style={styles.breakdownValue}>₦{Number(breakdown.cautionFee).toLocaleString()}</Text>
-                            </View>
-                          )}
-                          <View style={styles.breakdownDivider} />
-                          <View style={styles.breakdownRow}>
-                            <Text style={styles.breakdownLabelBold}>Net Earning</Text>
-                            <Text style={styles.breakdownValueBold}>₦{Number(breakdown.netEarning || breakdown.net || 0).toLocaleString()}</Text>
-                          </View>
-                          {breakdown.cautionFee > 0 && (
-                            <Text style={styles.escrowNote}>
-                              * The Caution Fee is recorded as a separate transaction and held in escrow.
-                            </Text>
-                          )}
-                        </>
+                  {currentBreakdown.isGuestSide ? (
+                    <>
+                      {/* Property Rent */}
+                      {currentBreakdown.rent > 0 && (
+                        <View style={styles.breakdownRow}>
+                          <Text style={styles.breakdownLabel}>Property Rent</Text>
+                          <Text style={styles.breakdownValue}>₦{Number(currentBreakdown.rent || 0).toLocaleString()}</Text>
+                        </View>
                       )}
-                    </View>
-                  );
-                } catch (e) {
-                  return null;
-                }
-              })()}
+
+                      {/* Property Service Charge */}
+                      {currentBreakdown.serviceCharge > 0 && (
+                        <View style={styles.breakdownRow}>
+                          <Text style={styles.breakdownLabel}>Property Service Charge</Text>
+                          <Text style={styles.breakdownValue}>₦{Number(currentBreakdown.serviceCharge || 0).toLocaleString()}</Text>
+                        </View>
+                      )}
+
+                      {currentBreakdown.guestFee > 0 && (
+                        <View style={styles.breakdownRow}>
+                          <Text style={styles.breakdownLabel}>Lunest Service Fee</Text>
+                          <Text style={styles.breakdownValue}>₦{Number(currentBreakdown.guestFee).toLocaleString()}</Text>
+                        </View>
+                      )}
+                      {(currentBreakdown.guestVat > 0 || currentBreakdown.vat > 0) && (
+                        <View style={styles.breakdownRow}>
+                          <Text style={styles.breakdownLabel}>VAT on Service Fee</Text>
+                          <Text style={styles.breakdownValue}>₦{Number(currentBreakdown.guestVat || currentBreakdown.vat || 0).toLocaleString()}</Text>
+                        </View>
+                      )}
+                      {currentBreakdown.cautionFee > 0 && (
+                        <View style={styles.breakdownRow}>
+                          <Text style={styles.breakdownLabel}>Caution Fee (Refundable)</Text>
+                          <Text style={styles.breakdownValue}>₦{Number(currentBreakdown.cautionFee).toLocaleString()}</Text>
+                        </View>
+                      )}
+                      <View style={styles.breakdownDivider} />
+                      <View style={styles.breakdownRow}>
+                        <Text style={styles.breakdownLabelBold}>Total Paid</Text>
+                        <Text style={styles.breakdownValueBold}>₦{Number(currentBreakdown.total || currentBreakdown.amount || 0).toLocaleString()}</Text>
+                      </View>
+                    </>
+                  ) : (
+                    <>
+                      {/* Property Rent */}
+                      {currentBreakdown.rent > 0 && (
+                        <View style={styles.breakdownRow}>
+                          <Text style={styles.breakdownLabel}>Property Rent</Text>
+                          <Text style={styles.breakdownValue}>₦{Number(currentBreakdown.rent || 0).toLocaleString()}</Text>
+                        </View>
+                      )}
+
+                      {/* Property Service Charge */}
+                      {currentBreakdown.serviceCharge > 0 && (
+                        <View style={styles.breakdownRow}>
+                          <Text style={styles.breakdownLabel}>Property Service Charge</Text>
+                          <Text style={styles.breakdownValue}>₦{Number(currentBreakdown.serviceCharge || 0).toLocaleString()}</Text>
+                        </View>
+                      )}
+
+                      {/* App Charge (3%) */}
+                      {(currentBreakdown.appFee > 0 || currentBreakdown.hostFee > 0) && (
+                        <View style={styles.breakdownRow}>
+                          <Text style={styles.breakdownLabel}>App Charge (3%)</Text>
+                          <Text style={[styles.breakdownValue, { color: '#B70808' }]}>-₦{Number(currentBreakdown.appFee || currentBreakdown.hostFee || 0).toLocaleString()}</Text>
+                        </View>
+                      )}
+
+                      {/* VAT (7.5%) */}
+                      {(currentBreakdown.hostVat > 0 || currentBreakdown.vat > 0) && (
+                        <View style={styles.breakdownRow}>
+                          <Text style={styles.breakdownLabel}>VAT (7.5%)</Text>
+                          <Text style={[styles.breakdownValue, { color: '#B70808' }]}>-₦{Number(currentBreakdown.hostVat || currentBreakdown.vat || 0).toLocaleString()}</Text>
+                        </View>
+                      )}
+
+                      {/* Net Rent Earning (Sub-total) */}
+                      {currentBreakdown.netEarning > 0 && (
+                         <View style={[styles.breakdownRow, { marginTop: 4 }]}>
+                           <Text style={[styles.breakdownLabel, { fontWeight: '600' }]}>Net Rent Earning</Text>
+                           <Text style={[styles.breakdownValue, { fontWeight: '700' }]}>₦{Number(currentBreakdown.netEarning || currentBreakdown.net || 0).toLocaleString()}</Text>
+                         </View>
+                      )}
+
+                      {currentBreakdown.cautionFee > 0 && (
+                        <View style={styles.breakdownRow}>
+                          <Text style={styles.breakdownLabel}>Caution Fee (Held in Escrow)</Text>
+                          <Text style={styles.breakdownValue}>₦{Number(currentBreakdown.cautionFee).toLocaleString()}</Text>
+                        </View>
+                      )}
+
+                      <View style={styles.breakdownDivider} />
+                      
+                      <View style={styles.breakdownRow}>
+                        <Text style={styles.breakdownLabelBold}>Total Earning</Text>
+                        <Text style={styles.breakdownValueBold}>
+                            ₦{Number(currentBreakdown.total || (Number(currentBreakdown.netEarning || 0) + Number(currentBreakdown.cautionFee || 0)) || 0).toLocaleString()}
+                        </Text>
+                      </View>
+
+                      {currentBreakdown.cautionFee > 0 && (
+                        <Text style={styles.escrowNote}>
+                          * The Caution Fee is recorded as a separate transaction and held in escrow for your protection.
+                        </Text>
+                      )}
+                    </>
+                  )}
+                </View>
+              )}
 
               {/* Check-in/Check-out if available */}
               {transactionData.checkIn && (

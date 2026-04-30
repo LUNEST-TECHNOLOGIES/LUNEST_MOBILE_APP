@@ -26,6 +26,9 @@ import ViewShot, { captureRef } from "react-native-view-shot";
 import DownloadConfirmationModal from "../../components/common/DownloadConfirmationModal";
 import DownloadOptionsModal from "../../components/common/DownloadOptionsModal";
 import authService from "../../services/authService";
+import { saveRefAsImage, downloadFile } from "../../utils/downloadUtils";
+import { ChevronLeft } from "lucide-react-native";
+import bookingService from "../../services/bookingService";
 
 const logoImage = require("../../assets/images/lunest_logo_main.png");
 
@@ -240,11 +243,7 @@ const TransactionDetailScreen = () => {
         });
 
         if (Platform.OS === "android" || Platform.OS === "ios") {
-          await Sharing.shareAsync(uri, {
-            mimeType: "image/png",
-            dialogTitle: `Receipt-${transactionData.transactionId}.png`,
-            UTI: "public.png",
-          });
+          await saveRefAsImage(uri, `Receipt-${transactionData.transactionId}.png`);
           setConfirmationMessage("Receipt image saved successfully.");
           setConfirmationVisible(true);
         } else {
@@ -263,6 +262,23 @@ const TransactionDetailScreen = () => {
   const handleDownloadPDF = async () => {
     try {
       setIsDownloading(true);
+
+      // Web support for PDF receipts
+      if (Platform.OS === "web") {
+        // If it's a booking, we can try to get the receipt from the backend
+        if (transactionData.category === "BOOKING" && transactionData.bookingId) {
+          const result = await bookingService.fetchReceipt(transactionData.bookingId);
+          if (result.success && result.url) {
+            await downloadFile(result.url, `Receipt-${transactionData.transactionId}.pdf`, "application/pdf");
+            setConfirmationMessage("Receipt PDF downloaded successfully.");
+            setConfirmationVisible(true);
+            return;
+          }
+        }
+        
+        Alert.alert("Not Supported", "Direct PDF generation is not available on web. Please use 'Save as Image' instead.");
+        return;
+      }
 
       const userData = await authService.getUserData();
       const userName = userData?.fullName || "Account Holder";
@@ -390,7 +406,6 @@ const TransactionDetailScreen = () => {
       await Sharing.shareAsync(uri, { UTI: ".pdf", mimeType: "application/pdf" });
       setConfirmationMessage("Receipt PDF downloaded successfully.");
       setConfirmationVisible(true);
-    } catch (error) {
       console.error("Error generating PDF:", error);
       Alert.alert("Error", "Failed to generate PDF receipt.");
     } finally {
@@ -447,7 +462,7 @@ const TransactionDetailScreen = () => {
       {/* Header */}
       <View style={styles.header}>
         <Pressable style={styles.backButton} onPress={handleGoBack}>
-          <Ionicons name="close" size={24} color="#000" />
+          <ChevronLeft size={24} color="#000" strokeWidth={2} />
         </Pressable>
         <Text style={styles.headerTitle}>
           {getStatusMessage(

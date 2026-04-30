@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
-  ArrowLeft,
+  ChevronLeft,
   Image as ImageIcon
 } from "lucide-react-native";
 import { useEffect, useMemo, useState } from "react";
@@ -396,7 +396,7 @@ const ListingPreview = () => {
           style={[styles.headerButton, styles.backCircle]}
           onPress={() => router.back()}
         >
-          <ArrowLeft size={24} color="#000" strokeWidth={2} />
+          <ChevronLeft size={24} color="#000" strokeWidth={2} />
         </Pressable>
       </View>
 
@@ -645,6 +645,27 @@ const ListingPreview = () => {
           </View>
         )}
 
+        {/* Instant Booking Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Booking Method</Text>
+          <View style={styles.amenityItem}>
+            <View style={styles.amenityCheckmark}>
+              <Text style={styles.checkmark}>✓</Text>
+            </View>
+            <Text style={styles.amenityText}>
+              {listingData.instantBooking ? "Instant Booking Enabled" : "Host Approval Required"}
+            </Text>
+          </View>
+        </View>
+
+        {/* Location Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Location Details</Text>
+          <Text style={styles.sectionContent}>
+            {listingData.address ? `${listingData.address}, ` : ""}{listingData.city}, {listingData.state}
+          </Text>
+        </View>
+
         {/* Amenities Section */}
         {listingData.amenities && listingData.amenities.length > 0 && (
           <View style={styles.section}>
@@ -704,16 +725,29 @@ const ListingPreview = () => {
               <Text style={styles.sectionContent}>
                 {(() => {
                   let rules = listingData.houseRules;
-                  if (typeof rules === "string" && (rules.startsWith("[") || rules.includes(","))) {
-                    try {
-                      rules = rules.startsWith("[") ? JSON.parse(rules) : rules.split(",").map(r => r.trim());
-                    } catch (e) {
-                      rules = rules.split(",").map(r => r.trim());
+                  if (typeof rules === "string") {
+                    // Split by newline or comma if it looks like a list
+                    if (rules.includes("\n")) {
+                      rules = rules.split("\n").map(r => r.trim());
+                    } else if (rules.startsWith("[") || rules.includes(",")) {
+                      try {
+                        rules = rules.startsWith("[") ? JSON.parse(rules) : rules.split(",").map(r => r.trim());
+                      } catch (e) {
+                        rules = rules.split(",").map(r => r.trim());
+                      }
                     }
                   }
-                  return Array.isArray(rules) 
-                    ? convertRegulationsToLabels(rules).join(", ")
-                    : String(rules || "");
+                  
+                  if (Array.isArray(rules)) {
+                    return convertRegulationsToLabels(rules).filter(Boolean).join(", ");
+                  }
+                  
+                  // If it's a single rule ID, try to convert it
+                  if (typeof rules === "string" && HOUSE_RULES_MAP[rules]) {
+                    return HOUSE_RULES_MAP[rules];
+                  }
+                  
+                  return String(rules || "");
                 })()}
               </Text>
             ) : null}

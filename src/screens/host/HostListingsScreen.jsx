@@ -43,7 +43,7 @@ import listingService from "../../services/listingService";
 import * as ImageUtils from "../../utils/imageUtils";
 
 // Icons
-import { Plus } from "lucide-react-native";
+import { Plus, ChevronLeft } from "lucide-react-native";
 import { HostListingSkeleton } from "../../components/skeletons";
 
 // Status Badge configuration removed local SVG definitions here as we use Lucide now
@@ -573,6 +573,30 @@ const ListingCard = ({
               </TouchableOpacity>
             </>
           )}
+
+          {/* Rejected listings: edit, delete */}
+          {isRejected && (
+            <>
+              <TouchableOpacity
+                style={styles.cardActionButton}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  onEdit?.();
+                }}
+              >
+                <EditIcon width={20} height={20} color="#6D6D6D" />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.cardActionButton}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  onDelete?.();
+                }}
+              >
+                <TrashIcon width={20} height={20} color="#FD3131" />
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       </View>
     </Pressable>
@@ -1051,10 +1075,6 @@ const HostListingsScreen = () => {
   // Filter listings based on selected tab - defensive check for allListings
   // Exclude REJECTED and SUSPENDED listings from displaying for the host
   let filteredListings = (allListings || []).filter((listing) => {
-    // Hide suspended and rejected listings from the host view
-    if (listing.status === "REJECTED" || listing.status === "SUSPENDED") {
-      return false;
-    }
 
     switch (selectedFilter) {
       case "all":
@@ -1066,14 +1086,16 @@ const HostListingsScreen = () => {
           listing.listingType === "For Rent" &&
           (listing.status === "LIVE" ||
             listing.status === "ACTIVE" ||
-            listing.status === "AVAILABLE")
+            listing.status === "AVAILABLE" ||
+            listing.status === "PENDING")
         );
       case "for_sale":
         return (
           listing.listingType === "For Sale" &&
           (listing.status === "LIVE" ||
             listing.status === "ACTIVE" ||
-            listing.status === "AVAILABLE")
+            listing.status === "AVAILABLE" ||
+            listing.status === "PENDING")
         );
       case "pending":
         return listing.status === "PENDING";
@@ -1760,7 +1782,15 @@ const HostListingsScreen = () => {
     <SafeAreaView style={styles.container} edges={["top"]}>
       {/* Header */}
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 10) }]}>
-        <Text style={styles.headerTitle}>Listings</Text>
+        <View style={styles.headerTitleRow}>
+          <TouchableOpacity 
+            style={styles.backButton} 
+            onPress={() => router.canGoBack() ? router.back() : router.replace("/(host-tabs)/")}
+          >
+            <ChevronLeft size={24} color="#000" strokeWidth={2} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Listings</Text>
+        </View>
         <TouchableOpacity
           style={styles.tipsButton}
           onPress={() => setShowTipsModal(true)}

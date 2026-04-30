@@ -1590,7 +1590,7 @@ const PropertyDetailsScreen = () => {
               })
             }
           >
-            <ArrowRightIcon width={18} height={18} color="#010135" />
+            <ChevronRight size={18} color="#010135" />
           </Pressable>
         </View>
         <View style={styles.reviewsContainer}>
@@ -1683,7 +1683,7 @@ const PropertyDetailsScreen = () => {
           style={[styles.backButton, !isHeaderFixed && styles.backCircle]}
           onPress={handleGoBack}
         >
-          <ArrowLeftIcon width={24} height={24} color={isHeaderFixed ? "#FFFFFF" : "#000"} />
+          <ChevronLeft size={24} color={isHeaderFixed ? "#FFFFFF" : "#000"} strokeWidth={2} />
         </Pressable>
 
         {isHeaderFixed && (
@@ -1819,7 +1819,7 @@ const PropertyDetailsScreen = () => {
             }
           >
             <Text style={styles.fullDetailsText}>Full details</Text>
-            <ArrowRight size={18} color="#010135" />
+            <ChevronRight size={18} color="#010135" />
           </Pressable>
         </View>
 

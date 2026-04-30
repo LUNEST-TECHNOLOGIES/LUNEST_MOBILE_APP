@@ -723,6 +723,11 @@ const Review = () => {
         additionalRules: mergedData.additionalRules || "",
         furnishing: mergedData.furnishing || "",
         titleType: mergedData.titleType || "",
+        rentalPurpose: mergedData.rentalPurpose || "",
+        sittingRooms: parseInt(mergedData.sittingRooms) || 0,
+        lounges: parseInt(mergedData.lounges) || 0,
+        workspaces: parseInt(mergedData.workspaces) || 0,
+        roomSizes: Array.isArray(mergedData.roomSizes) ? mergedData.roomSizes : [],
         totalSquareFootage: mergedData.totalSquareFootage || "",
         usageType: mergedData.usageType || "",
         // ALIGN WITH BACKEND: Use propertyName and explicit bedrooms/bathrooms
@@ -733,6 +738,7 @@ const Review = () => {
         bathrooms: parseInt(mergedData.bathrooms) || 0,
         acceptRefund: mergedData.acceptRefund !== false, // Explicitly pass the refund policy
         status: "PENDING",
+        draftId: draftId,
       };
 
       // Add check-in/check-out times only if they were set

@@ -10,7 +10,7 @@ import { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Pressable,
+  TouchableOpacity,
   StyleSheet,
   Text,
   View,
@@ -28,13 +28,14 @@ const BookingRecoveryButton = ({
   const [isRecovering, setIsRecovering] = useState(false);
 
   // Only show if booking is in PENDING_PAYMENT status (stuck payment)
-  const showButton = currentStatus?.toUpperCase() === 'PENDING_PAYMENT';
+  const showButton = currentStatus?.toUpperCase() === 'PENDING_PAYMENT' || currentStatus?.toUpperCase() === 'RESERVED';
   
   if (!showButton) {
     return null;
   }
 
   const handleRecover = async () => {
+    console.log(`[BookingRecovery] Button tapped for booking: ${bookingId}`);
     Alert.alert(
       "Confirm Payment",
       "Did you complete the payment? We will check with our servers to confirm your booking.",
@@ -58,16 +59,16 @@ const BookingRecoveryButton = ({
       
       console.log(`[BookingRecovery] Checking booking: ${bookingId}`);
 
-      // Using the new reconciliation endpoint
-      const response = await apiClient.post('/v1/booking/resolve-stuck-payment', {
+      // FIX: URL pluralization from /v1/booking to /v1/bookings
+      const response = await apiClient.post('/v1/bookings/resolve-stuck-payment', {
         bookingId: bookingId
       });
 
       console.log('[BookingRecovery] Response:', response);
 
-      if (response.success) {
+      if (response.success || response.processed > 0) {
         // Booking was recovered or already confirmed
-        const confirmed = response.processed > 0;
+        const confirmed = response.processed > 0 || (response.data && response.data.status === 'CONFIRMED');
         
         if (confirmed) {
           Alert.alert(
@@ -116,10 +117,12 @@ const BookingRecoveryButton = ({
   };
 
   return (
-    <Pressable 
+    <TouchableOpacity 
       style={[styles.container, style, isRecovering && styles.containerDisabled]} 
       onPress={handleRecover}
       disabled={isRecovering}
+      activeOpacity={0.7}
+      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
     >
       <View style={styles.content}>
         {isRecovering ? (
@@ -135,7 +138,7 @@ const BookingRecoveryButton = ({
           {isRecovering ? "Verifying payment..." : "Paid but still pending? Verify here"}
         </Text>
       </View>
-    </Pressable>
+    </TouchableOpacity>
   );
 };
 

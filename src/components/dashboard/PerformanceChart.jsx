@@ -111,10 +111,12 @@ const BarChart = ({
                       styles.bar,
                       {
                         height,
-                        backgroundColor: isActive ? color : `${color}30`,
+                        backgroundColor: isActive ? color : `${color}40`,
+                        borderRadius: 12, // Fully rounded bars
                       },
                     ]}
                   />
+                  {isActive && <View style={styles.activeDot} />}
                 </View>
               );
             })}
@@ -184,6 +186,7 @@ const CombinedBarChart = ({ bookingsData, earningsData, years }) => {
                     {
                       height: (earningsData[index] / 4000000) * 167,
                       backgroundColor: "#9747FF",
+                      borderRadius: 8,
                     },
                   ]}
                 />
@@ -192,7 +195,8 @@ const CombinedBarChart = ({ bookingsData, earningsData, years }) => {
                     styles.groupedBar,
                     {
                       height: (bookingsData[index] / 4000000) * 167,
-                      backgroundColor: "#EF6C00",
+                      backgroundColor: "#192DFF", // Lunest Blue for bookings
+                      borderRadius: 8,
                     },
                   ]}
                 />
@@ -252,9 +256,9 @@ const PerformanceChart = ({
           <BarChart
             data={bookingsData}
             title="Bookings"
-            subtitle="Average Weekly Bookings"
+            subtitle="Weekly Booking Trends"
             valueFormatter={formatBookings}
-            color="#EF6C00"
+            color="#192DFF" // Lunest Blue
             maxValue={15000}
           />
         );
@@ -263,9 +267,9 @@ const PerformanceChart = ({
           <BarChart
             data={earningsData}
             title="Earnings"
-            subtitle="Average Weekly Earnings"
+            subtitle="Weekly Revenue Growth"
             valueFormatter={formatEarnings}
-            color="#9747FF"
+            color="#9747FF" // Premium Purple
             maxValue={1500000}
           />
         );
@@ -477,10 +481,16 @@ const styles = StyleSheet.create({
     width: 20,
   },
   bar: {
-    width: 20,
-    borderTopLeftRadius: 5,
-    borderTopRightRadius: 5,
+    width: 14,
+    borderRadius: 8,
     minHeight: 4,
+  },
+  activeDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "rgba(0,0,0,0.2)",
+    marginTop: 4,
   },
   xAxis: {
     flexDirection: "row",

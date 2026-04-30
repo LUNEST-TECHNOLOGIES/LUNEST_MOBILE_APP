@@ -180,9 +180,9 @@ const HostDashboardScreen = () => {
     if (!isAuthenticated) return;
 
     const refreshInterval = setInterval(() => {
-      console.log("💰 [HostDashboard] Refreshing wallet balance...");
+      console.log("💰 [HostDashboard] Smart Refresh: Updating balances...");
       fetchDashboardData(false); // Refresh without showing loader
-    }, 15000); // Refresh every 15 seconds for real-time feel
+    }, 45000); // Optimized to 45 seconds to balance live data vs battery life
 
     return () => clearInterval(refreshInterval);
   }, [isAuthenticated]);

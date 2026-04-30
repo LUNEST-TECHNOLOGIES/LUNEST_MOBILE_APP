@@ -690,10 +690,12 @@ const TransactionDetailScreen = () => {
                   if (!breakdown && metadata.pricingBreakdown) {
                     const pb = metadata.pricingBreakdown;
                     breakdown = {
-                      rent: pb.rentFee || pb.rentAmount || 0,
+                      rent: pb.rentFee || pb.rentAmount || pb.rent || 0,
                       serviceCharge: pb.serviceCharge || 0,
                       guestFee: pb.guestFee || 0,
                       guestVat: pb.guestVat || pb.vat || 0,
+                      hostFee: pb.hostFee || pb.appFee || 0,
+                      hostVat: pb.hostVat || 0,
                       cautionFee: pb.securityDeposit || pb.cautionFee || 0,
                       total: pb.guestTotal || pb.total || 0,
                       netEarning: pb.hostEarnings || pb.netEarning || 0
@@ -703,7 +705,7 @@ const TransactionDetailScreen = () => {
                   // NEW: Support Host-side flat metadata (from HOST_EARNING transactions)
                   if (!breakdown && metadata.hostSide) {
                     breakdown = {
-                      rent: metadata.rentAmount || 0,
+                      rent: metadata.rentAmount || metadata.rentFee || metadata.rent || 0,
                       serviceCharge: metadata.serviceCharge || 0,
                       hostFee: metadata.hostFee || metadata.appFee || 0,
                       hostVat: metadata.hostVat || metadata.vat || 0,
@@ -781,7 +783,7 @@ const TransactionDetailScreen = () => {
                         <>
                           {(breakdown.appFee > 0 || breakdown.hostFee > 0) && (
                             <View style={styles.breakdownRow}>
-                              <Text style={styles.breakdownLabel}>App Charge ({metadata.calculation?.appFeePercent || 3}%)</Text>
+                              <Text style={styles.breakdownLabel}>App Charge ({metadata.pricingBreakdown?.hostFeePercent || metadata.calculation?.appFeePercent || 3}%)</Text>
                               <Text style={[styles.breakdownValue, { color: '#B70808' }]}>-₦{Number(breakdown.appFee || breakdown.hostFee || 0).toLocaleString()}</Text>
                             </View>
                           )}

@@ -110,20 +110,23 @@ const BookingRecoveryButton = ({
           <View style={styles.slickButtonContent}>
             <Ionicons 
               name="shield-checkmark-outline" 
-              size={18} 
+              size={14} 
               color={isLight ? "#192DFF" : "#FFFFFF"} 
             />
-            <Text style={[
-              styles.slickButtonText,
-              isLight && styles.lightButtonText
-            ]}>
-              Paid but still pending? Verify here
+            <Text 
+              style={[
+                styles.slickButtonText,
+                isLight && styles.lightButtonText
+              ]}
+              numberOfLines={1}
+            >
+              Paid? Verify with Paystack
             </Text>
             <Ionicons 
               name="chevron-forward" 
-              size={16} 
+              size={12} 
               color={isLight ? "#192DFF" : "#FFFFFF"} 
-              opacity={0.7} 
+              opacity={0.5} 
             />
           </View>
         </Animated.View>
@@ -194,36 +197,36 @@ const styles = StyleSheet.create({
   },
   slickButton: {
     backgroundColor: '#010135',
-    borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 24,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
     width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 3,
   },
   lightButton: {
     backgroundColor: '#F0F4FF',
     borderWidth: 1,
     borderColor: '#D1DBFF',
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.03,
     elevation: 1,
   },
   slickButtonContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
+    gap: 10,
   },
   slickButtonText: {
     color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
-    letterSpacing: 0.2,
+    letterSpacing: 0.1,
     textAlign: 'center',
   },
   lightButtonText: {

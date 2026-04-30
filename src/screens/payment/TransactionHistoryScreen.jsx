@@ -4,24 +4,24 @@
  * Status types: CONFIRMED, PENDING, FAILED
  */
 import { Ionicons } from "@expo/vector-icons";
-import { File, Paths } from "expo-file-system";
 import { useFocusEffect } from "@react-navigation/native";
+import { File, Paths } from "expo-file-system";
 import { useRouter } from "expo-router";
 import * as Sharing from "expo-sharing";
-import { useCallback, useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    FlatList,
-    Modal,
-    Platform,
-    Pressable,
-    RefreshControl,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    TouchableWithoutFeedback,
-    View,
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Modal,
+  Platform,
+  Pressable,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
@@ -1003,17 +1003,13 @@ const TransactionHistoryScreen = () => {
       }
     }
 
-    if (item.type === "SECURITY_DEPOSIT" && (item.status === "ON_HOLD" || item.status === "PROCESSING")) {
-      displayLabel = `Caution Fee (Held in Escrow)`;
-      if (bookingRef) {
-        displayLabel += ` (${bookingRef})`;
-      }
-    }
+
 
     // Explicitly handle security deposit label for host/guest
     if (item.type === "SECURITY_DEPOSIT") {
       const isOutflow = !isInflowTransaction(item.type, item.originalType);
-      const baseLabel = isOutflow ? "Caution Fee (Hold)" : "Caution Fee Refund";
+      const isEscrow = item.status === "ON_HOLD" || item.status === "PROCESSING";
+      const baseLabel = isEscrow ? "Caution Fee (Escrow)" : (isOutflow ? "Caution Fee (Hold)" : "Caution Fee Refund");
       const resolutionStatus = item.metadata?.reconciliation?.cautionFeeStatus || item.metadata?.cautionFeeStatus;
       const isDisclosure = item.metadata?.isDisclosure;
       

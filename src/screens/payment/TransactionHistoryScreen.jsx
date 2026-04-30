@@ -960,7 +960,12 @@ const TransactionHistoryScreen = () => {
     
     // Explicitly handle booking payment label with booking reference
     if (item.type === "BOOKING" || item.type === "BOOKING_PAYMENT") {
-      displayLabel = bookingRef ? `Booking Payment (${bookingRef})` : config.label;
+      const isCancelled = item.metadata?.bookingStatus === 'Cancelled' || 
+                          item.metadata?.status === 'Cancelled' ||
+                          item.status === 'CANCELLED';
+      displayLabel = isCancelled 
+        ? `Booking Cancelled ${bookingRef ? `(${bookingRef})` : ""}` 
+        : (bookingRef ? `Booking Payment (${bookingRef})` : config.label);
     }
     
     // Explicitly handle coupon payment label with booking reference
@@ -1047,6 +1052,8 @@ const TransactionHistoryScreen = () => {
               couponDiscount: item.couponDiscount || item.metadata?.couponDiscount || "",
               reference: item.reference || "",
               metadata: JSON.stringify(item.metadata || {}),
+              bookingStatus: item.metadata?.bookingStatus || item.metadata?.status || "",
+              category: item.type || item.category || ""
             },
           });
         }}

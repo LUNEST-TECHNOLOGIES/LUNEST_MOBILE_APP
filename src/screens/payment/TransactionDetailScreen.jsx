@@ -42,6 +42,8 @@ const TransactionDetailScreen = () => {
   const [isCopied, setIsCopied] = useState(false);
   const [isResolving, setIsResolving] = useState(false);
   const viewShotRef = useRef(null);
+  const Wrapper = Platform.OS === "web" ? View : ViewShot;
+  const wrapperProps = Platform.OS === "web" ? {} : { options: { format: "png", quality: 0.9 } };
 
   // Parse transaction data from params
   const transactionData = {
@@ -56,6 +58,7 @@ const TransactionDetailScreen = () => {
     checkIn: params.checkIn,
     checkOut: params.checkOut,
     bookingId: params.bookingId,
+    bookingStatus: params.bookingStatus || "",
     couponCode: params.couponCode || "",
     couponDiscount: params.couponDiscount || "",
     category: params.category || (params.transactionType?.toUpperCase().includes("BOOKING") ? "BOOKING" : "")
@@ -65,6 +68,12 @@ const TransactionDetailScreen = () => {
   function getStatusMessage(type, status) {
     const s = status?.toLowerCase();
     const t = type?.toLowerCase() || "";
+    const bs = transactionData.bookingStatus?.toLowerCase();
+
+    // IF booking is cancelled, OVERRIDE the transaction status display
+    if (bs === "cancelled") {
+        return "Booking Cancelled";
+    }
     
     if (t.includes("booking") && (t.includes("payment") || t.includes("receipt"))) {
         if (s === "failed" || s === "cancelled") return "Transaction Failed";
@@ -265,18 +274,23 @@ const TransactionDetailScreen = () => {
 
       // Web support for PDF receipts
       if (Platform.OS === "web") {
-        // If it's a booking, we can try to get the receipt from the backend
+        // 1. Try backend receipt first if it's a booking
         if (transactionData.category === "BOOKING" && transactionData.bookingId) {
-          const result = await bookingService.fetchReceipt(transactionData.bookingId);
-          if (result.success && result.url) {
-            await downloadFile(result.url, `Receipt-${transactionData.transactionId}.pdf`, "application/pdf");
-            setConfirmationMessage("Receipt PDF downloaded successfully.");
-            setConfirmationVisible(true);
-            return;
+          try {
+            const result = await bookingService.fetchReceipt(transactionData.bookingId);
+            if (result.success && result.url) {
+              await downloadFile(result.url, `Receipt-${transactionData.transactionId}.pdf`, "application/pdf");
+              setConfirmationMessage("Receipt PDF downloaded successfully.");
+              setConfirmationVisible(true);
+              return;
+            }
+          } catch (e) {
+            console.warn("[Web PDF] Backend receipt fetch failed:", e);
           }
         }
         
-        Alert.alert("Not Supported", "Direct PDF generation is not available on web. Please use 'Save as Image' instead.");
+        // 2. Fallback: Use browser print for other transactions or if backend fails
+        window.print();
         return;
       }
 
@@ -346,8 +360,8 @@ const TransactionDetailScreen = () => {
             <tr>
               <td class="label">Status</td>
               <td class="value">
-                <span class="status-badge status-${transactionData.status.toLowerCase()}">
-                  ${transactionData.status}
+                <span class="status-badge status-${transactionData.bookingStatus?.toLowerCase() === 'cancelled' ? 'cancelled' : transactionData.status.toLowerCase()}">
+                  ${getStatusMessage(transactionData.transactionType, transactionData.status)}
                 </span>
               </td>
             </tr>
@@ -478,10 +492,10 @@ const TransactionDetailScreen = () => {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Receipt Card Wrapped in ViewShot for Capture */}
-        <ViewShot
+        {/* Receipt Card Wrapped in ViewShot (Native) or View (Web) for Capture */}
+        <Wrapper
           ref={viewShotRef}
-          options={{ format: "png", quality: 0.9 }}
+          {...wrapperProps}
           style={{ backgroundColor: "#FFFFFF" }}
         >
           <View style={styles.receiptCard}>
@@ -491,13 +505,13 @@ const TransactionDetailScreen = () => {
               <View
                 style={[
                   styles.statusBadge,
-                  { backgroundColor: getStatusBgColor(transactionData.status) },
+                  { backgroundColor: getStatusBgColor(transactionData.bookingStatus?.toLowerCase() === 'cancelled' ? 'cancelled' : transactionData.status) },
                 ]}
               >
                 <Text
                   style={[
                     styles.statusText,
-                    { color: getStatusColor(transactionData.status) },
+                    { color: getStatusColor(transactionData.bookingStatus?.toLowerCase() === 'cancelled' ? 'cancelled' : transactionData.status) },
                   ]}
                 >
                   {getStatusMessage(
@@ -513,6 +527,12 @@ const TransactionDetailScreen = () => {
               <View style={styles.successIcon}>
                 {(() => {
                   const s = transactionData.status?.toLowerCase();
+                  const bs = transactionData.bookingStatus?.toLowerCase();
+                  
+                  if (bs === "cancelled") {
+                    return <Ionicons name="close-circle" size={60} color="#EF4444" />;
+                  }
+                  
                   if (s === "failed" || s === "cancelled") {
                     return (
                       <Ionicons name="close-circle" size={60} color="#EF4444" />
@@ -522,22 +542,37 @@ const TransactionDetailScreen = () => {
                   } else if (s === "on_hold" || s === "on hold" || s === "processing") {
                     return <Ionicons name="lock-closed" size={60} color="#192DFF" />;
                   } else if (s === "disputed") {
-                    return <Ionicons name="warning" size={60} color="#DC2626" />;
+                    return <Ionicons name="alert-circle" size={60} color="#DC2626" />;
                   } else {
                     return (
-                      <Ionicons
-                        name="checkmark-circle"
-                        size={60}
-                        color="#2E7D32"
-                      />
+                      <Ionicons name="checkmark-circle" size={60} color="#2E7D32" />
                     );
                   }
                 })()}
               </View>
-              <Text style={[styles.successMessage, { color: getStatusColor(transactionData.status) }]}>
+              <Text style={styles.successTitle}>
+                {transactionData.bookingStatus?.toLowerCase() === 'cancelled' 
+                  ? 'Booking Cancelled' 
+                  : (transactionData.category === "BOOKING" ? "Stay Secured!" : "Transaction Successful")}
+              </Text>
+              <Text style={styles.successSubtitle}>
+                {transactionData.bookingStatus?.toLowerCase() === 'cancelled'
+                  ? `Booking #${transactionData.transactionId} has been cancelled.`
+                  : (transactionData.category === "BOOKING" 
+                      ? `Your stay at ${transactionData.propertyName} is confirmed.` 
+                      : `Your ${transactionData.transactionType} has been processed.`)}
+              </Text>
+            </View>
+              <Text style={[styles.successMessage, { color: getStatusColor(transactionData.bookingStatus?.toLowerCase() === 'cancelled' ? 'cancelled' : transactionData.status) }]}>
                 {(() => {
                   const type = transactionData.transactionType?.toLowerCase();
                   const s = transactionData.status?.toLowerCase();
+                  const bs = transactionData.bookingStatus?.toLowerCase();
+
+                  if (bs === "cancelled") {
+                    return "This booking was cancelled and the transaction has been updated accordingly.";
+                  }
+
                   if (s === "failed" || s === "cancelled") {
                     if (type === "payout" || type === "host payout")
                       return "Your payout was not successful.";
@@ -596,7 +631,6 @@ const TransactionDetailScreen = () => {
                   }
                 })()}
               </Text>
-            </View>
 
             {/* Transaction Details */}
             <View style={styles.detailsSection}>
@@ -796,9 +830,19 @@ const TransactionDetailScreen = () => {
                       ) : (
                         /* Host Side Specifics */
                         <>
+                          <View style={styles.breakdownRow}>
+                            <Text style={styles.breakdownLabel}>Property Rent</Text>
+                            <Text style={styles.breakdownValue}>₦{Number(breakdown.rent || 0).toLocaleString()}</Text>
+                          </View>
+                          {breakdown.serviceCharge > 0 && (
+                            <View style={styles.breakdownRow}>
+                              <Text style={styles.breakdownLabel}>Property Service Charge</Text>
+                              <Text style={styles.breakdownValue}>₦{Number(breakdown.serviceCharge).toLocaleString()}</Text>
+                            </View>
+                          )}
                           {(breakdown.appFee > 0 || breakdown.hostFee > 0) && (
                             <View style={styles.breakdownRow}>
-                              <Text style={styles.breakdownLabel}>App Charge ({metadata.pricingBreakdown?.hostFeePercent || metadata.calculation?.appFeePercent || 3}%)</Text>
+                              <Text style={styles.breakdownLabel}>App Charge (3%)</Text>
                               <Text style={[styles.breakdownValue, { color: '#B70808' }]}>-₦{Number(breakdown.appFee || breakdown.hostFee || 0).toLocaleString()}</Text>
                             </View>
                           )}
@@ -852,7 +896,7 @@ const TransactionDetailScreen = () => {
               )}
             </View>
           </View>
-        </ViewShot>
+        </Wrapper>
 
 
       </ScrollView>

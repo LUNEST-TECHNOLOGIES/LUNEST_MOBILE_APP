@@ -54,6 +54,7 @@ import configService from "../../services/configService";
 import paymentService from "../../services/paymentService";
 import { downloadFile, saveRefAsImage } from "../../utils/downloadUtils";
 import { resolveImageUrlSync } from "../../utils/imageUtils";
+import { useUserMode } from "../../context/UserModeContext";
 
 // Banner image
 const bannerImage = require("../../assets/images/Frame 1618873475.png");
@@ -421,10 +422,24 @@ const BookingConfirmationScreen = () => {
   const refCode = booking?.referenceCode || booking?.refCode || params.bookingRefCode || booking?._id || "-";
   
   // ── Step 5: User & Views ──
+  const { currentMode } = useUserMode();
   const currentUserId = userData?._id || userData?.id;
+  
+  // Logic to determine if user is the Guest
   const isGuest = currentUserId && booking?.bookedBy && 
-    ((typeof booking.bookedBy === "string" && booking.bookedBy === currentUserId) || booking.bookedBy?._id === currentUserId);
-  const isHostView = userData?.userType === "HOST" && !isGuest;
+    ((typeof booking.bookedBy === "string" && booking.bookedBy === currentUserId) || 
+     booking.bookedBy?._id === currentUserId || 
+     booking.bookedBy?.id === currentUserId);
+
+  // Logic to determine if user should see the Host View
+  // 1. Must NOT be the guest
+  // 2. Must be in HOST mode OR be the actual host of this booking
+  const isActualHost = currentUserId && booking?.listing?.host && 
+    ((typeof booking.listing.host === "string" && booking.listing.host === currentUserId) || 
+     booking.listing.host?._id === currentUserId ||
+     booking.listing.host?.id === currentUserId);
+
+  const isHostView = booking && !isGuest && (currentMode === "HOST" || isActualHost);
   
   // ── Step 6: Payment Details ──
   const displayPaymentMethod = (() => {

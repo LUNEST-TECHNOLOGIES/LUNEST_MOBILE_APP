@@ -330,6 +330,7 @@ const HostEarningsScreen = () => {
               dateTime: formatDate(item.timestamp),
               description: item.description,
               method: item.channel || "SYSTEM",
+              metadata: item.metadata ? JSON.stringify(item.metadata) : undefined,
             },
           })
         }

@@ -1,14 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useState, useRef } from "react";
+import { useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
+  Animated,
   Modal,
+  Pressable,
   StyleSheet,
   Text,
-  Pressable,
-  View,
-  Animated,
+  View
 } from "react-native";
 import apiClient from "../../services/apiClient";
 

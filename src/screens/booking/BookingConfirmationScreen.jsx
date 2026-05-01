@@ -48,13 +48,13 @@ import CheckInConfirmationModal from "../../components/modals/CheckInConfirmatio
 import CheckoutConfirmationModal from "../../components/modals/CheckoutConfirmationModal";
 import ReviewFeedbackModal from "../../components/modals/ReviewFeedbackModal";
 import { DEMO_TERMS } from "../../constants/termsConfig";
+import { useUserMode } from "../../context/UserModeContext";
 import authService from "../../services/authService";
 import bookingService from "../../services/bookingService";
 import configService from "../../services/configService";
 import paymentService from "../../services/paymentService";
 import { downloadFile, saveRefAsImage } from "../../utils/downloadUtils";
 import { resolveImageUrlSync } from "../../utils/imageUtils";
-import { useUserMode } from "../../context/UserModeContext";
 
 // Banner image
 const bannerImage = require("../../assets/images/Frame 1618873475.png");

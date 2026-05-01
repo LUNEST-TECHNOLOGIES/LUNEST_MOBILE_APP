@@ -668,7 +668,7 @@ const TransactionDetailScreen = () => {
                   ? `Booking #${transactionData.transactionId} has been cancelled.`
                   : (transactionData.category === "BOOKING" 
                       ? `Your stay at ${transactionData.propertyName} is confirmed.` 
-                      : `Your ${transactionData.transactionType} has been processed.`)}
+                      : (currentBreakdown && !currentBreakdown.isGuestSide ? "" : `Your ${transactionData.transactionType} has been processed.`))}
               </Text>
             </View>
               <Text style={[styles.successMessage, { color: getStatusColor(transactionData.bookingStatus?.toLowerCase() === 'cancelled' ? 'cancelled' : transactionData.status) }]}>
@@ -887,12 +887,10 @@ const TransactionDetailScreen = () => {
                   ) : (
                     <>
                       {/* Property Rent */}
-                      {currentBreakdown.rent > 0 && (
-                        <View style={styles.breakdownRow}>
-                          <Text style={styles.breakdownLabel}>Property Rent</Text>
-                          <Text style={styles.breakdownValue}>₦{Number(currentBreakdown.rent || 0).toLocaleString()}</Text>
-                        </View>
-                      )}
+                      <View style={styles.breakdownRow}>
+                        <Text style={styles.breakdownLabel}>Property Rent</Text>
+                        <Text style={styles.breakdownValue}>₦{Number(currentBreakdown.rent || 0).toLocaleString()}</Text>
+                      </View>
 
                       {/* Property Service Charge */}
                       {currentBreakdown.serviceCharge > 0 && (
@@ -902,38 +900,39 @@ const TransactionDetailScreen = () => {
                         </View>
                       )}
 
-                      {/* App Charge (3%) */}
-                      {(currentBreakdown.appFee > 0 || currentBreakdown.hostFee > 0) && (
+                      {/* Host App Fee (3%) - Only show if > 0 */}
+                      {(currentBreakdown.hostFee > 0) && (
                         <View style={styles.breakdownRow}>
-                          <Text style={styles.breakdownLabel}>App Charge (3%)</Text>
-                          <Text style={[styles.breakdownValue, { color: '#B70808' }]}>-₦{Number(currentBreakdown.appFee || currentBreakdown.hostFee || 0).toLocaleString()}</Text>
+                          <Text style={styles.breakdownLabel}>Host App Fee (3%)</Text>
+                          <Text style={[styles.breakdownValue, { color: '#B70808' }]}>-₦{Number(currentBreakdown.hostFee).toLocaleString()}</Text>
                         </View>
                       )}
 
-                      {/* VAT (7.5%) */}
-                      {(currentBreakdown.hostVat > 0 || currentBreakdown.vat > 0) && (
+                      {/* VAT on App Fee (7.5%) - Only show if > 0 */}
+                      {(currentBreakdown.hostVat > 0) && (
                         <View style={styles.breakdownRow}>
-                          <Text style={styles.breakdownLabel}>VAT (7.5%)</Text>
-                          <Text style={[styles.breakdownValue, { color: '#B70808' }]}>-₦{Number(currentBreakdown.hostVat || currentBreakdown.vat || 0).toLocaleString()}</Text>
+                          <Text style={styles.breakdownLabel}>VAT on Fee (7.5%)</Text>
+                          <Text style={[styles.breakdownValue, { color: '#B70808' }]}>-₦{Number(currentBreakdown.hostVat).toLocaleString()}</Text>
                         </View>
                       )}
 
-                      {/* Net Rent Earning (Sub-total) */}
-                      {currentBreakdown.netEarning > 0 && (
-                         <View style={[styles.breakdownRow, { marginTop: 4 }]}>
-                           <Text style={[styles.breakdownLabel, { fontWeight: '600' }]}>Net Rent Earning</Text>
-                           <Text style={[styles.breakdownValue, { fontWeight: '700' }]}>₦{Number(currentBreakdown.netEarning || currentBreakdown.net || 0).toLocaleString()}</Text>
-                         </View>
-                      )}
+                      <View style={[styles.breakdownDivider, { marginVertical: 8 }]} />
 
+                      {/* Net Rent Earning (Total Earnings from Rent) */}
+                      <View style={styles.breakdownRow}>
+                        <Text style={[styles.breakdownLabel, { fontWeight: '700', color: '#010135' }]}>Net Rent Earning</Text>
+                        <Text style={[styles.breakdownValue, { fontWeight: '800', color: '#010135' }]}>₦{Number(currentBreakdown.netEarning || 0).toLocaleString()}</Text>
+                      </View>
+
+                      {/* Caution Fee - Standalone Escrow Section */}
                       {currentBreakdown.cautionFee > 0 && (
-                        <View style={styles.breakdownRow}>
+                        <View style={[styles.breakdownRow, { marginTop: 12 }]}>
                           <Text style={styles.breakdownLabel}>Caution Fee (Held in Escrow)</Text>
                           <Text style={styles.breakdownValue}>₦{Number(currentBreakdown.cautionFee).toLocaleString()}</Text>
                         </View>
                       )}
 
-                      <View style={styles.breakdownDivider} />
+                      <View style={[styles.breakdownDivider, { marginTop: 12, marginBottom: 8 }]} />
                       
                       <View style={styles.breakdownRow}>
                         <Text style={styles.breakdownLabelBold}>Total Earning</Text>

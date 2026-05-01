@@ -1094,7 +1094,7 @@ const TransactionHistoryScreen = () => {
                 ? "Reversed" 
                 : ((item.type === "HOST_EARNING" || item.type === "SECURITY_DEPOSIT") && (item.status === "ON_HOLD" || item.status === "PROCESSING"))
                   ? "In Escrow"
-                  : (item.status === "COMPLETED" ? "Paid to Wallet" : statusConfig.label)}
+                  : statusConfig.label}
             </Text>
           </View>
           <Text

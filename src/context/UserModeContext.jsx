@@ -108,17 +108,25 @@ export const UserModeProvider = ({ children }) => {
         // Sync check for localStorage on web to avoid async delays
         const syncLastSide = localStorage.getItem(LAST_SIDE_KEY);
         if (syncLastSide && !lastSide) {
-           // If AsyncStorage hasn't returned yet or is empty, use sync localStorage
-           lastSide = syncLastSide.replace(/"/g, ''); // localStorage might have quotes from JSON.stringify
+           lastSide = syncLastSide.replace(/"/g, ''); 
         }
 
         const path = window.location.pathname;
-        if (path.includes('/host') || path.includes('/create-listing') || path.includes('/manage-listings')) {
+        
+        // Host Paths
+        if (path.includes('/host') || path.includes('/create-listing') || path.includes('/manage-listings') || path.includes('/earnings')) {
           urlModeHint = USER_MODES.HOST;
-        } else if (path.includes('/guest') || path.includes('/properties')) {
+        } 
+        // Guest Paths - specifically recognize these as Guest if they don't have host indicators
+        else if (path.includes('/guest') || path.includes('/properties') || path.includes('/explore') || path.includes('/saved')) {
           urlModeHint = USER_MODES.GUEST;
         }
-        console.log(`🌐 [UserMode] Web Refresh Sync - LastSide: ${lastSide}, URL Hint: ${urlModeHint}`);
+        // Ambiguous paths: Default to Guest if no host indicators found in path
+        else if (path === '/bookings' || path === '/profile' || path === '/messages' || path === '/') {
+          urlModeHint = USER_MODES.GUEST;
+        }
+        
+        console.log(`🌐 [UserMode] Web Refresh Sync - Path: ${path}, LastSide: ${lastSide}, URL Hint: ${urlModeHint}`);
       }
 
       if (currentUserId) {
@@ -129,12 +137,11 @@ export const UserModeProvider = ({ children }) => {
         );
         
         // Priority: 1. URL Hint (Web) | 2. Last Side Fallback | 3. Saved Preference
-        // We prioritize lastSide over savedMode for better refresh experience
         const preferredMode = urlModeHint || (lastSide === 'host' ? USER_MODES.HOST : (lastSide === 'guest' ? USER_MODES.GUEST : null)) || savedMode;
 
         if (preferredMode && Object.values(USER_MODES).includes(preferredMode)) {
-          // Only allow host mode if user has host privileges OR if they were already in host mode (trust the lastSide)
-          if (preferredMode === USER_MODES.HOST && !userIsHost && lastSide !== 'host') {
+          // Only allow host mode if user has host privileges OR if they were already in host mode (trust the lastSide/URL)
+          if (preferredMode === USER_MODES.HOST && !userIsHost && urlModeHint !== USER_MODES.HOST) {
             setMode(USER_MODES.GUEST);
           } else {
             setMode(preferredMode);
@@ -328,16 +335,26 @@ export const UserModeProvider = ({ children }) => {
   }, [isSwitching, switchToHost, switchToGuest]);
 
   // Silent mode sync (no prefetch, no switching overlay)
+  // Always update storage when called by layout to ensure persistence matches the view
   const syncMode = useCallback(async (targetMode) => {
-    if (!targetMode || targetMode === modeRef.current) return true;
-    setMode(targetMode);
-    if (userId) {
-      await storageService.setUserItem(userId, USER_MODE_KEY, targetMode);
+    if (!targetMode) return true;
+    
+    // Update memory if different
+    if (targetMode !== modeRef.current) {
+       setMode(targetMode);
+       modeRef.current = targetMode;
     }
-    await AsyncStorage.setItem(
+
+    // ALWAYS sync to storage to ensure refresh works correctly
+    if (userId) {
+      storageService.setUserItem(userId, USER_MODE_KEY, targetMode).catch(e => {});
+    }
+    
+    AsyncStorage.setItem(
       LAST_SIDE_KEY,
       targetMode === USER_MODES.HOST ? "host" : "guest",
-    );
+    ).catch(e => {});
+    
     return true;
   }, [userId]);
 

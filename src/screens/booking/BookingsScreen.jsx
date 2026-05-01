@@ -223,11 +223,13 @@ const BookingsScreen = () => {
             hostPhone: booking.host?.phone || listing.host?.phone || "",
             hostAvatar: booking.host?.avatar || listing.host?.avatar || null,
             nights: booking.nights,
-            totalPrice: booking.totalPrice,
-            serviceCharge: booking.serviceCharge,
-            taxes: booking.taxes,
+            totalPrice: booking.totalPrice || booking.totalAmount?.price || 0,
+            serviceCharge: booking.serviceCharge || booking.pricingBreakdown?.serviceCharge || 0,
+            securityDeposit: booking.securityDeposit || booking.pricingBreakdown?.securityDeposit || 0,
+            pricingBreakdown: booking.pricingBreakdown || null,
+            taxes: booking.taxes || 0,
             paymentMethod: booking.paymentMethod,
-            refCode: booking.refCode,
+            refCode: booking.refCode || booking.referenceCode,
             additionalNotes: booking.additionalNotes,
           };
         }),
@@ -557,16 +559,20 @@ const BookingsScreen = () => {
       params: {
         bookingId: booking.id,
         amount: booking.totalPrice || 0,
-        price: booking.totalPrice || 0,
+        price: booking.price || 0, // Listing price
+        totalPrice: booking.totalPrice || 0,
         propertyName: booking.propertyName,
         listingId: booking.listingId,
         location: booking.location || "",
-        coverImage: booking.image || "", // Use the 'image' field which contains the listing cover
-        checkInDate: booking.checkIn,
-        checkOutDate: booking.checkOut,
+        coverImage: booking.image || "", 
+        checkInDate: booking.rawCheckIn || booking.checkIn,
+        checkOutDate: booking.rawCheckOut || booking.checkOut,
         bookingType: booking.bookingType,
         fromReservation: "true",
         showPaymentModal: "true",
+        serviceCharge: booking.serviceCharge || 0,
+        securityDeposit: booking.securityDeposit || 0,
+        priceBreakdown: booking.pricingBreakdown ? JSON.stringify(booking.pricingBreakdown) : undefined
       },
     });
   };

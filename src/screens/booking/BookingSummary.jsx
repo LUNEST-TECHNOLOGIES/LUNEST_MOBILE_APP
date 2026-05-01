@@ -104,8 +104,8 @@ const BookingSummary = () => {
   console.log("[BookingSummary] Validated cover image:", coverImage);
 
   // Host's original rental price per period
-  const rentalPrice =
-    parseFloat(params.price) || parseFloat(params.amount) || 0;
+  const rawPrice = parseFloat(params.price) || parseFloat(params.amount) || 0;
+  const rentalPrice = isNaN(rawPrice) ? 0 : rawPrice;
 
   // Calculate number of nights from check-in and check-out dates
   const calculateNumberOfNights = () => {
@@ -312,13 +312,18 @@ const BookingSummary = () => {
   }
 
   // Service charge (set by host) - comes from listing, NOT a percentage
-  const serviceCharge = parseFloat(params?.serviceCharge) || 0;
-
+  const rawServiceCharge = parseFloat(params?.serviceCharge);
+  const serviceCharge = isNaN(rawServiceCharge) ? 0 : rawServiceCharge;
+  
   // Caution Fee (set by host, refundable) - comes from listing
-  const securityDeposit = parseFloat(params?.securityDeposit) || 0;
-
-  const hostSubtotal = rentalSubtotal + serviceCharge;
-
+  const rawSecurityDeposit = parseFloat(params?.securityDeposit);
+  const securityDeposit = isNaN(rawSecurityDeposit) ? 0 : rawSecurityDeposit;
+  
+  // Logic: If rentalPrice looks like a full total (e.g. from legacy BookingsScreen), 
+  // and we also have serviceCharge/securityDeposit, we might be double-counting.
+  // However, with my latest fix to BookingsScreen, params.price is now the base listing price.
+  const hostSubtotal = (rentalSubtotal || 0) + serviceCharge;
+  
   // Host's Total = rental + service charge + caution fee (what host priced)
   const hostTotal = hostSubtotal + securityDeposit;
 
@@ -338,12 +343,13 @@ const BookingSummary = () => {
   const discountedGuestBase = discountedHostSubtotal + securityDeposit;
   
   // App fee and VAT calculated on DISCOUNTED guest base (Net Rent/SC + Full Caution)
-  const guestFeeBase = Math.round((discountedGuestBase * GUEST_FEE_PERCENT) / 100);
-  const guestVat = Math.round((guestFeeBase * VAT_PERCENT) / 100);
+  const guestFeeBase = Math.round((discountedGuestBase * GUEST_FEE_PERCENT) / 100) || 0;
+  const guestVat = Math.round((guestFeeBase * VAT_PERCENT) / 100) || 0;
   const appCharge = guestFeeBase + guestVat;
 
   // Final total = discounted subtotal + caution fee + app fee + VAT
-  const total = discountedGuestBase + appCharge;
+  const calculatedTotal = (discountedGuestBase || 0) + appCharge;
+  const total = isNaN(calculatedTotal) ? 0 : calculatedTotal;
   
   // Subtotal before coupon (for display)
   const subtotalBeforeDiscount = hostTotal;

@@ -705,9 +705,7 @@ const TransactionDetailScreen = () => {
                       return "App charge is pending.";
                     return "Your transaction is pending.";
                   } else if (s === "on_hold" || s === "on hold" || s === "processing") {
-                    if (type?.toLowerCase().includes("security") || type?.toLowerCase().includes("caution")) 
-                        return "This caution fee is being held in escrow for your protection.";
-                    return "Your earnings are held in escrow and will be released upon guest check-in.";
+                    return ""; // Removed as requested by user
                   } else if (s === "disputed") {
                     return "This transaction is currently under dispute.";
                   } else {
@@ -916,19 +914,19 @@ const TransactionDetailScreen = () => {
                         </View>
                       )}
 
-                      <View style={[styles.breakdownDivider, { marginVertical: 8 }]} />
-
                       {/* Net Rent Earning (Total Earnings from Rent) */}
-                      <View style={styles.breakdownRow}>
+                      <View style={[styles.breakdownRow, { marginTop: 4 }]}>
                         <Text style={[styles.breakdownLabel, { fontWeight: '700', color: '#010135' }]}>Net Rent Earning</Text>
                         <Text style={[styles.breakdownValue, { fontWeight: '800', color: '#010135' }]}>₦{Number(currentBreakdown.netEarning || 0).toLocaleString()}</Text>
                       </View>
 
+                      <View style={[styles.breakdownDivider, { marginVertical: 12 }]} />
+
                       {/* Caution Fee - Standalone Escrow Section */}
                       {currentBreakdown.cautionFee > 0 && (
-                        <View style={[styles.breakdownRow, { marginTop: 12 }]}>
-                          <Text style={styles.breakdownLabel}>Caution Fee (Held in Escrow)</Text>
-                          <Text style={styles.breakdownValue}>₦{Number(currentBreakdown.cautionFee).toLocaleString()}</Text>
+                        <View style={styles.breakdownRow}>
+                          <Text style={[styles.breakdownLabel, { fontWeight: '600' }]}>Caution Fee (Held in Escrow)</Text>
+                          <Text style={[styles.breakdownValue, { fontWeight: '600' }]}>₦{Number(currentBreakdown.cautionFee).toLocaleString()}</Text>
                         </View>
                       )}
 
@@ -940,12 +938,6 @@ const TransactionDetailScreen = () => {
                             ₦{Number(currentBreakdown.total || (Number(currentBreakdown.netEarning || 0) + Number(currentBreakdown.cautionFee || 0)) || 0).toLocaleString()}
                         </Text>
                       </View>
-
-                      {currentBreakdown.cautionFee > 0 && (
-                        <Text style={styles.escrowNote}>
-                          * The Caution Fee is recorded as a separate transaction and held in escrow for your protection.
-                        </Text>
-                      )}
                     </>
                   )}
                 </View>

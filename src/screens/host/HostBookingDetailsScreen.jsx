@@ -1033,7 +1033,7 @@ const HostBookingDetailsScreen = () => {
               />
               {serviceFee > 0 && (
                 <InfoRow
-                  label="Service Fee:"
+                  label="Service Charge:"
                   value={`₦${serviceFee.toLocaleString()}`}
                 />
               )}

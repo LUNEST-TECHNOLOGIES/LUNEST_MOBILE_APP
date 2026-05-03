@@ -34,7 +34,21 @@ export default function Index() {
 
         if (userId) {
           try {
-            const savedMode = await storageService.getUserItem(userId, "userMode");
+            let savedMode = await storageService.getUserItem(userId, "userMode");
+            
+            // Web Hint: If we are on web, check URL for mode hints before deciding
+            if (Platform.OS === 'web' && typeof window !== 'undefined') {
+              const path = window.location.pathname;
+              const isHostPath = path.includes('/host') || path.includes('/create-listing') || path.includes('/manage-listings') || path.includes('/earnings');
+              const isGuestPath = path.includes('/guest') || path.includes('/properties') || path.includes('/explore') || path.includes('/saved') || path.includes('/bookings') || path.includes('/profile') || path.includes('/messages') || path.includes('/transaction-detail');
+              
+              if (isHostPath) {
+                savedMode = "HOST";
+              } else if (isGuestPath) {
+                savedMode = "GUEST";
+              }
+            }
+
             if (savedMode === "HOST") {
               // Only redirect to host tabs if the user actually has host privileges
               const isHost = 

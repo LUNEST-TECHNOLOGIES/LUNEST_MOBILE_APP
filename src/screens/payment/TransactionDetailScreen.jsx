@@ -491,8 +491,8 @@ const TransactionDetailScreen = () => {
               ` : `
                 ${currentBreakdown.rent ? `<tr><td class="label">Property Rent</td><td class="value">₦${Number(currentBreakdown.rent).toLocaleString()}</td></tr>` : ''}
                 ${currentBreakdown.serviceCharge ? `<tr><td class="label">Service Charge</td><td class="value">₦${Number(currentBreakdown.serviceCharge).toLocaleString()}</td></tr>` : ''}
-                ${(currentBreakdown.appFee || currentBreakdown.hostFee) ? `<tr><td class="label">App Charge (3%)</td><td class="value" style="color: #B70808">-₦${Number(currentBreakdown.appFee || currentBreakdown.hostFee).toLocaleString()}</td></tr>` : ''}
-                ${(currentBreakdown.hostVat || currentBreakdown.vat) ? `<tr><td class="label">VAT (7.5%)</td><td class="value" style="color: #B70808">-₦${Number(currentBreakdown.hostVat || currentBreakdown.vat).toLocaleString()}</td></tr>` : ''}
+                ${(currentBreakdown.appFee || currentBreakdown.hostFee) ? `<tr><td class="label">Host App Fee</td><td class="value" style="color: #B70808">-₦${Number(currentBreakdown.appFee || currentBreakdown.hostFee).toLocaleString()}</td></tr>` : ''}
+                ${(currentBreakdown.hostVat || currentBreakdown.vat) ? `<tr><td class="label">VAT</td><td class="value" style="color: #B70808">-₦${Number(currentBreakdown.hostVat || currentBreakdown.vat).toLocaleString()}</td></tr>` : ''}
                 ${currentBreakdown.netEarning ? `<tr><td class="label">Net Rent Earning</td><td class="value">₦${Number(currentBreakdown.netEarning).toLocaleString()}</td></tr>` : ''}
                 ${currentBreakdown.cautionFee ? `<tr><td class="label">Caution Fee (Escrow)</td><td class="value">₦${Number(currentBreakdown.cautionFee).toLocaleString()}</td></tr>` : ''}
                 <tr class="amount-row">
@@ -705,7 +705,7 @@ const TransactionDetailScreen = () => {
                       return "App charge is pending.";
                     return "Your transaction is pending.";
                   } else if (s === "on_hold" || s === "on hold" || s === "processing") {
-                    return ""; // Removed as requested by user
+                    return "Funds are securely held in escrow and will be released following checkout reconciliation.";
                   } else if (s === "disputed") {
                     return "This transaction is currently under dispute.";
                   } else {
@@ -893,7 +893,7 @@ const TransactionDetailScreen = () => {
                       {/* Property Service Charge */}
                       {currentBreakdown.serviceCharge > 0 && (
                         <View style={styles.breakdownRow}>
-                          <Text style={styles.breakdownLabel}>Property Service Charge</Text>
+                          <Text style={styles.breakdownLabel}>Service Charge</Text>
                           <Text style={styles.breakdownValue}>₦{Number(currentBreakdown.serviceCharge || 0).toLocaleString()}</Text>
                         </View>
                       )}
@@ -901,7 +901,7 @@ const TransactionDetailScreen = () => {
                       {/* Host App Fee (3%) - Only show if > 0 */}
                       {(currentBreakdown.hostFee > 0) && (
                         <View style={styles.breakdownRow}>
-                          <Text style={styles.breakdownLabel}>Host App Fee (3%)</Text>
+                          <Text style={styles.breakdownLabel}>Host App Fee</Text>
                           <Text style={[styles.breakdownValue, { color: '#B70808' }]}>-₦{Number(currentBreakdown.hostFee).toLocaleString()}</Text>
                         </View>
                       )}
@@ -909,7 +909,7 @@ const TransactionDetailScreen = () => {
                       {/* VAT on App Fee (7.5%) - Only show if > 0 */}
                       {(currentBreakdown.hostVat > 0) && (
                         <View style={styles.breakdownRow}>
-                          <Text style={styles.breakdownLabel}>VAT on Fee (7.5%)</Text>
+                          <Text style={styles.breakdownLabel}>VAT</Text>
                           <Text style={[styles.breakdownValue, { color: '#B70808' }]}>-₦{Number(currentBreakdown.hostVat).toLocaleString()}</Text>
                         </View>
                       )}

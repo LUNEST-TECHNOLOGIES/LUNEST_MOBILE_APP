@@ -118,11 +118,11 @@ export const UserModeProvider = ({ children }) => {
           urlModeHint = USER_MODES.HOST;
         } 
         // Guest Paths - specifically recognize these as Guest if they don't have host indicators
-        else if (path.includes('/guest') || path.includes('/properties') || path.includes('/explore') || path.includes('/saved')) {
+        else if (path.includes('/guest') || path.includes('/properties') || path.includes('/explore') || path.includes('/saved') || path.includes('/bookings') || path.includes('/profile') || path.includes('/messages') || path.includes('/transaction-detail')) {
           urlModeHint = USER_MODES.GUEST;
         }
-        // Ambiguous paths: Default to Guest if no host indicators found in path
-        else if (path === '/bookings' || path === '/profile' || path === '/messages' || path === '/') {
+        // Root path
+        else if (path === '/') {
           urlModeHint = USER_MODES.GUEST;
         }
         
@@ -136,8 +136,8 @@ export const UserModeProvider = ({ children }) => {
           USER_MODE_KEY,
         );
         
-        // Priority: 1. URL Hint (Web) | 2. Last Side Fallback | 3. Saved Preference
-        const preferredMode = urlModeHint || (lastSide === 'host' ? USER_MODES.HOST : (lastSide === 'guest' ? USER_MODES.GUEST : null)) || savedMode;
+        // Priority: 1. URL Hint (Web) | 2. User-specific Saved Preference | 3. Device-wide Last Side Fallback
+        const preferredMode = urlModeHint || savedMode || (lastSide === 'host' ? USER_MODES.HOST : (lastSide === 'guest' ? USER_MODES.GUEST : null));
 
         if (preferredMode && Object.values(USER_MODES).includes(preferredMode)) {
           // Only allow host mode if user has host privileges OR if they were already in host mode (trust the lastSide/URL)

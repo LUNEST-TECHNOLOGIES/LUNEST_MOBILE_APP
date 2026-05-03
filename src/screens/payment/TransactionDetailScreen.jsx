@@ -109,18 +109,20 @@ const TransactionDetailScreen = () => {
 
       if (!breakdown) return null;
 
-      // Normalize breakdown keys for consistency
+      // Normalize breakdown keys for consistency with multiple fallbacks
       const normalizedBreakdown = {
-        rent: breakdown.rent || breakdown.rentAmount || breakdown.rentFee || 0,
-        serviceCharge: breakdown.serviceCharge || 0,
-        guestFee: breakdown.guestFee || breakdown.appFee || 0,
-        guestVat: breakdown.guestVat || breakdown.vat || 0,
-        hostFee: breakdown.hostFee || breakdown.appFee || 0,
-        hostVat: breakdown.hostVat || breakdown.vat || 0,
-        cautionFee: breakdown.cautionFee || breakdown.securityDeposit || breakdown.caution || 0,
-        netEarning: breakdown.netEarning || breakdown.net || breakdown.hostEarnings || 0,
-        total: breakdown.total || breakdown.amount || 0,
-        couponDiscount: breakdown.couponDiscount || breakdown.discount || 0
+        rent: breakdown.rent ?? breakdown.rentAmount ?? breakdown.rentFee ?? metadata.rentAmount ?? metadata.rentFee ?? metadata.rent ?? 0,
+        serviceCharge: breakdown.serviceCharge ?? metadata.serviceCharge ?? 0,
+        guestFee: breakdown.guestFee ?? breakdown.appFee ?? metadata.guestFee ?? metadata.appFee ?? 0,
+        guestVat: breakdown.guestVat ?? breakdown.vat ?? metadata.guestVat ?? metadata.vat ?? 0,
+        hostFee: breakdown.hostFee ?? breakdown.appFee ?? metadata.hostFee ?? metadata.appFee ?? 0,
+        hostVat: breakdown.hostVat ?? breakdown.vat ?? metadata.hostVat ?? metadata.vat ?? 0,
+        appFee: breakdown.hostFee ?? breakdown.appFee ?? metadata.hostFee ?? metadata.appFee ?? 0, // Alias for template compatibility
+        vat: breakdown.hostVat ?? breakdown.vat ?? metadata.hostVat ?? metadata.vat ?? 0, // Alias for template compatibility
+        cautionFee: breakdown.cautionFee ?? breakdown.securityDeposit ?? breakdown.caution ?? metadata.cautionFee ?? metadata.securityDeposit ?? 0,
+        netEarning: breakdown.netEarning ?? breakdown.net ?? breakdown.hostEarnings ?? metadata.hostEarnings ?? metadata.netEarning ?? metadata.net ?? 0,
+        total: breakdown.total ?? breakdown.amount ?? metadata.total ?? metadata.amount ?? 0,
+        couponDiscount: breakdown.couponDiscount ?? breakdown.discount ?? metadata.couponDiscount ?? metadata.discount ?? 0
       };
 
       // Infer side
@@ -489,11 +491,11 @@ const TransactionDetailScreen = () => {
                   <td class="value amount">₦${Number(currentBreakdown.total || currentBreakdown.amount).toLocaleString()}</td>
                 </tr>
               ` : `
-                ${currentBreakdown.rent ? `<tr><td class="label">Property Rent</td><td class="value">₦${Number(currentBreakdown.rent).toLocaleString()}</td></tr>` : ''}
-                ${currentBreakdown.serviceCharge ? `<tr><td class="label">Service Charge</td><td class="value">₦${Number(currentBreakdown.serviceCharge).toLocaleString()}</td></tr>` : ''}
+                ${(currentBreakdown.rent !== undefined && currentBreakdown.rent !== null) ? `<tr><td class="label">Property Rent</td><td class="value">₦${Number(currentBreakdown.rent).toLocaleString()}</td></tr>` : ''}
+                ${(currentBreakdown.serviceCharge !== undefined && currentBreakdown.serviceCharge !== null) ? `<tr><td class="label">Service Charge</td><td class="value">₦${Number(currentBreakdown.serviceCharge).toLocaleString()}</td></tr>` : ''}
                 ${(currentBreakdown.appFee || currentBreakdown.hostFee) ? `<tr><td class="label">Host App Fee</td><td class="value" style="color: #B70808">-₦${Number(currentBreakdown.appFee || currentBreakdown.hostFee).toLocaleString()}</td></tr>` : ''}
                 ${(currentBreakdown.hostVat || currentBreakdown.vat) ? `<tr><td class="label">VAT</td><td class="value" style="color: #B70808">-₦${Number(currentBreakdown.hostVat || currentBreakdown.vat).toLocaleString()}</td></tr>` : ''}
-                ${currentBreakdown.netEarning ? `<tr><td class="label">Net Rent Earning</td><td class="value">₦${Number(currentBreakdown.netEarning).toLocaleString()}</td></tr>` : ''}
+                ${(currentBreakdown.netEarning !== undefined && currentBreakdown.netEarning !== null) ? `<tr><td class="label">Net Rent Earning</td><td class="value">₦${Number(currentBreakdown.netEarning).toLocaleString()}</td></tr>` : ''}
                 ${currentBreakdown.cautionFee ? `<tr><td class="label">Caution Fee (Escrow)</td><td class="value">₦${Number(currentBreakdown.cautionFee).toLocaleString()}</td></tr>` : ''}
                 <tr class="amount-row">
                   <td class="label" style="font-size: 14px; color: #010135;">Total Earning</td>

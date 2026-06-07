@@ -212,7 +212,7 @@ class DashboardService {
           totalBookings,
           totalListings,
           upcomingBookings,
-          newMessages: 0, // TODO: Implement message count
+          newMessages: 0, // Placeholder: Messaging feature is currently under development (Coming Soon)
           bookingsData: weeklyBookingsData,
           earningsData: weeklyEarningsData,
           yearlyBookings: yearlyData.yearlyBookings,

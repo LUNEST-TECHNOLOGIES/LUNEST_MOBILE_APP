@@ -7,7 +7,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
     ActivityIndicator,
     RefreshControl,
@@ -142,7 +142,7 @@ const HostEarningsScreen = () => {
   /**
    * Fetch wallet balance & transactions from API
    */
-  const fetchEarningsData = async (showLoader = true) => {
+  const fetchEarningsData = useCallback(async (showLoader = true) => {
     try {
       if (showLoader) setLoading(true);
       setError(null);
@@ -156,6 +156,22 @@ const HostEarningsScreen = () => {
         return;
       }
 
+      // Calculate date range based on selectedPeriod
+      let startDate = null;
+      const now = new Date();
+      if (selectedPeriod === "week") {
+        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      } else if (selectedPeriod === "month") {
+        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      } else if (selectedPeriod === "year") {
+        startDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+      }
+
+      let txnUrl = `${baseURL}/v1/my-transactions?limit=50`;
+      if (startDate) {
+        txnUrl += `&startDate=${startDate.toISOString()}&endDate=${now.toISOString()}`;
+      }
+
       // Fetch wallet and transactions in parallel
       const [walletRes, txnRes] = await Promise.all([
         fetch(`${baseURL}/v1/wallet`, {
@@ -166,7 +182,7 @@ const HostEarningsScreen = () => {
           },
           body: JSON.stringify({}),
         }),
-        fetch(`${baseURL}/v1/my-transactions?limit=50`, {
+        fetch(txnUrl, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
@@ -196,7 +212,7 @@ const HostEarningsScreen = () => {
         console.log("[HostEarnings] Transactions:", txnList);
 
         if (Array.isArray(txnList)) {
-          // Map to display format
+          // Map to display format and filter client-side as a fail-safe
           const mapped = txnList
             .filter((t) => t && typeof t === "object")
             .map((txn) => ({
@@ -205,7 +221,12 @@ const HostEarningsScreen = () => {
               timestamp: txn.createdAt || txn.timestamp,
               amount: parseFloat(txn.amount) || 0,
               status: txn.status || "COMPLETED",
-            }));
+            }))
+            .filter((txn) => {
+              if (!startDate) return true;
+              const txnDate = new Date(txn.timestamp);
+              return txnDate >= startDate && txnDate <= now;
+            });
 
           setTransactions(mapped);
 
@@ -253,11 +274,29 @@ const HostEarningsScreen = () => {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [selectedPeriod]);
+
+  // Keep a ref to the latest fetch function to avoid stale closures inside useFocusEffect
+  const fetchEarningsDataRef = useRef(fetchEarningsData);
+  useEffect(() => {
+    fetchEarningsDataRef.current = fetchEarningsData;
+  }, [fetchEarningsData]);
+
+  // Track if this is the initial mount to prevent duplicate requests on startup
+  const isInitialMount = useRef(true);
+
+  // Trigger fetch when period changes, but don't show full-screen loader for smoother UX
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    fetchEarningsData(false);
+  }, [selectedPeriod]);
 
   useFocusEffect(
     useCallback(() => {
-      fetchEarningsData();
+      fetchEarningsDataRef.current(true);
     }, []),
   );
 

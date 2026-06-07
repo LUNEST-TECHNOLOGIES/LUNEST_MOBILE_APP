@@ -7,6 +7,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AccountStatusProvider, UserModeProvider } from "../src/context";
 import { useReferralTracker } from "../src/hooks/useReferralTracker";
 import OfflineBanner from "../src/components/common/OfflineBanner";
+import ErrorBoundary from "../src/components/common/ErrorBoundary";
 import apiClient from "../src/services/apiClient";
 import authService from "../src/services/authService";
 
@@ -112,21 +113,23 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <UserModeProvider>
-        <AccountStatusProvider>
-          <SafeAreaProvider>
-            {isLoading ? (
-              <View
-                style={{
-                  flex: 1,
-                  justifyContent: "center",
-                  alignItems: "center",
-                  backgroundColor: "#FFFFFF",
-                }}
-              >
-                <ActivityIndicator size="large" color="#192DFF" />
-              </View>
-            ) : (
+      <ErrorBoundary>
+        <UserModeProvider>
+          <AccountStatusProvider>
+            <SafeAreaProvider>
+              <OfflineBanner />
+              {isLoading ? (
+                <View
+                  style={{
+                    flex: 1,
+                    justifyContent: "center",
+                    alignItems: "center",
+                    backgroundColor: "#FFFFFF",
+                  }}
+                >
+                  <ActivityIndicator size="large" color="#192DFF" />
+                </View>
+              ) : (
               <Stack
                 screenOptions={{
                   headerShown: false,
@@ -282,6 +285,7 @@ export default function RootLayout() {
           </SafeAreaProvider>
         </AccountStatusProvider>
       </UserModeProvider>
+      </ErrorBoundary>
     </GestureHandlerRootView>
   );
 }

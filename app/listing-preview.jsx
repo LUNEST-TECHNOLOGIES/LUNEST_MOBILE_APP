@@ -339,14 +339,15 @@ const ListingPreview = () => {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
+          <Pressable style={styles.closeButton} onPress={() => router.back()}>
+            <Text style={styles.closeButtonText}>✕</Text>
+          </Pressable>
           <View style={styles.headerTitleContainer}>
             <Text style={styles.headerTitle}>
               {isHost ? "Your Listing" : "Property Details"}
             </Text>
           </View>
-          <Pressable style={styles.closeButton} onPress={() => router.back()}>
-            <Text style={styles.closeButtonText}>✕</Text>
-          </Pressable>
+          <View style={{ width: 40 }} />
         </View>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#192DFF" />
@@ -359,15 +360,16 @@ const ListingPreview = () => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
+        <Pressable style={styles.closeButton} onPress={() => router.back()}>
+          <Text style={styles.closeButtonText}>✕</Text>
+        </Pressable>
         <View style={styles.headerTitleContainer}>
           <Text style={styles.headerTitle}>
             {isHost ? "Your Listing" : "Property Details"}
           </Text>
           {isHost && <StatusBadge status={listingData.status} />}
         </View>
-        <Pressable style={styles.closeButton} onPress={() => router.back()}>
-          <Text style={styles.closeButtonText}>✕</Text>
-        </Pressable>
+        <View style={{ width: 40 }} />
       </View>
 
       <ScrollView

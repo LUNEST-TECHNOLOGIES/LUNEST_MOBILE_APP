@@ -2117,7 +2117,7 @@ const BookingConfirmationScreen = () => {
             statusLower !== "completed" && (
               <Pressable
                 style={styles.policyNotice}
-                onPress={() => setShowPolicyModal(true)}
+                onPress={() => WebBrowser.openBrowserAsync("https://www.lunest.app/terms-of-use")}
               >
                 <Ionicons name="information-circle" size={18} color="#fd3131" />
                 <Text style={styles.policyText}>

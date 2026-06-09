@@ -378,7 +378,7 @@ class DraftListingService {
    * @param {string} draftId - The draft ID to delete
    * @returns {Promise<void>}
    */
-  async deleteDraft(draftId) {
+  async deleteDraft(draftId, localOnly = false) {
     try {
       // Delete locally first - use user-specific key
       const draftsKey = await this.getDraftsKey();
@@ -398,13 +398,13 @@ class DraftListingService {
       await storageService.setItem(draftsKey, filteredDrafts);
       console.log("💾 Draft deleted locally:", draftId);
 
-      // Delete from database only if it was synced (has _id)
-      if (backendIdToDelete) {
+      // Delete from database only if it was synced (has _id) and not localOnly
+      if (backendIdToDelete && !localOnly) {
         listingService.deleteDraftFromDatabase(backendIdToDelete).catch((err) => {
           console.log("⚠️ Could not delete draft from database:", err.message);
         });
       } else {
-        console.log("📝 Draft was local-only, no backend deletion needed");
+        console.log("📝 Draft was local-only or delete was localOnly, no backend deletion needed");
       }
     } catch (error) {
       console.error("Error deleting draft:", error);

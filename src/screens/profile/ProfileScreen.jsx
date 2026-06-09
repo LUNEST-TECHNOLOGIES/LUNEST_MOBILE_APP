@@ -15,6 +15,7 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
+import * as WebBrowser from "expo-web-browser";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   BecomeHostCard,
@@ -323,8 +324,7 @@ const ProfileScreen = ({ isHostMode: isHostModeProp = false }) => {
       icon: "privacy",
       title: "Privacy & Sharing",
       onPress: () => {
-
-        console.log("Privacy & Sharing");
+        WebBrowser.openBrowserAsync("https://www.lunest.app/privacy-policy");
       },
     },
   ];
@@ -386,8 +386,7 @@ const ProfileScreen = ({ isHostMode: isHostModeProp = false }) => {
       icon: "legal",
       title: "Legal",
       onPress: () => {
-
-        console.log("Legal");
+        WebBrowser.openBrowserAsync("https://www.lunest.app/terms-of-use");
       },
     },
     {

@@ -15,6 +15,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Path, Svg } from "react-native-svg";
+import * as WebBrowser from "expo-web-browser";
 import { AppleIcon, BackArrowIcon, Checkbox, GoogleIcon } from "../../components/auth";
 import authService from "../../services/authService";
 
@@ -463,8 +464,19 @@ const SignupScreen = ({ onBack, onLogin, onSignupSuccess }) => {
           {/* Agreement Text */}
           <Text style={styles.agreementText}>
             By signing up, you agree to our{" "}
-            <Text style={styles.agreementLink}>Terms of Service</Text> and{" "}
-            <Text style={styles.agreementLink}>Privacy Policy</Text>
+            <Text 
+              style={styles.agreementLink}
+              onPress={() => WebBrowser.openBrowserAsync("https://www.lunest.app/terms-of-use")}
+            >
+              Terms of Service
+            </Text>{" "}
+            and{" "}
+            <Text 
+              style={styles.agreementLink}
+              onPress={() => WebBrowser.openBrowserAsync("https://www.lunest.app/privacy-policy")}
+            >
+              Privacy Policy
+            </Text>
           </Text>
 
           {/* Signup Button */}

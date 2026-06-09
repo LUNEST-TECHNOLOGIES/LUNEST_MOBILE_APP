@@ -18,6 +18,7 @@ import {
     Text,
     View
 } from "react-native";
+import * as WebBrowser from "expo-web-browser";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
@@ -285,16 +286,19 @@ const PaymentMethodModal = ({
           {/* Footer */}
           <View style={styles.footer}>
             {/* Terms Notice - Before the button */}
-            <View style={styles.termsContainer}>
+            <Pressable 
+              style={styles.termsContainer}
+              onPress={() => WebBrowser.openBrowserAsync("https://www.lunest.app/terms-of-use")}
+            >
               <Ionicons
                 name="information-circle-outline"
                 size={16}
                 color="#EF4444"
               />
-              <Text style={styles.termsText}>
+              <Text style={[styles.termsText, { textDecorationLine: 'underline' }]}>
                 By Paying you accept our Terms & Conditions
               </Text>
-            </View>
+            </Pressable>
 
             <Pressable
               style={[

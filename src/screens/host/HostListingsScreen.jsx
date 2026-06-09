@@ -840,7 +840,7 @@ const HostListingsScreen = () => {
   const [draftListings, setDraftListings] = useState([]);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
-  const [sortOrder, setSortOrder] = useState("newest");
+  const [sortOrder, setSortOrder] = useState("oldest");
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [listingToDelete, setListingToDelete] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -1002,7 +1002,7 @@ const HostListingsScreen = () => {
         };
       });
 
-      // Sort drafts by newest to oldest (descending)
+      // Sort drafts by earliest first (ascending)
       formattedDrafts.sort((a, b) => {
         const timeA =
           typeof a.createdAt === "number"
@@ -1012,7 +1012,7 @@ const HostListingsScreen = () => {
           typeof b.createdAt === "number"
             ? b.createdAt
             : new Date(b.createdAt).getTime();
-        return timeB - timeA; // Descending order (newest first)
+        return timeA - timeB; // Ascending order (earliest first)
       });
 
       setDraftListings(formattedDrafts);
@@ -1782,15 +1782,13 @@ const HostListingsScreen = () => {
     <SafeAreaView style={styles.container} edges={["top"]}>
       {/* Header */}
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 10) }]}>
-        <View style={styles.headerTitleRow}>
-          <TouchableOpacity 
-            style={styles.backButton} 
-            onPress={() => router.canGoBack() ? router.back() : router.replace("/(host-tabs)/")}
-          >
-            <ChevronLeft size={24} color="#000" strokeWidth={2} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Listings</Text>
-        </View>
+        <TouchableOpacity 
+          style={styles.backButton} 
+          onPress={() => router.canGoBack() ? router.back() : router.replace("/(host-tabs)/")}
+        >
+          <ChevronLeft size={24} color="#000" strokeWidth={2} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Listings</Text>
         <TouchableOpacity
           style={styles.tipsButton}
           onPress={() => setShowTipsModal(true)}
@@ -2079,6 +2077,15 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 16,
     position: "relative",
+  },
+  backButton: {
+    position: "absolute",
+    left: 20,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
   },
   headerTitle: {
     fontSize: 18,

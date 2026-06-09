@@ -22,6 +22,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
+import * as WebBrowser from 'expo-web-browser';
 import CancelConfirmationModal from '../../src/components/create-listing/CancelConfirmationModal';
 import TermsModal from '../../src/components/create-listing/TermsModal';
 import { DEMO_TERMS } from '../../src/constants/termsConfig';
@@ -171,11 +172,7 @@ const TermsAgreement = () => {
   };
 
   const handleViewTerm = (termId) => {
-    const term = DEMO_TERMS[termId];
-    if (term) {
-      setSelectedTerm(term);
-      setShowTermsModal(true);
-    }
+    WebBrowser.openBrowserAsync("https://www.lunest.app/terms-of-use");
   };
 
   const handleCloseTermsModal = () => {

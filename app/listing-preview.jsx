@@ -386,18 +386,19 @@ const ListingPreview = () => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <View style={styles.headerTitleContainer}>
-          <Text style={styles.headerTitle}>
-            {isHost ? "Your Listing" : "Property Details"}
-          </Text>
-          {isHost && <StatusBadge status={listingData.status} />}
-        </View>
         <Pressable
           style={[styles.headerButton, styles.backCircle]}
           onPress={() => router.back()}
         >
           <ChevronLeft size={24} color="#000" strokeWidth={2} />
         </Pressable>
+        <View style={styles.headerTitleContainer}>
+          <Text style={styles.headerTitle}>
+            {isHost ? "Your Listing" : "Property Details"}
+          </Text>
+          {isHost && <StatusBadge status={listingData.status} />}
+        </View>
+        <View style={{ width: 40 }} />
       </View>
 
       <ScrollView
@@ -856,6 +857,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     flex: 1,
     justifyContent: "center",
+  },
+  headerButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  backCircle: {
+    backgroundColor: "#F3F4F6",
   },
   headerTitle: {
     fontSize: 18,

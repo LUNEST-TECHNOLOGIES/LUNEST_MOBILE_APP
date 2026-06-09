@@ -777,7 +777,7 @@ const Review = () => {
         // Clear the draft
         try {
           if (draftId) {
-            await draftListingService.deleteDraft(draftId);
+            await draftListingService.deleteDraft(draftId, true);
           }
         } catch (err) {
           console.log("Note: Could not delete draft:", err);

@@ -8,6 +8,7 @@ import { useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
     ActivityIndicator,
+    Alert,
     FlatList,
     KeyboardAvoidingView,
     Modal,
@@ -25,6 +26,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 import Toast from "../../components/common/Toast";
 import paymentService from "../../services/paymentService";
+import authService from "../../services/authService";
+import configService from "../../services/configService";
 import { formatCurrency } from "../../utils/currency";
 
 /**
@@ -58,6 +61,13 @@ const WithdrawScreen = () => {
   const [toast, setToast] = useState({ visible: false, message: "", type: "success" });
   const [showProcessingModal, setShowProcessingModal] = useState(false);
 
+  // Withdrawal PIN state
+  const [showPinModal, setShowPinModal] = useState(false);
+  const [enteredPin, setEnteredPin] = useState("");
+  const [pinError, setPinError] = useState("");
+  const [verifyingPin, setVerifyingPin] = useState(false);
+  const [userHasPin, setUserHasPin] = useState(null); // null = not checked yet
+
   // Use a ref to track the last verified combination to prevent redundant calls (429 errors)
   const lastVerifiedKey = useRef("");
 
@@ -76,6 +86,7 @@ const WithdrawScreen = () => {
   useEffect(() => {
     fetchBanks();
     fetchWalletBalance();
+    checkPinStatus();
   }, []);
 
   // Auto-verify account when account number is complete and bank is selected
@@ -96,6 +107,20 @@ const WithdrawScreen = () => {
 
   const hideToast = () => {
     setToast({ ...toast, visible: false });
+  };
+
+  const checkPinStatus = async () => {
+    try {
+      const token = await authService.getToken();
+      const baseURL = await configService.getBaseURL();
+      const res = await fetch(`${baseURL}/v1/users/withdrawal-pin-status`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      setUserHasPin(data?.hasWithdrawalPin || false);
+    } catch (_err) {
+      setUserHasPin(false);
+    }
   };
 
   const fetchBanks = async () => {
@@ -201,27 +226,92 @@ const WithdrawScreen = () => {
       showToast("Minimum withdrawal is ₦100", "error");
       return;
     }
-
     if (numericAmount > walletBalance) {
       showToast("Insufficient balance", "error");
       return;
     }
-
     if (!selectedBank) {
       showToast("Please select a bank", "error");
       return;
     }
-
     if (!accountNumber || accountNumber.length !== 10) {
       showToast("Please enter a valid 10-digit account number", "error");
       return;
     }
-
     if (!accountName) {
       showToast("Please wait for account verification", "error");
       return;
     }
 
+    // If user has no PIN set, prompt them to set one first
+    if (userHasPin === false) {
+      Alert.alert(
+        "Withdrawal PIN Required",
+        "For your security, please set a 4-digit withdrawal PIN before making withdrawals.",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Set PIN", onPress: () => router.push("/withdrawal-pin") },
+        ]
+      );
+      return;
+    }
+
+    // Show PIN confirmation modal
+    setEnteredPin("");
+    setPinError("");
+    setShowPinModal(true);
+  };
+
+  const handlePinDigit = (key) => {
+    setPinError("");
+    if (enteredPin.length < 4) {
+      const updated = enteredPin + key;
+      setEnteredPin(updated);
+      if (updated.length === 4) {
+        // Auto-submit
+        setTimeout(() => submitWithPin(updated), 150);
+      }
+    }
+  };
+
+  const handlePinDelete = () => {
+    setPinError("");
+    setEnteredPin((p) => p.slice(0, -1));
+  };
+
+  const submitWithPin = async (pin) => {
+    setVerifyingPin(true);
+    try {
+      const token = await authService.getToken();
+      const baseURL = await configService.getBaseURL();
+      const res = await fetch(`${baseURL}/v1/users/verify-withdrawal-pin`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ pin }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setShowPinModal(false);
+        setEnteredPin("");
+        // Proceed with actual withdrawal
+        await processWithdrawal();
+      } else {
+        setPinError(data.message || "Incorrect PIN. Please try again.");
+        setEnteredPin("");
+      }
+    } catch (_err) {
+      setPinError("Network error. Please try again.");
+      setEnteredPin("");
+    } finally {
+      setVerifyingPin(false);
+    }
+  };
+
+  const processWithdrawal = async () => {
+    const numericAmount = Number(amount);
     setLoading(true);
     setShowProcessingModal(true);
 
@@ -595,6 +685,86 @@ const WithdrawScreen = () => {
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+
+      {/* Withdrawal PIN Confirmation Modal */}
+      <Modal
+        visible={showPinModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => { setShowPinModal(false); setEnteredPin(""); setPinError(""); }}
+      >
+        <View style={styles.pinModalOverlay}>
+          <View style={styles.pinModalContent}>
+            {/* Header */}
+            <View style={styles.pinModalHeader}>
+              <Pressable
+                onPress={() => { setShowPinModal(false); setEnteredPin(""); setPinError(""); }}
+                style={styles.pinModalClose}
+              >
+                <Ionicons name="close" size={24} color="#666" />
+              </Pressable>
+            </View>
+
+            {/* Lock Icon */}
+            <View style={styles.pinModalIconCircle}>
+              <Ionicons name="lock-closed" size={30} color="#010135" />
+            </View>
+            <Text style={styles.pinModalTitle}>Enter Withdrawal PIN</Text>
+            <Text style={styles.pinModalSubtitle}>
+              Confirm your 4-digit PIN to continue
+            </Text>
+
+            {/* Dots */}
+            <View style={styles.pinModalDots}>
+              {Array.from({ length: 4 }).map((_, i) => (
+                <View
+                  key={i}
+                  style={[
+                    styles.pinDot,
+                    i < enteredPin.length ? styles.pinDotFilled : styles.pinDotEmpty,
+                  ]}
+                />
+              ))}
+            </View>
+
+            {/* Error */}
+            {!!pinError && (
+              <View style={styles.pinErrorRow}>
+                <Ionicons name="alert-circle-outline" size={14} color="#B70808" />
+                <Text style={styles.pinErrorText}>{pinError}</Text>
+              </View>
+            )}
+
+            {/* Numpad */}
+            {verifyingPin ? (
+              <ActivityIndicator size="large" color="#010135" style={{ marginTop: 32 }} />
+            ) : (
+              <View style={styles.pinNumpad}>
+                {["1","2","3","4","5","6","7","8","9","","0","del"].map((key, index) => {
+                  if (key === "") return <View key={index} style={styles.pinNumpadEmpty} />;
+                  if (key === "del") {
+                    return (
+                      <Pressable key={index} style={styles.pinNumpadKey} onPress={handlePinDelete}>
+                        <Ionicons name="backspace-outline" size={22} color="#010135" />
+                      </Pressable>
+                    );
+                  }
+                  return (
+                    <Pressable key={index} style={styles.pinNumpadKey} onPress={() => handlePinDigit(key)}>
+                      <Text style={styles.pinNumpadKeyText}>{key}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            )}
+
+            {/* Forgot PIN link */}
+            <Pressable onPress={() => { setShowPinModal(false); router.push("/withdrawal-pin"); }}>
+              <Text style={styles.forgotPinText}>Forgot PIN? Reset it</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
 
       {/* Processing Modal */}
       <Modal
@@ -1104,6 +1274,96 @@ const styles = StyleSheet.create({
     right: 16,
     padding: 8,
     zIndex: 20,
+  },
+  // ── PIN Modal Styles ──
+  pinModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "flex-end",
+  },
+  pinModalContent: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 12,
+    paddingHorizontal: 24,
+    paddingBottom: 40,
+    alignItems: "center",
+  },
+  pinModalHeader: {
+    width: "100%",
+    alignItems: "flex-end",
+    marginBottom: 12,
+  },
+  pinModalClose: { padding: 4 },
+  pinModalIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: "#F0F3FF",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
+  },
+  pinModalTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#000",
+    marginBottom: 6,
+  },
+  pinModalSubtitle: {
+    fontSize: 13,
+    color: "#666",
+    marginBottom: 24,
+    textAlign: "center",
+  },
+  pinModalDots: {
+    flexDirection: "row",
+    gap: 20,
+    marginBottom: 16,
+  },
+  pinDot: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+  },
+  pinDotFilled: { backgroundColor: "#010135" },
+  pinDotEmpty: { backgroundColor: "#E0E0E0" },
+  pinErrorRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#FEF2F2",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 12,
+    width: "100%",
+  },
+  pinErrorText: { fontSize: 12, color: "#B70808", flex: 1 },
+  pinNumpad: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    width: "100%",
+    maxWidth: 280,
+    marginTop: 8,
+  },
+  pinNumpadKey: {
+    width: "33.33%",
+    paddingVertical: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 12,
+  },
+  pinNumpadEmpty: { width: "33.33%", paddingVertical: 14 },
+  pinNumpadKeyText: { fontSize: 22, fontWeight: "500", color: "#010135" },
+  forgotPinText: {
+    fontSize: 13,
+    color: "#010135",
+    fontWeight: "600",
+    marginTop: 16,
+    textDecorationLine: "underline",
   },
 });
 

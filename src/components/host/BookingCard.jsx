@@ -44,9 +44,14 @@ const STATUS_CONFIG = {
     bgColor: "rgba(107, 114, 128, 0.1)",
   },
   PENDING: {
-    label: "RESERVED",
+    label: "PENDING",
     color: "#FDAE31",
     bgColor: "rgba(253, 174, 49, 0.1)",
+  },
+  PENDING_PAYMENT: {
+    label: "PENDING PAYMENT",
+    color: "#FF9800",
+    bgColor: "rgba(255, 152, 0, 0.1)",
   },
   RESERVED: {
     label: "RESERVED",
@@ -138,6 +143,7 @@ const StatusBadge = ({ status }) => {
       case "EXPIRED":
         return <CloseIcon color={config.color} />;
       case "PENDING":
+      case "PENDING_PAYMENT":
       case "RESERVED":
         return <ClockIcon color={config.color} />;
       default:
@@ -271,7 +277,7 @@ const BookingCard = ({
             style={styles.viewDetailsButton}
             onPress={onViewDetails}
           >
-            <Text style={styles.viewDetailsText}>View details</Text>
+            <Text style={styles.viewDetailsText}>Details</Text>
           </TouchableOpacity>
 
           {/* Reserved/Pending - Mark as Confirmed + Cancel options */}
@@ -439,16 +445,18 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     marginTop: 5,
+    gap: 6,
+    flexWrap: "wrap",
   },
   viewDetailsButton: {
     borderWidth: 1,
     borderColor: "#000000",
     borderRadius: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
   viewDetailsText: {
-    fontSize: 11,
+    fontSize: 9,
     fontWeight: "500",
     color: "#292929",
   },

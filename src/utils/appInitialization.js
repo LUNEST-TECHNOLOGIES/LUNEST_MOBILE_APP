@@ -3,8 +3,8 @@
  * Runs startup tasks and initializes services
  */
 
-import configService from "./services/configService";
-import apiClient from "./services/apiClient";
+import configService from "../services/configService";
+import apiClient from "../services/apiClient";
 
 /**
  * Initialize all app services

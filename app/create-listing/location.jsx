@@ -15,6 +15,7 @@ import debounce from "lodash.debounce";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Keyboard,
   KeyboardAvoidingView,
   Modal,
@@ -1270,17 +1271,6 @@ const styles = StyleSheet.create({
   },
   map: {
     ...StyleSheet.absoluteFillObject,
-  },
-  mapPlaceholder: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 10,
-  },
-  mapPlaceholderText: {
-    fontSize: 14,
-    color: "#999",
-    fontWeight: "500",
   },
   mapHelpText: {
     fontSize: 12,

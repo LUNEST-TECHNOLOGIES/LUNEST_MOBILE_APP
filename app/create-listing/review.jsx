@@ -730,12 +730,7 @@ const Review = () => {
         roomSizes: Array.isArray(mergedData.roomSizes) ? mergedData.roomSizes : [],
         totalSquareFootage: mergedData.totalSquareFootage || "",
         usageType: mergedData.usageType || "",
-        // ALIGN WITH BACKEND: Use propertyName and explicit bedrooms/bathrooms
-        propertyName: mergedData.propertyTitle || mergedData.propertyName || "Listing",
-        propertyTitle: mergedData.propertyTitle || mergedData.propertyName || "Listing",
         title: mergedData.propertyTitle || mergedData.propertyName || "Listing",
-        bedrooms: parseInt(mergedData.bedrooms) || 0,
-        bathrooms: parseInt(mergedData.bathrooms) || 0,
         acceptRefund: mergedData.acceptRefund !== false, // Explicitly pass the refund policy
         status: "PENDING",
         draftId: draftId,

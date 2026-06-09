@@ -3,7 +3,7 @@
  */
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
     ActivityIndicator,
     Modal,
@@ -41,6 +41,7 @@ const LoginSecurityScreen = () => {
   } = useAccountStatus();
   const [isReactivating, setIsReactivating] = useState(false);
   const [showReactivateModal, setShowReactivateModal] = useState(false);
+  const [hasWithdrawalPin, setHasWithdrawalPin] = useState(false);
   const [toast, setToast] = useState({
     visible: false,
     message: "",
@@ -54,6 +55,28 @@ const LoginSecurityScreen = () => {
   const hideToast = () => {
     setToast({ ...toast, visible: false });
   };
+
+  // Fetch withdrawal PIN status to show correct label
+  useEffect(() => {
+    const fetchPinStatus = async () => {
+      try {
+        const authServiceModule = await import("../../services/authService");
+        const configServiceModule = await import("../../services/configService");
+        const authSvc = authServiceModule.default;
+        const configSvc = configServiceModule.default;
+        const token = await authSvc.getToken();
+        const baseURL = await configSvc.getBaseURL();
+        const res = await fetch(`${baseURL}/v1/users/withdrawal-pin-status`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json();
+        setHasWithdrawalPin(data?.hasWithdrawalPin || false);
+      } catch (_err) {
+        // Silently fail
+      }
+    };
+    fetchPinStatus();
+  }, []);
 
   const isAdminDeactivated = deactivationReason === "ADMIN_ACTION";
 
@@ -95,6 +118,14 @@ const LoginSecurityScreen = () => {
       subtitle: "Change your account password",
       color: "#000000",
       onPress: () => router.push("/update-password"),
+    },
+    {
+      id: "withdrawal-pin",
+      icon: "keypad-outline",
+      title: "Withdrawal PIN",
+      subtitle: hasWithdrawalPin ? "Change or reset your withdrawal PIN" : "Set a 4-digit PIN for withdrawal security",
+      color: "#010135",
+      onPress: () => router.push("/withdrawal-pin"),
     },
     isAccountActive
       ? {

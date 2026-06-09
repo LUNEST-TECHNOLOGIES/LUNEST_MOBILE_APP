@@ -620,7 +620,7 @@ const Amenities = () => {
               </View>
               <View style={styles.tipItem}>
                 <View style={styles.tipCheckbox}>
-                  <CheckCircleIcon size={18} color="#23C16B" />
+                  <CheckCircle size={18} color="#23C16B" />
                 </View>
                 <Text style={styles.tipText}>More amenities can increase bookings</Text>
               </View>

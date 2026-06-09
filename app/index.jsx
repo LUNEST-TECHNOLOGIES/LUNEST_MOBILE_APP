@@ -6,7 +6,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter, useRootNavigationState } from "expo-router";
 import { useEffect } from "react";
-import { ActivityIndicator, View } from "react-native";
+import { ActivityIndicator, Platform, View } from "react-native";
 import authService from "../src/services/authService";
 import storageService from "../src/services/storageService";
 

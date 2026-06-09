@@ -1,21 +1,21 @@
-import { 
-  ArrowLeft, 
-  ArrowRight, 
-  Share2, 
-  ShieldCheck, 
-  Star, 
-  Clock, 
-  Info, 
-  Heart, 
-  ChevronRight, 
-  MapPin, 
-  PlayCircle, 
-  Video, 
-  Navigation, 
-  Phone, 
-  MessageSquare, 
-  Copy, 
-  CheckCircle2, 
+import {
+  ArrowLeft,
+  ArrowRight,
+  Share2,
+  ShieldCheck,
+  Star,
+  Clock,
+  Info,
+  Heart,
+  ChevronRight,
+  MapPin,
+  PlayCircle,
+  Video,
+  Navigation,
+  Phone,
+  MessageSquare,
+  Copy,
+  CheckCircle2,
   X,
   ChevronLeft
 } from "lucide-react-native";
@@ -192,9 +192,9 @@ const convertHouseRulesToLabels = (rules) => {
       return rules === "0"
         ? []
         : rules
-            .split("\n")
-            .map(toTitleCase)
-            .filter((rule) => rule.trim() && rule !== "0");
+          .split("\n")
+          .map(toTitleCase)
+          .filter((rule) => rule.trim() && rule !== "0");
     }
   }
 
@@ -247,7 +247,7 @@ const formatAmenity = (amenity) => {
     try {
       const parsed = JSON.parse(text);
       return formatAmenity(parsed);
-    } catch (e) {}
+    } catch (e) { }
   }
 
   return toTitleCase(text);
@@ -299,12 +299,12 @@ const PropertyDetailsScreen = () => {
     refetchOnMount: true,
     queryFn: async () => {
       console.log(`[PropertyDetailsScreen] Fetching listing: ${listingId}`);
-      
+
       if (!listingId) {
         console.error("[PropertyDetailsScreen] No listingId provided!");
         throw new Error("No listing ID provided");
       }
-      
+
       const result = await listingService.fetchListingById(listingId);
       console.log("[PropertyDetailsScreen] API Result:", {
         hasResult: !!result,
@@ -314,7 +314,7 @@ const PropertyDetailsScreen = () => {
         hasId: !!result?._id,
         keys: result ? Object.keys(result) : [],
       });
-      
+
       // The service returns the listing object directly or in .body
       if (result && result.success) {
         const listingData = result.listing || result.body;
@@ -335,7 +335,7 @@ const PropertyDetailsScreen = () => {
         console.log("[PropertyDetailsScreen] Using result directly as listing");
         return result;
       }
-      
+
       console.error("[PropertyDetailsScreen] Failed to load listing:", result?.message);
       throw new Error(result?.message || "Failed to load listing");
     },
@@ -352,7 +352,7 @@ const PropertyDetailsScreen = () => {
     let path = typeof image === "object" ? image.url || image.uri : image;
     // Use the state-populated baseURL if available, otherwise fallback to sync
     const urlToUse = baseURL || configService.getBaseURLSync();
-    
+
     // Debug logging for review images
     if (path && path.includes('/uploads/')) {
       console.log('[PropertyDetailsScreen] convertImageUrl:', {
@@ -362,7 +362,7 @@ const PropertyDetailsScreen = () => {
         urlToUse: urlToUse || 'null',
       });
     }
-    
+
     return resolveImageUrlSync(path, urlToUse);
   };
 
@@ -574,7 +574,7 @@ const PropertyDetailsScreen = () => {
         setShowReviewModal(false);
         setReviewRating(0);
         setIsPostingReview(false);
-        
+
         // Refresh listing data to show new rating/review
         queryClient.invalidateQueries(["listing", listingId]);
         queryClient.invalidateQueries(["listings"]); // Invalidate the home screen list
@@ -620,15 +620,15 @@ const PropertyDetailsScreen = () => {
 
       try {
         console.log("[PropertyDetailsScreen] Geocoding address:", address);
-        
+
         // Add a safety timeout for the geocoding request
         const geocodePromise = locationService.getCoordinatesFromAddress(address);
-        const timeoutPromise = new Promise((_, reject) => 
+        const timeoutPromise = new Promise((_, reject) =>
           setTimeout(() => reject(new Error("Geocoding timeout")), 8000)
         );
 
         const coords = await Promise.race([geocodePromise, timeoutPromise]);
-        
+
         if (coords && coords.latitude && coords.longitude) {
           console.log("[PropertyDetailsScreen] Geocoded coordinates:", coords);
           setGeocodedCoords(coords);
@@ -667,7 +667,7 @@ const PropertyDetailsScreen = () => {
       if (result.success) {
         const newStatus = !isBookmarked;
         setIsBookmarked(newStatus);
-        
+
         if (result.action === "added") {
           showToast("Added to your saved properties");
           // Fetch the new bookmark to get its ID
@@ -702,24 +702,24 @@ const PropertyDetailsScreen = () => {
         },
       ];
     }
-    
+
     // Robust image field detection
     const rawImages = listing.propertyImages || listing.images || listing.photos || (listing.image ? [listing.image] : []);
-    
-    const processedImages = Array.isArray(rawImages) 
+
+    const processedImages = Array.isArray(rawImages)
       ? rawImages
-          .map((img) => {
-            try {
-              if (!img) return null;
-              const url = convertImageUrl(img);
-              return url ? { uri: url, type: "image" } : null;
-            } catch (err) {
-              return null;
-            }
-          })
-          .filter(Boolean)
+        .map((img) => {
+          try {
+            if (!img) return null;
+            const url = convertImageUrl(img);
+            return url ? { uri: url, type: "image" } : null;
+          } catch (err) {
+            return null;
+          }
+        })
+        .filter(Boolean)
       : [];
-    
+
     return processedImages.length > 0 ? processedImages : [
       {
         uri: require("../../assets/images/no-image.png"),
@@ -776,18 +776,18 @@ const PropertyDetailsScreen = () => {
       address: listing.address || listing.propertyLocation?.fullAddress || "",
       propertyType: listing.propertyType || "Apartment",
       location: (() => {
-            const city = listing.city || listing.propertyLocation?.city;
-            const state = listing.state || listing.propertyLocation?.state;
-            if (city && state) {
-              return `${city}, ${state}`;
-            } else if (city) {
-              return city;
-            } else if (state) {
-              return state;
-            } else {
-              return listing.location || listing.propertyLocation?.fullAddress || "Nigeria";
-            }
-          })(),
+        const city = listing.city || listing.propertyLocation?.city;
+        const state = listing.state || listing.propertyLocation?.state;
+        if (city && state) {
+          return `${city}, ${state}`;
+        } else if (city) {
+          return city;
+        } else if (state) {
+          return state;
+        } else {
+          return listing.location || listing.propertyLocation?.fullAddress || "Nigeria";
+        }
+      })(),
       images: propertyImages,
       available: listing.status === "ACTIVE" || listing.status === "AVAILABLE",
       isBooked: listing.status === "BOOKED",
@@ -828,15 +828,15 @@ const PropertyDetailsScreen = () => {
         },
         ...(listing.furnishing
           ? [
-              {
-                label: String(listing.furnishing)
-                  .replace(/_/g, " ")
-                  .replace(/\b\w/g, (l) => l.toUpperCase()),
-                icon: "home"
-              },
-            ]
+            {
+              label: String(listing.furnishing)
+                .replace(/_/g, " ")
+                .replace(/\b\w/g, (l) => l.toUpperCase()),
+              icon: "home"
+            },
+          ]
           : []),
-        { 
+        {
           label: listing.instantBooking ? "Instant Booking" : "Contact Host",
           icon: "flash"
         },
@@ -850,20 +850,20 @@ const PropertyDetailsScreen = () => {
         const additionalRulesArray = listing.additionalRules
           ? typeof listing.additionalRules === "string"
             ? listing.additionalRules
-                .split(/[,\n]/)
-                .map((r) => r.trim())
-                .filter(Boolean)
+              .split(/[,\n]/)
+              .map((r) => r.trim())
+              .filter(Boolean)
             : Array.isArray(listing.additionalRules)
               ? listing.additionalRules
-                  .map((r) => String(r || "").trim())
-                  .filter(Boolean)
+                .map((r) => String(r || "").trim())
+                .filter(Boolean)
               : [String(listing.additionalRules)]
           : [];
 
         const regulationsArray = Array.isArray(listing.regulations)
           ? listing.regulations
-              .map((r) => String(r || "").trim())
-              .filter(Boolean)
+            .map((r) => String(r || "").trim())
+            .filter(Boolean)
           : [];
 
         const allRules = [
@@ -910,7 +910,7 @@ const PropertyDetailsScreen = () => {
         totalListings: hostTotalListings || 1,
         rating: hostCurrentRating || null,
         isVerified:
-          listing.hostInfo?.hostApplicationStatus === "APPROVED" || 
+          listing.hostInfo?.hostApplicationStatus === "APPROVED" ||
           listing.host?.hostApplicationStatus === "APPROVED" ||
           listing.user?.hostApplicationStatus === "APPROVED" ||
           listing.host?.isVerified || listing.hostInfo?.isVerified || listing.user?.verified || false,
@@ -934,7 +934,7 @@ const PropertyDetailsScreen = () => {
 
   // Progressive loading: handles first-load vs refresh transitions
   // Added skeletonDelay and ensure we don't show error while loading
-  const { showSkeleton, isRefreshing, contentReady, isFirstLoad } = 
+  const { showSkeleton, isRefreshing, contentReady, isFirstLoad } =
     useProgressiveLoading(listing, loading, { skeletonDelay: 400 });
 
   // Handle loading state - show skeleton only if we have NO data to show
@@ -992,9 +992,9 @@ const PropertyDetailsScreen = () => {
     const iosUrl = `http://maps.apple.com/?q=${label}&ll=${lat},${lng}`;
     const androidUrl = `geo:${lat},${lng}?q=${lat},${lng}(${labelText || "Property Location"})`;
     const fallbackUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
-    
+
     const url = Platform.select({ ios: iosUrl, android: androidUrl });
-    
+
     Linking.canOpenURL(url).then(supported => {
       if (supported) {
         return Linking.openURL(url);
@@ -1108,7 +1108,7 @@ const PropertyDetailsScreen = () => {
           securityDeposit: listing.securityDeposit || 0,
           serviceCharge:
             listing.serviceCharge !== undefined &&
-            listing.serviceCharge !== null
+              listing.serviceCharge !== null
               ? listing.serviceCharge
               : listing.cleaningFee || 0,
           petsFriendly: listing.petsFriendly !== false ? "true" : "false",
@@ -1302,13 +1302,13 @@ const PropertyDetailsScreen = () => {
                 />
               </View>
             ) : (
-                <View style={styles.hostAvatarContainer}>
-                    <Image
-                        source={require("../../assets/images/no-image.png")}
-                        style={styles.hostAvatarImage}
-                        contentFit="cover"
-                    />
-                </View>
+              <View style={styles.hostAvatarContainer}>
+                <Image
+                  source={require("../../assets/images/no-image.png")}
+                  style={styles.hostAvatarImage}
+                  contentFit="cover"
+                />
+              </View>
             )}
 
             <View style={styles.hostInfo}>
@@ -1321,8 +1321,8 @@ const PropertyDetailsScreen = () => {
                 <View style={styles.hostStatDivider} />
                 <View style={styles.hostRating}>
                   <Text style={styles.ratingText}>
-                    {hostCurrentRating || propertyData.host.rating ? 
-                      Number(hostCurrentRating || propertyData.host.rating).toFixed(1) : 
+                    {hostCurrentRating || propertyData.host.rating ?
+                      Number(hostCurrentRating || propertyData.host.rating).toFixed(1) :
                       "N/A"}
                   </Text>
                   <StarIcon width={12} height={12} style={styles.ratingStar} />
@@ -1366,10 +1366,10 @@ const PropertyDetailsScreen = () => {
             .filter(Boolean) // Remove any null/undefined values
             .map((regulation, index) => (
               <View key={index} style={styles.regulationRow}>
-                <Ionicons 
-                  name="checkmark-circle-outline" 
-                  size={16} 
-                  color="#010135" 
+                <Ionicons
+                  name="checkmark-circle-outline"
+                  size={16}
+                  color="#010135"
                 />
                 <Text style={styles.regulationText}>
                   {String(regulation || "")}
@@ -1383,19 +1383,19 @@ const PropertyDetailsScreen = () => {
 
   const renderCancellationPolicySection = () => {
     const isNonRefundable = listing?.acceptRefund === false;
-    
+
     return (
       <View style={styles.policySection}>
         <Text style={styles.sectionTitle}>Cancellation Policy</Text>
         <View style={[
-          styles.policyContainer, 
+          styles.policyContainer,
           isNonRefundable ? styles.nonRefundableContainer : styles.refundableContainer
         ]}>
           <View style={styles.policyHeaderRow}>
-            <Ionicons 
-              name={isNonRefundable ? "alert-circle-outline" : "shield-checkmark-outline"} 
-              size={20} 
-              color={isNonRefundable ? "#FD3131" : "#10B981"} 
+            <Ionicons
+              name={isNonRefundable ? "alert-circle-outline" : "shield-checkmark-outline"}
+              size={20}
+              color={isNonRefundable ? "#FD3131" : "#10B981"}
             />
             <Text style={[
               styles.policyTypeLabel,
@@ -1405,7 +1405,7 @@ const PropertyDetailsScreen = () => {
             </Text>
           </View>
           <Text style={styles.policyText}>
-            {isNonRefundable 
+            {isNonRefundable
               ? "Host Cancellation Policy: This property follows a Non-Refundable Policy. The host does not accept cancellations or refunds once the booking is confirmed."
               : "Guests can cancel according to our fair refund timeline. Cancellation eligibility and refund amounts are calculated based on the check-in date."
             }
@@ -1432,10 +1432,10 @@ const PropertyDetailsScreen = () => {
             <View style={styles.landmarkContainer}>
               {landmarks.map((landmark, index) => (
                 <View key={index} style={styles.landmarkRow}>
-                  <Ionicons 
-                    name="location-outline" 
-                    size={16} 
-                    color="#010135" 
+                  <Ionicons
+                    name="location-outline"
+                    size={16}
+                    color="#010135"
                   />
                   <Text style={styles.landmarkText}>{String(landmark || "")}</Text>
                 </View>
@@ -1449,101 +1449,121 @@ const PropertyDetailsScreen = () => {
         {/* Map Preview */}
         <View style={styles.mapPreviewContainer}>
           {propertyData.latitude != null && propertyData.longitude != null ? (
-            <Pressable
-              style={styles.mapContainer}
-              onPress={() => {
-                openMapLocation(
-                  propertyData.latitude,
-                  propertyData.longitude,
-                  propertyData.title,
-                );
-              }}
-            >
-              <MapView
-                key={`map-${propertyData.latitude}-${propertyData.longitude}`}
-                style={styles.map}
-                provider={PROVIDER_GOOGLE}
-                initialRegion={{
-                  latitude: Number(propertyData.latitude),
-                  longitude: Number(propertyData.longitude),
-                  latitudeDelta: 0.015,
-                  longitudeDelta: 0.015,
-                }}
-                loadingEnabled={true}
-                loadingIndicatorColor="#010135"
-                scrollEnabled={true}
-                zoomEnabled={true}
-                pitchEnabled={false}
-                rotateEnabled={false}
-                cacheEnabled={true}
-                showsUserLocation={false}
-                showsMyLocationButton={false}
-                showsPointsOfInterest={false}
-                showsBuildings={false}
-                showsTraffic={false}
-                showsIndoors={false}
-                showsCompass={false}
-                showsScale={false}
-                showsIndoorLevelPicker={false}
-              >
-                <Marker
-                  key={`marker-${propertyData.latitude}-${propertyData.longitude}`}
-                  coordinate={{
+            Platform.OS === 'web' ? (
+              <View style={styles.mapContainer}>
+                <MapView
+                  key={`map-${propertyData.latitude}-${propertyData.longitude}`}
+                  style={styles.map}
+                  provider={PROVIDER_GOOGLE}
+                  initialRegion={{
                     latitude: Number(propertyData.latitude),
                     longitude: Number(propertyData.longitude),
+                    latitudeDelta: 0.015,
+                    longitudeDelta: 0.015,
                   }}
-                  title={propertyData.title}
-                  description={propertyData.location}
-                  pinColor="#010135"
-                  onPress={() => {
-                    // Handle pin click - open map with more details
-                    handleLocationPress();
-                  }}
+                  loadingEnabled={true}
+                  loadingIndicatorColor="#010135"
+                  scrollEnabled={true}
+                  zoomEnabled={true}
                 />
-              </MapView>
-              
-              {/* Interactive Map Overlay */}
-              <View style={styles.mapOverlay}>
-                <View style={styles.mapOverlayContent}>
-                  <Ionicons name="location" size={16} color="#010135" />
-                  <Text style={styles.mapOverlayText}>Tap to view in maps</Text>
-                </View>
               </View>
+            ) : (
+              <Pressable
+                style={styles.mapContainer}
+                onPress={() => {
+                  openMapLocation(
+                    propertyData.latitude,
+                    propertyData.longitude,
+                    propertyData.title,
+                  );
+                }}
+              >
+                <MapView
+                  key={`map-${propertyData.latitude}-${propertyData.longitude}`}
+                  style={styles.map}
+                  provider={PROVIDER_GOOGLE}
+                  initialRegion={{
+                    latitude: Number(propertyData.latitude),
+                    longitude: Number(propertyData.longitude),
+                    latitudeDelta: 0.015,
+                    longitudeDelta: 0.015,
+                  }}
+                  loadingEnabled={true}
+                  loadingIndicatorColor="#010135"
+                  scrollEnabled={true}
+                  zoomEnabled={true}
+                  pitchEnabled={false}
+                  rotateEnabled={false}
+                  cacheEnabled={true}
+                  showsUserLocation={false}
+                  showsMyLocationButton={false}
+                  showsPointsOfInterest={false}
+                  showsBuildings={false}
+                  showsTraffic={false}
+                  showsIndoors={false}
+                  showsCompass={false}
+                  showsScale={false}
+                  showsIndoorLevelPicker={false}
+                >
+                  <Marker
+                    key={`marker-${propertyData.latitude}-${propertyData.longitude}`}
+                    coordinate={{
+                      latitude: Number(propertyData.latitude),
+                      longitude: Number(propertyData.longitude),
+                    }}
+                    title={propertyData.title}
+                    description={propertyData.location}
+                    pinColor="#010135"
+                    onPress={() => {
+                      // Handle pin click - open map with more details
+                      handleLocationPress();
+                    }}
+                  />
+                </MapView>
 
-              {/* Zoom Controls */}
-              <View style={styles.zoomControls}>
-                <Pressable 
-                  style={[styles.zoomButton, styles.zoomButtonTop]}
-                  onPress={() => {
-                    // Zoom in functionality would require map ref
-                    console.log('Zoom in pressed');
-                  }}
-                >
-                  <Ionicons name="add" size={16} color="#010135" />
-                </Pressable>
-                <Pressable 
-                  style={[styles.zoomButton, styles.zoomButtonBottom]}
-                  onPress={() => {
-                    // Zoom out functionality would require map ref
-                    console.log('Zoom out pressed');
-                  }}
-                >
-                  <Ionicons name="remove" size={16} color="#010135" />
-                </Pressable>
-              </View>
-            </Pressable>
+                {/* Interactive Map Overlay */}
+                <View style={styles.mapOverlay}>
+                  <View style={styles.mapOverlayContent}>
+                    <Ionicons name="location" size={16} color="#010135" />
+                    <Text style={styles.mapOverlayText}>Tap to view in maps</Text>
+                  </View>
+                </View>
+
+                {/* Zoom Controls */}
+                <View style={styles.zoomControls}>
+                  <Pressable
+                    style={[styles.zoomButton, styles.zoomButtonTop]}
+                    onPress={() => {
+                      // Zoom in functionality would require map ref
+                      console.log('Zoom in pressed');
+                    }}
+                  >
+                    <Ionicons name="add" size={16} color="#010135" />
+                  </Pressable>
+                  <Pressable
+                    style={[styles.zoomButton, styles.zoomButtonBottom]}
+                    onPress={() => {
+                      // Zoom out functionality would require map ref
+                      console.log('Zoom out pressed');
+                    }}
+                  >
+                    <Ionicons name="remove" size={16} color="#010135" />
+                  </Pressable>
+                </View>
+              </Pressable>
+            )
           ) : (
             <View style={styles.mapPlaceholder}>
               <View style={styles.mapPlaceholderContent}>
                 <Ionicons name="location-outline" size={40} color="#010135" />
                 <Text style={styles.mapPlaceholderText}>
-                  {(!propertyData.latitude && propertyData.location && !geocodedCoords?.failed) 
-                    ? "Locating on map..." 
+                  {(!propertyData.latitude && propertyData.location && !geocodedCoords?.failed)
+                    ? "Locating on map..."
                     : "Map not available"}
                 </Text>
                 <Text style={styles.mapPlaceholderSubtext}>
-                  {(!propertyData.latitude && propertyData.location && !geocodedCoords?.failed) 
-                    ? "Getting precise coordinates for this location" 
+                  {(!propertyData.latitude && propertyData.location && !geocodedCoords?.failed)
+                    ? "Getting precise coordinates for this location"
                     : "Coordinates for this address could not be determined. Please contact host for exact location."}
                 </Text>
                 {(!propertyData.latitude && propertyData.location && !geocodedCoords?.failed) && (
@@ -1611,9 +1631,9 @@ const PropertyDetailsScreen = () => {
                   <Text style={styles.reviewAuthor}>
                     {review.reviewedAt
                       ? new Date(review.reviewedAt).toLocaleDateString(
-                          "en-US",
-                          { month: "short", year: "numeric" },
-                        )
+                        "en-US",
+                        { month: "short", year: "numeric" },
+                      )
                       : "Recently"}
                   </Text>
                 </View>
@@ -1694,11 +1714,11 @@ const PropertyDetailsScreen = () => {
           onPress={handleToggleBookmark}
           style={styles.headerIconButton}
         >
-          <Heart 
-            size={22} 
-            color={isBookmarked ? "#FF5A5F" : "#FFFFFF"} 
+          <Heart
+            size={22}
+            color={isBookmarked ? "#FF5A5F" : "#FFFFFF"}
             fill={isBookmarked ? "#FF5A5F" : "transparent"}
-            strokeWidth={1.5} 
+            strokeWidth={1.5}
           />
         </TouchableOpacity>
       </View>
@@ -1779,7 +1799,7 @@ const PropertyDetailsScreen = () => {
                 ]}
               >
                 {propertyData.status === "BOOKED" &&
-                propertyData.bookedUntil
+                  propertyData.bookedUntil
                   ? `Currently booked till ${new Date(propertyData.bookedUntil).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" })}`
                   : propertyData.status === "BOOKED"
                     ? "Currently Booked"
@@ -1805,217 +1825,217 @@ const PropertyDetailsScreen = () => {
             {/* Price Note */}
             <View style={styles.priceNoteContainer}>
               <Info size={16} color="#656565" strokeWidth={2} />
-            <Text style={styles.priceNote}>{propertyData.priceNote}</Text>
+              <Text style={styles.priceNote}>{propertyData.priceNote}</Text>
+            </View>
+
+            {/* Full Details */}
+            <Pressable
+              style={styles.fullDetailsButton}
+              onPress={() =>
+                router.push({
+                  pathname: "/full-details",
+                  params: { listingId: listingId },
+                })
+              }
+            >
+              <Text style={styles.fullDetailsText}>Full details</Text>
+              <ChevronRight size={18} color="#010135" />
+            </Pressable>
           </View>
 
-          {/* Full Details */}
-          <Pressable
-            style={styles.fullDetailsButton}
-            onPress={() =>
-              router.push({
-                pathname: "/full-details",
-                params: { listingId: listingId },
-              })
-            }
-          >
-            <Text style={styles.fullDetailsText}>Full details</Text>
-            <ChevronRight size={18} color="#010135" />
-          </Pressable>
-        </View>
-
-        {/* Description Section */}
-        <View style={styles.descriptionSection}>
-          <Text style={styles.sectionTitle}>Description</Text>
-          <Text style={styles.descriptionText}>{propertyData.description}</Text>
-        </View>
-
-        {/* What You Get Section */}
-        <View style={styles.whatYouGetSection}>
-          <Text style={styles.sectionTitle}>What you get</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.featuresScroll}
-            contentContainerStyle={styles.whatYouGetContainer}
-          >
-            {propertyData.features.map((feature, index) => {
-              const Icon = getAmenityIcon(feature.label);
-              return (
-                <View key={index} style={styles.whatYouGetBox}>
-                  <Icon 
-                    size={18} 
-                    color="#FFFFFF" 
-                    strokeWidth={2}
-                  />
-                  <Text style={styles.whatYouGetText}>{feature.label}</Text>
-                </View>
-              );
-            })}
-          </ScrollView>
-        </View>
-
-        {/* Key Amenities Section */}
-        <View style={styles.keyAmenitiesSection}>
-          <Text style={styles.sectionTitle}>Key Amenities</Text>
-          <View style={styles.amenitiesGrid}>
-            {propertyData.amenities.map((amenity, index) => (
-              <View key={index} style={styles.amenityGridItem}>
-                <View style={styles.amenityIconContainer}>
-                   {React.createElement(getAmenityIcon(amenity), {
-                     size: 20,
-                     color: "#010135",
-                     strokeWidth: 2
-                   })}
-                </View>
-                <Text style={styles.amenityGridText}>
-                  {amenity.replace(/^custom_/, "").replace(/_/g, " ")}
-                </Text>
-              </View>
-            ))}
+          {/* Description Section */}
+          <View style={styles.descriptionSection}>
+            <Text style={styles.sectionTitle}>Description</Text>
+            <Text style={styles.descriptionText}>{propertyData.description}</Text>
           </View>
-        </View>
 
-        {/* Landmark/Location Section */}
-        {renderLandmarkSection()}
+          {/* What You Get Section */}
+          <View style={styles.whatYouGetSection}>
+            <Text style={styles.sectionTitle}>What you get</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.featuresScroll}
+              contentContainerStyle={styles.whatYouGetContainer}
+            >
+              {propertyData.features.map((feature, index) => {
+                const Icon = getAmenityIcon(feature.label);
+                return (
+                  <View key={index} style={styles.whatYouGetBox}>
+                    <Icon
+                      size={18}
+                      color="#FFFFFF"
+                      strokeWidth={2}
+                    />
+                    <Text style={styles.whatYouGetText}>{feature.label}</Text>
+                  </View>
+                );
+              })}
+            </ScrollView>
+          </View>
 
-        <View style={{ height: 20 }} />
-
-        {/* Regulations and Policy */}
-        {renderRegulationsSection()}
-        {renderCancellationPolicySection()}
-
-        {/* Host Section */}
-        {renderHostSection()}
-
-        {/* Reviews Section with Posting Logic */}
-        <View style={styles.reviewsSection}>
-          <View style={styles.reviewsHeader}>
-            <Text style={styles.sectionTitle}>Guest Reviews</Text>
-            <View style={styles.ratingContainer}>
-              <Ionicons name="star" size={16} color="#FFD700" />
-              <Text style={styles.ratingText}>
-                {listing?.averageRating || "0.0"} ({listing?.ratingCount || 0})
-              </Text>
+          {/* Key Amenities Section */}
+          <View style={styles.keyAmenitiesSection}>
+            <Text style={styles.sectionTitle}>Key Amenities</Text>
+            <View style={styles.amenitiesGrid}>
+              {propertyData.amenities.map((amenity, index) => (
+                <View key={index} style={styles.amenityGridItem}>
+                  <View style={styles.amenityIconContainer}>
+                    {React.createElement(getAmenityIcon(amenity), {
+                      size: 20,
+                      color: "#010135",
+                      strokeWidth: 2
+                    })}
+                  </View>
+                  <Text style={styles.amenityGridText}>
+                    {amenity.replace(/^custom_/, "").replace(/_/g, " ")}
+                  </Text>
+                </View>
+              ))}
             </View>
           </View>
 
-          {/* Reviews List */}
-          <View style={styles.reviewsContainer}>
-            {listingReviews && listingReviews.length > 0 ? (
-              listingReviews.map((review, index) => (
-                <View key={review.id || index || `review-${index}`} style={styles.reviewCard}>
-                  <View style={styles.reviewHeader}>
-                    <View style={styles.reviewerInfo}>
-                      {review.reviewer?.avatar &&
-                      convertImageUrl(review.reviewer.avatar) ? (
-                        <Image
-                          source={{
-                            uri: convertImageUrl(review.reviewer.avatar),
-                          }}
-                          style={styles.reviewerAvatar}
-                          defaultSource={undefined}
-                          onError={() => {}}
-                        />
-                      ) : (
-                        <View style={styles.reviewerAvatarPlaceholder}>
-                          <Text style={styles.reviewerInitial}>
-                            {review.reviewer?.fullName?.charAt(0) || "G"}
+          {/* Landmark/Location Section */}
+          {renderLandmarkSection()}
+
+          <View style={{ height: 20 }} />
+
+          {/* Regulations and Policy */}
+          {renderRegulationsSection()}
+          {renderCancellationPolicySection()}
+
+          {/* Host Section */}
+          {renderHostSection()}
+
+          {/* Reviews Section with Posting Logic */}
+          <View style={styles.reviewsSection}>
+            <View style={styles.reviewsHeader}>
+              <Text style={styles.sectionTitle}>Guest Reviews</Text>
+              <View style={styles.ratingContainer}>
+                <Ionicons name="star" size={16} color="#FFD700" />
+                <Text style={styles.ratingText}>
+                  {listing?.averageRating || "0.0"} ({listing?.ratingCount || 0})
+                </Text>
+              </View>
+            </View>
+
+            {/* Reviews List */}
+            <View style={styles.reviewsContainer}>
+              {listingReviews && listingReviews.length > 0 ? (
+                listingReviews.map((review, index) => (
+                  <View key={review.id || index || `review-${index}`} style={styles.reviewCard}>
+                    <View style={styles.reviewHeader}>
+                      <View style={styles.reviewerInfo}>
+                        {review.reviewer?.avatar &&
+                          convertImageUrl(review.reviewer.avatar) ? (
+                          <Image
+                            source={{
+                              uri: convertImageUrl(review.reviewer.avatar),
+                            }}
+                            style={styles.reviewerAvatar}
+                            defaultSource={undefined}
+                            onError={() => { }}
+                          />
+                        ) : (
+                          <View style={styles.reviewerAvatarPlaceholder}>
+                            <Text style={styles.reviewerInitial}>
+                              {review.reviewer?.fullName?.charAt(0) || "G"}
+                            </Text>
+                          </View>
+                        )}
+                        <View>
+                          <Text style={styles.reviewAuthor}>
+                            {maskGuestName(review.reviewer?.fullName)}
+                          </Text>
+                          <Text style={styles.reviewDate}>
+                            {formatReviewDate(review.reviewedAt)}
                           </Text>
                         </View>
-                      )}
-                      <View>
-                        <Text style={styles.reviewAuthor}>
-                          {maskGuestName(review.reviewer?.fullName)}
-                        </Text>
-                        <Text style={styles.reviewDate}>
-                          {formatReviewDate(review.reviewedAt)}
-                        </Text>
+                      </View>
+                      <View style={styles.reviewRatingRow}>
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <Ionicons
+                            key={star}
+                            name={star <= review.rating ? "star" : "star-outline"}
+                            size={12}
+                            color="#FFD700"
+                          />
+                        ))}
                       </View>
                     </View>
-                    <View style={styles.reviewRatingRow}>
-                      {[1, 2, 3, 4, 5].map((star) => (
-                        <Ionicons
-                          key={star}
-                          name={star <= review.rating ? "star" : "star-outline"}
-                          size={12}
-                          color="#FFD700"
-                        />
-                      ))}
-                    </View>
-                  </View>
-                  <Text style={styles.reviewText}>{review.feedback}</Text>
+                    <Text style={styles.reviewText}>{review.feedback}</Text>
 
-                  {/* Review Images */}
-                  {(() => {
-                    const reviewImages = [
+                    {/* Review Images */}
+                    {(() => {
+                      const reviewImages = [
                         ...parseImages(review.images),
                         ...parseImages(review.guestReview?.images)
-                    ];
-                    if (reviewImages.length === 0) return null;
-                    return (
-                      <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        style={styles.reviewImagesScroll}
-                      >
-                        {reviewImages.map((img, imgIdx) => {
-                          const resolvedImg = convertImageUrl(img) || require("../../assets/images/no-image.png");
-                          return (
-                            <TouchableOpacity
-                              key={imgIdx}
-                              onPress={() => {
-                                const viewerImages = reviewImages.map((url) =>
-                                  convertImageUrl(url)
-                                ).filter(Boolean);
-                                handleImagePress(imgIdx, viewerImages);
-                              }}
-                            >
-                              <Image
-                                source={typeof resolvedImg === 'string' ? { uri: resolvedImg } : resolvedImg}
-                                style={styles.reviewImageThumb}
-                                contentFit="cover"
-                                cachePolicy="disk"
-                                transition={200}
-                              />
-                            </TouchableOpacity>
-                          );
-                        })}
-                      </ScrollView>
-                    );
-                  })()}
-                </View>
-              ))
-            ) : (
-              <Text style={styles.noReviewsText}>No reviews yet</Text>
+                      ];
+                      if (reviewImages.length === 0) return null;
+                      return (
+                        <ScrollView
+                          horizontal
+                          showsHorizontalScrollIndicator={false}
+                          style={styles.reviewImagesScroll}
+                        >
+                          {reviewImages.map((img, imgIdx) => {
+                            const resolvedImg = convertImageUrl(img) || require("../../assets/images/no-image.png");
+                            return (
+                              <TouchableOpacity
+                                key={imgIdx}
+                                onPress={() => {
+                                  const viewerImages = reviewImages.map((url) =>
+                                    convertImageUrl(url)
+                                  ).filter(Boolean);
+                                  handleImagePress(imgIdx, viewerImages);
+                                }}
+                              >
+                                <Image
+                                  source={typeof resolvedImg === 'string' ? { uri: resolvedImg } : resolvedImg}
+                                  style={styles.reviewImageThumb}
+                                  contentFit="cover"
+                                  cachePolicy="disk"
+                                  transition={200}
+                                />
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </ScrollView>
+                      );
+                    })()}
+                  </View>
+                ))
+              ) : (
+                <Text style={styles.noReviewsText}>No reviews yet</Text>
+              )}
+            </View>
+
+            {/* Post Review Section - Only for verified past guests */}
+            {userHasBooked && (
+              <View style={styles.postReviewSection}>
+                <Text style={styles.subSectionTitle}>Rate Your Stay</Text>
+                <Text style={styles.reviewHelpText}>
+                  Help the community by sharing your experience.
+                </Text>
+
+                <Pressable
+                  style={[
+                    styles.postButton,
+                    (isPostingReview || isUploadingImages) &&
+                    styles.postButtonDisabled,
+                  ]}
+                  onPress={() => setShowReviewModal(true)}
+                  disabled={isPostingReview || isUploadingImages}
+                >
+                  <Text style={styles.postButtonText}>Leave a Review</Text>
+                </Pressable>
+              </View>
             )}
           </View>
 
-          {/* Post Review Section - Only for verified past guests */}
-          {userHasBooked && (
-            <View style={styles.postReviewSection}>
-              <Text style={styles.subSectionTitle}>Rate Your Stay</Text>
-              <Text style={styles.reviewHelpText}>
-                Help the community by sharing your experience.
-              </Text>
-
-              <Pressable
-                style={[
-                  styles.postButton,
-                  (isPostingReview || isUploadingImages) &&
-                    styles.postButtonDisabled,
-                ]}
-                onPress={() => setShowReviewModal(true)}
-                disabled={isPostingReview || isUploadingImages}
-              >
-                <Text style={styles.postButtonText}>Leave a Review</Text>
-              </Pressable>
-            </View>
-          )}
-        </View>
-
-        {/* Spacer */}
-        <View style={styles.bottomSpacer} />
-      </ScrollView>
+          {/* Spacer */}
+          <View style={styles.bottomSpacer} />
+        </ScrollView>
       )}
 
       {/* Fixed Book Button */}
@@ -2960,10 +2980,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   map: {
-    flex: 1,
-    width: "100%",
-    height: "100%",
-    borderRadius: 16,
+    ...StyleSheet.absoluteFillObject,
   },
   mapPlaceholder: {
     flex: 1,
@@ -3232,15 +3249,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
-  mapContainer: {
-    height: 180,
-    borderRadius: 12,
-    overflow: "hidden",
-    marginTop: 10,
-  },
-  map: {
-    ...StyleSheet.absoluteFillObject,
-  },
+
   mapOverlay: {
     position: 'absolute',
     bottom: 8,

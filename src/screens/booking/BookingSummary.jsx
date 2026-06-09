@@ -271,6 +271,74 @@ const BookingSummary = () => {
     }
   };
 
+  const parseDate = (dateStr) => {
+    if (!dateStr) return new Date().toISOString();
+
+    // 1. Try direct parsing if it's a valid date string
+    const dateObj = new Date(dateStr);
+    if (!isNaN(dateObj.getTime())) {
+      return dateObj.toISOString();
+    }
+
+    // 2. Try date-fns parsing for display formats like "15 Jun, 2025" or "15 Jun 2025"
+    if (typeof dateStr === "string") {
+      try {
+        const cleaned = dateStr.trim();
+        const parsed = parse(cleaned, "d MMM, yyyy", new Date());
+        if (!isNaN(parsed.getTime())) {
+          return parsed.toISOString();
+        }
+      } catch (e) {}
+
+      try {
+        const cleaned = dateStr.trim();
+        const parsed = parse(cleaned, "d MMM yyyy", new Date());
+        if (!isNaN(parsed.getTime())) {
+          return parsed.toISOString();
+        }
+      } catch (e) {}
+    }
+
+    // 3. Manual splits for standard date formats containing hyphens
+    if (typeof dateStr === "string" && dateStr.includes("-")) {
+      const parts = dateStr.split("-");
+      if (parts.length === 3) {
+        const year = parts[0].length === 4 ? parts[0] : parts[2];
+        const month = parts[1];
+        const day = parts[0].length === 4 ? parts[2] : parts[0];
+        
+        const parsed = new Date(
+          parseInt(year),
+          parseInt(month) - 1,
+          parseInt(day)
+        );
+        if (!isNaN(parsed.getTime())) {
+          return parsed.toISOString();
+        }
+      }
+    }
+
+    // 4. Manual splits for standard date formats containing slashes
+    if (typeof dateStr === "string" && dateStr.includes("/")) {
+      const parts = dateStr.split("/");
+      if (parts.length === 3) {
+        const [day, month, year] = parts;
+        const parsed = new Date(
+          parseInt(year),
+          parseInt(month) - 1,
+          parseInt(day)
+        );
+        if (!isNaN(parsed.getTime())) {
+          return parsed.toISOString();
+        }
+      }
+    }
+
+    // Fallback to current date
+    console.warn("[BookingSummary] parseDate fallback to current date for:", dateStr);
+    return new Date().toISOString();
+  };
+
   const numberOfNights = calculateNumberOfNights();
   const numberOfMonths = calculateNumberOfMonths();
   const numberOfYears = calculateNumberOfYears();
@@ -623,44 +691,6 @@ const BookingSummary = () => {
     try {
       const user = await authService.getUserData();
       
-      const parseDate = (dateStr) => {
-        if (!dateStr) return new Date().toISOString();
-        
-        if (typeof dateStr === "string" && dateStr.includes("-")) {
-          const parts = dateStr.split("-");
-          if (parts.length === 3) {
-            const year = parts[0].length === 4 ? parts[0] : parts[2];
-            const month = parts[1];
-            const day = parts[0].length === 4 ? parts[2] : parts[0];
-            
-            const parsedDate = new Date(
-              parseInt(year),
-              parseInt(month) - 1,
-              parseInt(day),
-            );
-            return parsedDate.toISOString();
-          }
-        }
-        
-        if (typeof dateStr === "string" && dateStr.includes("/")) {
-          const parts = dateStr.split("/");
-          if (parts.length === 3) {
-            const [day, month, year] = parts;
-            const parsedDate = new Date(
-              parseInt(year),
-              parseInt(month) - 1,
-              parseInt(day),
-            );
-            return parsedDate.toISOString();
-          }
-        }
-        
-        const parsed = new Date(dateStr);
-        return isNaN(parsed.getTime())
-          ? new Date().toISOString()
-          : parsed.toISOString();
-      };
-
       const mapBookingType = (type) => {
         if (!type) return "DAILY";
         const upperType = type.toUpperCase();
@@ -698,8 +728,8 @@ const BookingSummary = () => {
           children: parseInt(params?.children) || bookingSummary.property.guests.children,
           pets: 0,
         },
-        checkIn: parseDate(params?.checkInDate || bookingSummary.property.checkIn),
-        checkOut: parseDate(params?.checkOutDate || bookingSummary.property.checkOut),
+        checkIn: parseDate(params?.checkInDate || fetchedBooking?.checkIn || bookingSummary.property.checkIn),
+        checkOut: parseDate(params?.checkOutDate || fetchedBooking?.checkOut || bookingSummary.property.checkOut),
         paymentMethod: null,
         status: "CONFIRMED",
         totalAmount: { price: displayHostTotal, currency: "NGN" },
@@ -794,31 +824,6 @@ const BookingSummary = () => {
 
     try {
       const user = await authService.getUserData();
-      const parseDate = (dateStr) => {
-        if (!dateStr) return new Date().toISOString();
-        const dateObj = new Date(dateStr);
-        if (!isNaN(dateObj.getTime())) {
-          return dateObj.toISOString();
-        }
-        if (typeof dateStr === "string" && dateStr.includes("-")) {
-          const parts = dateStr.split("-");
-          if (parts.length === 3) {
-            const year = parts[0].length === 4 ? parts[0] : parts[2];
-            const month = parts[1];
-            const day = parts[0].length === 4 ? parts[2] : parts[0];
-            const parsed = new Date(
-              parseInt(year),
-              parseInt(month) - 1,
-              parseInt(day),
-            );
-            if (!isNaN(parsed.getTime())) {
-              return parsed.toISOString();
-            }
-          }
-        }
-        return new Date().toISOString();
-      };
-
       const mapBookingType = (type) => {
         if (!type) return "DAILY";
         const upperType = type.toUpperCase();
@@ -857,8 +862,8 @@ const BookingSummary = () => {
           children: parseInt(params?.children) || bookingSummary.property.guests.children,
           pets: 0,
         },
-        checkIn: parseDate(params?.checkInDate || bookingSummary.property.checkIn),
-        checkOut: parseDate(params?.checkOutDate || bookingSummary.property.checkOut),
+        checkIn: parseDate(params?.checkInDate || fetchedBooking?.checkIn || bookingSummary.property.checkIn),
+        checkOut: parseDate(params?.checkOutDate || fetchedBooking?.checkOut || bookingSummary.property.checkOut),
         paymentMethod: paymentData.reserveAndPayLater
           ? null
           : paymentData.paymentMethod?.toUpperCase(),

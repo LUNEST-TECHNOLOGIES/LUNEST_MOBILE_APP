@@ -27,10 +27,7 @@ const BookingRecoveryButton = ({
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   // Only show if booking is in PENDING_PAYMENT status (stuck payment)
-  const isEligible = 
-    currentStatus?.toUpperCase() === 'PENDING_PAYMENT' || 
-    currentStatus?.toUpperCase() === 'RESERVED' ||
-    currentStatus?.toUpperCase() === 'PENDING';
+  const isEligible = currentStatus?.toUpperCase() === 'PENDING_PAYMENT';
   
   if (!isEligible) {
     return null;
@@ -62,17 +59,28 @@ const BookingRecoveryButton = ({
       
       console.log(`[BookingRecovery] Verifying booking: ${bookingId}`);
 
+      if (!bookingId) {
+        console.error('[BookingRecovery] Missing bookingId inside performRecovery');
+        setVerificationStatus('not_found');
+        return;
+      }
+
       // Call the backend recovery route
-      const response = await apiClient.post('/v1/bookings/resolve-stuck-payment', {
-        bookingId: bookingId
-      });
+      const response = await apiClient.get(`/v1/payment/recover-booking/${bookingId}`);
 
       console.log('[BookingRecovery] Response:', response);
 
       // Add a slight delay for better UX (so the modal doesn't flash)
       await new Promise(resolve => setTimeout(resolve, 2500));
 
-      if (response.success && response.processed > 0) {
+      // Check for success wrapping from CallBack.body (response.success && response.body?.success)
+      const isSuccess = response.success && (
+        response.body?.success === true || 
+        response.body?.recovered === true || 
+        response.body?.booking?.status === 'CONFIRMED'
+      );
+
+      if (isSuccess) {
         setVerificationStatus('success');
         
         // Wait a bit before closing and notifying

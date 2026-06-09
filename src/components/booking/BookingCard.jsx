@@ -44,7 +44,7 @@ const BookingCard = ({
     bookingType: isSmallScreen ? 8 : 9,
     dateLabel: isSmallScreen ? 7 : 8,
     dateValue: isSmallScreen ? 7 : 8,
-    buttonText: isSmallScreen ? 10 : 11,
+    buttonText: isSmallScreen ? 8 : 9,
   };
 
   const showStatusBadge =
@@ -67,8 +67,8 @@ const BookingCard = ({
   
   // Dynamic button padding based on screen size
   const buttonPadding = {
-    horizontal: isSmallScreen ? 10 : 14,
-    vertical: isSmallScreen ? 5 : 6,
+    horizontal: isSmallScreen ? 6 : 8,
+    vertical: isSmallScreen ? 4 : 5,
   };
 
   // Handle image source
@@ -199,68 +199,8 @@ const BookingCard = ({
 
         {/* Action Buttons */}
         <View style={styles.buttonContainer}>
-          {/* Pending Status: Cancel Booking Button */}
-          {isPending && (
-            <>
-              <Pressable
-                style={[
-                  styles.cancelBookingButton,
-                  {
-                    paddingHorizontal: buttonPadding.horizontal,
-                    paddingVertical: buttonPadding.vertical,
-                  },
-                ]}
-                onPress={() => onCancelBooking?.(booking)}
-              >
-                <View style={styles.trashIconContainer}>
-                  <TrashIcon
-                    width={isSmallScreen ? 12 : 14}
-                    height={isSmallScreen ? 12 : 14}
-                    color="#FFFFFF"
-                  />
-                </View>
-                <Text
-                  style={[
-                    styles.cancelBookingText,
-                    { fontSize: fontSizes.buttonText },
-                  ]}
-                >
-                  Cancel booking
-                </Text>
-              </Pressable>
-              {/* View Details Button */}
-              <Pressable
-                style={[
-                  styles.viewDetailsButton,
-                  {
-                    paddingHorizontal: buttonPadding.horizontal,
-                    paddingVertical: buttonPadding.vertical,
-                  },
-                ]}
-                onPress={() => onViewDetails?.(booking)}
-              >
-                <Text
-                  style={[
-                    styles.viewDetailsText,
-                    { fontSize: fontSizes.buttonText },
-                  ]}
-                >
-                  View details
-                </Text>
-              </Pressable>
-
-              {/* Recovery Button (Verify payment) */}
-              <BookingRecoveryButton 
-                bookingId={booking._id} 
-                currentStatus={booking.status}
-                onRecovered={() => onViewDetails?.(booking)}
-                style={styles.recoveryButtonCard}
-              />
-            </>
-          )}
-
-          {/* Reserved / Pending Payment Status */}
-          {(isReserved || isPendingPayment) && (
+          {/* Reserved / Pending / Pending Payment Status */}
+          {(isReserved || isPendingPayment || isPending) && (
             <View style={styles.actionsColumn}>
               <View style={styles.buttonContainerInline}>
                 <View style={styles.reservedButtonsContainer}>
@@ -335,13 +275,15 @@ const BookingCard = ({
                 </Pressable>
               </View>
 
-              {/* Recovery Button (Verify payment) */}
-              <BookingRecoveryButton 
-                bookingId={booking._id} 
-                currentStatus={booking.status}
-                onRecovered={() => onViewDetails?.(booking)}
-                style={styles.recoveryButtonCard}
-              />
+              {/* Recovery Button (Verify payment) - Only for PENDING_PAYMENT status */}
+              {isPendingPayment && (
+                <BookingRecoveryButton 
+                  bookingId={booking.id || booking._id} 
+                  currentStatus={booking.status}
+                  onRecovered={() => onViewDetails?.(booking)}
+                  style={styles.recoveryButtonCard}
+                />
+              )}
             </View>
           )}
 
@@ -468,14 +410,16 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     marginTop: 8,
-    gap: 8,
+    gap: 6,
+    flexWrap: "wrap",
   },
   buttonContainerInline: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     width: '100%',
-    gap: 8,
+    gap: 6,
+    flexWrap: "wrap",
   },
   actionsColumn: {
     flex: 1,

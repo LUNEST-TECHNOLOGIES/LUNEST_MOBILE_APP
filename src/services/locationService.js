@@ -282,25 +282,59 @@ class LocationService {
             }
 
             console.log('🗺️ [LocationService] Forward geocoding:', address);
-            // Set a 10s timeout for geocoding to prevent infinite hangs
-            const results = await Promise.race([
-                Location.geocodeAsync(address),
-                new Promise((_, reject) => 
-                    setTimeout(() => reject(new Error('Geocoding request timed out')), 10000)
-                )
-            ]);
 
-            if (results && results.length > 0) {
-                const coords = {
-                    latitude: results[0].latitude,
-                    longitude: results[0].longitude,
-                };
-                
-                // Store in cache
-                this.geocodeCache.set(normalizedAddress, coords);
-                
-                console.log('✅ [LocationService] Coordinates obtained and cached:', coords);
-                return coords;
+            const googleKey = APP_CONFIG.GOOGLE_MAPS_API_KEY;
+
+            // On web, expo-location.geocodeAsync is unavailable — use Google API directly
+            if (Platform.OS === 'web' || !googleKey || googleKey === 'YOUR_GOOGLE_MAPS_API_KEY') {
+                // Skip to Google API
+            } else {
+                // Native: try expo-location first (no API key needed)
+                try {
+                    const results = await Promise.race([
+                        Location.geocodeAsync(address),
+                        new Promise((_, reject) =>
+                            setTimeout(() => reject(new Error('Geocoding request timed out')), 10000)
+                        )
+                    ]);
+
+                    if (results && results.length > 0) {
+                        const coords = {
+                            latitude: results[0].latitude,
+                            longitude: results[0].longitude,
+                        };
+                        this.geocodeCache.set(normalizedAddress, coords);
+                        console.log('✅ [LocationService] Coordinates obtained (native) and cached:', coords);
+                        return coords;
+                    }
+                } catch (nativeErr) {
+                    console.warn('⚠️ [LocationService] Native geocoding failed, falling back to Google API:', nativeErr.message);
+                }
+            }
+
+            // Fallback (or primary on web): Google Maps Geocoding API
+            if (googleKey && googleKey !== 'YOUR_GOOGLE_MAPS_API_KEY') {
+                try {
+                    const encodedAddress = encodeURIComponent(address);
+                    const response = await fetch(
+                        `https://maps.googleapis.com/maps/api/geocode/json?address=${encodedAddress}&key=${googleKey}`
+                    );
+                    const data = await response.json();
+                    if (data.status === 'OK' && data.results.length > 0) {
+                        const location = data.results[0].geometry.location;
+                        const coords = {
+                            latitude: location.lat,
+                            longitude: location.lng,
+                        };
+                        this.geocodeCache.set(normalizedAddress, coords);
+                        console.log('✅ [LocationService] Coordinates obtained (Google API) and cached:', coords);
+                        return coords;
+                    } else {
+                        console.warn('⚠️ [LocationService] Google Geocoding API status:', data.status);
+                    }
+                } catch (gError) {
+                    console.error('❌ [LocationService] Google Geocoding fetch failed:', gError);
+                }
             }
 
             return null;

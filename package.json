@@ -34,13 +34,13 @@
     "expo-blur": "~15.0.8",
     "expo-clipboard": "~8.0.8",
     "expo-constants": "~18.0.13",
-    "expo-crypto": "~15.0.8",
+    "expo-crypto": "~15.0.9",
     "expo-dev-client": "~6.0.20",
     "expo-file-system": "~19.0.21",
     "expo-font": "~14.0.11",
     "expo-haptics": "~15.0.8",
     "expo-image": "~3.0.11",
-    "expo-image-picker": "~17.0.10",
+    "expo-image-picker": "~17.0.11",
     "expo-linking": "~8.0.11",
     "expo-location": "~19.0.8",
     "expo-media-library": "^18.2.1",
@@ -55,7 +55,7 @@
     "expo-updates": "~29.0.16",
     "expo-video": "~3.0.16",
     "expo-video-thumbnails": "~10.0.8",
-    "expo-web-browser": "~15.0.10",
+    "expo-web-browser": "~15.0.11",
     "html-to-image": "^1.11.13",
     "lodash.debounce": "^4.0.8",
     "lucide-react-native": "^1.8.0",
@@ -88,12 +88,11 @@
     "typescript": "~5.9.2"
   },
   "overrides": {
-    "undici": "^8.0.2",
+    "undici": "^6.19.8",
     "svgo": "^4.0.1",
     "picomatch": "^4.0.4",
     "node-forge": "^1.4.0",
     "@xmldom/xmldom": "0.8.10",
-    "brace-expansion": "^2.0.1",
     "yaml": "^2.8.3"
   },
   "private": true

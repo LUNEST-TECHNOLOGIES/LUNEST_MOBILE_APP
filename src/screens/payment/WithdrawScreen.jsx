@@ -46,6 +46,14 @@ const WithdrawScreen = () => {
   const router = useRouter();
   const queryClient = useQueryClient();
 
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace("/(tabs)");
+    }
+  };
+
   const [amount, setAmount] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
   const [accountName, setAccountName] = useState("");
@@ -512,7 +520,7 @@ const WithdrawScreen = () => {
 
       {/* Header */}
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
+        <Pressable onPress={handleBack} style={styles.backButton}>
           <BackIcon size={24} color="#000" />
         </Pressable>
         <Text style={styles.headerTitle}>Withdraw</Text>

@@ -93,6 +93,14 @@ const NumPad = ({ onPress, onDelete }) => {
 const WithdrawalPinScreen = () => {
   const router = useRouter();
 
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace("/(tabs)/profile");
+    }
+  };
+
   // Screen mode: 'loading' | 'set' | 'reset'
   const [mode, setMode] = useState("loading");
   const [hasPin, setHasPin] = useState(false);
@@ -305,7 +313,7 @@ const WithdrawalPinScreen = () => {
           <Text style={styles.successTitle}>Success!</Text>
           <Text style={styles.successSubtitle}>{successMessage}</Text>
           <View style={{ flex: 1 }} />
-          <Pressable style={styles.continueBtn} onPress={() => router.back()}>
+          <Pressable style={styles.continueBtn} onPress={handleBack}>
             <Text style={styles.continueBtnText}>Done</Text>
           </Pressable>
         </View>
@@ -317,7 +325,7 @@ const WithdrawalPinScreen = () => {
     return (
       <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()} style={styles.backButton}>
+          <Pressable onPress={handleBack} style={styles.backButton}>
             <BackIcon size={24} color="#000" />
           </Pressable>
           <Text style={styles.headerTitle}>Withdrawal PIN</Text>
@@ -336,7 +344,7 @@ const WithdrawalPinScreen = () => {
       return (
         <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
           <View style={styles.header}>
-            <Pressable onPress={() => router.back()} style={styles.backButton}>
+            <Pressable onPress={handleBack} style={styles.backButton}>
               <BackIcon size={24} color="#000" />
             </Pressable>
             <Text style={styles.headerTitle}>Withdrawal PIN</Text>
@@ -416,7 +424,7 @@ const WithdrawalPinScreen = () => {
                 setStep("password");
                 setPin("");
               } else {
-                router.back();
+                handleBack();
               }
             }}
             style={styles.backButton}
@@ -473,7 +481,7 @@ const WithdrawalPinScreen = () => {
               setResetStep("newpin");
               setConfirmNewPin("");
             } else {
-              router.back();
+              handleBack();
             }
           }}
           style={styles.backButton}

@@ -694,89 +694,96 @@ const WithdrawScreen = () => {
         onRequestClose={() => { setShowPinModal(false); setEnteredPin(""); setPinError(""); }}
       >
         <View style={styles.pinModalOverlay}>
-          <View style={styles.pinModalContent}>
-            {/* Header */}
-            <View style={styles.pinModalHeader}>
-              <Pressable
-                onPress={() => { setShowPinModal(false); setEnteredPin(""); setPinError(""); }}
-                style={styles.pinModalClose}
-              >
-                <Ionicons name="close" size={24} color="#666" />
-              </Pressable>
-            </View>
-
-            {/* Lock Icon */}
-            <View style={styles.pinModalIconCircle}>
-              <Ionicons name="lock-closed" size={30} color="#010135" />
-            </View>
-            <Text style={styles.pinModalTitle}>Enter Withdrawal PIN</Text>
-            <Text style={styles.pinModalSubtitle}>
-              Confirm your 4-digit PIN to continue
-            </Text>
-
-            {/* Dots */}
-            <View style={styles.pinModalDots}>
-              {Array.from({ length: 4 }).map((_, i) => (
-                <View
-                  key={i}
-                  style={[
-                    styles.pinDot,
-                    i < enteredPin.length ? styles.pinDotFilled : styles.pinDotEmpty,
-                  ]}
-                />
-              ))}
-            </View>
-
-            {/* Error */}
-            {!!pinError && (
-              <View style={styles.pinErrorRow}>
-                <Ionicons name="alert-circle-outline" size={14} color="#B70808" />
-                <Text style={styles.pinErrorText}>{pinError}</Text>
+          <SafeAreaView style={[styles.pinModalContent, { maxHeight: "95%" }]} edges={["bottom"]}>
+            <ScrollView
+              style={{ width: "100%" }}
+              contentContainerStyle={{ alignItems: "center", paddingBottom: 16 }}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              {/* Header */}
+              <View style={styles.pinModalHeader}>
+                <Pressable
+                  onPress={() => { setShowPinModal(false); setEnteredPin(""); setPinError(""); }}
+                  style={styles.pinModalClose}
+                >
+                  <Ionicons name="close" size={24} color="#666" />
+                </Pressable>
               </View>
-            )}
 
-            {/* Numpad */}
-            {verifyingPin ? (
-              <ActivityIndicator size="large" color="#010135" style={{ marginTop: 32 }} />
-            ) : (
-              <View style={styles.pinNumpad}>
-                {["1","2","3","4","5","6","7","8","9","","0","del"].map((key, index) => {
-                  if (key === "") return <View key={index} style={styles.pinNumpadEmpty} />;
-                  if (key === "del") {
+              {/* Lock Icon */}
+              <View style={styles.pinModalIconCircle}>
+                <Ionicons name="lock-closed" size={30} color="#010135" />
+              </View>
+              <Text style={styles.pinModalTitle}>Enter Withdrawal PIN</Text>
+              <Text style={styles.pinModalSubtitle}>
+                Confirm your 4-digit PIN to continue
+              </Text>
+
+              {/* Dots */}
+              <View style={styles.pinModalDots}>
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <View
+                    key={i}
+                    style={[
+                      styles.pinDot,
+                      i < enteredPin.length ? styles.pinDotFilled : styles.pinDotEmpty,
+                    ]}
+                  />
+                ))}
+              </View>
+
+              {/* Error */}
+              {!!pinError && (
+                <View style={styles.pinErrorRow}>
+                  <Ionicons name="alert-circle-outline" size={14} color="#B70808" />
+                  <Text style={styles.pinErrorText}>{pinError}</Text>
+                </View>
+              )}
+
+              {/* Numpad */}
+              {verifyingPin ? (
+                <ActivityIndicator size="large" color="#010135" style={{ marginTop: 32 }} />
+              ) : (
+                <View style={styles.pinNumpad}>
+                  {["1","2","3","4","5","6","7","8","9","","0","del"].map((key, index) => {
+                    if (key === "") return <View key={index} style={styles.pinNumpadEmpty} />;
+                    if (key === "del") {
+                      return (
+                        <Pressable
+                          key={index}
+                          style={({ pressed }) => [
+                            styles.pinNumpadDeleteKey,
+                            pressed && styles.pinNumpadDeleteKeyPressed,
+                          ]}
+                          onPress={handlePinDelete}
+                        >
+                          <Ionicons name="backspace-outline" size={22} color="#010135" />
+                        </Pressable>
+                      );
+                    }
                     return (
                       <Pressable
                         key={index}
                         style={({ pressed }) => [
-                          styles.pinNumpadDeleteKey,
-                          pressed && styles.pinNumpadDeleteKeyPressed,
+                          styles.pinNumpadKey,
+                          pressed && styles.pinNumpadKeyPressed,
                         ]}
-                        onPress={handlePinDelete}
+                        onPress={() => handlePinDigit(key)}
                       >
-                        <Ionicons name="backspace-outline" size={22} color="#010135" />
+                        <Text style={styles.pinNumpadKeyText}>{key}</Text>
                       </Pressable>
                     );
-                  }
-                  return (
-                    <Pressable
-                      key={index}
-                      style={({ pressed }) => [
-                        styles.pinNumpadKey,
-                        pressed && styles.pinNumpadKeyPressed,
-                      ]}
-                      onPress={() => handlePinDigit(key)}
-                    >
-                      <Text style={styles.pinNumpadKeyText}>{key}</Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            )}
+                  })}
+                </View>
+              )}
 
-            {/* Forgot PIN link */}
-            <Pressable onPress={() => { setShowPinModal(false); router.push("/withdrawal-pin"); }}>
-              <Text style={styles.forgotPinText}>Forgot PIN? Reset it</Text>
-            </Pressable>
-          </View>
+              {/* Forgot PIN link */}
+              <Pressable onPress={() => { setShowPinModal(false); router.push("/withdrawal-pin"); }}>
+                <Text style={styles.forgotPinText}>Forgot PIN? Reset it</Text>
+              </Pressable>
+            </ScrollView>
+          </SafeAreaView>
         </View>
       </Modal>
 

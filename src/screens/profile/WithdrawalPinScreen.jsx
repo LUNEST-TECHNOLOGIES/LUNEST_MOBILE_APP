@@ -315,7 +315,7 @@ const WithdrawalPinScreen = () => {
 
   if (mode === "loading") {
     return (
-      <SafeAreaView style={styles.container} edges={["top"]}>
+      <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
         <View style={styles.header}>
           <Pressable onPress={() => router.back()} style={styles.backButton}>
             <BackIcon size={24} color="#000" />
@@ -334,7 +334,7 @@ const WithdrawalPinScreen = () => {
   if (mode === "set") {
     if (step === "password") {
       return (
-        <SafeAreaView style={styles.container} edges={["top"]}>
+        <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
           <View style={styles.header}>
             <Pressable onPress={() => router.back()} style={styles.backButton}>
               <BackIcon size={24} color="#000" />
@@ -405,7 +405,7 @@ const WithdrawalPinScreen = () => {
         : "Re-enter your PIN to confirm";
 
     return (
-      <SafeAreaView style={styles.container} edges={["top"]}>
+      <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
         <View style={styles.header}>
           <Pressable
             onPress={() => {
@@ -427,7 +427,12 @@ const WithdrawalPinScreen = () => {
           <View style={styles.headerSpacer} />
         </View>
 
-        <View style={styles.pinContent}>
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={styles.pinContentContainer}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
           {/* Lock icon */}
           <View style={styles.iconCircle}>
             <Ionicons name="lock-closed" size={32} color="#010135" />
@@ -450,14 +455,14 @@ const WithdrawalPinScreen = () => {
           ) : (
             <NumPad onPress={handleNumPress} onDelete={handleDelete} />
           )}
-        </View>
+        </ScrollView>
       </SafeAreaView>
     );
   }
 
   // ─── RESET / CHANGE PIN MODE ───
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
+    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
       <View style={styles.header}>
         <Pressable
           onPress={() => {
@@ -536,7 +541,12 @@ const WithdrawalPinScreen = () => {
 
       {/* Step: Enter new PIN */}
       {(resetStep === "newpin" || resetStep === "confirm") && (
-        <View style={styles.pinContent}>
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={styles.pinContentContainer}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
           <View style={styles.iconCircle}>
             <Ionicons name="lock-closed" size={32} color="#010135" />
           </View>
@@ -563,7 +573,7 @@ const WithdrawalPinScreen = () => {
           ) : (
             <NumPad onPress={handleNumPress} onDelete={handleDelete} />
           )}
-        </View>
+        </ScrollView>
       )}
     </SafeAreaView>
   );
@@ -591,6 +601,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingTop: 40,
     paddingHorizontal: 24,
+  },
+  pinContentContainer: {
+    alignItems: "center",
+    paddingHorizontal: 24,
+    paddingTop: 40,
+    paddingBottom: 40,
   },
   iconCircle: {
     width: 72,

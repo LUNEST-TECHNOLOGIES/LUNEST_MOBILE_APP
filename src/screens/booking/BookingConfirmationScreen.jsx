@@ -1486,9 +1486,34 @@ const BookingConfirmationScreen = () => {
           <View style={styles.detailsSection}>
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Property name:</Text>
-              <Text style={styles.detailValue} numberOfLines={2}>
-                {propertyName}
-              </Text>
+              {booking?.listing?._id || params.listingId ? (
+                <TouchableOpacity
+                  onPress={() => {
+                    router.push({
+                      pathname: "/property-details",
+                      params: {
+                        listingId: booking?.listing?._id || params.listingId,
+                      },
+                    });
+                  }}
+                  activeOpacity={0.7}
+                  style={{ flex: 1 }}
+                >
+                  <Text
+                    style={[
+                      styles.detailValue,
+                      { color: "#6371F1", textDecorationLine: "underline" },
+                    ]}
+                    numberOfLines={2}
+                  >
+                    {propertyName}
+                  </Text>
+                </TouchableOpacity>
+              ) : (
+                <Text style={styles.detailValue} numberOfLines={2}>
+                  {propertyName}
+                </Text>
+              )}
             </View>
 
             {/* Property Address - Clickable for confirmed/ongoing bookings */}

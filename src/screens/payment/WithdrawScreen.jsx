@@ -744,13 +744,27 @@ const WithdrawScreen = () => {
                   if (key === "") return <View key={index} style={styles.pinNumpadEmpty} />;
                   if (key === "del") {
                     return (
-                      <Pressable key={index} style={styles.pinNumpadKey} onPress={handlePinDelete}>
+                      <Pressable
+                        key={index}
+                        style={({ pressed }) => [
+                          styles.pinNumpadDeleteKey,
+                          pressed && styles.pinNumpadDeleteKeyPressed,
+                        ]}
+                        onPress={handlePinDelete}
+                      >
                         <Ionicons name="backspace-outline" size={22} color="#010135" />
                       </Pressable>
                     );
                   }
                   return (
-                    <Pressable key={index} style={styles.pinNumpadKey} onPress={() => handlePinDigit(key)}>
+                    <Pressable
+                      key={index}
+                      style={({ pressed }) => [
+                        styles.pinNumpadKey,
+                        pressed && styles.pinNumpadKeyPressed,
+                      ]}
+                      onPress={() => handlePinDigit(key)}
+                    >
                       <Text style={styles.pinNumpadKeyText}>{key}</Text>
                     </Pressable>
                   );
@@ -1344,20 +1358,46 @@ const styles = StyleSheet.create({
   pinNumpad: {
     flexDirection: "row",
     flexWrap: "wrap",
-    justifyContent: "center",
+    justifyContent: "space-between",
     width: "100%",
     maxWidth: 280,
-    marginTop: 8,
+    marginTop: 12,
   },
   pinNumpadKey: {
-    width: "33.33%",
-    paddingVertical: 14,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 12,
+    backgroundColor: "#F3F4F6",
+    marginVertical: 8,
   },
-  pinNumpadEmpty: { width: "33.33%", paddingVertical: 14 },
-  pinNumpadKeyText: { fontSize: 22, fontWeight: "500", color: "#010135" },
+  pinNumpadKeyPressed: {
+    backgroundColor: "#E5E7EB",
+    transform: [{ scale: 0.95 }],
+  },
+  pinNumpadDeleteKey: {
+    width: 72,
+    height: 72,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "transparent",
+    marginVertical: 8,
+  },
+  pinNumpadDeleteKeyPressed: {
+    opacity: 0.5,
+    transform: [{ scale: 0.95 }],
+  },
+  pinNumpadEmpty: {
+    width: 72,
+    height: 72,
+    marginVertical: 8,
+  },
+  pinNumpadKeyText: {
+    fontSize: 28,
+    fontWeight: "600",
+    color: "#010135",
+  },
   forgotPinText: {
     fontSize: 13,
     color: "#010135",

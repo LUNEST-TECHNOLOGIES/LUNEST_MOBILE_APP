@@ -61,7 +61,10 @@ const NumPad = ({ onPress, onDelete }) => {
           return (
             <Pressable
               key={index}
-              style={styles.numpadKey}
+              style={({ pressed }) => [
+                styles.numpadDeleteKey,
+                pressed && styles.numpadDeleteKeyPressed,
+              ]}
               onPress={onDelete}
               android_ripple={{ color: "#e0e0e0", borderless: true }}
             >
@@ -72,7 +75,10 @@ const NumPad = ({ onPress, onDelete }) => {
         return (
           <Pressable
             key={index}
-            style={styles.numpadKey}
+            style={({ pressed }) => [
+              styles.numpadKey,
+              pressed && styles.numpadKeyPressed,
+            ]}
             onPress={() => onPress(key)}
             android_ripple={{ color: "#e0e0e0", borderless: true }}
           >
@@ -564,26 +570,44 @@ const styles = StyleSheet.create({
   numpad: {
     flexDirection: "row",
     flexWrap: "wrap",
-    justifyContent: "center",
+    justifyContent: "space-between",
     width: "100%",
-    maxWidth: 300,
-    gap: 0,
-    marginTop: 8,
+    maxWidth: 280,
+    marginTop: 12,
   },
   numpadKey: {
-    width: "33.33%",
-    aspectRatio: 1.8,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 12,
+    backgroundColor: "#F3F4F6",
+    marginVertical: 8,
+  },
+  numpadKeyPressed: {
+    backgroundColor: "#E5E7EB",
+    transform: [{ scale: 0.95 }],
+  },
+  numpadDeleteKey: {
+    width: 72,
+    height: 72,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "transparent",
+    marginVertical: 8,
+  },
+  numpadDeleteKeyPressed: {
+    opacity: 0.5,
+    transform: [{ scale: 0.95 }],
   },
   numpadEmpty: {
-    width: "33.33%",
-    aspectRatio: 1.8,
+    width: 72,
+    height: 72,
+    marginVertical: 8,
   },
   numpadKeyText: {
-    fontSize: 24,
-    fontWeight: "500",
+    fontSize: 28,
+    fontWeight: "600",
     color: "#010135",
   },
 

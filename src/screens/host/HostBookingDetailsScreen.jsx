@@ -813,18 +813,27 @@ const HostBookingDetailsScreen = () => {
     if (!bookingRefCode) return;
 
     if (action === "RELEASE_TO_GUEST") {
-      Alert.alert(
-        "Release Caution Fee",
-        "Are you sure you want to release the caution fee to the guest? This action cannot be undone.",
-        [
-          { text: "Cancel", style: "cancel" },
-          {
-            text: "Confirm Release",
-            onPress: () => executeResolveCautionFee(action, reason),
-            style: "default",
-          },
-        ],
-      );
+      if (Platform.OS === "web") {
+        const confirmed = window.confirm(
+          "Are you sure you want to release the caution fee to the guest? This action cannot be undone."
+        );
+        if (confirmed) {
+          executeResolveCautionFee(action, reason);
+        }
+      } else {
+        Alert.alert(
+          "Release Caution Fee",
+          "Are you sure you want to release the caution fee to the guest? This action cannot be undone.",
+          [
+            { text: "Cancel", style: "cancel" },
+            {
+              text: "Confirm Release",
+              onPress: () => executeResolveCautionFee(action, reason),
+              style: "default",
+            },
+          ],
+        );
+      }
     } else {
       executeResolveCautionFee(action, reason);
     }

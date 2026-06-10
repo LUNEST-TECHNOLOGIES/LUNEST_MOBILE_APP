@@ -6,7 +6,7 @@
 
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from 'expo-image-picker';
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
     ActivityIndicator,
     Alert,
@@ -46,6 +46,18 @@ const ReviewFeedbackModal = ({
     communication: rating || 5.0,
     ruleCompliance: rating || 5.0,
   });
+
+  useEffect(() => {
+    if (visible) {
+      const initialVal = rating || 5.0;
+      setCurrentRating(initialVal);
+      setCategories({
+        cleanliness: initialVal,
+        communication: initialVal,
+        ruleCompliance: initialVal,
+      });
+    }
+  }, [visible, rating]);
 
   const pickImage = async () => {
     // Request permission if needed

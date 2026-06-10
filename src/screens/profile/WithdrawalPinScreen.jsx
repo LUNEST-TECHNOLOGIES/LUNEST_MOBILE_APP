@@ -97,8 +97,8 @@ const WithdrawalPinScreen = () => {
   const [mode, setMode] = useState("loading");
   const [hasPin, setHasPin] = useState(false);
 
-  // Stepper for "set" mode: 'enter' | 'confirm'
-  const [step, setStep] = useState("enter");
+  // Stepper for "set" mode: 'password' | 'enter' | 'confirm'
+  const [step, setStep] = useState("password");
   const [pin, setPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
 
@@ -207,16 +207,22 @@ const WithdrawalPinScreen = () => {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ pin, confirmPin }),
+        body: JSON.stringify({ password, pin, confirmPin }),
       });
       const data = await res.json();
       if (res.ok) {
         setSuccessMessage("Withdrawal PIN set successfully!");
       } else {
-        setError(data.message || "Failed to set PIN. Please try again.");
+        const msg = data.message || "Failed to set PIN. Please try again.";
+        setError(msg);
         setPin("");
         setConfirmPin("");
-        setStep("enter");
+        if (msg.toLowerCase().includes("password")) {
+          setPassword("");
+          setStep("password");
+        } else {
+          setStep("enter");
+        }
       }
     } catch (_err) {
       setError("Network error. Please try again.");
@@ -234,7 +240,11 @@ const WithdrawalPinScreen = () => {
       return;
     }
     setError("");
-    setResetStep("newpin");
+    if (mode === "set") {
+      setStep("enter");
+    } else {
+      setResetStep("newpin");
+    }
   };
 
   const handleResetPin = async () => {
@@ -322,6 +332,71 @@ const WithdrawalPinScreen = () => {
 
   // ─── SET PIN MODE ───
   if (mode === "set") {
+    if (step === "password") {
+      return (
+        <SafeAreaView style={styles.container} edges={["top"]}>
+          <View style={styles.header}>
+            <Pressable onPress={() => router.back()} style={styles.backButton}>
+              <BackIcon size={24} color="#000" />
+            </Pressable>
+            <Text style={styles.headerTitle}>Withdrawal PIN</Text>
+            <View style={styles.headerSpacer} />
+          </View>
+          <ScrollView
+            style={styles.resetContent}
+            contentContainerStyle={styles.resetContentContainer}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View style={styles.iconCircle}>
+              <Ionicons name="shield-checkmark" size={32} color="#010135" />
+            </View>
+            <Text style={styles.pinTitle}>Verify Your Identity</Text>
+            <Text style={styles.pinSubtitle}>
+              Enter your account password to secure your withdrawal PIN
+            </Text>
+
+            {!!error && (
+              <View style={styles.errorBanner}>
+                <Ionicons name="alert-circle-outline" size={16} color="#B70808" />
+                <Text style={styles.errorText}>{error}</Text>
+              </View>
+            )}
+
+            <View style={styles.passwordInputWrapper}>
+              <TextInput
+                style={styles.passwordInput}
+                placeholder="Account password"
+                placeholderTextColor="#999"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+                autoCapitalize="none"
+                autoComplete="password"
+              />
+              <Pressable onPress={() => setShowPassword((v) => !v)} style={styles.eyeBtn}>
+                <Ionicons
+                  name={showPassword ? "eye-outline" : "eye-off-outline"}
+                  size={22}
+                  color="#999"
+                />
+              </Pressable>
+            </View>
+
+            <Pressable
+              style={[
+                styles.continueBtn,
+                !password.trim() && styles.continueBtnDisabled,
+              ]}
+              onPress={handlePasswordContinue}
+              disabled={!password.trim()}
+            >
+              <Text style={styles.continueBtnText}>Continue</Text>
+            </Pressable>
+          </ScrollView>
+        </SafeAreaView>
+      );
+    }
+
     const currentPinValue = step === "enter" ? pin : confirmPin;
     const titleText = step === "enter" ? "Create Withdrawal PIN" : "Confirm Your PIN";
     const subtitleText =
@@ -337,6 +412,9 @@ const WithdrawalPinScreen = () => {
               if (step === "confirm") {
                 setStep("enter");
                 setConfirmPin("");
+              } else if (step === "enter") {
+                setStep("password");
+                setPin("");
               } else {
                 router.back();
               }

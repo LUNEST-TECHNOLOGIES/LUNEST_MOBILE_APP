@@ -1126,8 +1126,13 @@ const HostListingsScreen = () => {
     }
 
     // Use updatedAt first (time edited), fall back to createdAt (time listed) or timestamp
-    const timeA = a.updatedAt || a.createdAt || a.timestamp || 0;
-    const timeB = b.updatedAt || b.createdAt || b.timestamp || 0;
+    const parseTime = (val) => {
+      if (!val) return 0;
+      const parsed = new Date(val).getTime();
+      return isNaN(parsed) ? 0 : parsed;
+    };
+    const timeA = parseTime(a.updatedAt || a.createdAt || a.timestamp);
+    const timeB = parseTime(b.updatedAt || b.createdAt || b.timestamp);
 
     // Apply time-based sorting
     if (sortOrder === "newest") {

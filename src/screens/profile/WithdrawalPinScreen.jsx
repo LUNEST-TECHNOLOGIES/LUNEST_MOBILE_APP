@@ -52,40 +52,49 @@ const PinDots = ({ value, maxLength = 4 }) => (
  * Custom numpad
  */
 const NumPad = ({ onPress, onDelete }) => {
-  const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "del"];
+  const rows = [
+    ["1", "2", "3"],
+    ["4", "5", "6"],
+    ["7", "8", "9"],
+    ["", "0", "del"]
+  ];
   return (
-    <View style={styles.numpad}>
-      {keys.map((key, index) => {
-        if (key === "") return <View key={index} style={styles.numpadEmpty} />;
-        if (key === "del") {
-          return (
-            <Pressable
-              key={index}
-              style={({ pressed }) => [
-                styles.numpadDeleteKey,
-                pressed && styles.numpadDeleteKeyPressed,
-              ]}
-              onPress={onDelete}
-              android_ripple={{ color: "#e0e0e0", borderless: true }}
-            >
-              <Ionicons name="backspace-outline" size={24} color="#010135" />
-            </Pressable>
-          );
-        }
-        return (
-          <Pressable
-            key={index}
-            style={({ pressed }) => [
-              styles.numpadKey,
-              pressed && styles.numpadKeyPressed,
-            ]}
-            onPress={() => onPress(key)}
-            android_ripple={{ color: "#e0e0e0", borderless: true }}
-          >
-            <Text style={styles.numpadKeyText}>{key}</Text>
-          </Pressable>
-        );
-      })}
+    <View style={styles.numpadContainer}>
+      {rows.map((row, rowIndex) => (
+        <View key={rowIndex} style={styles.numpadRow}>
+          {row.map((key, keyIndex) => {
+            if (key === "") return <View key={keyIndex} style={styles.numpadEmpty} />;
+            if (key === "del") {
+              return (
+                <Pressable
+                  key={keyIndex}
+                  style={({ pressed }) => [
+                    styles.numpadDeleteKey,
+                    pressed && styles.numpadDeleteKeyPressed,
+                  ]}
+                  onPress={onDelete}
+                  android_ripple={{ color: "#e0e0e0", borderless: true }}
+                >
+                  <Ionicons name="backspace-outline" size={24} color="#010135" />
+                </Pressable>
+              );
+            }
+            return (
+              <Pressable
+                key={keyIndex}
+                style={({ pressed }) => [
+                  styles.numpadKey,
+                  pressed && styles.numpadKeyPressed,
+                ]}
+                onPress={() => onPress(key)}
+                android_ripple={{ color: "#e0e0e0", borderless: true }}
+              >
+                <Text style={styles.numpadKeyText}>{key}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      ))}
     </View>
   );
 };
@@ -669,18 +678,21 @@ const styles = StyleSheet.create({
   errorText: { fontSize: 13, color: "#B70808", flex: 1 },
 
   // Numpad
-  numpad: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
+  numpadContainer: {
     width: "100%",
     maxWidth: 280,
     marginTop: 12,
   },
+  numpadRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    width: "100%",
+  },
   numpadKey: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 70,
+    height: 70,
+    borderRadius: 35,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#F3F4F6",
@@ -691,8 +703,8 @@ const styles = StyleSheet.create({
     transform: [{ scale: 0.95 }],
   },
   numpadDeleteKey: {
-    width: 72,
-    height: 72,
+    width: 70,
+    height: 70,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "transparent",
@@ -703,14 +715,17 @@ const styles = StyleSheet.create({
     transform: [{ scale: 0.95 }],
   },
   numpadEmpty: {
-    width: 72,
-    height: 72,
+    width: 70,
+    height: 70,
     marginVertical: 8,
   },
   numpadKeyText: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: "600",
     color: "#010135",
+    textAlign: "center",
+    textAlignVertical: "center",
+    includeFontPadding: false,
   },
 
   // Reset mode password step

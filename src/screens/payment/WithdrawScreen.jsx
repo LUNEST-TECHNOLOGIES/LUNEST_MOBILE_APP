@@ -753,36 +753,47 @@ const WithdrawScreen = () => {
               {verifyingPin ? (
                 <ActivityIndicator size="large" color="#010135" style={{ marginTop: 32 }} />
               ) : (
-                <View style={styles.pinNumpad}>
-                  {["1","2","3","4","5","6","7","8","9","","0","del"].map((key, index) => {
-                    if (key === "") return <View key={index} style={styles.pinNumpadEmpty} />;
-                    if (key === "del") {
-                      return (
-                        <Pressable
-                          key={index}
-                          style={({ pressed }) => [
-                            styles.pinNumpadDeleteKey,
-                            pressed && styles.pinNumpadDeleteKeyPressed,
-                          ]}
-                          onPress={handlePinDelete}
-                        >
-                          <Ionicons name="backspace-outline" size={22} color="#010135" />
-                        </Pressable>
-                      );
-                    }
-                    return (
-                      <Pressable
-                        key={index}
-                        style={({ pressed }) => [
-                          styles.pinNumpadKey,
-                          pressed && styles.pinNumpadKeyPressed,
-                        ]}
-                        onPress={() => handlePinDigit(key)}
-                      >
-                        <Text style={styles.pinNumpadKeyText}>{key}</Text>
-                      </Pressable>
-                    );
-                  })}
+                <View style={styles.pinNumpadContainer}>
+                  {[
+                    ["1", "2", "3"],
+                    ["4", "5", "6"],
+                    ["7", "8", "9"],
+                    ["", "0", "del"]
+                  ].map((row, rowIndex) => (
+                    <View key={rowIndex} style={styles.pinNumpadRow}>
+                      {row.map((key, keyIndex) => {
+                        if (key === "") return <View key={keyIndex} style={styles.pinNumpadEmpty} />;
+                        if (key === "del") {
+                          return (
+                            <Pressable
+                              key={keyIndex}
+                              style={({ pressed }) => [
+                                styles.pinNumpadDeleteKey,
+                                pressed && styles.pinNumpadDeleteKeyPressed,
+                              ]}
+                              onPress={handlePinDelete}
+                              android_ripple={{ color: "#e0e0e0", borderless: true }}
+                            >
+                              <Ionicons name="backspace-outline" size={24} color="#010135" />
+                            </Pressable>
+                          );
+                        }
+                        return (
+                          <Pressable
+                            key={keyIndex}
+                            style={({ pressed }) => [
+                              styles.pinNumpadKey,
+                              pressed && styles.pinNumpadKeyPressed,
+                            ]}
+                            onPress={() => handlePinDigit(key)}
+                            android_ripple={{ color: "#e0e0e0", borderless: true }}
+                          >
+                            <Text style={styles.pinNumpadKeyText}>{key}</Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  ))}
                 </View>
               )}
 
@@ -1370,18 +1381,21 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   pinErrorText: { fontSize: 12, color: "#B70808", flex: 1 },
-  pinNumpad: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
+  pinNumpadContainer: {
     width: "100%",
     maxWidth: 280,
     marginTop: 12,
   },
+  pinNumpadRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    width: "100%",
+  },
   pinNumpadKey: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 70,
+    height: 70,
+    borderRadius: 35,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#F3F4F6",
@@ -1392,8 +1406,8 @@ const styles = StyleSheet.create({
     transform: [{ scale: 0.95 }],
   },
   pinNumpadDeleteKey: {
-    width: 72,
-    height: 72,
+    width: 70,
+    height: 70,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "transparent",
@@ -1404,14 +1418,17 @@ const styles = StyleSheet.create({
     transform: [{ scale: 0.95 }],
   },
   pinNumpadEmpty: {
-    width: 72,
-    height: 72,
+    width: 70,
+    height: 70,
     marginVertical: 8,
   },
   pinNumpadKeyText: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: "600",
     color: "#010135",
+    textAlign: "center",
+    textAlignVertical: "center",
+    includeFontPadding: false,
   },
   forgotPinText: {
     fontSize: 13,

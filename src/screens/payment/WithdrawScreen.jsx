@@ -78,6 +78,7 @@ const WithdrawScreen = () => {
 
   // Use a ref to track the last verified combination to prevent redundant calls (429 errors)
   const lastVerifiedKey = useRef("");
+  const verifyTimeoutRef = useRef(null);
 
   const isInsufficient = Number(amount) > walletBalance;
 
@@ -98,15 +99,30 @@ const WithdrawScreen = () => {
   }, []);
 
   // Auto-verify account when account number is complete and bank is selected
+  // Debounced by 600ms to prevent consecutive API calls and rate-limiting (429) errors
   useEffect(() => {
     if (accountNumber.length === 10 && selectedBank) {
       const currentKey = `${selectedBank.code}-${accountNumber}`;
       if (lastVerifiedKey.current !== currentKey) {
-        verifyAccount();
+        if (verifyTimeoutRef.current) {
+          clearTimeout(verifyTimeoutRef.current);
+        }
+        verifyTimeoutRef.current = setTimeout(() => {
+          verifyAccount();
+        }, 600);
       }
     } else {
       setAccountName("");
+      if (verifyTimeoutRef.current) {
+        clearTimeout(verifyTimeoutRef.current);
+      }
     }
+
+    return () => {
+      if (verifyTimeoutRef.current) {
+        clearTimeout(verifyTimeoutRef.current);
+      }
+    };
   }, [accountNumber, selectedBank]);
 
   const showToast = (message, type = "success") => {
@@ -192,7 +208,19 @@ const WithdrawScreen = () => {
       // Reset ref so user can try again
       lastVerifiedKey.current = ""; 
 
-      const errorMessage = error.response?.message || error.message || "Could not verify account. Please check the details.";
+      let errorMessage = error.response?.message || error.message || "Could not verify account. Please check the details.";
+      
+      // Map resolution/invalid detail failures to a friendly, clear message
+      const lowerMsg = errorMessage.toLowerCase();
+      if (
+        lowerMsg.includes("resolve") ||
+        lowerMsg.includes("incorrect") ||
+        lowerMsg.includes("invalid") ||
+        lowerMsg.includes("cannot be")
+      ) {
+        errorMessage = "Invalid bank details. Please check the account number and selected bank.";
+      }
+
       showToast(errorMessage, "error");
       
       // If Paystack limits are the issue, log it clearly for the user
@@ -772,7 +800,6 @@ const WithdrawScreen = () => {
                                 pressed && styles.pinNumpadDeleteKeyPressed,
                               ]}
                               onPress={handlePinDelete}
-                              android_ripple={{ color: "#e0e0e0", borderless: true }}
                             >
                               <Ionicons name="backspace-outline" size={24} color="#010135" />
                             </Pressable>
@@ -786,7 +813,6 @@ const WithdrawScreen = () => {
                               pressed && styles.pinNumpadKeyPressed,
                             ]}
                             onPress={() => handlePinDigit(key)}
-                            android_ripple={{ color: "#e0e0e0", borderless: true }}
                           >
                             <Text style={styles.pinNumpadKeyText}>{key}</Text>
                           </Pressable>
@@ -1383,7 +1409,7 @@ const styles = StyleSheet.create({
   pinErrorText: { fontSize: 12, color: "#B70808", flex: 1 },
   pinNumpadContainer: {
     width: "100%",
-    maxWidth: 280,
+    maxWidth: 300,
     marginTop: 12,
   },
   pinNumpadRow: {
@@ -1393,41 +1419,40 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   pinNumpadKey: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
+    width: 75,
+    height: 75,
+    borderRadius: 37.5,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#F3F4F6",
-    marginVertical: 8,
+    marginVertical: 10,
   },
   pinNumpadKeyPressed: {
     backgroundColor: "#E5E7EB",
-    transform: [{ scale: 0.95 }],
+    transform: [{ scale: 0.92 }],
   },
   pinNumpadDeleteKey: {
-    width: 70,
-    height: 70,
+    width: 75,
+    height: 75,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "transparent",
-    marginVertical: 8,
+    marginVertical: 10,
   },
   pinNumpadDeleteKeyPressed: {
     opacity: 0.5,
-    transform: [{ scale: 0.95 }],
+    transform: [{ scale: 0.92 }],
   },
   pinNumpadEmpty: {
-    width: 70,
-    height: 70,
-    marginVertical: 8,
+    width: 75,
+    height: 75,
+    marginVertical: 10,
   },
   pinNumpadKeyText: {
-    fontSize: 26,
-    fontWeight: "600",
+    fontSize: 28,
+    fontWeight: "500",
     color: "#010135",
     textAlign: "center",
-    textAlignVertical: "center",
     includeFontPadding: false,
   },
   forgotPinText: {

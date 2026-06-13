@@ -73,7 +73,6 @@ const NumPad = ({ onPress, onDelete }) => {
                     pressed && styles.numpadDeleteKeyPressed,
                   ]}
                   onPress={onDelete}
-                  android_ripple={{ color: "#e0e0e0", borderless: true }}
                 >
                   <Ionicons name="backspace-outline" size={24} color="#010135" />
                 </Pressable>
@@ -87,7 +86,6 @@ const NumPad = ({ onPress, onDelete }) => {
                   pressed && styles.numpadKeyPressed,
                 ]}
                 onPress={() => onPress(key)}
-                android_ripple={{ color: "#e0e0e0", borderless: true }}
               >
                 <Text style={styles.numpadKeyText}>{key}</Text>
               </Pressable>
@@ -680,7 +678,7 @@ const styles = StyleSheet.create({
   // Numpad
   numpadContainer: {
     width: "100%",
-    maxWidth: 280,
+    maxWidth: 300,
     marginTop: 12,
   },
   numpadRow: {
@@ -690,41 +688,40 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   numpadKey: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
+    width: 75,
+    height: 75,
+    borderRadius: 37.5,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#F3F4F6",
-    marginVertical: 8,
+    marginVertical: 10,
   },
   numpadKeyPressed: {
     backgroundColor: "#E5E7EB",
-    transform: [{ scale: 0.95 }],
+    transform: [{ scale: 0.92 }],
   },
   numpadDeleteKey: {
-    width: 70,
-    height: 70,
+    width: 75,
+    height: 75,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "transparent",
-    marginVertical: 8,
+    marginVertical: 10,
   },
   numpadDeleteKeyPressed: {
     opacity: 0.5,
-    transform: [{ scale: 0.95 }],
+    transform: [{ scale: 0.92 }],
   },
   numpadEmpty: {
-    width: 70,
-    height: 70,
-    marginVertical: 8,
+    width: 75,
+    height: 75,
+    marginVertical: 10,
   },
   numpadKeyText: {
-    fontSize: 26,
-    fontWeight: "600",
+    fontSize: 28,
+    fontWeight: "500",
     color: "#010135",
     textAlign: "center",
-    textAlignVertical: "center",
     includeFontPadding: false,
   },
 

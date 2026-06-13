@@ -95,6 +95,7 @@ class PaymentService {
 
       const response = await apiClient.get(
         `/v1/payments/verify-account?account_number=${accountNumber}&bank_code=${bankCode}`,
+        { silent: true }
       );
 
       if (response.success) {

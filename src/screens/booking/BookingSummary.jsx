@@ -966,7 +966,7 @@ const BookingSummary = () => {
           } else {
             bookingResult = await bookingService.createBooking(bookingData);
           }
-          
+
           if (!bookingResult.success) {
             showToast(bookingResult.message || "Failed to prepare booking. Please try again.", TOAST_TYPE.ERROR);
             setIsInitializingPayment(false);
@@ -974,6 +974,7 @@ const BookingSummary = () => {
           }
 
           const bId = bookingResult.booking?._id || existingBookingId;
+
           const paymentResult = await paymentService.initializePayment(
             finalGuestTotal,
             email,
@@ -984,7 +985,7 @@ const BookingSummary = () => {
               hostId: hostId || params?.hostId,
               listingId: params?.listingId,
               description: `Booking for ${bookingSummary.property.title}`,
-              origin: Platform.OS === "web" ? "web" : "mobile", 
+              origin: Platform.OS === "web" ? "web" : "mobile",
             },
           );
 
@@ -994,23 +995,19 @@ const BookingSummary = () => {
             return;
           }
 
+          // Build callback URL (same pattern as AddFundsScreen)
+          const API_BASE = require("../../services/apiClient").default.baseURL || process.env.EXPO_PUBLIC_API_URL || "";
+
           let callbackUrl;
           if (Platform.OS === "web") {
-            callbackUrl = `${window.location.origin}/payment-callback?type=booking_payment&bookingId=${bId}&amount=${displayTotal.toString()}`;
+            callbackUrl = `${window.location.origin}/payment-callback?type=booking_payment&bookingId=${bId}&amount=${displayTotal}`;
           } else {
-            callbackUrl = Linking.createURL("payment-callback", {
-              queryParams: {
-                type: "booking_payment",
-                bookingId: bId,
-                amount: displayTotal.toString(),
-              },
-            });
+            callbackUrl = `${API_BASE}/v1/payment/callback?type=booking_payment&bookingId=${bId}&amount=${displayTotal}&origin=mobile`;
           }
 
           const paymentContext = {
             type: "BOOKING",
             bookingId: bId,
-            bookingData: bookingData,
             propertyName: bookingSummary.property.title,
             location: bookingSummary.property.location,
             coverImage: bookingSummary.property.coverImage || "",
@@ -1024,59 +1021,40 @@ const BookingSummary = () => {
             localStorage.setItem("lunest_payment_context", JSON.stringify(paymentContext));
             window.location.href = paymentResult.authorization_url;
             return;
-          } else {
-            await AsyncStorage.multiSet([
-              ["lunest_payment_context", JSON.stringify(paymentContext)],
-              ["@lunest_pending_payment_ref", paymentResult.reference]
-            ]);
           }
 
-          const browserResult = await WebBrowser.openAuthSessionAsync(
-            paymentResult.authorization_url,
-            callbackUrl,
-          );
+          // Save context + pending ref for AppState resume recovery
+          await AsyncStorage.multiSet([
+            ["lunest_payment_context", JSON.stringify(paymentContext)],
+            ["@lunest_pending_payment_ref", paymentResult.reference]
+          ]);
 
-          if (browserResult.type === "success") {
-            return;
+          // Single unified browser open — same for iOS and Android
+          let browserResult = { type: "dismissed" };
+          try {
+            browserResult = await WebBrowser.openAuthSessionAsync(
+              paymentResult.authorization_url,
+              Linking.createURL("payment-callback"),
+            );
+          } catch (browserErr) {
+            console.warn("[BookingSummary] openAuthSessionAsync error:", browserErr);
           }
 
-          const verifyResult = await paymentService.verifyPayment(paymentResult.reference);
+          // Clear pending ref — routing directly to callback screen now
+          await AsyncStorage.removeItem("@lunest_pending_payment_ref");
 
-          if (verifyResult.status === "COMPLETED") {
-            setIsSuccess(true);
-            setSuccessMessage("Payment Confirmed!");
-            await new Promise(resolve => setTimeout(resolve, 1500));
+          // Always route to payment-callback as the single verification point
+          router.push({
+            pathname: "/payment-callback",
+            params: {
+              reference: paymentResult.reference,
+              status: browserResult.type === "success" ? "success" : "pending",
+              type: "booking_payment",
+              bookingId: bId,
+              amount: displayTotal.toString(),
+            },
+          });
 
-            router.replace({
-              pathname: "/booking-confirmation",
-              params: {
-                status: "Confirmed",
-                propertyName: bookingSummary.property.title,
-                location: bookingSummary.property.location,
-                coverImage: bookingSummary.property.coverImage || "",
-                bookingType: bookingSummary.property.bookingType,
-                checkIn: bookingSummary.property.checkIn,
-                checkOut: bookingSummary.property.checkOut,
-                paymentMethod: "Paystack",
-                total: `₦${displayTotal.toLocaleString()}`,
-                refCode: verifyResult.reference || generateRefCode(),
-                bookingId: bId,
-                listingId: params?.listingId,
-                isPending: "true",
-                propertyImage: bookingSummary.property.coverImage || "",
-                couponApplied: couponApplied ? "true" : "false",
-                couponCode: couponCode || "",
-                couponDiscount: couponDiscount.toString(),
-                subtotalBeforeDiscount: (displayHostTotal + displayAppCharge).toString(),
-              },
-            });
-          } else if (verifyResult.status === "CANCELED") {
-            showToast("Payment was canceled.", TOAST_TYPE.INFO);
-          } else if (verifyResult.status === "PENDING") {
-            showToast("Your payment is being processed. It will reflect in your bookings shortly.", TOAST_TYPE.INFO);
-          } else {
-            showToast("Payment not successful: " + (verifyResult.gateway_response || "Failed"), TOAST_TYPE.ERROR);
-          }
         } catch (paystackError) {
           console.error("[BookingSummary] Paystack error:", paystackError);
           showToast(paystackError.message || "Failed to process payment", TOAST_TYPE.ERROR);

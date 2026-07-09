@@ -352,9 +352,10 @@ export default function RootLayout() {
                     <Stack.Screen
                       name="booking-confirmation"
                       options={{
-                        presentation: "transparentModal",
+                        presentation: "card",
                         headerShown: false,
                         animationEnabled: true,
+                        gestureEnabled: false,
                       }}
                     />
                     <Stack.Screen

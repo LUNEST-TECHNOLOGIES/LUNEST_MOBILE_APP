@@ -244,7 +244,6 @@ const AddFundsScreen = () => {
       showToast("Minimum amount is ₦100", "error");
       return;
     }
-
     if (numericAmount > 10000000) {
       showToast("Maximum amount is ₦10,000,000", "error");
       return;
@@ -253,12 +252,8 @@ const AddFundsScreen = () => {
     setLoading({ active: true, message: "Preparing secure payment..." });
 
     try {
-      // Get user email from authService
       const userData = await authService.getUserData();
       const email = userData?.email || userData?.emailAddress;
-
-      console.log("[AddFunds] User data:", userData);
-      console.log("[AddFunds] Email:", email);
 
       if (!email) {
         showToast("Please update your profile with an email address", "error");
@@ -266,32 +261,25 @@ const AddFundsScreen = () => {
         return;
       }
 
-      // Create deep link callback URL for Paystack to redirect back to the app
+      // Build callback URL:
+      // Web  → our own origin route (handled by payment-callback.jsx in the SPA)
+      // Native → the HTTPS backend callback (SFSafariViewController/Chrome Tab intercepts it)
+      //          The backend callback page then JS-redirects back via the deep link scheme.
+      const API_BASE = require("../../services/apiClient").default.baseURL || process.env.EXPO_PUBLIC_API_URL || "";
+
       let callbackUrl;
       if (Platform.OS === "web") {
-        // On web, use the dedicated payment-callback route with amount in query params
-        callbackUrl = `${window.location.origin}/payment-callback?type=wallet_funding&amount=${numericAmount.toString()}`;
-        console.log("[AddFunds] Web Callback URL:", callbackUrl);
+        callbackUrl = `${window.location.origin}/payment-callback?type=wallet_funding&amount=${numericAmount}`;
       } else {
-        // Use a more reliable callback URL for deep linking
-        callbackUrl = Linking.createURL("payment-callback", {
-          queryParams: {
-            type: "wallet_funding",
-            amount: numericAmount.toString(),
-            email: email,
-          },
-        });
-        console.log("[AddFunds] Mobile Callback URL:", callbackUrl);
+        // Point Paystack at our BACKEND callback URL.
+        // The backend renders a loader page that auto-verifies and deep-links back.
+        // SFSafariViewController/Chrome CustomTab will intercept the redirect to
+        // lunestmobile:// and resolve openAuthSessionAsync with type==="success".
+        callbackUrl = `${API_BASE}/v1/payment/callback?type=wallet_funding&amount=${numericAmount}&origin=mobile`;
       }
 
-      console.log("[AddFunds] Initializing payment:", {
-        amount: numericAmount,
-        email,
-        callbackUrl,
-      });
-
-      // Initialize payment with Paystack
       setLoading({ active: true, message: "Connecting to Paystack..." });
+
       const paymentData = await paymentService.initializePayment(
         numericAmount,
         email,
@@ -300,105 +288,84 @@ const AddFundsScreen = () => {
           userId: userData?._id || userData?.id,
           description: `Add ${formatCurrency(numericAmount)} to wallet`,
           callback_url: callbackUrl,
-          origin: "mobile", // Explicitly track origin for backend redirection
+          origin: Platform.OS === "web" ? "web" : "mobile",
         },
       );
 
-      if (paymentData.authorization_url) {
-        // CLEAN & VALIDATE URL
-        const authUrl = (paymentData.authorization_url || "").trim();
-        if (!authUrl.startsWith("http")) {
-          throw new Error("Invalid payment URL received from server");
-        }
-
-        console.log("[AddFunds] Opening Paystack:", authUrl);
-
-        // Store payment reference for fallback verification
-        const paymentReference = paymentData.reference;
-
-        // PERSIST CONTEXT
-        const context = {
-          type: "WALLET_FUNDING",
-          returnUrl: params.returnUrl || "/pay-with-wallet",
-          params: { 
-            ...params, 
-            status: null, 
-            reference: null, 
-            trxref: null,
-            fromBooking: "true",
-            amount: numericAmount.toString()
-          },
-        };
-
-        if (Platform.OS === "web") {
-          localStorage.setItem("lunest_payment_context", JSON.stringify(context));
-          window.location.href = authUrl;
-          return;
-        } else {
-          await AsyncStorage.multiSet([
-            ["lunest_payment_context", JSON.stringify(context)],
-            ["@lunest_pending_payment_ref", paymentReference]
-          ]);
-        }
-
-        // On native, use direct Linking for Android as it is more robust for external intents
-        // openAuthSessionAsync can sometimes trigger "Permission Denial" on custom Android builds
-        if (Platform.OS === "android") {
-            try {
-                console.log("[AddFunds] Android detected, using direct Linking for reliability");
-                const supported = await Linking.canOpenURL(authUrl);
-                if (supported) {
-                    await Linking.openURL(authUrl);
-                    // Increase delay for Android background verification
-                    setTimeout(() => handleVerifyPayment(paymentReference), 3500);
-                    return;
-                }
-            } catch (linkError) {
-                console.error("[AddFunds] Direct linking failed, falling back to WebBrowser:", linkError);
-            }
-        }
-
-        // Standard Expo approach for iOS or Fallback
-        let result;
-        try {
-          console.log("[AddFunds] Attempting openAuthSessionAsync...");
-          result = await WebBrowser.openAuthSessionAsync(authUrl, callbackUrl);
-        } catch (browserError) {
-          console.warn(
-            "[AddFunds] openAuthSessionAsync failed, trying Linking.openURL:",
-            browserError,
-          );
-          try {
-            await Linking.openURL(authUrl);
-            return;
-          } catch (secondError) {
-            console.error("[AddFunds] All redirect methods failed:", secondError);
-            showToast("Could not open payment browser. Please try again.", "error");
-            return;
-          }
-        }
-
-        console.log("[AddFunds] Browser result:", result);
-
-        if (result.type === "success") {
-          console.log("[AddFunds] Deep link successful");
-          return;
-        }
-
-        // Fallback: Always verify payment after browser closes
-        handleVerifyPayment(paymentReference);
-      } else {
+      if (!paymentData?.authorization_url) {
         showToast("Failed to initialize payment", "error");
+        setLoading({ active: false, message: "" });
+        return;
       }
+
+      const authUrl = (paymentData.authorization_url || "").trim();
+      if (!authUrl.startsWith("http")) {
+        throw new Error("Invalid payment URL received from server");
+      }
+
+      const paymentReference = paymentData.reference;
+
+      // Persist context so payment-callback.jsx knows where to redirect after success
+      const context = {
+        type: "WALLET_FUNDING",
+        amount: numericAmount,
+        returnUrl: params.returnUrl || null,
+        params: {
+          ...params,
+          status: null,
+          reference: null,
+          trxref: null,
+          amount: numericAmount.toString(),
+        },
+      };
+
+      if (Platform.OS === "web") {
+        localStorage.setItem("lunest_payment_context", JSON.stringify(context));
+        window.location.href = authUrl;
+        return;
+      }
+
+      // Save context + pending ref for AppState resume recovery
+      await AsyncStorage.multiSet([
+        ["lunest_payment_context", JSON.stringify(context)],
+        ["@lunest_pending_payment_ref", paymentReference],
+      ]);
+
+      setLoading({ active: true, message: "Opening payment page..." });
+
+      // Single unified path for iOS and Android:
+      // openAuthSessionAsync opens an in-app browser (SFSafariViewController / Chrome Custom Tab)
+      // It resolves when the browser closes or intercepts a redirect matching callbackUrl scheme.
+      let result = { type: "dismissed" };
+      try {
+        result = await WebBrowser.openAuthSessionAsync(authUrl, Linking.createURL("payment-callback"));
+      } catch (browserErr) {
+        console.warn("[AddFunds] openAuthSessionAsync error:", browserErr);
+      }
+
+      // Clear the pending ref — we're about to navigate to the callback screen directly
+      await AsyncStorage.removeItem("@lunest_pending_payment_ref");
+
+      // Always navigate to payment-callback which is the single source of truth for verification.
+      // This covers: success deep link, dismissed browser, and any error.
+      router.push({
+        pathname: "/payment-callback",
+        params: {
+          reference: paymentReference,
+          status: result.type === "success" ? "success" : "pending",
+          type: "wallet_funding",
+          amount: numericAmount.toString(),
+        },
+      });
+
     } catch (error) {
       console.error("[AddFunds] Error:", error);
       showToast(error.message || "Failed to process payment", "error");
-      setLoading({ active: false, message: "" });
     } finally {
-      // Note: We don't always clear loading here if we redirected, but it's safe to ensure it's off
-      setLoading(prev => ({ ...prev, active: false }));
+      setLoading({ active: false, message: "" });
     }
   };
+
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>

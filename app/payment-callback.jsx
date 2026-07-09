@@ -1,7 +1,7 @@
 /**
  * Payment Callback Screen
- * Handles deep link redirect from Paystack after payment
- * Enhanced UI with better error handling and retry mechanism
+ * Single source of truth for all payment verification (wallet funding + booking payment)
+ * Handles: deep link redirect from Paystack, manual resume, and AppState recovery
  */
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -18,7 +18,6 @@ import {
     View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { TOAST_TYPE } from "../src/components/common/ToastNotification";
 import bookingService from "../src/services/bookingService";
 import notificationService from "../src/services/notificationService";
 import paymentService from "../src/services/paymentService";
@@ -27,22 +26,23 @@ export default function PaymentCallbackScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const queryClient = useQueryClient();
+
   const [status, setStatus] = useState("processing");
   const [message, setMessage] = useState("Verifying your payment...");
-  const [reference, setReference] = useState(null);
-  const [retryCount, setRetryCount] = useState(0);
-  const [isFinalizingBooking, setIsFinalizingBooking] = useState(false);
+  const [paymentRef, setPaymentRef] = useState(null);
   const [showRetryButton, setShowRetryButton] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
   const [animation] = useState(new Animated.Value(0));
-  const hasProcessedRef = useRef(false);
+  const hasProcessed = useRef(false);
+  const retryTimer = useRef(null);
 
-  // Animation for processing indicator
+  // Spinning animation while processing
   useEffect(() => {
     if (status === "processing") {
       Animated.loop(
         Animated.timing(animation, {
           toValue: 1,
-          duration: 1500,
+          duration: 1200,
           easing: Easing.linear,
           useNativeDriver: true,
         })
@@ -50,451 +50,347 @@ export default function PaymentCallbackScreen() {
     } else {
       animation.stopAnimation();
     }
-  }, [status, animation]);
-
-  // Timer to show retry button if processing takes too long
-  useEffect(() => {
-    let timer;
-    if (status === "processing") {
-      timer = setTimeout(() => {
-        setShowRetryButton(true);
-      }, 7000); // Show after 7 seconds
-    } else {
-      setShowRetryButton(false);
-    }
-    return () => clearTimeout(timer);
   }, [status]);
+
+  // Show retry button after 8 seconds of processing
+  useEffect(() => {
+    if (status !== "processing") {
+      setShowRetryButton(false);
+      return;
+    }
+    const t = setTimeout(() => setShowRetryButton(true), 8000);
+    return () => clearTimeout(t);
+  }, [status, retryCount]);
+
+  // Cleanup timers on unmount
+  useEffect(() => {
+    return () => {
+      if (retryTimer.current) clearTimeout(retryTimer.current);
+    };
+  }, []);
 
   const spin = animation.interpolate({
     inputRange: [0, 1],
     outputRange: ["0deg", "360deg"],
   });
 
-  const DEFAULT_PROFILE_ROUTE = Platform.OS === 'web' ? "/profile" : "/(tabs)/profile";
+  // ── NAVIGATION HELPERS ─────────────────────────────────────────────────────
 
-  const navigateAfterDelay = useCallback((path, delay, additionalParams = null) => {
-    setTimeout(() => {
-      if (Platform.OS === "web") {
-        let targetUrl = path.startsWith("http") ? path : `${window.location.origin}${path}`;
-        
-        if (additionalParams) {
-          const url = new URL(targetUrl);
-          Object.keys(additionalParams).forEach(key => {
-            if (additionalParams[key] !== null && additionalParams[key] !== undefined) {
-              url.searchParams.append(key, String(additionalParams[key]));
-            }
-          });
-          targetUrl = url.toString();
-        }
-        
-        console.log("[PaymentCallback] Web Redirecting to:", targetUrl);
-        window.location.href = targetUrl;
-      } else {
-        if (additionalParams) {
-          router.replace({
-            pathname: path,
-            params: additionalParams
-          });
+  const DEFAULT_HOME = Platform.OS === "web" ? "/(tabs)" : "/(tabs)";
+  const DEFAULT_WALLET = Platform.OS === "web" ? "/(tabs)/wallet" : "/(tabs)/wallet";
+
+  /** Navigate without adding to history stack (final destinations) */
+  const goFinal = useCallback((pathname, navParams = {}) => {
+    // Clean storage before leaving
+    const cleanup = async () => {
+      try {
+        if (Platform.OS === "web") {
+          localStorage.removeItem("lunest_payment_context");
         } else {
-          router.replace(path);
+          await AsyncStorage.multiRemove(["lunest_payment_context", "@lunest_pending_payment_ref"]);
         }
-      }
-    }, delay);
+      } catch (_) {}
+    };
+    cleanup();
+
+    if (Platform.OS === "web" && pathname.startsWith("http")) {
+      window.location.href = pathname;
+      return;
+    }
+
+    const hasParams = Object.keys(navParams).length > 0;
+    if (hasParams) {
+      router.replace({ pathname, params: navParams });
+    } else {
+      router.replace(pathname);
+    }
   }, [router]);
 
-  const handleFailureRedirection = useCallback(async () => {
-    try {
-      let storedContext = null;
-      if (Platform.OS === "web") {
-        storedContext = localStorage.getItem("lunest_payment_context");
-      } else {
-        storedContext = await AsyncStorage.getItem("lunest_payment_context");
-      }
+  // ── CONTEXT RECOVERY ───────────────────────────────────────────────────────
 
-      if (storedContext) {
-        const context = JSON.parse(storedContext);
-        if (context.bookingId) {
-          setMessage(prev => prev + " Returning to your booking...");
-          setTimeout(() => {
-            router.replace({
-              pathname: "/booking-confirmation",
-              params: { 
-                bookingId: context.bookingId,
-                status: "Pending", // Or whatever the status is
-                fromFailedPayment: "true"
-              }
-            });
-          }, 3000);
-          return;
-        } else if (context.type === "BOOKING" && context.listingId) {
-          setMessage(prev => prev + " Redirecting you back to the property page...");
-          setTimeout(() => {
-            router.replace({
-              pathname: "/property-details",
-              params: { listingId: context.listingId }
-            });
-          }, 3000);
-          return;
-        }
-      }
-      // Also check params as a fallback for failure
-      if (params.bookingId || params.listingId) {
-          setMessage(prev => prev + " Returning to your booking...");
-          const targetPath = params.bookingId ? "/booking-confirmation" : "/property-details";
-          const targetParams = params.bookingId 
-            ? { bookingId: params.bookingId, status: "Pending", fromFailedPayment: "true" }
-            : { listingId: params.listingId };
-            
-          setTimeout(() => {
-            router.replace({
-              pathname: targetPath,
-              params: targetParams
-            });
-          }, 3000);
-          return;
-      }
-    } catch (e) {
-      console.warn("[PaymentCallback] Failure redirect error:", e);
+  const getStoredContext = async () => {
+    try {
+      const raw = Platform.OS === "web"
+        ? localStorage.getItem("lunest_payment_context")
+        : await AsyncStorage.getItem("lunest_payment_context");
+      return raw ? JSON.parse(raw) : null;
+    } catch (_) {
+      return null;
     }
-    
-    navigateAfterDelay(DEFAULT_PROFILE_ROUTE, 4000);
-  }, [DEFAULT_PROFILE_ROUTE, navigateAfterDelay, router, params]);
+  };
+
+  // ── CORE VERIFICATION LOGIC ────────────────────────────────────────────────
 
   const verifyPayment = useCallback(async (ref) => {
-    try {
-      setStatus("processing");
-      setMessage("Verifying payment with our servers...");
-      
-      if (retryCount === 0) {
-        await new Promise(resolve => setTimeout(resolve, 800));
-      }
+    if (!ref) {
+      setStatus("error");
+      setMessage("No payment reference found. Please check your transaction history.");
+      return;
+    }
 
-      console.log("[PaymentCallback] Verifying payment:", ref);
+    setStatus("processing");
+    setMessage("Verifying your payment…");
+    setPaymentRef(ref);
+
+    try {
       const result = await paymentService.verifyPayment(ref);
-      console.log("[PaymentCallback] Verification successful result:", result);
+      console.log("[PaymentCallback] Result:", result?.status, "ref:", ref);
 
       if (result.status === "COMPLETED" || result.status === "success") {
+        // ── SUCCESS ──────────────────────────────────────────────────────────
         setStatus("success");
         setMessage("Payment Successful!");
-        // INSTANT UI UPDATE
+
+        // Instant balance update from server response
         if (result.newBalance !== undefined) {
-          console.log("[PaymentCallback] Instant balance update from server:", result.newBalance);
           queryClient.setQueryData(["walletInfo"], (old) => ({
             ...old,
             balance: result.newBalance,
-            availableBalance: result.newBalance
+            availableBalance: result.newBalance,
           }));
         }
 
-        // Increase delay for robust state sync
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        
+        // Invalidate all related queries for fresh data
         queryClient.invalidateQueries({ queryKey: ["walletInfo"] });
         queryClient.invalidateQueries({ queryKey: ["userProfile"] });
         queryClient.invalidateQueries({ queryKey: ["transactions"] });
-
-        // Force fresh data
+        queryClient.invalidateQueries({ queryKey: ["bookings"] });
         await queryClient.refetchQueries({ queryKey: ["walletInfo"] });
-        await queryClient.refetchQueries({ queryKey: ["userProfile"] });
 
-        // 1. Check for stored context (Prioritize redirection context)
-        try {
-          const storedContext = Platform.OS === "web" 
-            ? localStorage.getItem("lunest_payment_context")
-            : await AsyncStorage.getItem("lunest_payment_context");
+        const context = await getStoredContext();
 
-          if (storedContext) {
-            const context = JSON.parse(storedContext);
-            
-            const cleanupContext = async () => {
-              if (Platform.OS === "web") {
-                localStorage.removeItem("lunest_payment_context");
-              } else {
-                await AsyncStorage.removeItem("lunest_payment_context");
-              }
-            };
+        // ── BOOKING PAYMENT ──────────────────────────────────────────────────
+        const bookingId =
+          context?.bookingId ||
+          params.bookingId ||
+          result.bookingId;
 
-            if (context.type === "BOOKING" || context.bookingId) {
-              const bId = context.bookingId || params.bookingId;
-              setIsFinalizingBooking(true);
-              setMessage("Payment Confirmed! Finalizing your booking...");
-              
-              const verifyBooking = await bookingService.fetchBookingById(bId);
-              
-              if (verifyBooking.success && (['CONFIRMED', 'SUCCESS', 'ONGOING'].includes(verifyBooking.booking?.status))) {
-                setMessage("Payment Confirmed! Booking finalized.");
-                notificationService.showSuccess("Booking finalized successfully!");
-                
-                router.replace({
-                  pathname: "/booking-confirmation",
-                  params: {
-                    bookingId: bId,
-                    status: "Confirmed",
-                    propertyName: context.propertyName || verifyBooking.booking?.listing?.propertyName
-                  }
-                });
-                await cleanupContext();
-                return;
-              } else {
-                setMessage("Payment Confirmed! Updating reservation details...");
-                
-                setTimeout(() => {
-                  router.replace({
-                    pathname: "/booking-confirmation",
-                    params: {
-                      bookingId: bId,
-                      status: "Confirmed",
-                      propertyName: context.propertyName,
-                      isPending: "true" 
-                    }
-                  });
-                }, 2500);
-                await cleanupContext();
-                return;
-              }
-            } else if (context.type === "WALLET_FUNDING") {
-              const iBookingReturn = context.returnUrl?.includes("pay-with-wallet");
-              setMessage(iBookingReturn ? "Wallet funded! Returning to your booking..." : "Wallet funded! Returning to your profile...");
-              
-              if (context.returnUrl) {
-                console.log("[PaymentCallback] Context-driven redirect to:", context.returnUrl);
-                navigateAfterDelay(context.returnUrl, 2500, context.params);
-              } else {
-                navigateAfterDelay(DEFAULT_PROFILE_ROUTE, 2500);
-              }
-              await cleanupContext();
-              return;
-            }
-          }
-        } catch (ctxError) {
-          console.error("[PaymentCallback] Context recovery error:", ctxError);
-        }
+        const isBooking =
+          context?.type === "BOOKING" ||
+          (params.type || "").toLowerCase().includes("booking") ||
+          !!bookingId;
 
-        // 2. Fallback to param identification if no context is found
-        if (params.type === "WALLET_FUNDING" || params.type === "wallet_funding") {
-          setMessage("Transaction Verified! Funds added to your wallet.");
-          // Try to get amount from params or context
-          let amount = params.amount;
-          if (!amount) {
+        if (isBooking && bookingId) {
+          setMessage("Payment Confirmed! Finalizing your booking…");
+
+          // Poll booking until it's confirmed (up to 5s)
+          let bookingStatus = "PENDING_PAYMENT";
+          for (let i = 0; i < 5; i++) {
             try {
-              const contextData = Platform.OS === "web" 
-                ? localStorage.getItem("lunest_payment_context")
-                : await AsyncStorage.getItem("lunest_payment_context");
-              if (contextData) {
-                const context = JSON.parse(contextData);
-                amount = context.params?.amount;
+              const bRes = await bookingService.fetchBookingById(bookingId);
+              if (bRes.success) {
+                bookingStatus = bRes.booking?.status || bookingStatus;
+                if (["CONFIRMED", "ONGOING", "COMPLETED", "SUCCESS"].includes(bookingStatus)) break;
               }
-            } catch (e) {
-              console.error("[PaymentCallback] Failed to parse context for amount:", e);
-            }
+            } catch (_) {}
+            await new Promise(r => setTimeout(r, 1000));
           }
-          const amountDisplay = amount ? `₦${amount}` : "Funds";
-          notificationService.show(`${amountDisplay} added to your wallet successfully`, TOAST_TYPE.SUCCESS);
-          
-          // Ensure ALL wallet/profile related queries are invalidated to force a fresh fetch
-          await queryClient.invalidateQueries({ queryKey: ["walletInfo"] });
-          await queryClient.invalidateQueries({ queryKey: ["userProfile"] });
-          await queryClient.invalidateQueries({ queryKey: ["transactions"] });
 
-          const fallbackUrl = params.returnUrl || DEFAULT_PROFILE_ROUTE;
-          const fallbackParams = { ...params };
-          delete fallbackParams.status;
-          delete fallbackParams.reference;
-          delete fallbackParams.trxref;
+          setMessage("Booking Confirmed!");
+          notificationService.showSuccess("Your booking has been confirmed!");
 
-          navigateAfterDelay(fallbackUrl, 2500, fallbackParams);
+          setTimeout(() => {
+            goFinal("/booking-confirmation", {
+              bookingId,
+              status: "Confirmed",
+              propertyName: context?.propertyName || "",
+              coverImage: context?.coverImage || "",
+              bookingType: context?.bookingType || "",
+              checkIn: context?.checkIn || "",
+              checkOut: context?.checkOut || "",
+            });
+          }, 1500);
           return;
-        } else if ((params.type === "booking_payment" || params.type === "BOOKING") && params.bookingId) {
-           setMessage("Payment Verified! Redirecting to your booking...");
-           notificationService.showSuccess("Booking payment successful!");
-           
-           router.replace({
-             pathname: "/booking-confirmation",
-             params: {
-               bookingId: params.bookingId,
-               status: "Confirmed",
-               isPending: "true" // Use auto-verify on landing
-             }
-           });
-           return;
         }
 
-        setMessage("Payment verified successfully! Redirecting...");
-        navigateAfterDelay(DEFAULT_PROFILE_ROUTE, 2500);
+        // ── WALLET FUNDING ────────────────────────────────────────────────────
+        setMessage("Wallet funded successfully!");
+        notificationService.showSuccess("Funds added to your wallet!");
+
+        setTimeout(() => {
+          if (context?.returnUrl) {
+            goFinal(context.returnUrl, context.params || {});
+          } else {
+            goFinal(DEFAULT_WALLET);
+          }
+        }, 1500);
+
       } else if (result.status === "PENDING" || result.status === "PROCESSING") {
-        // If it's processing, retry a few more times before giving up
-        if (retryCount < 5) {
-          setStatus("processing");
-          setMessage(result.status === "PROCESSING" ? "Payment received! Finalizing..." : "Still verifying...");
-          setRetryCount(prev => prev + 1);
-          setTimeout(() => verifyPayment(ref), 2500);
+        // ── STILL PROCESSING ─────────────────────────────────────────────────
+        if (retryCount < 6) {
+          setMessage(result.status === "PROCESSING" ? "Payment received! Finalizing…" : "Almost there…");
+          setRetryCount(c => c + 1);
+          retryTimer.current = setTimeout(() => verifyPayment(ref), 2500);
         } else {
           setStatus("info");
-          setMessage("Payment is taking longer than expected. It will reflect in your wallet shortly.");
-          navigateAfterDelay(DEFAULT_PROFILE_ROUTE, 5000);
+          setMessage("Payment is being processed. It will reflect shortly in your wallet or bookings.");
+          setTimeout(() => goFinal(DEFAULT_HOME), 5000);
         }
+
       } else {
+        // ── FAILED ───────────────────────────────────────────────────────────
         setStatus("error");
-        setMessage(result.message || "Payment verification failed.");
-        handleFailureRedirection();
+        setMessage(result.message || "Payment verification failed. Please check your transaction history.");
       }
+
     } catch (error) {
       console.error("[PaymentCallback] Verification error:", error);
       if (retryCount < 3) {
-        setRetryCount(prev => prev + 1);
-        setMessage(`Verification failed. Retrying... (${retryCount + 1}/3)`);
-        setTimeout(() => verifyPayment(ref), 2000);
+        setRetryCount(c => c + 1);
+        setMessage(`Retrying verification… (${retryCount + 1}/3)`);
+        retryTimer.current = setTimeout(() => verifyPayment(ref), 2000);
       } else {
         setStatus("error");
         setMessage("Unable to verify payment. Please check your transaction history.");
       }
     }
-  }, [retryCount, params, queryClient, router, DEFAULT_PROFILE_ROUTE, navigateAfterDelay, handleFailureRedirection]);
+  }, [retryCount, params, queryClient, router, goFinal]);
+
+  // ── BOOT: RESOLVE REFERENCE AND START ─────────────────────────────────────
 
   useEffect(() => {
-    const processCallback = async () => {
-      if (hasProcessedRef.current) return;
-      hasProcessedRef.current = true;
-      
-      console.log("[PaymentCallback] Params:", params);
-      const callbackStatus = (params.status || params.event || "").toLowerCase();
-      let ref = params.reference || params.trxref || params.ref || params.transaction_id;
-      
-      if (!ref && Platform.OS === 'web') {
-        const urlParams = new URLSearchParams(window.location.search);
-        ref = urlParams.get('reference') || urlParams.get('trxref');
-      }
-      
-      setReference(ref);
+    if (hasProcessed.current) return;
+    hasProcessed.current = true;
 
-      // 1. Booking Redirect (Native/Legacy)
-      const type = (params.type || "").toLowerCase();
-      const bookingId = params.bookingId;
-      if (type === 'booking' && bookingId && callbackStatus === 'success') {
-        setStatus("success");
-        setMessage("Redirecting to confirmation...");
-        router.replace({
-          pathname: "/booking-confirmation",
-          params: { bookingId, status: "Confirmed" }
-        });
+    const boot = async () => {
+      let ref =
+        params.reference ||
+        params.trxref ||
+        params.ref ||
+        params.transaction_id;
+
+      // Web: also check URL search params (for Paystack SPA redirect)
+      if (!ref && Platform.OS === "web") {
+        try {
+          const urlParams = new URLSearchParams(window.location.search);
+          ref = urlParams.get("reference") || urlParams.get("trxref");
+        } catch (_) {}
+      }
+
+      if (!ref) {
+        setStatus("error");
+        setMessage("No payment reference found. Please check your transaction history.");
         return;
       }
 
-      // 2. Status Flow
-      if (callbackStatus) {
-        if (['success', 'completed', 'processed'].includes(callbackStatus)) {
-          if (ref) verifyPayment(ref);
-        } else if (['failed', 'cancelled', 'error'].includes(callbackStatus)) {
-          setStatus("error");
-          setMessage(params.message || "Payment was not successful.");
-          // Trigger failure redirection to booking if applicable
-          handleFailureRedirection();
-        } else {
-          if (ref) verifyPayment(ref);
-        }
+      // Map incoming status to a simple flag — we always verify regardless
+      const incomingStatus = (params.status || "").toLowerCase();
+      if (["failed", "cancelled", "error"].includes(incomingStatus)) {
+        setStatus("error");
+        setMessage("Payment was not completed.");
         return;
       }
 
-      // 3. Ref Only
-      if (ref) {
-        verifyPayment(ref);
-        return;
-      }
+      verifyPayment(ref);
     };
 
-    processCallback();
-  }, [params, verifyPayment, router]);
+    boot();
+  }, []);
+
+  // ── RETRY HANDLER ─────────────────────────────────────────────────────────
 
   const handleRetry = () => {
-    if (reference) {
+    if (paymentRef) {
       setRetryCount(0);
-      verifyPayment(reference);
+      hasProcessed.current = false;
+      verifyPayment(paymentRef);
     }
   };
 
+  const handleGoHome = () => {
+    goFinal(DEFAULT_HOME);
+  };
+
+  // ── RENDER ─────────────────────────────────────────────────────────────────
+
   const renderIcon = () => {
-    const iconSize = 60;
     switch (status) {
       case "processing":
         return (
           <Animated.View style={{ transform: [{ rotate: spin }] }}>
-            <Ionicons name="sync" size={iconSize} color="#246BFD" />
+            <Ionicons name="sync" size={60} color="#246BFD" />
           </Animated.View>
         );
       case "success":
         return (
-          <View style={[styles.iconContainer, styles.successIcon]}>
-            <Ionicons name="checkmark" size={50} color="#FFFFFF" />
+          <View style={[styles.iconCircle, styles.successBg]}>
+            <Ionicons name="checkmark" size={48} color="#FFF" />
           </View>
         );
       case "error":
         return (
-          <View style={[styles.iconContainer, styles.errorIcon]}>
-            <Ionicons name="close" size={50} color="#FFFFFF" />
+          <View style={[styles.iconCircle, styles.errorBg]}>
+            <Ionicons name="close" size={48} color="#FFF" />
           </View>
         );
       default:
         return (
-          <View style={[styles.iconContainer, styles.infoIcon]}>
-            <Ionicons name="information" size={50} color="#FFFFFF" />
+          <View style={[styles.iconCircle, styles.infoBg]}>
+            <Ionicons name="information" size={48} color="#FFF" />
           </View>
         );
     }
   };
+
+  const title = {
+    processing: "Processing…",
+    success: "Success!",
+    error: "Payment Issue",
+    info: "Please Wait",
+  }[status] || "Processing…";
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
         <View style={styles.iconWrapper}>{renderIcon()}</View>
-        <Text style={styles.title}>
-          {status === "processing" ? "Processing..." : status === "success" ? "Success!" : "Payment Issue"}
-        </Text>
+
+        <Text style={styles.title}>{title}</Text>
         <Text style={styles.message}>{message}</Text>
-        
-        {reference && (
-          <View style={styles.referenceContainer}>
-            <Text style={styles.referenceLabel}>Reference:</Text>
-            <Text style={styles.referenceValue}>{reference}</Text>
+
+        {paymentRef && (
+          <View style={styles.refBox}>
+            <Text style={styles.refLabel}>Reference</Text>
+            <Text style={styles.refValue}>{paymentRef}</Text>
           </View>
         )}
 
         {status === "processing" && showRetryButton && (
-          <TouchableOpacity 
-            style={styles.retryButton} 
-            onPress={() => router.replace(DEFAULT_PROFILE_ROUTE)}
-          >
-            <Text style={styles.buttonText}>Return to App</Text>
+          <TouchableOpacity style={styles.btn} onPress={handleGoHome}>
+            <Text style={styles.btnText}>Return to App</Text>
           </TouchableOpacity>
         )}
 
         {status === "error" && (
-          <TouchableOpacity style={styles.retryButton} onPress={handleRetry}>
-            <Text style={styles.buttonText}>Try Again</Text>
-          </TouchableOpacity>
+          <View style={styles.btnRow}>
+            <TouchableOpacity style={[styles.btn, styles.btnSecondary]} onPress={handleGoHome}>
+              <Text style={[styles.btnText, styles.btnTextSecondary]}>Go Home</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.btn} onPress={handleRetry}>
+              <Text style={styles.btnText}>Try Again</Text>
+            </TouchableOpacity>
+          </View>
         )}
       </View>
-
-      {/* Modal removed to prevent UI flicker/glitch during state transition */}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#FFFFFF" },
-  content: { flex: 1, justifyContent: "center", alignItems: "center", padding: 24 },
-  iconWrapper: { marginBottom: 32, height: 100, justifyContent: "center", alignItems: "center" },
-  iconContainer: { width: 80, height: 80, borderRadius: 40, justifyContent: "center", alignItems: "center" },
-  successIcon: { backgroundColor: "#4CAF50" },
-  errorIcon: { backgroundColor: "#F44336" },
-  infoIcon: { backgroundColor: "#2196F3" },
-  title: { fontSize: 24, fontWeight: "bold", color: "#333333", marginBottom: 16 },
-  message: { fontSize: 16, color: "#666666", textAlign: "center", marginBottom: 24 },
-  referenceContainer: { backgroundColor: "#F5F5F5", padding: 12, borderRadius: 8, marginBottom: 24 },
-  referenceLabel: { fontSize: 12, color: "#999999", textAlign: "center" },
-  referenceValue: { fontSize: 14, fontWeight: "600" },
-  retryButton: { backgroundColor: "#246BFD", paddingHorizontal: 24, paddingVertical: 14, borderRadius: 12 },
-  buttonText: { color: "#FFFFFF", fontSize: 16, fontWeight: "600" },
-  confirmModalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.7)", justifyContent: "center", alignItems: "center" },
-  confirmModalContent: { backgroundColor: "#FFFFFF", padding: 32, borderRadius: 20, alignItems: "center" },
-  confirmModalTitle: { fontSize: 20, fontWeight: "bold", marginTop: 20 }
+  content: { flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 32 },
+  iconWrapper: { marginBottom: 28, height: 90, justifyContent: "center", alignItems: "center" },
+  iconCircle: { width: 80, height: 80, borderRadius: 40, justifyContent: "center", alignItems: "center" },
+  successBg: { backgroundColor: "#22C55E" },
+  errorBg: { backgroundColor: "#EF4444" },
+  infoBg: { backgroundColor: "#3B82F6" },
+  title: { fontSize: 26, fontWeight: "700", color: "#111", marginBottom: 12, textAlign: "center" },
+  message: { fontSize: 15, color: "#555", textAlign: "center", lineHeight: 22, marginBottom: 28 },
+  refBox: { backgroundColor: "#F4F4F5", borderRadius: 10, paddingVertical: 10, paddingHorizontal: 18, marginBottom: 28, alignItems: "center" },
+  refLabel: { fontSize: 11, color: "#888", marginBottom: 4 },
+  refValue: { fontSize: 13, fontWeight: "600", color: "#333" },
+  btnRow: { flexDirection: "row", gap: 12 },
+  btn: { backgroundColor: "#010135", paddingVertical: 14, paddingHorizontal: 28, borderRadius: 12 },
+  btnSecondary: { backgroundColor: "#F4F4F5" },
+  btnText: { color: "#FFF", fontSize: 15, fontWeight: "600" },
+  btnTextSecondary: { color: "#333" },
 });

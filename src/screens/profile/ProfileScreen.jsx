@@ -402,23 +402,53 @@ const ProfileScreen = ({ isHostMode: isHostModeProp = false }) => {
   const confirmLogout = async () => {
     setIsLoggingOut(true);
     try {
+      // 1. Reset user mode settings defensively
       if (resetUserMode) {
-        await resetUserMode();
+        try {
+          await resetUserMode();
+        } catch (modeError) {
+          console.warn("[Logout] resetUserMode failed:", modeError);
+        }
       }
-      await authService.logout();
-      // Clear TanStack Query cache
-      queryClient.clear();
+
+      // 2. Perform general authentication logout
+      try {
+        await authService.logout();
+      } catch (authError) {
+        console.warn("[Logout] authService.logout failed:", authError);
+      }
+
+      // 3. Clear TanStack Query Cache to prevent caching user state
+      try {
+        queryClient.clear();
+      } catch (queryError) {
+        console.warn("[Logout] queryClient.clear failed:", queryError);
+      }
+
       setIsLogoutModalVisible(false);
-      // Reset all profile-related state to initial values
+      
+      // 4. Reset component state values
       setHostApplicationStatus(HOST_APPLICATION_STATUS.NONE);
       setIsVerified(false);
-      router.replace("/login");
-    } catch (error) {
-      console.error("Logout error:", error);
+
+      // 5. Route to login screen
       if (Platform.OS === "web") {
-        window.alert("Failed to logout. Please try again.");
+        if (typeof window !== "undefined" && window.location) {
+          console.log("[Logout] Web redirecting to /login via window.location");
+          window.location.href = "/login";
+        } else {
+          router.replace("/login");
+        }
       } else {
-        Alert.alert("Error", "Failed to logout. Please try again.");
+        router.replace("/login");
+      }
+    } catch (error) {
+      console.error("[Logout] Fatal logout process error:", error);
+      // Fail-safe redirect even in case of fatal error
+      if (Platform.OS === "web" && typeof window !== "undefined" && window.location) {
+        window.location.href = "/login";
+      } else {
+        router.replace("/login");
       }
     } finally {
       setIsLoggingOut(false);

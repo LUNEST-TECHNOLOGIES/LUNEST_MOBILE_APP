@@ -5,7 +5,7 @@ import * as Font from "expo-font";
 import { Stack, useRootNavigationState, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Platform, View } from "react-native";
+import { ActivityIndicator, Alert, Platform, View, AppState } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import "../global.css";
@@ -186,6 +186,36 @@ export default function RootLayout() {
       }
     };
   }, []);
+
+  // Listen for AppState changes to trigger automatic payment recovery on resume
+  useEffect(() => {
+    const handleAppStateChange = async (nextAppState) => {
+      if (nextAppState === 'active') {
+        try {
+          const pendingRef = await AsyncStorage.getItem('@lunest_pending_payment_ref');
+          if (pendingRef) {
+            console.log('🔄 [RootLayout] Found pending payment ref upon app resume:', pendingRef);
+            
+            // Immediately remove it to prevent looping redirects
+            await AsyncStorage.removeItem('@lunest_pending_payment_ref');
+            
+            // Redirect the user to the payment-callback screen which initiates verification
+            router.push({
+              pathname: "/payment-callback",
+              params: { reference: pendingRef, status: 'success' }
+            });
+          }
+        } catch (e) {
+          console.warn('[RootLayout] Error recovering pending payment on resume:', e);
+        }
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    return () => {
+      subscription.remove();
+    };
+  }, [router]);
 
   const checkAppStatus = async () => {
     try {

@@ -335,10 +335,10 @@ const AddFundsScreen = () => {
           window.location.href = authUrl;
           return;
         } else {
-          await AsyncStorage.setItem(
-            "lunest_payment_context",
-            JSON.stringify(context),
-          );
+          await AsyncStorage.multiSet([
+            ["lunest_payment_context", JSON.stringify(context)],
+            ["@lunest_pending_payment_ref", paymentReference]
+          ]);
         }
 
         // On native, use direct Linking for Android as it is more robust for external intents

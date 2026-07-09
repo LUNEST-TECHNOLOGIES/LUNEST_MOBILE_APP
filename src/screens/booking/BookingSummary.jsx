@@ -1025,7 +1025,10 @@ const BookingSummary = () => {
             window.location.href = paymentResult.authorization_url;
             return;
           } else {
-            await AsyncStorage.setItem("lunest_payment_context", JSON.stringify(paymentContext));
+            await AsyncStorage.multiSet([
+              ["lunest_payment_context", JSON.stringify(paymentContext)],
+              ["@lunest_pending_payment_ref", paymentResult.reference]
+            ]);
           }
 
           const browserResult = await WebBrowser.openAuthSessionAsync(

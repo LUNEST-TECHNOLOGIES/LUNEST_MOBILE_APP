@@ -1190,7 +1190,7 @@ const TransactionHistoryScreen = () => {
     <SafeAreaView style={styles.container} edges={["top"]}>
       {/* Header */}
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
+        <Pressable onPress={() => router.canGoBack() ? router.back() : router.replace("/(tabs)")} style={styles.backButton}>
           <BackIcon size={24} color="#000" />
         </Pressable>
         <View style={{ alignItems: "center" }}>

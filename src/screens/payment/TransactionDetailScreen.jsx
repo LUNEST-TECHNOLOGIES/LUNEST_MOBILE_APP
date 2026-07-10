@@ -79,6 +79,8 @@ const TransactionDetailScreen = () => {
           serviceCharge: pb.serviceCharge || 0,
           guestFee: pb.guestFee || 0,
           guestVat: pb.guestVat || pb.vat || 0,
+          hostFee: pb.hostFee || 0,
+          hostVat: pb.hostVat || 0,
           cautionFee: pb.securityDeposit || pb.cautionFee || 0,
           total: pb.guestTotal || pb.total || 0,
           netEarning: pb.hostEarnings || pb.netEarning || 0
@@ -244,7 +246,11 @@ const TransactionDetailScreen = () => {
   }
 
   const handleGoBack = () => {
-    router.back();
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace("/(tabs)");
+    }
   };
 
   const handleBackToHome = () => {

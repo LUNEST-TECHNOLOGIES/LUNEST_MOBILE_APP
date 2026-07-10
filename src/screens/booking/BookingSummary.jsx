@@ -975,6 +975,16 @@ const BookingSummary = () => {
 
           const bId = bookingResult.booking?._id || existingBookingId;
 
+          // Build callback URL (same pattern as AddFundsScreen)
+          const API_BASE = require("../../services/apiClient").default.baseURL || process.env.EXPO_PUBLIC_API_URL || "";
+
+          let callbackUrl;
+          if (Platform.OS === "web") {
+            callbackUrl = `${window.location.origin}/payment-callback?type=booking_payment&bookingId=${bId}&amount=${displayTotal}`;
+          } else {
+            callbackUrl = `${API_BASE}/v1/payment/callback?type=booking_payment&bookingId=${bId}&amount=${displayTotal}&origin=mobile`;
+          }
+
           const paymentResult = await paymentService.initializePayment(
             finalGuestTotal,
             email,
@@ -986,6 +996,7 @@ const BookingSummary = () => {
               listingId: params?.listingId,
               description: `Booking for ${bookingSummary.property.title}`,
               origin: Platform.OS === "web" ? "web" : "mobile",
+              callback_url: callbackUrl,
             },
           );
 
@@ -993,16 +1004,6 @@ const BookingSummary = () => {
             showToast("Failed to initialize payment. Please try again.", TOAST_TYPE.ERROR);
             setIsInitializingPayment(false);
             return;
-          }
-
-          // Build callback URL (same pattern as AddFundsScreen)
-          const API_BASE = require("../../services/apiClient").default.baseURL || process.env.EXPO_PUBLIC_API_URL || "";
-
-          let callbackUrl;
-          if (Platform.OS === "web") {
-            callbackUrl = `${window.location.origin}/payment-callback?type=booking_payment&bookingId=${bId}&amount=${displayTotal}`;
-          } else {
-            callbackUrl = `${API_BASE}/v1/payment/callback?type=booking_payment&bookingId=${bId}&amount=${displayTotal}&origin=mobile`;
           }
 
           const paymentContext = {

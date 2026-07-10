@@ -1,4 +1,4 @@
-import { File, Paths } from "expo-file-system";
+import * as FileSystem from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import { Platform, Alert } from "react-native";
 import * as Linking from "expo-linking";
@@ -31,72 +31,52 @@ export const downloadFile = async (url, filename, mimeType = "application/pdf") 
   try {
     // 1. WEB SUPPORT
     if (Platform.OS === "web") {
-      // In web, fetch the file as a Blob then download to improve Safari compatibility
-      try {
-        const response = await fetch(absoluteUrl);
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        const blob = await response.blob();
-        
-        const blobUrl = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = blobUrl;
-        link.download = filename;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        // Clean up the object URL after a short delay
-        setTimeout(() => window.URL.revokeObjectURL(blobUrl), 100);
-        return { success: true, platform: 'web' };
-      } catch (fetchError) {
-        console.warn("[DownloadUtils] Blob fetch failed, falling back to direct link:", fetchError);
-        // Fallback to direct link if fetch fails (e.g., CORS)
-        const link = document.createElement('a');
-        link.href = absoluteUrl;
-        link.download = filename;
-        link.target = '_blank';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        return { success: true, platform: 'web', method: 'fallback' };
-      }
+      // Direct window.open synchronously prevents Safari popup block and avoids S3 CORS errors
+      window.open(absoluteUrl, '_blank');
+      return { success: true, platform: 'web' };
     }
 
-    // 2. NATIVE SUPPORT (iOS/Android) using modern FileSystem API
+    // 2. NATIVE SUPPORT (iOS/Android) using standard stable FileSystem API
     if (Platform.OS !== "web") {
         let uniqueFilename = safeFilename;
         let counter = 1;
-        let file = new File(Paths.cache, uniqueFilename);
+        
+        const cacheDir = FileSystem.cacheDirectory;
+        let localUri = `${cacheDir}${uniqueFilename}`;
 
-        // Loop to find a unique filename if it already exists
-        while (file.exists) {
+        // Find a unique filename if it already exists in cache
+        let fileInfo = await FileSystem.getInfoAsync(localUri);
+        while (fileInfo.exists) {
             const lastDotIndex = safeFilename.lastIndexOf('.');
             const namePart = lastDotIndex !== -1 ? safeFilename.substring(0, lastDotIndex) : safeFilename;
             const extensionPart = lastDotIndex !== -1 ? safeFilename.substring(lastDotIndex) : '';
             uniqueFilename = `${namePart} (${counter})${extensionPart}`;
-            file = new File(Paths.cache, uniqueFilename);
+            localUri = `${cacheDir}${uniqueFilename}`;
+            fileInfo = await FileSystem.getInfoAsync(localUri);
             counter++;
         }
 
-        console.log(`[DownloadUtils] Downloading to: ${file.uri}`);
+        console.log(`[DownloadUtils] Downloading to: ${localUri}`);
 
-        await File.downloadFileAsync(absoluteUrl, file);
+        // Download using standard Expo FileSystem
+        await FileSystem.downloadAsync(absoluteUrl, localUri);
         
         // Verify the file was created
-        if (!file.exists) {
-            throw new Error(`Download failed: File not created at ${file.uri}`);
+        const verifyInfo = await FileSystem.getInfoAsync(localUri);
+        if (!verifyInfo.exists) {
+            throw new Error(`Download failed: File not created at ${localUri}`);
         }
 
         const isSharingAvailable = await Sharing.isAvailableAsync();
         if (isSharingAvailable) {
-            await Sharing.shareAsync(file.uri, {
+            await Sharing.shareAsync(localUri, {
                 mimeType,
                 UTI: mimeType === "application/pdf" ? "com.adobe.pdf" : "public.content",
                 dialogTitle: `Download ${safeFilename}`,
             });
             return { success: true, platform: Platform.OS };
         } else if (Platform.OS === "android") {
-            // Fallback for android
+            // Fallback for Android
             await Linking.openURL(absoluteUrl);
             return { success: true, platform: 'android-fallback' };
         } else {

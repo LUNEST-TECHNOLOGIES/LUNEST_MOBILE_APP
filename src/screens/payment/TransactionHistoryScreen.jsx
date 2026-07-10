@@ -5,7 +5,7 @@
  */
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
-import { File, Paths } from "expo-file-system";
+import * as FileSystem from "expo-file-system";
 import { useRouter } from "expo-router";
 import * as Sharing from "expo-sharing";
 import { useCallback, useEffect, useState } from "react";
@@ -666,17 +666,19 @@ const TransactionHistoryScreen = () => {
 
         Alert.alert("Success", "Statement downloaded successfully.");
       } else {
-        // Native (iOS/Android): use File + Sharing
-        const file = new File(Paths.cache, fileName);
+        // Native (iOS/Android): use FileSystem + Sharing
+        const cacheDir = FileSystem.cacheDirectory;
+        const localUri = `${cacheDir}${fileName}`;
 
-        await File.downloadFileAsync(url, file, {
+        await FileSystem.downloadAsync(url, localUri, {
           headers: {
             Authorization: `Bearer ${token}`,
             Accept: mimeType,
           },
         });
 
-        if (!file.exists) {
+        const fileInfo = await FileSystem.getInfoAsync(localUri);
+        if (!fileInfo.exists) {
           console.error(
             "[TransactionHistory] Download failed: File not created"
           );
@@ -689,14 +691,14 @@ const TransactionHistoryScreen = () => {
 
         // Share the downloaded file
         const isAvailable = await Sharing.isAvailableAsync();
-        if (isAvailable && file.uri) {
-          await Sharing.shareAsync(file.uri, {
+        if (isAvailable && localUri) {
+          await Sharing.shareAsync(localUri, {
             mimeType,
             UTI: format === "pdf" ? "com.adobe.pdf" : "public.comma-separated-values-text",
             dialogTitle: `Share Statement`,
           });
         } else {
-          Alert.alert("Success", `Statement saved to ${file.uri}`);
+          Alert.alert("Success", `Statement saved to ${localUri}`);
         }
       }
     } catch (error) {

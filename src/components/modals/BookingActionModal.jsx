@@ -4,6 +4,7 @@
  * Includes toast notification on success
  */
 
+import React, { useState, useEffect } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -11,6 +12,7 @@ import {
   Text,
   TouchableOpacity,
   View,
+  TextInput,
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 
@@ -63,6 +65,7 @@ const WarningIcon = ({ size = 48, color = '#FDAE31' }) => (
  * @param {function} onConfirm - Called when action is confirmed
  * @param {function} onClose - Called when modal is closed
  * @param {boolean} isLoading - Loading state during action
+ * @param {boolean} isHost - Determines the role canceling the booking (for reason lists)
  */
 const BookingActionModal = ({ 
   visible, 
@@ -71,8 +74,47 @@ const BookingActionModal = ({
   onConfirm, 
   onClose,
   isLoading = false,
+  isHost = false,
 }) => {
   const isConfirmAction = actionType === BOOKING_ACTION.CONFIRM;
+  const [selectedReason, setSelectedReason] = useState('');
+  const [customNote, setCustomNote] = useState('');
+
+  const GUEST_REASONS = [
+    'Change of plans',
+    'Found a better accommodation',
+    'Travel dates changed',
+    'Health or personal emergency',
+    'Other'
+  ];
+
+  const HOST_REASONS = [
+    'Property unavailable',
+    'Maintenance or repair issues',
+    'Guest violated terms',
+    'Other'
+  ];
+
+  const reasons = isHost ? HOST_REASONS : GUEST_REASONS;
+
+  useEffect(() => {
+    if (visible) {
+      setSelectedReason('');
+      setCustomNote('');
+    }
+  }, [visible]);
+
+  const handleConfirm = () => {
+    if (isConfirmAction) {
+      onConfirm();
+    } else {
+      if (!selectedReason) return;
+      onConfirm({
+        cancelReason: selectedReason,
+        cancelNote: customNote.trim(),
+      });
+    }
+  };
 
   const getContent = () => {
     if (isConfirmAction) {
@@ -132,6 +174,46 @@ const BookingActionModal = ({
             </View>
           )}
 
+          {/* Cancellation Reasons Input */}
+          {!isConfirmAction && (
+            <View style={styles.reasonContainer}>
+              <Text style={styles.sectionLabel}>Reason for cancellation</Text>
+              <View style={styles.reasonsGrid}>
+                {reasons.map((r) => {
+                  const isSelected = selectedReason === r;
+                  return (
+                    <TouchableOpacity
+                      key={r}
+                      style={[
+                        styles.reasonChip,
+                        isSelected && styles.reasonChipSelected
+                      ]}
+                      onPress={() => setSelectedReason(r)}
+                    >
+                      <Text style={[
+                        styles.reasonChipText,
+                        isSelected && styles.reasonChipTextSelected
+                      ]}>
+                        {r}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              <Text style={styles.sectionLabel}>Additional comments (optional)</Text>
+              <TextInput
+                style={styles.textInput}
+                placeholder="Provide details..."
+                placeholderTextColor="#999999"
+                value={customNote}
+                onChangeText={setCustomNote}
+                multiline
+                numberOfLines={3}
+              />
+            </View>
+          )}
+
           {/* Actions */}
           <View style={styles.actions}>
             <TouchableOpacity 
@@ -145,10 +227,11 @@ const BookingActionModal = ({
             <TouchableOpacity 
               style={[
                 styles.confirmButton, 
-                { backgroundColor: content.confirmBg, borderColor: content.confirmColor }
+                { backgroundColor: content.confirmBg, borderColor: content.confirmColor },
+                (!isConfirmAction && !selectedReason) && styles.confirmButtonDisabled
               ]}
-              onPress={onConfirm}
-              disabled={isLoading}
+              onPress={handleConfirm}
+              disabled={isLoading || (!isConfirmAction && !selectedReason)}
             >
               {isLoading ? (
                 <ActivityIndicator size="small" color={content.confirmColor} />
@@ -256,7 +339,60 @@ const styles = StyleSheet.create({
   confirmButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    
+  },
+  confirmButtonDisabled: {
+    opacity: 0.4,
+  },
+  reasonContainer: {
+    width: '100%',
+    marginBottom: 20,
+  },
+  sectionLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#333333',
+    marginBottom: 8,
+    textAlign: 'left',
+    width: '100%',
+  },
+  reasonsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 12,
+  },
+  reasonChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    backgroundColor: '#F9F9F9',
+  },
+  reasonChipSelected: {
+    borderColor: '#FD3131',
+    backgroundColor: 'rgba(253, 49, 49, 0.08)',
+  },
+  reasonChipText: {
+    fontSize: 11,
+    color: '#666666',
+  },
+  reasonChipTextSelected: {
+    color: '#FD3131',
+    fontWeight: '600',
+  },
+  textInput: {
+    width: '100%',
+    height: 54,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    backgroundColor: '#FAFAFA',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    fontSize: 12,
+    color: '#333333',
+    textAlignVertical: 'top',
   },
 });
 

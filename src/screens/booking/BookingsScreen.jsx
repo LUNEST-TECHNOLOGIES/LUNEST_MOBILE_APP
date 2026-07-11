@@ -469,7 +469,7 @@ const BookingsScreen = () => {
   /**
    * Execute booking action after modal confirmation
    */
-  const handleActionConfirmed = async () => {
+  const handleActionConfirmed = async (reasonData) => {
     if (!actionBooking) return;
 
     setIsActionLoading(true);
@@ -478,6 +478,7 @@ const BookingsScreen = () => {
       const result = await bookingService.updateBookingStatus(
         actionBooking.id,
         "CANCELLED",
+        reasonData
       );
 
       setShowActionModal(false);
@@ -674,6 +675,7 @@ const BookingsScreen = () => {
         visible={showActionModal}
         actionType={actionType}
         booking={actionBooking}
+        isHost={false}
         onConfirm={handleActionConfirmed}
         onClose={handleActionModalClose}
         isLoading={isActionLoading}

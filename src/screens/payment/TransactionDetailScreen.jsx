@@ -64,6 +64,16 @@ const TransactionDetailScreen = () => {
     category: params.category || (params.transactionType?.toUpperCase().includes("BOOKING") ? "BOOKING" : "")
   };
 
+  const getBookingRef = () => {
+    try {
+      const metadata = typeof params.metadata === 'string' ? JSON.parse(params.metadata) : (params.metadata || {});
+      return metadata.bookingReference || metadata.bookingRef || "";
+    } catch (e) {
+      return "";
+    }
+  };
+  const bookingRef = getBookingRef();
+
   // REUSABLE BREAKDOWN CALCULATION
   const getBreakdown = () => {
     if (!params.metadata) return null;
@@ -149,8 +159,16 @@ const TransactionDetailScreen = () => {
     const bs = transactionData.bookingStatus?.toLowerCase();
 
     // IF booking is cancelled, OVERRIDE the transaction status display
-    if (bs === "cancelled") {
+    if (bs === "cancelled" && transactionData.category !== "CANCELLATION_PENALTY") {
         return "Booking Cancelled";
+    }
+
+    if (t.includes("penalty") || transactionData.category === "CANCELLATION_PENALTY") {
+        if (s === "failed" || s === "cancelled") return "Penalty Failed";
+        if (s === "pending" || s === "reserved") return "Penalty Pending";
+        if (s === "confirmed" || s === "success" || s === "completed")
+          return "Penalty Applied";
+        return `Penalty Status: ${status}`;
     }
     
     if (t.includes("booking") && (t.includes("payment") || t.includes("receipt"))) {
@@ -622,13 +640,13 @@ const TransactionDetailScreen = () => {
               <View
                 style={[
                   styles.statusBadge,
-                  { backgroundColor: getStatusBgColor(transactionData.bookingStatus?.toLowerCase() === 'cancelled' ? 'cancelled' : transactionData.status) },
+                  { backgroundColor: getStatusBgColor(transactionData.bookingStatus?.toLowerCase() === 'cancelled' && transactionData.category !== "CANCELLATION_PENALTY" ? 'cancelled' : transactionData.status) },
                 ]}
               >
                 <Text
                   style={[
                     styles.statusText,
-                    { color: getStatusColor(transactionData.bookingStatus?.toLowerCase() === 'cancelled' ? 'cancelled' : transactionData.status) },
+                    { color: getStatusColor(transactionData.bookingStatus?.toLowerCase() === 'cancelled' && transactionData.category !== "CANCELLATION_PENALTY" ? 'cancelled' : transactionData.status) },
                   ]}
                 >
                   {getStatusMessage(
@@ -646,6 +664,16 @@ const TransactionDetailScreen = () => {
                   const s = transactionData.status?.toLowerCase();
                   const bs = transactionData.bookingStatus?.toLowerCase();
                   
+                  if (transactionData.category === "CANCELLATION_PENALTY") {
+                    if (s === "failed" || s === "cancelled") {
+                      return <Ionicons name="close-circle" size={60} color="#EF4444" />;
+                    } else if (s === "pending" || s === "reserved") {
+                      return <Ionicons name="time" size={60} color="#F59E0B" />;
+                    } else {
+                      return <Ionicons name="alert-circle" size={60} color="#B70808" />;
+                    }
+                  }
+
                   if (bs === "cancelled") {
                     return <Ionicons name="close-circle" size={60} color="#EF4444" />;
                   }
@@ -668,23 +696,36 @@ const TransactionDetailScreen = () => {
                 })()}
               </View>
               <Text style={styles.successTitle}>
-                {transactionData.bookingStatus?.toLowerCase() === 'cancelled' 
+                {transactionData.bookingStatus?.toLowerCase() === 'cancelled' && transactionData.category !== "CANCELLATION_PENALTY"
                   ? 'Booking Cancelled' 
-                  : (transactionData.category === "BOOKING" ? "Stay Secured!" : "Transaction Successful")}
+                  : (transactionData.category === "BOOKING" ? "Stay Secured!" : 
+                     (transactionData.category === "CANCELLATION_PENALTY" ? "Penalty Applied" : "Transaction Successful"))}
               </Text>
               <Text style={styles.successSubtitle}>
-                {transactionData.bookingStatus?.toLowerCase() === 'cancelled'
+                {transactionData.bookingStatus?.toLowerCase() === 'cancelled' && transactionData.category !== "CANCELLATION_PENALTY"
                   ? `Booking #${transactionData.transactionId} has been cancelled.`
                   : (transactionData.category === "BOOKING" 
                       ? `Your stay at ${transactionData.propertyName} is confirmed.` 
-                      : (currentBreakdown && !currentBreakdown.isGuestSide ? "" : `Your ${transactionData.transactionType} has been processed.`))}
+                      : (transactionData.category === "CANCELLATION_PENALTY"
+                          ? `A cancellation penalty has been applied to booking ${bookingRef ? `#${bookingRef}` : ""}.`
+                          : (currentBreakdown && !currentBreakdown.isGuestSide ? "" : `Your ${transactionData.transactionType} has been processed.`)))}
               </Text>
             </View>
-              <Text style={[styles.successMessage, { color: getStatusColor(transactionData.bookingStatus?.toLowerCase() === 'cancelled' ? 'cancelled' : transactionData.status) }]}>
+              <Text style={[styles.successMessage, { color: getStatusColor(transactionData.bookingStatus?.toLowerCase() === 'cancelled' && transactionData.category !== "CANCELLATION_PENALTY" ? 'cancelled' : transactionData.status) }]}>
                 {(() => {
                   const type = transactionData.transactionType?.toLowerCase();
                   const s = transactionData.status?.toLowerCase();
                   const bs = transactionData.bookingStatus?.toLowerCase();
+
+                  if (transactionData.category === "CANCELLATION_PENALTY") {
+                    if (s === "failed" || s === "cancelled") {
+                      return "The cancellation penalty transaction failed.";
+                    } else if (s === "pending" || s === "reserved") {
+                      return "The cancellation penalty is pending.";
+                    } else {
+                      return "This cancellation penalty has been deducted from your wallet balance.";
+                    }
+                  }
 
                   if (bs === "cancelled") {
                     return "This booking was cancelled and the transaction has been updated accordingly.";

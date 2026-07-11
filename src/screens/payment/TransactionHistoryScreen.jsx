@@ -995,6 +995,11 @@ const TransactionHistoryScreen = () => {
       displayLabel = bookingRef ? `Refund (Wallet) #${bookingRef}` : "Refund (Wallet)";
     }
 
+    // Explicitly handle cancellation penalty labels
+    if (item.type === "CANCELLATION_PENALTY") {
+      displayLabel = bookingRef ? `Cancellation Penalty (${bookingRef})` : "Cancellation Penalty";
+    }
+
     // Explicitly handle host earning labels with status indicators
     if (item.type === "HOST_EARNING") {
       if (item.status === "ON_HOLD" || item.status === "PROCESSING") {

@@ -22,6 +22,7 @@ import {
   Share,
   StyleSheet,
   Text,
+  TextInput,
   View
 } from "react-native";
 import { TouchableOpacity } from "react-native-gesture-handler";
@@ -217,6 +218,16 @@ const BookingConfirmationScreen = () => {
   const [showDownloadOptions, setShowDownloadOptions] = useState(false); // Changed state name
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [selectedCancelReason, setSelectedCancelReason] = useState(null);
+  const [cancelNote, setCancelNote] = useState("");
+
+  const GUEST_CANCELLATION_REASONS = [
+    "Change of plans",
+    "Found a better accommodation",
+    "Travel dates changed",
+    "Health or personal emergency",
+    "Other",
+  ];
   const [isCapturing, setIsCapturing] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadModalState, setDownloadModalState] = useState({
@@ -750,15 +761,15 @@ const BookingConfirmationScreen = () => {
     const hoursUntilCheckIn = diffMs / (1000 * 60 * 60);
 
     if (hoursUntilCheckIn >= 168) {
-      return "100% Cash Refund (₦5,000 penalty applies)";
+      return "Full Cash Refund minus ₦5,000 cancellation penalty (penalty is non-refundable)";
     } else if (hoursUntilCheckIn >= 72) {
-      return "80% LUNEST Credit (issued as a discount coupon)";
+      return "80% LUNEST Credit coupon — ₦5,000 cancellation penalty is non-refundable";
     } else if (hoursUntilCheckIn >= 48) {
-      return "60% LUNEST Credit (issued as a discount coupon)";
+      return "60% LUNEST Credit coupon — ₦5,000 cancellation penalty is non-refundable";
     } else if (hoursUntilCheckIn > 0) {
-      return "50% LUNEST Credit (issued as a discount coupon)";
+      return "50% LUNEST Credit coupon — ₦5,000 cancellation penalty is non-refundable";
     } else {
-      return "This booking is currently non-refundable as the stay has already started.";
+      return "Non-refundable — the stay has already started. A ₦5,000 penalty will still apply.";
     }
   };
 
@@ -1114,6 +1125,10 @@ const BookingConfirmationScreen = () => {
   // Handle Cancel Reservation
   const handleCancelReservation = async () => {
     if (!bookingId) return;
+    if (!selectedCancelReason) {
+      Alert.alert("Reason Required", "Please select a reason for cancelling this booking.");
+      return;
+    }
     try {
       setIsCancelling(true);
       
@@ -1128,10 +1143,16 @@ const BookingConfirmationScreen = () => {
       const result = await bookingService.updateBookingStatus(
         bookingId,
         "CANCELLED",
+        {
+          cancelReason: selectedCancelReason,
+          cancelNote: cancelNote.trim(),
+        }
       );
       
       if (result.success) {
         setShowCancelModal(false);
+        setSelectedCancelReason(null);
+        setCancelNote("");
         
         // Update booking status in real-time
         setBooking((prev) => ({ 
@@ -2389,43 +2410,107 @@ const BookingConfirmationScreen = () => {
       />
 
       {/* Cancel Reservation Modal */}
-      <Modal visible={showCancelModal} transparent animationType="fade">
+      <Modal visible={showCancelModal} transparent animationType="fade" onRequestClose={() => {
+        setShowCancelModal(false);
+        setSelectedCancelReason(null);
+        setCancelNote("");
+      }}>
         <View style={styles.cancelModalOverlay}>
           <View style={styles.popUpReservation}>
-            <View style={styles.areYouSureYouWantToCanceParent}>
-              <Text style={styles.areYouSure}>
-                Cancel Reservation?
-              </Text>
-              <Text style={styles.thePropertyWill}>
-                The property will be released immediately. Based on the time remaining until check-in, your estimated refund is:
-              </Text>
-              <View style={styles.refundEstimateBox}>
-                <Text style={styles.refundEstimateText}>
-                  {getRefundEstimate()}
+            <ScrollView showsVerticalScrollIndicator={false} style={{ width: "100%" }} contentContainerStyle={{ alignItems: "center" }}>
+              <View style={styles.areYouSureYouWantToCanceParent}>
+                <Text style={styles.areYouSure}>
+                  Cancel Reservation?
                 </Text>
+                <Text style={styles.thePropertyWill}>
+                  The property will be released immediately. Based on the time remaining until check-in, your estimated refund is:
+                </Text>
+                <View style={styles.refundEstimateBox}>
+                  <Text style={styles.refundEstimateText}>
+                    {getRefundEstimate()}
+                  </Text>
+                </View>
+                <View style={styles.penaltyWarningBox}>
+                  <Ionicons name="warning" size={14} color="#b70808" style={{ marginTop: 1 }} />
+                  <Text style={styles.penaltyWarningText}>
+                    The ₦5,000 cancellation penalty will be deducted from your wallet and is non-refundable.
+                  </Text>
+                </View>
               </View>
-            </View>
-            <View style={styles.buttonStyle3Parent}>
-              <Pressable
-                style={[styles.buttonStyle3, styles.modalButtonFlexBox]}
-                onPress={handleCancelReservation}
-                disabled={isCancelling}
-              >
-                {isCancelling ? (
-                  <ActivityIndicator size="small" color="#b70808" />
-                ) : (
-                  <Text style={styles.modalCancelButtonText}>Yes, Cancel</Text>
-                )}
-              </Pressable>
-              <Pressable
-                style={[styles.buttonStyle2, styles.modalButtonFlexBox]}
-                onPress={() => setShowCancelModal(false)}
-              >
-                <Text style={styles.modalKeepButtonText}>
-                  Keep Stay
-                </Text>
-              </Pressable>
-            </View>
+
+              {/* Cancellation Reasons Input */}
+              <View style={styles.reasonContainer}>
+                <Text style={styles.sectionLabel}>Reason for cancellation</Text>
+                <View style={styles.reasonsGrid}>
+                  {GUEST_CANCELLATION_REASONS.map((r) => {
+                    const isSelected = selectedCancelReason === r;
+                    return (
+                      <Pressable
+                        key={r}
+                        style={[
+                          styles.reasonChip,
+                          isSelected && styles.reasonChipSelected
+                        ]}
+                        onPress={() => setSelectedCancelReason(r)}
+                      >
+                        <Text style={[
+                          styles.reasonChipText,
+                          isSelected && styles.reasonChipTextSelected
+                        ]}>
+                          {r}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+
+                <Text style={styles.sectionLabel}>Additional comments (optional)</Text>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="Provide details..."
+                  placeholderTextColor="#999999"
+                  value={cancelNote}
+                  onChangeText={setCancelNote}
+                  multiline
+                  numberOfLines={3}
+                />
+              </View>
+
+              <View style={styles.buttonStyle3Parent}>
+                <Pressable
+                  style={[
+                    styles.buttonStyle3, 
+                    styles.modalButtonFlexBox,
+                    !selectedCancelReason && styles.buttonStyle3Disabled
+                  ]}
+                  onPress={handleCancelReservation}
+                  disabled={isCancelling || !selectedCancelReason}
+                >
+                  {isCancelling ? (
+                    <ActivityIndicator size="small" color="#b70808" />
+                  ) : (
+                    <Text style={[
+                      styles.modalCancelButtonText,
+                      !selectedCancelReason && styles.modalCancelButtonTextDisabled
+                    ]}>
+                      Yes, Cancel
+                    </Text>
+                  )}
+                </Pressable>
+                <Pressable
+                  style={[styles.buttonStyle2, styles.modalButtonFlexBox]}
+                  onPress={() => {
+                    setShowCancelModal(false);
+                    setSelectedCancelReason(null);
+                    setCancelNote("");
+                  }}
+                >
+                  <Text style={styles.modalKeepButtonText}>
+                    Keep Stay
+                  </Text>
+                </Pressable>
+              </View>
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -3393,6 +3478,100 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 15,
     fontWeight: "700",
+  },
+  refundEstimateBox: {
+    backgroundColor: "rgba(25, 45, 255, 0.05)",
+    borderColor: "#192DFF",
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 8,
+    width: "100%",
+    alignItems: "center",
+  },
+  refundEstimateText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#192DFF",
+    textAlign: "center",
+  },
+  reasonContainer: {
+    width: "100%",
+    marginTop: 16,
+    marginBottom: 16,
+  },
+  sectionLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#333333",
+    marginBottom: 10,
+    textAlign: "left",
+    alignSelf: "flex-start",
+  },
+  reasonsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 16,
+  },
+  reasonChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#E0E0E0",
+    backgroundColor: "#F9F9F9",
+  },
+  reasonChipSelected: {
+    borderColor: "#b70808",
+    backgroundColor: "rgba(183, 8, 8, 0.08)",
+  },
+  reasonChipText: {
+    fontSize: 12,
+    color: "#666666",
+  },
+  reasonChipTextSelected: {
+    color: "#b70808",
+    fontWeight: "600",
+  },
+  textInput: {
+    width: "100%",
+    height: 70,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#E0E0E0",
+    backgroundColor: "#FAFAFA",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 14,
+    color: "#333333",
+    textAlignVertical: "top",
+  },
+  buttonStyle3Disabled: {
+    borderColor: "#ccc",
+    opacity: 0.5,
+  },
+  modalCancelButtonTextDisabled: {
+    color: "#999",
+  },
+  penaltyWarningBox: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 6,
+    backgroundColor: "rgba(183, 8, 8, 0.06)",
+    borderColor: "#b70808",
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 10,
+    marginTop: 10,
+    width: "100%",
+  },
+  penaltyWarningText: {
+    flex: 1,
+    fontSize: 12,
+    color: "#b70808",
+    lineHeight: 18,
+    fontWeight: "500",
   },
 });
 

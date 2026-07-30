@@ -32,7 +32,7 @@ class DashboardService {
       // Fetch all host-specific data in parallel for performance
       // Now including the single optimized dashboard stats endpoint
       const [statsResult, listingsResult, bookingsResult, userProfileResult] = await Promise.allSettled([
-        apiClient.get("/v1/notifications/host/dashboard-stats"),
+        apiClient.get("/v1/notifications/notification/host/dashboard-stats"),
         listingService.fetchUserListings(), // Uses /my-listings - only host's listings
         bookingService.fetchHostBookings(), // Uses /my-bookings - only host's property bookings
         authService.fetchProfile(),
@@ -209,18 +209,10 @@ class DashboardService {
           plan,
           totalEarnings: totalBusinessEarnings, // Business earnings from bookings
           walletBalance, // Actual wallet balance
-          pendingBalance: stats.pendingBalance || 0,
-          pendingBalanceLabel: stats.pendingBalanceLabel || "Total On Hold:",
-          onHoldEarnings: stats.onHoldEarnings || 0,
-          onHoldCaution: stats.onHoldCaution || 0,
-          onHoldPlatformFee: stats.onHoldPlatformFee || 0,
-          onHoldVat: stats.onHoldVat || 0,
-          totalBookings: stats.totalBookings,
+          totalBookings,
           totalListings,
           upcomingBookings,
-          hostRating: stats.hostRating || 0,
-          hostRatingCount: stats.hostRatingCount || 0,
-          newMessages: 0, // TODO: Implement message count
+          newMessages: 0, // Placeholder: Messaging feature is currently under development (Coming Soon)
           bookingsData: weeklyBookingsData,
           earningsData: weeklyEarningsData,
           yearlyBookings: yearlyData.yearlyBookings,

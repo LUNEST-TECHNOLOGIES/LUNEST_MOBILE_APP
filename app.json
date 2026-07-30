@@ -1,35 +1,30 @@
 {
   "expo": {
-    "name": "LUNEST",
+    "name": "lunest-mobile",
     "slug": "lunest-mobile",
     "version": "1.0.0",
-    "sdkVersion": "54.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "lunestmobile",
     "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": true,
           "NSAllowsLocalNetworking": true
-        },
-        "ITSAppUsesNonExemptEncryption": false
-      },
-      "bundleIdentifier": "com.geminiking.lunestmobile"
+        }
+      }
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#010135",
-        "foregroundImage": "./assets/images/android-icon-foreground.png"
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundImage": "./assets/images/android-icon-background.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "config": {
-        "googleMaps": {
-          "apiKey": "AIzaSyDhZhU0M8ca_puGciEUxELK4xt2nHxzVuw"
-        }
-      },
-      "softwareKeyboardLayoutMode": "pan",
+      "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "intentFilters": [
         {
@@ -49,8 +44,6 @@
         "READ_MEDIA_VIDEO",
         "READ_MEDIA_AUDIO",
         "WRITE_EXTERNAL_STORAGE",
-        "RECORD_AUDIO",
-        "MODIFY_AUDIO_SETTINGS",
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE",
         "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
@@ -72,8 +65,8 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/icon.png",
-          "imageWidth": 240,
+          "image": "./assets/images/app-logo.png",
+          "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#010135"
         }
@@ -81,7 +74,6 @@
       "expo-font",
       "@react-native-community/datetimepicker",
       "expo-secure-store",
-      "expo-file-system",
       [
         "expo-media-library",
         {
@@ -90,25 +82,12 @@
           "isAccessMediaLocationEnabled": true
         }
       ],
-      "react-native-compressor",
       "expo-audio",
-      "expo-video",
-      "expo-asset",
-      "expo-web-browser"
+      "expo-video"
     ],
     "experiments": {
       "typedRoutes": true,
-      "reactCompiler": false
-    },
-    "extra": {
-      "router": {},
-      "eas": {
-        "projectId": "33dd6ebf-5088-4f44-8735-b398277ac23c"
-      }
-    },
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
-    "owner": "geminiking3"
+      "reactCompiler": true
+    }
   }
 }

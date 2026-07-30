@@ -7,19 +7,19 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
+    ActivityIndicator,
     RefreshControl,
     ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
     useWindowDimensions,
-    View
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
-import { HostEarningsSkeleton } from "../../components/skeletons";
 import authService from "../../services/authService";
 import configService from "../../services/configService";
 
@@ -110,11 +110,9 @@ const STATUS_BADGE = {
     text: "#2E7D32",
     label: "Completed",
   },
-  ON_HOLD: { bg: "rgba(25, 45, 255, 0.15)", text: "#192DFF", label: "In Escrow" },
+  ON_HOLD: { bg: "rgba(25, 45, 255, 0.15)", text: "#192DFF", label: "On Hold" },
   PENDING: { bg: "rgba(253, 174, 49, 0.2)", text: "#EF6C00", label: "Pending" },
   FAILED: { bg: "rgba(241, 99, 99, 0.2)", text: "#FD3131", label: "Failed" },
-  CANCELLED: { bg: "rgba(183, 28, 28, 0.15)", text: "#B71C1C", label: "Refunded" },
-  REFUNDED: { bg: "rgba(3, 8, 172, 0.15)", text: "#0308AC", label: "Refunded" },
 };
 
 const HostEarningsScreen = () => {
@@ -144,7 +142,7 @@ const HostEarningsScreen = () => {
   /**
    * Fetch wallet balance & transactions from API
    */
-  const fetchEarningsData = async (showLoader = true) => {
+  const fetchEarningsData = useCallback(async (showLoader = true) => {
     try {
       if (showLoader) setLoading(true);
       setError(null);
@@ -158,6 +156,22 @@ const HostEarningsScreen = () => {
         return;
       }
 
+      // Calculate date range based on selectedPeriod
+      let startDate = null;
+      const now = new Date();
+      if (selectedPeriod === "week") {
+        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      } else if (selectedPeriod === "month") {
+        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      } else if (selectedPeriod === "year") {
+        startDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+      }
+
+      let txnUrl = `${baseURL}/v1/my-transactions?limit=50`;
+      if (startDate) {
+        txnUrl += `&startDate=${startDate.toISOString()}&endDate=${now.toISOString()}`;
+      }
+
       // Fetch wallet and transactions in parallel
       const [walletRes, txnRes] = await Promise.all([
         fetch(`${baseURL}/v1/wallet`, {
@@ -168,7 +182,7 @@ const HostEarningsScreen = () => {
           },
           body: JSON.stringify({}),
         }),
-        fetch(`${baseURL}/v1/my-transactions?limit=50`, {
+        fetch(txnUrl, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
@@ -198,7 +212,7 @@ const HostEarningsScreen = () => {
         console.log("[HostEarnings] Transactions:", txnList);
 
         if (Array.isArray(txnList)) {
-          // Map to display format
+          // Map to display format and filter client-side as a fail-safe
           const mapped = txnList
             .filter((t) => t && typeof t === "object")
             .map((txn) => ({
@@ -207,7 +221,12 @@ const HostEarningsScreen = () => {
               timestamp: txn.createdAt || txn.timestamp,
               amount: parseFloat(txn.amount) || 0,
               status: txn.status || "COMPLETED",
-            }));
+            }))
+            .filter((txn) => {
+              if (!startDate) return true;
+              const txnDate = new Date(txn.timestamp);
+              return txnDate >= startDate && txnDate <= now;
+            });
 
           setTransactions(mapped);
 
@@ -217,12 +236,7 @@ const HostEarningsScreen = () => {
           let paidOut = 0;
 
           mapped.forEach((txn) => {
-            // Exclude non-earning categories like withdrawals, funding, and platform costs
-            if (["WITHDRAWAL", "TOP_UP", "MANUAL_FUNDING", "FAILED_TRANSACTION", "VAT", "PLATFORM_FEE"].includes(txn.displayType)) return;
-            
-            // Exclude expired or significantly failed bookings
-            if (txn.status === "FAILED" || txn.status === "EXPIRED") return;
-
+            // Sum all earning-related categories, accounting for credits and debits
             const isFinancialValue = [
               "HOST_EARNING",
               "RENT",
@@ -232,6 +246,9 @@ const HostEarningsScreen = () => {
             ].includes(txn.displayType) || txn.type === "CREDIT" || txn.type === "DEBIT";
 
             if (isFinancialValue) {
+              // Exclude non-earning categories like withdrawals, funding, and platform costs
+              if (["WITHDRAWAL", "TOP_UP", "REFUND", "VAT", "PLATFORM_FEE"].includes(txn.displayType)) return;
+
               const val = txn.type === "DEBIT" ? -txn.amount : txn.amount;
 
               if (txn.status === "ON_HOLD" || txn.status === "PENDING") {
@@ -241,10 +258,6 @@ const HostEarningsScreen = () => {
                 pendingEarnings += val;
                 totalEarnings += val;
               } else if (txn.status === "COMPLETED") {
-                // For caution fees, only count them towards earnings if they were settled/transferred to host (payout)
-                // In typical flows, caution fees are returned to guest, so we exclude COMPLETED SECURITY_DEPOSIT from "Earnings" card
-                if (txn.displayType === "SECURITY_DEPOSIT") return;
-
                 paidOut += val;
                 totalEarnings += val;
               }
@@ -261,23 +274,30 @@ const HostEarningsScreen = () => {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [selectedPeriod]);
+
+  // Keep a ref to the latest fetch function to avoid stale closures inside useFocusEffect
+  const fetchEarningsDataRef = useRef(fetchEarningsData);
+  useEffect(() => {
+    fetchEarningsDataRef.current = fetchEarningsData;
+  }, [fetchEarningsData]);
+
+  // Track if this is the initial mount to prevent duplicate requests on startup
+  const isInitialMount = useRef(true);
+
+  // Trigger fetch when period changes, but don't show full-screen loader for smoother UX
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    fetchEarningsData(false);
+  }, [selectedPeriod]);
 
   useFocusEffect(
     useCallback(() => {
-      console.log("🔄 [HostEarnings] Screen focused - starting refresh interval");
-      fetchEarningsData(false); // Silent initial refresh on focus
-
-      const intervalId = setInterval(() => {
-        console.log("📡 [HostEarnings] Polling for new earnings data...");
-        fetchEarningsData(false);
-      }, 10000);
-
-      return () => {
-        console.log("🛑 [HostEarnings] Screen blurred - clearing interval");
-        clearInterval(intervalId);
-      };
-    }, [])
+      fetchEarningsDataRef.current(true);
+    }, []),
   );
 
   const onRefresh = () => {
@@ -330,7 +350,6 @@ const HostEarningsScreen = () => {
               dateTime: formatDate(item.timestamp),
               description: item.description,
               method: item.channel || "SYSTEM",
-              metadata: item.metadata ? JSON.stringify(item.metadata) : undefined,
             },
           })
         }
@@ -343,15 +362,7 @@ const HostEarningsScreen = () => {
           </View>
           <View style={styles.txnInfo}>
             <Text style={styles.txnLabel} numberOfLines={1}>
-              {item.displayType === "HOST_EARNING" &&
-              (item.status === "ON_HOLD" || item.status === "PROCESSING")
-                ? "Booking Earning (Held in Escrow)"
-                : item.displayType === "SECURITY_DEPOSIT" &&
-                  (item.status === "ON_HOLD" || item.status === "PROCESSING")
-                  ? "Caution Fee (Held in Escrow)"
-                  : item.displayType === "RENT" && item.description
-                    ? item.description
-                    : config.label}
+              {item.displayType === 'RENT' && item.description ? item.description : config.label}
             </Text>
             <Text style={styles.txnDate}>{formatDate(item.timestamp)}</Text>
           </View>
@@ -380,7 +391,13 @@ const HostEarningsScreen = () => {
   if (loading && !refreshing) {
     return (
       <SafeAreaView style={styles.container} edges={["top"]}>
-        <HostEarningsSkeleton />
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Earnings</Text>
+        </View>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#4F46E5" />
+          <Text style={styles.loadingText}>Loading earnings...</Text>
+        </View>
       </SafeAreaView>
     );
   }
@@ -481,7 +498,7 @@ const HostEarningsScreen = () => {
         <View style={[styles.infoCard, { width: containerWidth }]}>
           <Ionicons name="information-circle-outline" size={16} color="#666" />
           <Text style={styles.infoText}>
-            Funds are released to available balance 2 hours after guest check-in
+            Funds are released to available balance 24 hours after booking confirmation
           </Text>
         </View>
 

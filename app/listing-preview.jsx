@@ -1,19 +1,15 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import {
-  ChevronLeft,
-  Image as ImageIcon
-} from "lucide-react-native";
 import { useEffect, useMemo, useState } from "react";
 import {
-  ActivityIndicator,
-  Image,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  useWindowDimensions,
-  View,
+    ActivityIndicator,
+    Image,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    useWindowDimensions,
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -96,14 +92,6 @@ const HOUSE_RULES_MAP = {
   recycling: "Recycling Required",
 };
 
-// Professional "No Media" Placeholder Component
-const NoMediaPlaceholder = ({ width, height }) => (
-  <View style={[styles.placeholderContainer, { width, height }]}>
-    <ImageIcon size={64} color="#E0E0E0" strokeWidth={1} />
-    <Text style={styles.placeholderText}>No Photos Available</Text>
-  </View>
-);
-
 // Helper function to convert house rule IDs to readable labels
 const convertRegulationsToLabels = (regulations) => {
   if (!regulations || !Array.isArray(regulations)) return [];
@@ -111,7 +99,7 @@ const convertRegulationsToLabels = (regulations) => {
   return regulations
     .map((regulation) => {
       // Ensure we have a valid value
-      if (regulation === null || regulation === undefined || regulation === 0 || regulation === "0") return null;
+      if (regulation === null || regulation === undefined) return null;
 
       const stringRegulation = String(regulation);
 
@@ -127,14 +115,13 @@ const convertRegulationsToLabels = (regulations) => {
 
       // If it's a number or numeric string, try to map it (0,1,2 problem)
       if (typeof regulation === "number" || /^\d+$/.test(stringRegulation)) {
-        // This handles the indices 1,2,3... (we skip 0 as handled above)
+        // This handles the 0,1,2 issue - these might be indices or IDs
         const ruleIds = Object.keys(HOUSE_RULES_MAP);
         const index = parseInt(regulation);
         if (ruleIds[index]) {
           return HOUSE_RULES_MAP[ruleIds[index]];
         }
-        // If it's just a number like 0 or 1 that didn't map, and it's not a valid rule, return null
-        return null;
+        return `Rule ${regulation}`;
       }
 
       // Fallback: try to beautify the string
@@ -237,7 +224,6 @@ const ListingPreview = () => {
               checkInTime: listing.checkInTime || "",
               checkOutTime: listing.checkOutTime || "",
               securityDeposit: listing.securityDeposit || 0,
-              serviceCharge: listing.serviceCharge || 0,
               cleaningFee: listing.cleaningFee || 0,
               instantBooking: listing.instantBooking || false,
               address: listing.address || "",
@@ -299,9 +285,6 @@ const ListingPreview = () => {
         securityDeposit: params.securityDeposit
           ? parseInt(params.securityDeposit)
           : 0,
-        serviceCharge: params.serviceCharge
-          ? parseInt(params.serviceCharge)
-          : 0,
         cleaningFee: params.cleaningFee ? parseInt(params.cleaningFee) : 0,
         instantBooking: params.instantBooking === "true",
         address: params.address || "",
@@ -333,7 +316,6 @@ const ListingPreview = () => {
         checkInTime: "",
         checkOutTime: "",
         securityDeposit: 0,
-        serviceCharge: 0,
         cleaningFee: 0,
         instantBooking: false,
         address: "",
@@ -357,26 +339,18 @@ const ListingPreview = () => {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
+          <Pressable style={styles.closeButton} onPress={() => router.back()}>
+            <Text style={styles.closeButtonText}>✕</Text>
+          </Pressable>
           <View style={styles.headerTitleContainer}>
             <Text style={styles.headerTitle}>
               {isHost ? "Your Listing" : "Property Details"}
             </Text>
           </View>
-          <Pressable 
-            style={styles.closeButton} 
-            onPress={() => {
-              if (router.canGoBack()) {
-                router.back();
-              } else {
-                router.replace(isHost ? "/(host-tabs)/listings" : "/(tabs)");
-              }
-            }}
-          >
-            <Text style={styles.closeButtonText}>✕</Text>
-          </Pressable>
+          <View style={{ width: 40 }} />
         </View>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#010135" />
+          <ActivityIndicator size="large" color="#192DFF" />
           <Text style={styles.loadingText}>Loading listing...</Text>
         </View>
       </SafeAreaView>
@@ -386,11 +360,8 @@ const ListingPreview = () => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Pressable
-          style={[styles.headerButton, styles.backCircle]}
-          onPress={() => router.back()}
-        >
-          <ChevronLeft size={24} color="#000" strokeWidth={2} />
+        <Pressable style={styles.closeButton} onPress={() => router.back()}>
+          <Text style={styles.closeButtonText}>✕</Text>
         </Pressable>
         <View style={styles.headerTitleContainer}>
           <Text style={styles.headerTitle}>
@@ -472,7 +443,11 @@ const ListingPreview = () => {
                 .filter(Boolean)}
             </ScrollView>
           ) : (
-            <NoMediaPlaceholder width={screenWidth} height={screenWidth * 0.75} />
+            <Image
+              style={[styles.image, { width: screenWidth }]}
+              source={require("../src/assets/images/prop_image.png")}
+              resizeMode="cover"
+            />
           )}
 
           {/* Image Counter */}
@@ -614,23 +589,15 @@ const ListingPreview = () => {
         )}
 
         {/* Additional Fees Section */}
-        {(listingData.securityDeposit > 0 || listingData.serviceCharge > 0 || listingData.cleaningFee > 0) && (
+        {(listingData.securityDeposit > 0 || listingData.cleaningFee > 0) && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Additional Fees</Text>
             <View style={styles.feesContainer}>
               {listingData.securityDeposit > 0 && (
                 <View style={styles.feeItem}>
-                  <Text style={styles.feeLabel}>Caution Fee</Text>
+                  <Text style={styles.feeLabel}>Security Deposit</Text>
                   <Text style={styles.feeValue}>
                     ₦{listingData.securityDeposit.toLocaleString()}
-                  </Text>
-                </View>
-              )}
-              {listingData.serviceCharge > 0 && (
-                <View style={styles.feeItem}>
-                  <Text style={styles.feeLabel}>Service Charge</Text>
-                  <Text style={styles.feeValue}>
-                    ₦{listingData.serviceCharge.toLocaleString()}
                   </Text>
                 </View>
               )}
@@ -645,27 +612,6 @@ const ListingPreview = () => {
             </View>
           </View>
         )}
-
-        {/* Instant Booking Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Booking Method</Text>
-          <View style={styles.amenityItem}>
-            <View style={styles.amenityCheckmark}>
-              <Text style={styles.checkmark}>✓</Text>
-            </View>
-            <Text style={styles.amenityText}>
-              {listingData.instantBooking ? "Instant Booking Enabled" : "Host Approval Required"}
-            </Text>
-          </View>
-        </View>
-
-        {/* Location Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Location Details</Text>
-          <Text style={styles.sectionContent}>
-            {listingData.address ? `${listingData.address}, ` : ""}{listingData.city}, {listingData.state}
-          </Text>
-        </View>
 
         {/* Amenities Section */}
         {listingData.amenities && listingData.amenities.length > 0 && (
@@ -719,40 +665,15 @@ const ListingPreview = () => {
         )}
 
         {/* Additional House Rules */}
-        {(listingData.houseRules || (listingData.additionalRules && listingData.additionalRules !== "0")) && (
+        {(listingData.houseRules || listingData.additionalRules) && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Additional Information</Text>
             {listingData.houseRules ? (
               <Text style={styles.sectionContent}>
-                {(() => {
-                  let rules = listingData.houseRules;
-                  if (typeof rules === "string") {
-                    // Split by newline or comma if it looks like a list
-                    if (rules.includes("\n")) {
-                      rules = rules.split("\n").map(r => r.trim());
-                    } else if (rules.startsWith("[") || rules.includes(",")) {
-                      try {
-                        rules = rules.startsWith("[") ? JSON.parse(rules) : rules.split(",").map(r => r.trim());
-                      } catch (e) {
-                        rules = rules.split(",").map(r => r.trim());
-                      }
-                    }
-                  }
-                  
-                  if (Array.isArray(rules)) {
-                    return convertRegulationsToLabels(rules).filter(Boolean).join(", ");
-                  }
-                  
-                  // If it's a single rule ID, try to convert it
-                  if (typeof rules === "string" && HOUSE_RULES_MAP[rules]) {
-                    return HOUSE_RULES_MAP[rules];
-                  }
-                  
-                  return String(rules || "");
-                })()}
+                {String(listingData.houseRules || "")}
               </Text>
             ) : null}
-            {listingData.additionalRules && listingData.additionalRules !== "0" ? (
+            {listingData.additionalRules ? (
               <Text style={[styles.sectionContent, { marginTop: 8 }]}>
                 {String(listingData.additionalRules || "")}
               </Text>
@@ -785,13 +706,7 @@ const ListingPreview = () => {
           <>
             <Pressable
               style={[styles.button, styles.secondaryButton]}
-              onPress={() => {
-                if (router.canGoBack()) {
-                  router.back();
-                } else {
-                  router.replace(isHost ? "/(host-tabs)/listings" : "/(tabs)");
-                }
-              }}
+              onPress={() => router.back()}
             >
               <Text style={[styles.buttonText, styles.secondaryButtonText]}>
                 Back
@@ -810,13 +725,7 @@ const ListingPreview = () => {
           <>
             <Pressable
               style={[styles.button, styles.secondaryButton]}
-              onPress={() => {
-                if (router.canGoBack()) {
-                  router.back();
-                } else {
-                  router.replace(isHost ? "/(host-tabs)/listings" : "/(tabs)");
-                }
-              }}
+              onPress={() => router.back()}
             >
               <Text style={[styles.buttonText, styles.secondaryButtonText]}>
                 Back
@@ -857,16 +766,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     flex: 1,
     justifyContent: "center",
-  },
-  headerButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  backCircle: {
-    backgroundColor: "#F3F4F6",
   },
   headerTitle: {
     fontSize: 18,
@@ -1040,7 +939,7 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: "#010135",
+    backgroundColor: "#192DFF",
     justifyContent: "center",
     alignItems: "center",
     marginTop: 2,
@@ -1149,7 +1048,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
   },
   primaryButton: {
-    backgroundColor: "#010135",
+    backgroundColor: "#192DFF",
   },
   secondaryButton: {
     backgroundColor: "#FFFFFF",
@@ -1177,17 +1076,6 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 14,
     color: "#656565",
-  },
-  placeholderContainer: {
-    backgroundColor: "#F1F5F9",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 12,
-  },
-  placeholderText: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: "#94A3B8",
   },
 });
 

@@ -110,7 +110,9 @@ const PhoneVerificationModal = ({ visible, phone, onClose, onVerified }) => {
   // Validate Nigerian phone number
   const validatePhone = (number) => {
     const cleaned = number.replace(/\s/g, '');
-    const validPattern = /^(0[7-9]0\d{8}|\+?234[7-9]0\d{8})$/;
+    // Accept: 070x, 080x, 081x, 090x, 091x (local)
+    // Accept: +234 or 234 prefix with same patterns
+    const validPattern = /^(0[789][01]\d{8}|\+?234[789][01]\d{8})$/;
     return validPattern.test(cleaned);
   };
 
@@ -259,11 +261,12 @@ const PhoneVerificationModal = ({ visible, phone, onClose, onVerified }) => {
                   editable={!isLoading}
                   autoFocus
                 />
-                {error ? <Text style={styles.errorText}>{error}</Text> : null}
+                 {error ? <Text style={styles.errorText}>{error}</Text> : null}
               </View>
 
               <View style={styles.infoContainer}>
                 <Text style={styles.infoText}>
+                  • Nigerian numbers only (070, 080, 081, 090, 091){'\n'}
                   • Supports formats: 080..., +23480..., 23480...{'\n'}
                   • OTP will be sent to this number{'\n'}
                   • Standard SMS rates may apply

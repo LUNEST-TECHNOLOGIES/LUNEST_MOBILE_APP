@@ -1,24 +1,16 @@
-import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { QueryClientProvider } from "@tanstack/react-query";
-import * as Font from "expo-font";
-import { Stack, useRootNavigationState, useRouter, useSegments } from "expo-router";
-import * as SplashScreen from "expo-splash-screen";
+import { Stack, useRouter, useSegments } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Platform, View, AppState } from "react-native";
+import { ActivityIndicator, Alert, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import "../global.css";
-import ToastNotification, { TOAST_TYPE } from "../src/components/common/ToastNotification";
-import WebContainer from "../src/components/common/WebContainer";
-import AppSplashScreen from "../src/components/common/AppSplashScreen";
-import { ModeSwitchingOverlay } from "../src/components/shared";
-import { AccountStatusProvider, UserModeProvider, useUserMode } from "../src/context";
+import { AccountStatusProvider, UserModeProvider } from "../src/context";
 import { useReferralTracker } from "../src/hooks/useReferralTracker";
-import { queryClient } from "../src/lib/queryClient";
+import OfflineBanner from "../src/components/common/OfflineBanner";
+import ErrorBoundary from "../src/components/common/ErrorBoundary";
 import apiClient from "../src/services/apiClient";
 import authService from "../src/services/authService";
-import notificationService from "../src/services/notificationService";
+import PwaInstallPrompt from "../src/components/pwa/PwaInstallPrompt";
 
 // Verify env is loaded
 console.log("[App] Environment Check:");
@@ -30,69 +22,25 @@ console.log(
 
 const ONBOARDING_KEY = "@lunest_onboarding_complete";
 
-// Prevent splash screen from auto-hiding before fonts are loaded
-SplashScreen.preventAutoHideAsync().catch(() => {});
-
 export default function RootLayout() {
-  const [fontsLoaded, setFontsLoaded] = useState(false);
-  const [fontError, setFontError] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const wasAuthenticated = useRef(false); // Track if user was previously logged in
   const router = useRouter();
   const segments = useSegments();
-  const rootNavigationState = useRootNavigationState();
 
   // Capture referral deep links on app launch
   useReferralTracker();
-  
-  // Global Toast State
-  const [toastVisible, setToastVisible] = useState(false);
-  const [toastConfig, setToastConfig] = useState({
-    message: "",
-    type: TOAST_TYPE.INFO,
-    duration: 3000,
-  });
 
-  // Check onboarding and auth status and load fonts on app launch
+  // Check onboarding and auth status on app launch
   useEffect(() => {
-    async function prepare() {
-      try {
-        // Load fonts
-        await Font.loadAsync(Ionicons.font);
-        setFontsLoaded(true);
-        
-        // Finalize other app status
-        await checkAppStatus();
-      } catch (e) {
-        console.warn("[RootLayout] Preparation error:", e);
-        setFontError(e);
-        // Still proceed so user isn't stuck on splash
-        setIsLoading(false);
-        setFontsLoaded(true); 
-      }
-    }
-    
-    prepare();
+    checkAppStatus();
   }, []);
-
-  // Dismiss native splash screen
-  useEffect(() => {
-    if (fontsLoaded) {
-      if (Platform.OS === 'web') {
-        // On web, hide native splash early so our custom AppSplashScreen can show
-        SplashScreen.hideAsync().catch(() => {});
-      } else if (!isLoading) {
-        // On native, hide only when fully ready
-        SplashScreen.hideAsync().catch(() => {});
-      }
-    }
-  }, [fontsLoaded, isLoading]);
-
-  // ... (navigation logic stays the same)
 
   // Handle navigation based on onboarding and auth status
   useEffect(() => {
-    if (isLoading || !rootNavigationState?.key) return;
+    if (isLoading) return;
 
     const inIndex = segments.length === 0 || segments[0] === "index";
     const inOnboarding = segments[0] === "onboarding";
@@ -104,9 +52,6 @@ export default function RootLayout() {
       segments[0] === "reset-password";
     const inTabs = segments[0] === "(tabs)";
     const inHostTabs = segments[0] === "(host-tabs)";
-    const isPaymentCallback = segments[0] === "payment-callback";
-    const isAddFunds = segments[0] === "add-funds";
-    const isVerify = segments[0] === "verify";
 
     // Let the index page handle initial routing
     if (inIndex) return;
@@ -119,35 +64,7 @@ export default function RootLayout() {
         // User is logged in - go to home if on auth/onboarding screens
         wasAuthenticated.current = true;
         if (inAuth || inOnboarding) {
-          // Check saved mode before redirecting
-          const userData = await authService.getUserData();
-          const userId = userData?.id || userData?.email;
-          let targetRoute = "/(tabs)";
-
-          if (userId) {
-            const storageService = require("../src/services/storageService").default;
-            let savedMode = await storageService.getUserItem(userId, "userMode");
-            
-            // Web Hint: If we are on web, check URL for mode hints before deciding
-            if (Platform.OS === 'web' && typeof window !== 'undefined') {
-              const path = window.location.pathname;
-              const isHostPath = path.includes('/host') || path.includes('/create-listing') || path.includes('/manage-listings') || path.includes('/earnings');
-              const isGuestPath = path.includes('/guest') || path.includes('/properties') || path.includes('/explore') || path.includes('/saved') || path.includes('/bookings') || path.includes('/profile') || path.includes('/messages') || path.includes('/transaction-detail');
-              
-              if (isHostPath) {
-                savedMode = "HOST";
-              } else if (isGuestPath) {
-                savedMode = "GUEST";
-              }
-            }
-
-            if (savedMode === "HOST") {
-              targetRoute = "/(host-tabs)";
-            }
-          }
-          
-          console.log(`[Layout] Redirecting to: ${targetRoute}`);
-          router.replace(targetRoute);
+          router.replace("/(tabs)");
         }
       } else {
         // User is NOT logged in
@@ -163,59 +80,15 @@ export default function RootLayout() {
           }
           // Redirect to login (not onboarding) for returning users
           router.replace("/login");
-        } else if (!inOnboarding && !inAuth && !isPaymentCallback && !isAddFunds && !isVerify) {
-          // Not on onboarding, auth, verify, or payment screens, go to onboarding for new users
+        } else if (!inOnboarding && !inAuth) {
+          // Not on onboarding or auth screens, go to onboarding for new users
           router.replace("/onboarding");
         }
       }
     };
 
     checkAndNavigate();
-  }, [isLoading, segments, router, rootNavigationState?.key]);
-
-  // Subscribe to global notifications
-  useEffect(() => {
-    const unsubscribe = notificationService.subscribe((config) => {
-      setToastConfig(config);
-      setToastVisible(true);
-    });
-
-    return () => {
-      if (typeof unsubscribe === "function") {
-        unsubscribe();
-      }
-    };
-  }, []);
-
-  // Listen for AppState changes to trigger automatic payment recovery on resume
-  useEffect(() => {
-    const handleAppStateChange = async (nextAppState) => {
-      if (nextAppState === 'active') {
-        try {
-          const pendingRef = await AsyncStorage.getItem('@lunest_pending_payment_ref');
-          if (pendingRef) {
-            console.log('🔄 [RootLayout] Found pending payment ref upon app resume:', pendingRef);
-            
-            // Immediately remove it to prevent looping redirects
-            await AsyncStorage.removeItem('@lunest_pending_payment_ref');
-            
-            // Redirect the user to the payment-callback screen which initiates verification
-            router.push({
-              pathname: "/payment-callback",
-              params: { reference: pendingRef, status: 'success' }
-            });
-          }
-        } catch (e) {
-          console.warn('[RootLayout] Error recovering pending payment on resume:', e);
-        }
-      }
-    };
-
-    const subscription = AppState.addEventListener('change', handleAppStateChange);
-    return () => {
-      subscription.remove();
-    };
-  }, [router]);
+  }, [isLoading, segments]);
 
   const checkAppStatus = async () => {
     try {
@@ -225,14 +98,13 @@ export default function RootLayout() {
       // Initialize auth service with dynamic backend URL
       await authService.initialize();
 
-      // Initialize web notifications (for web platform)
-      await notificationService.initializeWebNotifications();
-
       // Check onboarding status
       const onboardingValue = await AsyncStorage.getItem(ONBOARDING_KEY);
+      setHasCompletedOnboarding(onboardingValue === "true");
 
       // Check authentication status
-      await authService.isLoggedIn();
+      const loggedIn = await authService.isLoggedIn();
+      setIsAuthenticated(loggedIn);
     } catch (error) {
       console.error("Error checking app status:", error);
     } finally {
@@ -240,217 +112,182 @@ export default function RootLayout() {
     }
   };
 
-  if (!fontsLoaded && !fontError) {
-    return null; // Keep splash screen active
-  }
-
   return (
-    <QueryClientProvider client={queryClient}>
-      <WebContainer>
-        <GestureHandlerRootView style={{ flex: 1 }}>
-          <UserModeProvider>
-            <AccountStatusProvider>
-              <SafeAreaProvider>
-                <GlobalOverlayManager />
-                {isLoading ? (
-                  Platform.OS === 'web' ? <AppSplashScreen /> : null
-                ) : (
-                  <Stack
-                    screenOptions={{
-                      headerShown: false,
-                      detachInactiveScreens: false,
-                    }}
-                  >
-                    <Stack.Screen
-                      name="index"
-                      options={{
-                        headerShown: false,
-                      }}
-                    />
-                    <Stack.Screen
-                      name="onboarding"
-                      options={{
-                        headerShown: false,
-                      }}
-                    />
-                    <Stack.Screen
-                      name="signup"
-                      options={{
-                        headerShown: false,
-                      }}
-                    />
-                    <Stack.Screen
-                      name="forgot-password"
-                      options={{
-                        headerShown: false,
-                      }}
-                    />
-                    <Stack.Screen
-                      name="verify-code"
-                      options={{
-                        headerShown: false,
-                      }}
-                    />
-                    <Stack.Screen
-                      name="reset-password"
-                      options={{
-                        headerShown: false,
-                      }}
-                    />
-                    <Stack.Screen
-                      name="login"
-                      options={{
-                        headerShown: false,
-                      }}
-                    />
-                    <Stack.Screen name="(tabs)" options={{ gestureEnabled: false }} />
-                    <Stack.Screen
-                      name="(host-tabs)"
-                      options={{ gestureEnabled: false }}
-                    />
-                    <Stack.Screen
-                      name="+not-found"
-                      options={{
-                        headerShown: false,
-                      }}
-                    />
-                    <Stack.Screen
-                      name="landlord-request"
-                      options={{
-                        presentation: "card",
-                        headerShown: false,
-                      }}
-                    />
-                    <Stack.Screen
-                      name="host-request-pending"
-                      options={{
-                        presentation: "card",
-                        headerShown: false,
-                      }}
-                    />
-                    <Stack.Screen
-                      name="property-details"
-                      options={{
-                        presentation: "card",
-                        headerShown: false,
-                      }}
-                    />
-                    <Stack.Screen
-                      name="select-booking-details"
-                      options={{
-                        presentation: "card",
-                        headerShown: false,
-                      }}
-                    />
-                    <Stack.Screen
-                      name="booking-summary"
-                      options={{
-                        presentation: "card",
-                        headerShown: false,
-                      }}
-                    />
-                    <Stack.Screen
-                      name="booking-confirmation"
-                      options={{
-                        presentation: "card",
-                        headerShown: false,
-                        animationEnabled: true,
-                        gestureEnabled: false,
-                      }}
-                    />
-                    <Stack.Screen
-                      name="pay-with-wallet"
-                      options={{
-                        presentation: "card",
-                        headerShown: false,
-                      }}
-                    />
-                    <Stack.Screen
-                      name="transaction-detail"
-                      options={{
-                        presentation: "card",
-                        headerShown: false,
-                      }}
-                    />
-                    <Stack.Screen
-                      name="full-details"
-                      options={{
-                        presentation: "card",
-                        headerShown: false,
-                      }}
-                    />
-                    <Stack.Screen
-                      name="host-information"
-                      options={{
-                        presentation: "card",
-                        headerShown: false,
-                      }}
-                    />
-                    <Stack.Screen
-                      name="personal-info-edit"
-                      options={{
-                        presentation: "card",
-                        headerShown: false,
-                      }}
-                    />
-                    <Stack.Screen
-                      name="referrals"
-                      options={{
-                        presentation: "card",
-                        headerShown: false,
-                      }}
-                    />
-                    <Stack.Screen
-                      name="modal"
-                      options={{
-                        presentation: "modal",
-                        headerShown: false,
-                      }}
-                    />
-                    <Stack.Screen
-                      name="payment-callback"
-                      options={{
-                        headerShown: false,
-                        gestureEnabled: false,
-                      }}
-                    />
-                    <Stack.Screen
-                      name="add-funds"
-                      options={{
-                        presentation: "card",
-                        headerShown: false,
-                      }}
-                    />
-                  </Stack>
-                )}
-                <ToastNotification
-                  visible={toastVisible}
-                  message={toastConfig.message}
-                  type={toastConfig.type}
-                  duration={toastConfig.duration}
-                  onHide={() => setToastVisible(false)}
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ErrorBoundary>
+        <UserModeProvider>
+          <AccountStatusProvider>
+            <SafeAreaProvider>
+              <OfflineBanner />
+              {isLoading ? (
+                <View
+                  style={{
+                    flex: 1,
+                    justifyContent: "center",
+                    alignItems: "center",
+                    backgroundColor: "#FFFFFF",
+                  }}
+                >
+                  <ActivityIndicator size="large" color="#192DFF" />
+                </View>
+              ) : (
+              <Stack
+                screenOptions={{
+                  headerShown: false,
+                }}
+              >
+                <Stack.Screen
+                  name="index"
+                  options={{
+                    headerShown: false,
+                  }}
                 />
-              </SafeAreaProvider>
-            </AccountStatusProvider>
-          </UserModeProvider>
-        </GestureHandlerRootView>
-      </WebContainer>
-    </QueryClientProvider>
-  );
-}
-
-/**
- * Manages global overlays like mode switching
- * Resides inside Providers to access context
- */
-function GlobalOverlayManager() {
-  const { isSwitching, targetMode, cancelSwitch } = useUserMode();
-  
-  return (
-    <ModeSwitchingOverlay 
-      visible={isSwitching} 
-      targetMode={targetMode} 
-      onCancel={cancelSwitch}
-    />
+                <Stack.Screen
+                  name="onboarding"
+                  options={{
+                    headerShown: false,
+                  }}
+                />
+                <Stack.Screen
+                  name="signup"
+                  options={{
+                    headerShown: false,
+                  }}
+                />
+                <Stack.Screen
+                  name="forgot-password"
+                  options={{
+                    headerShown: false,
+                  }}
+                />
+                <Stack.Screen
+                  name="verify-code"
+                  options={{
+                    headerShown: false,
+                  }}
+                />
+                <Stack.Screen
+                  name="reset-password"
+                  options={{
+                    headerShown: false,
+                  }}
+                />
+                <Stack.Screen
+                  name="login"
+                  options={{
+                    headerShown: false,
+                  }}
+                />
+                <Stack.Screen name="(tabs)" options={{ gestureEnabled: false }} />
+                <Stack.Screen
+                  name="(host-tabs)"
+                  options={{ gestureEnabled: false }}
+                />
+                <Stack.Screen
+                  name="+not-found"
+                  options={{
+                    headerShown: false,
+                  }}
+                />
+                <Stack.Screen
+                  name="landlord-request"
+                  options={{
+                    presentation: "card",
+                    headerShown: false,
+                  }}
+                />
+                <Stack.Screen
+                  name="host-request-pending"
+                  options={{
+                    presentation: "card",
+                    headerShown: false,
+                  }}
+                />
+                <Stack.Screen
+                  name="property-details"
+                  options={{
+                    presentation: "card",
+                    headerShown: false,
+                  }}
+                />
+                <Stack.Screen
+                  name="select-booking-details"
+                  options={{
+                    presentation: "card",
+                    headerShown: false,
+                  }}
+                />
+                <Stack.Screen
+                  name="booking-summary"
+                  options={{
+                    presentation: "card",
+                    headerShown: false,
+                  }}
+                />
+                <Stack.Screen
+                  name="booking-confirmation"
+                  options={{
+                    presentation: "transparentModal",
+                    headerShown: false,
+                    animationEnabled: true,
+                  }}
+                />
+                <Stack.Screen
+                  name="pay-with-wallet"
+                  options={{
+                    presentation: "card",
+                    headerShown: false,
+                  }}
+                />
+                <Stack.Screen
+                  name="transaction-detail"
+                  options={{
+                    presentation: "card",
+                    headerShown: false,
+                  }}
+                />
+                <Stack.Screen
+                  name="full-details"
+                  options={{
+                    presentation: "card",
+                    headerShown: false,
+                  }}
+                />
+                <Stack.Screen
+                  name="host-information"
+                  options={{
+                    presentation: "card",
+                    headerShown: false,
+                  }}
+                />
+                <Stack.Screen
+                  name="personal-info-edit"
+                  options={{
+                    presentation: "card",
+                    headerShown: false,
+                  }}
+                />
+                <Stack.Screen
+                  name="referrals"
+                  options={{
+                    presentation: "card",
+                    headerShown: false,
+                  }}
+                />
+                <Stack.Screen
+                  name="modal"
+                  options={{
+                    presentation: "modal",
+                    headerShown: false,
+                  }}
+                />
+              </Stack>
+            )}
+            <PwaInstallPrompt />
+          </SafeAreaProvider>
+        </AccountStatusProvider>
+      </UserModeProvider>
+      </ErrorBoundary>
+    </GestureHandlerRootView>
   );
 }

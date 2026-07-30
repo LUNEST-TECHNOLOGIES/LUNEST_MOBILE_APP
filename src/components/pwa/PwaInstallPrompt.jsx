@@ -157,9 +157,11 @@ export default function PwaInstallPrompt() {
           {/* Header */}
           <View style={styles.headerRow}>
             <View style={styles.appInfo}>
-              <View style={styles.logoBadge}>
-                <Text style={styles.logoText}>L</Text>
-              </View>
+              <Image
+                source={require("../../../assets/images/app-logo.png")}
+                style={styles.logoImage}
+                resizeMode="contain"
+              />
               <View>
                 <Text style={styles.appTitle}>Install LUNEST</Text>
                 <Text style={styles.appSubtitle}>Add to Home Screen • Fast & No App Store</Text>
@@ -236,18 +238,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
-  logoBadge: {
+  logoImage: {
     width: 44,
     height: 44,
     borderRadius: 10,
-    backgroundColor: '#010135',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  logoText: {
-    color: '#E5C460',
-    fontSize: 24,
-    fontWeight: '800',
   },
   appTitle: {
     fontSize: 17,

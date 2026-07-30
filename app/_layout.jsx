@@ -10,6 +10,7 @@ import OfflineBanner from "../src/components/common/OfflineBanner";
 import ErrorBoundary from "../src/components/common/ErrorBoundary";
 import apiClient from "../src/services/apiClient";
 import authService from "../src/services/authService";
+import PwaInstallPrompt from "../src/components/pwa/PwaInstallPrompt";
 
 // Verify env is loaded
 console.log("[App] Environment Check:");
@@ -282,6 +283,7 @@ export default function RootLayout() {
                 />
               </Stack>
             )}
+            <PwaInstallPrompt />
           </SafeAreaProvider>
         </AccountStatusProvider>
       </UserModeProvider>

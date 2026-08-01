@@ -26,7 +26,7 @@ const kycService = {
         nin,
         selfie: selfieBase64,
       });
-      return response.data;
+      return response.body || response.data || response;
     } catch (error) {
       console.error("KYC Verification Error:", error.response?.data || error.message);
       throw new Error(extractErrorMessage(error, "An error occurred during verification"));
@@ -41,7 +41,7 @@ const kycService = {
       const response = await apiClient.post("/v1/kyc/didit/create-session", {
         callbackUrl,
       });
-      return response.data;
+      return response.body || response.data || response;
     } catch (error) {
       console.error("Didit Session Error:", error.response?.data || error.message);
       throw new Error(extractErrorMessage(error, "Failed to initialize Didit verification session"));
@@ -59,7 +59,7 @@ const kycService = {
         nin,
         callbackUrl,
       });
-      return response.data;
+      return response.body || response.data || response;
     } catch (error) {
       console.error("Didit Database Validation Error:", error.response?.data || error.message);
       throw new Error(extractErrorMessage(error, "Failed to validate ID number with Didit"));
@@ -74,7 +74,7 @@ const kycService = {
     try {
       const url = sessionId ? `/v1/kyc/didit/session-status/${sessionId}` : "/v1/kyc/didit/session-status";
       const response = await apiClient.get(url);
-      return response.data;
+      return response.body || response.data || response;
     } catch (error) {
       console.error("Didit Status Error:", error.response?.data || error.message);
       throw new Error(extractErrorMessage(error, "Failed to check Didit verification status"));

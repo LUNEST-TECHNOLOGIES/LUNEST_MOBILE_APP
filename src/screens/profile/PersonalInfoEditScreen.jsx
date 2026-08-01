@@ -199,6 +199,48 @@ const PersonalInfoEditScreen = () => {
   const [toastMessage, setToastMessage] = useState("");
   const [toastType, setToastType] = useState(TOAST_TYPE.SUCCESS);
 
+  // PWA Install states
+  const [showPwaInstall, setShowPwaInstall] = useState(false);
+  const [isIosPwa, setIsIosPwa] = useState(false);
+
+  useEffect(() => {
+    if (Platform.OS !== "web" || typeof window === "undefined") {
+      return;
+    }
+
+    const isStandalone =
+      window.matchMedia("(display-mode: standalone)").matches ||
+      window.navigator.standalone === true;
+
+    if (isStandalone) {
+      return;
+    }
+
+    const userAgent = window.navigator.userAgent.toLowerCase();
+    const isIosDevice = /iphone|ipad|ipod/.test(userAgent);
+    
+    if (isIosDevice) {
+      setIsIosPwa(true);
+      setShowPwaInstall(true);
+    } else {
+      const checkPrompt = () => {
+        if (window.deferredPrompt) {
+          setShowPwaInstall(true);
+        }
+      };
+      
+      checkPrompt();
+      window.addEventListener("beforeinstallprompt", checkPrompt);
+      return () => window.removeEventListener("beforeinstallprompt", checkPrompt);
+    }
+  }, []);
+
+  const handlePwaInstall = () => {
+    if (typeof window !== "undefined" && typeof window.triggerPwaInstallPrompt === "function") {
+      window.triggerPwaInstallPrompt();
+    }
+  };
+
   const showToast = (message, type = TOAST_TYPE.SUCCESS) => {
     setToastMessage(message);
     setToastType(type);
@@ -811,6 +853,18 @@ const PersonalInfoEditScreen = () => {
             isComingSoon={true}
           />
         </SectionCard>
+
+        {/* PWA Install Shortcut Section */}
+        {showPwaInstall && (
+          <SectionCard title="Application settings">
+            <InfoRow
+              label="Add Lunest to Home Screen"
+              actionText="Install"
+              onAction={handlePwaInstall}
+              isEmpty={false}
+            />
+          </SectionCard>
+        )}
 
         {/* Bottom spacing */}
         <View style={styles.bottomSpacer} />

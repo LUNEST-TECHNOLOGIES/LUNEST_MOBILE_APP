@@ -75,6 +75,19 @@ export default function PwaInstallPrompt() {
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.triggerPwaInstallPrompt = () => {
+        setIsVisible(true);
+      };
+    }
+    return () => {
+      if (typeof window !== 'undefined') {
+        delete window.triggerPwaInstallPrompt;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     if (Platform.OS !== 'web' || typeof window === 'undefined') {
       return;
     }
@@ -115,6 +128,9 @@ export default function PwaInstallPrompt() {
     const handleBeforeInstallPrompt = (e) => {
       e.preventDefault();
       setDeferredPrompt(e);
+      if (typeof window !== 'undefined') {
+        window.deferredPrompt = e;
+      }
       setIsVisible(true);
     };
 
@@ -126,13 +142,17 @@ export default function PwaInstallPrompt() {
   }, []);
 
   const handleInstallClick = async () => {
-    if (!deferredPrompt) return;
+    const promptEvent = deferredPrompt || (typeof window !== 'undefined' ? window.deferredPrompt : null);
+    if (!promptEvent) return;
 
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
+    promptEvent.prompt();
+    const { outcome } = await promptEvent.userChoice;
     console.log(`[PWA] Install prompt user outcome: ${outcome}`);
 
     setDeferredPrompt(null);
+    if (typeof window !== 'undefined') {
+      window.deferredPrompt = null;
+    }
     setIsVisible(false);
   };
 

@@ -1,5 +1,6 @@
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
+import * as WebBrowser from "expo-web-browser";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -99,48 +100,42 @@ const KYCVerificationScreen = () => {
     }
 
     try {
-      const result = await kycService.verifyNIN(nin, null);
+      showToast("Initializing Didit verification...", TOAST_TYPE.INFO);
+      const response = await kycService.createDiditSession();
+      const sessionUrl = response.data?.url || response.url;
+      const sessionId = response.data?.sessionId || response.sessionId;
 
-      if (result.status === "VERIFIED") {
-        setIsVerified(true);
-        
-        // Sync verified name to local storage
-        const currentUser = await getUserData();
-        if (currentUser) {
-          const updatedUser = {
-            ...currentUser,
-            verified: true,
-            kycStatus: "VERIFIED",
-            fullName: result.verifiedName || currentUser.fullName,
-            nin: result.nin || nin
-          };
-          await setUserData(updatedUser);
-          console.log("[KYC] Local user data updated with verified name:", updatedUser.fullName);
+      if (sessionUrl) {
+        await WebBrowser.openBrowserAsync(sessionUrl);
+
+        // Check session status upon return from browser
+        setIsLoading(true);
+        const statusResult = await kycService.getDiditSessionStatus(sessionId);
+
+        if (statusResult.data?.verified || statusResult.data?.kycStatus === "VERIFIED") {
+          setIsVerified(true);
+          const currentUser = await getUserData();
+          if (currentUser) {
+            const updatedUser = {
+              ...currentUser,
+              verified: true,
+              kycStatus: "VERIFIED",
+              fullName: statusResult.data?.user?.fullName || currentUser.fullName,
+            };
+            await setUserData(updatedUser);
+          }
+          showToast("Identity verified successfully!", TOAST_TYPE.SUCCESS);
+          setTimeout(() => router.back(), 2500);
+        } else {
+          showToast("Verification session completed. Updating status...", TOAST_TYPE.INFO);
         }
-
-        showToast(`Identity verified as ${result.verifiedName || "Success"}!`, TOAST_TYPE.SUCCESS);
-        setTimeout(() => router.back(), 2500);
+      } else {
+        showToast("Failed to generate verification URL. Please try again.", TOAST_TYPE.ERROR);
       }
     } catch (error) {
       const errorMsg = error.message || "Could not verify identity.";
       console.error("[KYC] Verification error:", errorMsg);
-
-      // Check for duplicate NIN error (409 Conflict or MongoDB Duplicate Key string)
-      if (
-        error.status === 409 || 
-        error.status === 400 && errorMsg.toLowerCase().includes("already associated") ||
-        errorMsg.toLowerCase().includes("duplicate") || 
-        errorMsg.toLowerCase().includes("already been verified") ||
-        errorMsg.toLowerCase().includes("plan executor")
-      ) {
-        showToast("This NIN has already been verified on another account.", TOAST_TYPE.ERROR);
-      } else if (errorMsg.includes("not found")) {
-        showToast("NIN record not found. Please check the number and try again.", TOAST_TYPE.ERROR);
-      } else if (errorMsg.includes("match")) {
-        showToast("Facial match failed. Ensure your face is clear and well-lit.", TOAST_TYPE.ERROR);
-      } else {
-        showToast(errorMsg, TOAST_TYPE.ERROR);
-      }
+      showToast(errorMsg, TOAST_TYPE.ERROR);
     } finally {
       setIsLoading(false);
     }

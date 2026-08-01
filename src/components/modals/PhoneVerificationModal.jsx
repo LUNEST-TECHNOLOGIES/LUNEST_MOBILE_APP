@@ -142,6 +142,9 @@ const PhoneVerificationModal = ({ visible, phone, onClose, onVerified }) => {
       if (result.success) {
         setStep('otp');
         setMaskedPhone(result.data?.maskedPhone || formatPhone(phoneNumber));
+        if (result.data?.otpCode) {
+          setOtpCode(String(result.data.otpCode));
+        }
         setResendTimer(60);
         setTimeout(() => otpInputRef.current?.focus(), 300);
       } else {

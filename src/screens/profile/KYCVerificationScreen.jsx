@@ -56,6 +56,7 @@ const KYCVerificationScreen = () => {
   const [verifiedId, setVerifiedId] = useState("");
   const [activeSessionId, setActiveSessionId] = useState(null);
   const [activeSessionUrl, setActiveSessionUrl] = useState("");
+  const [isStatusChecking, setIsStatusChecking] = useState(false);
   
   // Toast state
   const [toastVisible, setToastVisible] = useState(false);
@@ -193,46 +194,54 @@ const KYCVerificationScreen = () => {
       return;
     }
 
-    const statusResult = await kycService.getDiditSessionStatus(sessionId);
+    try {
+      setIsStatusChecking(true);
+      const statusResult = await kycService.getDiditSessionStatus(sessionId);
 
-    if (statusResult?.verified || statusResult?.kycStatus === "VERIFIED") {
-      setIsVerified(true);
-      setActiveSessionId(null); // Clear active session ID on success
-      setVerifiedName(statusResult?.user?.fullName || "");
-      const rawNin = statusResult?.user?.nin || statusResult?.nin || "";
-      if (rawNin) {
-        const masked = rawNin.replace(/^(\d{3,4})\d+(\d{3})$/, "$1****$2");
-        setVerifiedId(masked);
+      if (statusResult?.verified || statusResult?.kycStatus === "VERIFIED") {
+        setIsVerified(true);
+        setActiveSessionId(null); // Clear active session ID on success
+        setVerifiedName(statusResult?.user?.fullName || "");
+        const rawNin = statusResult?.user?.nin || statusResult?.nin || "";
+        if (rawNin) {
+          const masked = rawNin.replace(/^(\d{3,4})\d+(\d{3})$/, "$1****$2");
+          setVerifiedId(masked);
+        }
+        const currentUser = await getUserData();
+        if (currentUser) {
+          const updatedUser = {
+            ...currentUser,
+            verified: true,
+            kycStatus: "VERIFIED",
+            fullName: statusResult?.user?.fullName || currentUser.fullName,
+          };
+          await setUserData(updatedUser);
+        }
+        showToast(successMessage || "Identity verified successfully!", TOAST_TYPE.SUCCESS);
+        return;
       }
-      const currentUser = await getUserData();
-      if (currentUser) {
-        const updatedUser = {
-          ...currentUser,
-          verified: true,
-          kycStatus: "VERIFIED",
-          fullName: statusResult?.user?.fullName || currentUser.fullName,
-        };
-        await setUserData(updatedUser);
+
+      if (statusResult?.kycStatus === "REJECTED") {
+        const reason = statusResult?.kycRejectionReason || "Verification was declined by provider.";
+        setRejectionReason(reason);
+        showToast(reason, TOAST_TYPE.ERROR);
+        return;
       }
-      showToast(successMessage || "Identity verified successfully!", TOAST_TYPE.SUCCESS);
-      return;
-    }
 
-    if (statusResult?.kycStatus === "REJECTED") {
-      const reason = statusResult?.kycRejectionReason || "Verification was declined by provider.";
-      setRejectionReason(reason);
-      showToast(reason, TOAST_TYPE.ERROR);
-      return;
-    }
+      // Handle session not started/completed yet
+      const rawStatus = statusResult?.status || statusResult?.rawStatus || "";
+      if (rawStatus === "Not Started" || rawStatus === "Not_Started") {
+        showToast("Verification was not completed. Please try again.", TOAST_TYPE.WARNING);
+        return;
+      }
 
-    // Handle session not started/completed yet
-    const rawStatus = statusResult?.status || statusResult?.rawStatus || "";
-    if (rawStatus === "Not Started" || rawStatus === "Not_Started" || !rawStatus) {
-      showToast("Verification was not completed. Please try again.", TOAST_TYPE.WARNING);
-      return;
+      showToast("Verification in progress or pending final review.", TOAST_TYPE.INFO);
+    } catch (err) {
+      console.error("[KYC] Error verifying status:", err);
+      showToast("Verification is in progress. Please refresh in a moment.", TOAST_TYPE.INFO);
+    } finally {
+      setIsStatusChecking(false);
     }
-
-    showToast("Verification in progress or pending final review.", TOAST_TYPE.INFO);
   };
 
   const handleHostedScan = async () => {
@@ -403,13 +412,13 @@ const KYCVerificationScreen = () => {
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <Text style={styles.title}>Verify Your Identity</Text>
           <Text style={styles.subtitle}>
-            Complete identity verification with the hosted Didit scan flow.
+            Complete secure identity verification using your government document and facial scan.
           </Text>
 
           <View style={styles.noteContainer}>
-            <Text style={styles.noteTitle}>Hosted Didit scan:</Text>
+            <Text style={styles.noteTitle}>Identity Verification Scan:</Text>
             <Text style={styles.noteText}>
-              Use the hosted Didit flow to scan your document and complete liveness verification.
+              Scan your valid government document and complete a liveness check to confirm your identity.
             </Text>
           </View>
 
@@ -426,7 +435,7 @@ const KYCVerificationScreen = () => {
               )}
             </View>
             <Text style={styles.consentText}>
-              I consent to the processing of my government ID document and facial verification via Didit.
+              I consent to the secure processing of my government ID document and facial liveness verification.
             </Text>
           </TouchableOpacity>
         </ScrollView>
@@ -437,9 +446,9 @@ const KYCVerificationScreen = () => {
               <TouchableOpacity
                 style={styles.verifyButton}
                 onPress={() => finalizeSession(activeSessionId, "Identity verified successfully!")}
-                disabled={isLoading}
+                disabled={isStatusChecking}
               >
-                {isLoading ? <ActivityIndicator color="white" /> : <Text style={styles.verifyButtonText}>Check Status / Refresh</Text>}
+                {isStatusChecking ? <ActivityIndicator color="white" /> : <Text style={styles.verifyButtonText}>Check Status / Refresh</Text>}
               </TouchableOpacity>
               
               <TouchableOpacity
@@ -466,6 +475,7 @@ const KYCVerificationScreen = () => {
               )}
             </TouchableOpacity>
           )}
+          <Text style={styles.poweredByText}>Powered by Didit</Text>
         </View>
       </KeyboardAvoidingView>
       
@@ -481,7 +491,7 @@ const KYCVerificationScreen = () => {
           <View style={styles.loadingCard}>
             <ActivityIndicator size="large" color="#008751" />
             <Text style={styles.loadingTitle}>{loadingMessage || "Starting Identity Verification..."}</Text>
-            <Text style={styles.loadingSubtext}>Connecting to secure provider portal. Please complete the Didit flow in the browser or native SDK.</Text>
+            <Text style={styles.loadingSubtext}>Connecting to secure provider portal. Please complete the verification scan in your browser.</Text>
           </View>
         </View>
       )}
@@ -769,6 +779,15 @@ const styles = StyleSheet.create({
     color: "#64748B",
     textAlign: "center",
     lineHeight: 18,
+  },
+  poweredByText: {
+    fontSize: 12,
+    color: "#9CA3AF",
+    textAlign: "center",
+    marginTop: 18,
+    marginBottom: 4,
+    fontWeight: "500",
+    letterSpacing: 0.5,
   },
 });
 

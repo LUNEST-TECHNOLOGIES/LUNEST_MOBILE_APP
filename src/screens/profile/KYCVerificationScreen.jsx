@@ -82,21 +82,8 @@ const KYCVerificationScreen = () => {
 
 
   const handleVerify = async () => {
-    if (!nin || nin.length !== 11) {
-      showToast("Please enter a valid 11-digit NIN.", TOAST_TYPE.ERROR);
-      return;
-    }
-
-    /* 
-    // Selfie is now optional for testing
-    if (!selfie) {
-      showToast("Please take a selfie for facial matching.", TOAST_TYPE.ERROR);
-      return;
-    }
-    */
-    
     if (!consentChecked) {
-      showToast("Please provide your consent to proceed.", TOAST_TYPE.WARNING);
+      showToast("Please check the consent box to proceed.", TOAST_TYPE.WARNING);
       return;
     }
 
@@ -164,12 +151,7 @@ const KYCVerificationScreen = () => {
             </Svg>
           </View>
           <Text style={styles.successTitle}>Identity Verified</Text>
-          <Text style={styles.successSubtitle}>Your National Identity has been successfully verified.</Text>
-          
-          <View style={styles.verifiedInfoCard}>
-            <Text style={styles.infoLabel}>Verified NIN</Text>
-            <Text style={styles.infoValue}>{nin.replace(/(\d{4})\d+(\d{3})/, "$1****$2")}</Text>
-          </View>
+          <Text style={styles.successSubtitle}>Your identity has been verified and your profile data has been updated.</Text>
 
           <TouchableOpacity style={styles.doneButton} onPress={() => router.back()}>
             <Text style={styles.doneButtonText}>Done</Text>
@@ -194,29 +176,15 @@ const KYCVerificationScreen = () => {
         </View>
 
         <ScrollView contentContainerStyle={styles.scrollContent}>
-          <Text style={styles.title}>Verify your Identity</Text>
+          <Text style={styles.title}>Verify Your Identity</Text>
           <Text style={styles.subtitle}>
-            We use Korapay to securely verify your NIN record based on official government databases.
+            Secure identity verification powered by Didit. Your government ID document details and full name will be automatically extracted and verified.
           </Text>
 
-          <View style={styles.inputContainer}>
-            <Text style={styles.inputLabel}>NIN (11 Digits)</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Enter your 11-digit NIN"
-              keyboardType="number-pad"
-              maxLength={11}
-              value={nin}
-              onChangeText={setNin}
-              editable={!isLoading}
-            />
-          </View>
-
-
           <View style={styles.noteContainer}>
-            <Text style={styles.noteTitle}>Important Note:</Text>
+            <Text style={styles.noteTitle}>Automatic Identity Matching:</Text>
             <Text style={styles.noteText}>
-              Your information is securely processed. We do not store your raw biometric data.
+              Didit automatically extracts your official full name, government document details, and facial liveness to update your profile.
             </Text>
           </View>
 
@@ -233,16 +201,16 @@ const KYCVerificationScreen = () => {
               )}
             </View>
             <Text style={styles.consentText}>
-              I consent to the verification of my NIN with official government records via Korapay.
+              I consent to the processing of my government ID document and facial verification via Didit.
             </Text>
           </TouchableOpacity>
         </ScrollView>
 
         <View style={styles.footer}>
           <TouchableOpacity
-            style={[styles.verifyButton, (!nin || !consentChecked || isLoading) && styles.disabledButton]}
+            style={[styles.verifyButton, (!consentChecked || isLoading) && styles.disabledButton]}
             onPress={handleVerify}
-            disabled={!nin || !consentChecked || isLoading}
+            disabled={!consentChecked || isLoading}
           >
             {isLoading ? (
               <ActivityIndicator color="white" />

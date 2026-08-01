@@ -165,6 +165,13 @@ const KYCVerificationScreen = () => {
       return;
     }
 
+    // Handle session not started/completed yet
+    const rawStatus = statusResult?.status || statusResult?.rawStatus || "";
+    if (rawStatus === "Not Started" || rawStatus === "Not_Started" || !rawStatus) {
+      showToast("Verification was not completed. Please try again.", TOAST_TYPE.WARNING);
+      return;
+    }
+
     showToast("Verification in progress or pending final review.", TOAST_TYPE.INFO);
   };
 

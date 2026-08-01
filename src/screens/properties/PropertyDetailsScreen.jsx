@@ -1065,6 +1065,23 @@ const PropertyDetailsScreen = () => {
       // 1. Fetch latest profile data to ensure we have up-to-date info
       const profileData = await profileService.getProfileData();
 
+      // 1b. Validate KYC Verification Status
+      const isKycVerified = profileData?.kycStatus === "VERIFIED" || profileData?.verified === true;
+      if (!isKycVerified) {
+        Alert.alert(
+          "Identity Verification Required",
+          "You must verify your identity to proceed with booking a property.",
+          [
+            { text: "Cancel", style: "cancel" },
+            {
+              text: "Verify Now",
+              onPress: () => router.push("/kyc-verification"),
+            },
+          ],
+        );
+        return;
+      }
+
       // 2. Validate Email
       if (!profileData?.email || !profileData?.emailAddress) {
         Alert.alert(

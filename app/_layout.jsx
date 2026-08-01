@@ -94,18 +94,26 @@ export default function RootLayout() {
 
   const checkAppStatus = async () => {
     try {
-      // Initialize API client with correct backend URL based on platform
-      await apiClient.initialize();
+      // 1. Run dynamic URL detection and config initializations concurrently to speed up launch
+      await Promise.all([
+        apiClient.initialize(),
+        authService.initialize()
+      ]);
 
-      // Initialize auth service with dynamic backend URL
-      await authService.initialize();
+      // 2. Load onboarding storage and authenticate status in parallel
+      const [onboardingValue, loggedIn] = await Promise.all([
+        AsyncStorage.getItem(ONBOARDING_KEY),
+        // Add a 4-second timeout guard so slow network refresh/cold backend never hangs the app launch spinner
+        Promise.race([
+          authService.isLoggedIn(),
+          new Promise((resolve) => setTimeout(() => {
+            console.warn("[App] Auth verification check timed out. Bypassing spinner.");
+            resolve(false);
+          }, 4000))
+        ])
+      ]);
 
-      // Check onboarding status
-      const onboardingValue = await AsyncStorage.getItem(ONBOARDING_KEY);
       setHasCompletedOnboarding(onboardingValue === "true");
-
-      // Check authentication status
-      const loggedIn = await authService.isLoggedIn();
       setIsAuthenticated(loggedIn);
     } catch (error) {
       console.error("Error checking app status:", error);

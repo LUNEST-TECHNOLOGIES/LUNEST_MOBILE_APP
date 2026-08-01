@@ -1,5 +1,19 @@
 import apiClient from "./apiClient";
 
+const extractErrorMessage = (error, fallbackMessage) => {
+  const responseData = error?.response?.data || error;
+
+  if (responseData && typeof responseData === "object") {
+    return responseData.message || responseData.error || fallbackMessage;
+  }
+
+  if (typeof responseData === "string" && responseData.trim()) {
+    return responseData;
+  }
+
+  return error?.message || fallbackMessage;
+};
+
 const kycService = {
   /**
    * Verify NIN and facial matching
@@ -15,7 +29,7 @@ const kycService = {
       return response.data;
     } catch (error) {
       console.error("KYC Verification Error:", error.response?.data || error.message);
-      throw error.response?.data || { message: "An error occurred during verification" };
+      throw new Error(extractErrorMessage(error, "An error occurred during verification"));
     }
   },
   /**
@@ -30,7 +44,25 @@ const kycService = {
       return response.data;
     } catch (error) {
       console.error("Didit Session Error:", error.response?.data || error.message);
-      throw error.response?.data || { message: "Failed to initialize Didit verification session" };
+      throw new Error(extractErrorMessage(error, "Failed to initialize Didit verification session"));
+    }
+  },
+
+  /**
+   * Initialize Didit database validation using a direct NIN input
+   * @param {string} nin
+   * @param {string} [callbackUrl]
+   */
+  validateDiditDatabase: async (nin, callbackUrl) => {
+    try {
+      const response = await apiClient.post("/v1/kyc/didit/database-validate", {
+        nin,
+        callbackUrl,
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Didit Database Validation Error:", error.response?.data || error.message);
+      throw new Error(extractErrorMessage(error, "Failed to validate ID number with Didit"));
     }
   },
 
@@ -45,7 +77,7 @@ const kycService = {
       return response.data;
     } catch (error) {
       console.error("Didit Status Error:", error.response?.data || error.message);
-      throw error.response?.data || { message: "Failed to check Didit verification status" };
+      throw new Error(extractErrorMessage(error, "Failed to check Didit verification status"));
     }
   },
 };

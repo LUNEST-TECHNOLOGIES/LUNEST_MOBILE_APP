@@ -46,10 +46,12 @@ const CameraIcon = ({ size = 32, color = "#010135" }) => (
 
 const KYCVerificationScreen = () => {
   const router = useRouter();
+  const [verificationMode, setVerificationMode] = useState("scan");
   const [nin, setNin] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
   const [consentChecked, setConsentChecked] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState("");
   
   // Toast state
   const [toastVisible, setToastVisible] = useState(false);
@@ -61,6 +63,26 @@ const KYCVerificationScreen = () => {
   const showToast = (message, type = TOAST_TYPE.SUCCESS) => {
     setToastConfig({ message, type });
     setToastVisible(true);
+  };
+
+  const getErrorMessage = (error, fallbackMessage) => {
+    if (error?.message) {
+      return error.message;
+    }
+
+    if (typeof error === "string" && error.trim()) {
+      return error;
+    }
+
+    if (error?.response?.data?.message) {
+      return error.response.data.message;
+    }
+
+    if (error?.response?.data?.error) {
+      return error.response.data.error;
+    }
+
+    return fallbackMessage;
   };
 
   useEffect(() => {
@@ -81,7 +103,75 @@ const KYCVerificationScreen = () => {
 
   const [rejectionReason, setRejectionReason] = useState(null);
 
-  const handleVerify = async () => {
+  const launchDiditSession = async (response) => {
+    const sessionUrl = response?.url || response?.session_url;
+    const sessionToken = response?.session_token || response?.sessionToken;
+    const sessionId = response?.sessionId || response?.session_id;
+
+    if (Platform.OS !== "web" && sessionToken) {
+      try {
+        const { DiditSdk } = require("@didit-protocol/sdk-react-native");
+        if (DiditSdk && typeof DiditSdk.startVerification === "function") {
+          await DiditSdk.startVerification(sessionToken);
+        } else if (sessionUrl) {
+          await WebBrowser.openBrowserAsync(sessionUrl);
+        }
+      } catch (sdkError) {
+        console.warn("[KYC] DiditSdk native module unavailable. Falling back to browser:", sdkError);
+        if (sessionUrl) {
+          await WebBrowser.openBrowserAsync(sessionUrl);
+        }
+      }
+    } else if (sessionUrl) {
+      if (Platform.OS === "web" && typeof window !== "undefined") {
+        window.open(sessionUrl, "_blank");
+      } else {
+        await WebBrowser.openBrowserAsync(sessionUrl);
+      }
+    } else if (response?.verified || response?.kycStatus === "VERIFIED") {
+      setIsVerified(true);
+      return { verified: true };
+    } else {
+      throw new Error("Failed to generate verification session. Please try again.");
+    }
+
+    return { sessionId };
+  };
+
+  const finalizeSession = async (sessionId, successMessage) => {
+    if (!sessionId) {
+      return;
+    }
+
+    const statusResult = await kycService.getDiditSessionStatus(sessionId);
+
+    if (statusResult?.verified || statusResult?.kycStatus === "VERIFIED") {
+      setIsVerified(true);
+      const currentUser = await getUserData();
+      if (currentUser) {
+        const updatedUser = {
+          ...currentUser,
+          verified: true,
+          kycStatus: "VERIFIED",
+          fullName: statusResult?.user?.fullName || currentUser.fullName,
+        };
+        await setUserData(updatedUser);
+      }
+      showToast(successMessage || "Identity verified successfully!", TOAST_TYPE.SUCCESS);
+      return;
+    }
+
+    if (statusResult?.kycStatus === "REJECTED") {
+      const reason = statusResult?.kycRejectionReason || "Verification was declined by provider.";
+      setRejectionReason(reason);
+      showToast(reason, TOAST_TYPE.ERROR);
+      return;
+    }
+
+    showToast("Verification in progress or pending final review.", TOAST_TYPE.INFO);
+  };
+
+  const handleHostedScan = async () => {
     if (!consentChecked) {
       showToast("Please check the consent box to proceed.", TOAST_TYPE.WARNING);
       return;
@@ -89,70 +179,59 @@ const KYCVerificationScreen = () => {
 
     try {
       setIsLoading(true);
+      setLoadingMessage("Starting hosted Didit verification...");
       setRejectionReason(null);
       showToast("Starting Identity Verification...", TOAST_TYPE.INFO);
 
       const response = await kycService.createDiditSession();
-      // kycService returns response.data directly — do NOT read .data again
-      const sessionUrl = response?.url || response?.session_url;
-      const sessionToken = response?.session_token || response?.sessionToken;
-      const sessionId = response?.sessionId || response?.session_id;
-
-      if (Platform.OS !== "web" && sessionToken) {
-        try {
-          const { DiditSdk } = require("@didit-protocol/sdk-react-native");
-          if (DiditSdk && typeof DiditSdk.startVerification === "function") {
-            await DiditSdk.startVerification(sessionToken);
-          } else if (sessionUrl) {
-            await WebBrowser.openBrowserAsync(sessionUrl);
-          }
-        } catch (sdkError) {
-          console.warn("[KYC] DiditSdk native module unavailable. Falling back to browser:", sdkError);
-          if (sessionUrl) {
-            await WebBrowser.openBrowserAsync(sessionUrl);
-          }
-        }
-      } else if (sessionUrl) {
-        if (Platform.OS === "web" && typeof window !== "undefined") {
-          window.open(sessionUrl, "_blank");
-        } else {
-          await WebBrowser.openBrowserAsync(sessionUrl);
-        }
-      } else {
-        showToast("Failed to generate verification session. Please try again.", TOAST_TYPE.ERROR);
-        setIsLoading(false);
-        return;
-      }
-
-      // Poll session status upon return — getDiditSessionStatus also returns response.data directly
-      const statusResult = await kycService.getDiditSessionStatus(sessionId);
-
-      if (statusResult?.verified || statusResult?.kycStatus === "VERIFIED") {
-        setIsVerified(true);
-        const currentUser = await getUserData();
-        if (currentUser) {
-          const updatedUser = {
-            ...currentUser,
-            verified: true,
-            kycStatus: "VERIFIED",
-            fullName: statusResult?.user?.fullName || currentUser.fullName,
-          };
-          await setUserData(updatedUser);
-        }
-        showToast("Identity verified successfully!", TOAST_TYPE.SUCCESS);
-      } else if (statusResult?.kycStatus === "REJECTED") {
-        const reason = statusResult?.kycRejectionReason || "Verification was declined by provider.";
-        setRejectionReason(reason);
-        showToast(reason, TOAST_TYPE.ERROR);
-      } else {
-        showToast("Verification in progress or pending final review.", TOAST_TYPE.INFO);
-      }
+      const { sessionId } = await launchDiditSession(response);
+      await finalizeSession(sessionId, "Identity verified successfully!");
     } catch (error) {
-      const errorMsg = error.message || "Could not verify identity.";
+      const errorMsg = getErrorMessage(error, "Could not verify identity.");
       console.error("[KYC] Verification error:", errorMsg);
       showToast(errorMsg, TOAST_TYPE.ERROR);
     } finally {
       setIsLoading(false);
+      setLoadingMessage("");
+    }
+  };
+
+  const handleDatabaseValidate = async () => {
+    if (!consentChecked) {
+      showToast("Please check the consent box to proceed.", TOAST_TYPE.WARNING);
+      return;
+    }
+
+    const cleanedNin = nin.trim();
+    if (!/^[0-9]{11}$/.test(cleanedNin)) {
+      showToast("Enter a valid 11-digit ID number.", TOAST_TYPE.WARNING);
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      setLoadingMessage("Starting Didit database validation...");
+      setRejectionReason(null);
+      showToast("Validating ID number...", TOAST_TYPE.INFO);
+
+      const response = await kycService.validateDiditDatabase(cleanedNin);
+      const { sessionId } = await launchDiditSession(response);
+
+      if (sessionId) {
+        await finalizeSession(sessionId, "ID number submitted successfully!");
+      } else if (response?.verified || response?.kycStatus === "VERIFIED") {
+        setIsVerified(true);
+        showToast("ID number verified successfully!", TOAST_TYPE.SUCCESS);
+      } else {
+        showToast(response?.message || "ID number submitted for validation.", TOAST_TYPE.SUCCESS);
+      }
+    } catch (error) {
+      const errorMsg = getErrorMessage(error, "Could not validate ID number.");
+      console.error("[KYC] Database validation error:", errorMsg);
+      showToast(errorMsg, TOAST_TYPE.ERROR);
+    } finally {
+      setIsLoading(false);
+      setLoadingMessage("");
     }
   };
 
@@ -247,44 +326,112 @@ const KYCVerificationScreen = () => {
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <Text style={styles.title}>Verify Your Identity</Text>
           <Text style={styles.subtitle}>
-            Secure identity verification powered by Didit. Your government ID document details and full name will be automatically extracted and verified.
+            Choose either the hosted Didit scan or a direct ID number validation flow. Both routes stay on Didit for now.
           </Text>
 
-          <View style={styles.noteContainer}>
-            <Text style={styles.noteTitle}>Automatic Identity Matching:</Text>
-            <Text style={styles.noteText}>
-              Didit automatically extracts your official full name, government document details, and facial liveness to update your profile.
-            </Text>
+          <View style={styles.tabContainer}>
+            <TouchableOpacity
+              style={[styles.tabButton, verificationMode === "scan" && styles.tabButtonActive]}
+              onPress={() => setVerificationMode("scan")}
+            >
+              <Text style={[styles.tabButtonText, verificationMode === "scan" && styles.tabButtonTextActive]}>
+                Hosted Scan
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.tabButton, verificationMode === "number" && styles.tabButtonActive]}
+              onPress={() => setVerificationMode("number")}
+            >
+              <Text style={[styles.tabButtonText, verificationMode === "number" && styles.tabButtonTextActive]}>
+                ID Number
+              </Text>
+            </TouchableOpacity>
           </View>
 
-          <TouchableOpacity 
-            style={styles.consentContainer} 
-            onPress={() => setConsentChecked(!consentChecked)}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.checkbox, consentChecked && styles.checkboxChecked]}>
-              {consentChecked && (
-                <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
-                  <Path d="M20 6L9 17L4 12" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-                </Svg>
-              )}
-            </View>
-            <Text style={styles.consentText}>
-              I consent to the processing of my government ID document and facial verification via Didit.
-            </Text>
-          </TouchableOpacity>
+          {verificationMode === "scan" ? (
+            <>
+              <View style={styles.noteContainer}>
+                <Text style={styles.noteTitle}>Hosted Didit scan:</Text>
+                <Text style={styles.noteText}>
+                  Use the hosted Didit flow to scan your document and complete liveness verification.
+                </Text>
+              </View>
+
+              <TouchableOpacity 
+                style={styles.consentContainer} 
+                onPress={() => setConsentChecked(!consentChecked)}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.checkbox, consentChecked && styles.checkboxChecked]}>
+                  {consentChecked && (
+                    <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
+                      <Path d="M20 6L9 17L4 12" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                    </Svg>
+                  )}
+                </View>
+                <Text style={styles.consentText}>
+                  I consent to the processing of my government ID document and facial verification via Didit.
+                </Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <View style={styles.noteContainer}>
+                <Text style={styles.noteTitle}>Direct ID validation:</Text>
+                <Text style={styles.noteText}>
+                  Enter your 11-digit ID number and submit it to the Didit database validation workflow.
+                </Text>
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>ID Number</Text>
+                <TextInput
+                  style={styles.input}
+                  value={nin}
+                  onChangeText={setNin}
+                  placeholder="Enter 11-digit ID number"
+                  placeholderTextColor="#999999"
+                  keyboardType="number-pad"
+                  maxLength={11}
+                />
+              </View>
+
+              <TouchableOpacity 
+                style={styles.consentContainer} 
+                onPress={() => setConsentChecked(!consentChecked)}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.checkbox, consentChecked && styles.checkboxChecked]}>
+                  {consentChecked && (
+                    <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
+                      <Path d="M20 6L9 17L4 12" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                    </Svg>
+                  )}
+                </View>
+                <Text style={styles.consentText}>
+                  I consent to the processing of my ID number through Didit for verification.
+                </Text>
+              </TouchableOpacity>
+            </>
+          )}
         </ScrollView>
 
         <View style={styles.footer}>
           <TouchableOpacity
             style={[styles.verifyButton, (!consentChecked || isLoading) && styles.disabledButton]}
-            onPress={handleVerify}
+            onPress={verificationMode === "scan" ? handleHostedScan : handleDatabaseValidate}
             disabled={!consentChecked || isLoading}
           >
             {isLoading ? (
-              <ActivityIndicator color="white" />
+              <View style={{ alignItems: "center" }}>
+                <ActivityIndicator color="white" />
+                {!!loadingMessage && <Text style={styles.verifyButtonSubtext}>{loadingMessage}</Text>}
+              </View>
             ) : (
-              <Text style={styles.verifyButtonText}>Verify Identity</Text>
+              <Text style={styles.verifyButtonText}>
+                {verificationMode === "scan" ? "Start Hosted Scan" : "Validate ID Number"}
+              </Text>
             )}
           </TouchableOpacity>
         </View>
@@ -301,8 +448,8 @@ const KYCVerificationScreen = () => {
         <View style={styles.loadingOverlay}>
           <View style={styles.loadingCard}>
             <ActivityIndicator size="large" color="#008751" />
-            <Text style={styles.loadingTitle}>Starting Identity Verification...</Text>
-            <Text style={styles.loadingSubtext}>Connecting to secure provider portal. Please complete your ID document scan and liveness check.</Text>
+            <Text style={styles.loadingTitle}>{loadingMessage || "Starting Identity Verification..."}</Text>
+            <Text style={styles.loadingSubtext}>Connecting to secure provider portal. Please complete the Didit flow in the browser or native SDK.</Text>
           </View>
         </View>
       )}
@@ -348,6 +495,35 @@ const styles = StyleSheet.create({
     color: "#666666",
     lineHeight: 20,
     marginBottom: 24,
+  },
+  tabContainer: {
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 20,
+  },
+  tabButton: {
+    flex: 1,
+    minHeight: 48,
+    borderWidth: 1,
+    borderColor: "#E0E0E0",
+    borderRadius: 12,
+    backgroundColor: "#F9F9F9",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 12,
+  },
+  tabButtonActive: {
+    backgroundColor: "#010135",
+    borderColor: "#010135",
+  },
+  tabButtonText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#4B5563",
+    textAlign: "center",
+  },
+  tabButtonTextActive: {
+    color: "#FFFFFF",
   },
   inputContainer: {
     marginBottom: 24,
@@ -466,6 +642,13 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 16,
     fontWeight: "bold",
+  },
+  verifyButtonSubtext: {
+    marginTop: 4,
+    color: "rgba(255,255,255,0.82)",
+    fontSize: 11,
+    fontWeight: "600",
+    textAlign: "center",
   },
   successContainer: {
     flex: 1,

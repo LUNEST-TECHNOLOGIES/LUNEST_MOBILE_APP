@@ -1108,7 +1108,9 @@ class AuthService {
             response.status,
             errorData,
           );
-          throw new Error(errorData.message || `HTTP ${response.status}`);
+          const refreshErr = new Error(errorData.message || `HTTP ${response.status}`);
+          refreshErr.status = response.status;
+          throw refreshErr;
         }
 
         const data = await response.json();
@@ -1410,11 +1412,9 @@ class AuthService {
         });
       }
 
-      // Get token (manually since we need custom headers for multipart)
-      const token = await secureStorageService.getSecureItem(
-        SECURE_KEYS.AUTH_TOKEN,
-      );
-      if (!token) throw new Error("No auth token found");
+      // Get token (refreshes if needed)
+      const token = await this.getToken();
+      if (!token) throw new Error("No auth token found. Please log in.");
 
       console.log("Uploading to:", `${this.baseURL}/v1/users/upload-avatar`);
 
@@ -1445,6 +1445,16 @@ class AuthService {
       console.log("Upload response:", data);
 
       if (!response.ok) {
+        if (response.status === 401) {
+          console.warn("[AuthService] 401 Unauthorized during uploadAvatar - logging out...");
+          await this._clearTokens();
+          try {
+            const { navigateToLogin } = require("../utils/navigationUtils");
+            navigateToLogin();
+          } catch (e) {
+            console.error("Navigation error:", e);
+          }
+        }
         throw new Error(data.message || "Failed to upload avatar");
       }
 
@@ -1699,6 +1709,21 @@ class AuthService {
       const data = await response.json();
       console.log("[AuthService] Send OTP response:", data);
 
+      if (response.status === 401) {
+        console.warn("[AuthService] 401 Unauthorized during sendPhoneOTP - logging out...");
+        await this._clearTokens();
+        try {
+          const { navigateToLogin } = require("../utils/navigationUtils");
+          navigateToLogin();
+        } catch (e) {
+          console.error("Navigation error:", e);
+        }
+        return {
+          success: false,
+          message: "Session expired. Please log in again.",
+        };
+      }
+
       if (response.ok && (data.success || data.status === "success")) {
         return {
           success: true,
@@ -1756,6 +1781,21 @@ class AuthService {
 
       const data = await response.json();
       console.log("[AuthService] Verify OTP response:", data);
+
+      if (response.status === 401) {
+        console.warn("[AuthService] 401 Unauthorized during verifyPhoneOTP - logging out...");
+        await this._clearTokens();
+        try {
+          const { navigateToLogin } = require("../utils/navigationUtils");
+          navigateToLogin();
+        } catch (e) {
+          console.error("Navigation error:", e);
+        }
+        return {
+          success: false,
+          message: "Session expired. Please log in again.",
+        };
+      }
 
       if (response.ok && (data.success || data.status === "success" || data.status === "VERIFIED")) {
         return {

@@ -129,6 +129,7 @@ const KYCVerificationScreen = () => {
       } else if (profile.data?.kycData?.sessionId) {
         setActiveSessionId(profile.data.kycData.sessionId);
         setActiveSessionUrl(profile.data.kycData.sessionUrl || "");
+        setConsentChecked(true); // Pre-approve consent since they have a session
       }
     } catch (error) {
       console.error("Error checking verification status:", error);
@@ -262,7 +263,7 @@ const KYCVerificationScreen = () => {
   };
 
   const handleHostedScan = async () => {
-    if (!consentChecked) {
+    if (!consentChecked && !activeSessionId) {
       showToast("Please check the consent box to proceed.", TOAST_TYPE.WARNING);
       return;
     }

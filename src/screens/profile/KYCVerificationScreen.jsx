@@ -11,7 +11,8 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  Linking
+  Linking,
+  RefreshControl
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Circle, Path } from "react-native-svg";
@@ -57,6 +58,7 @@ const KYCVerificationScreen = () => {
   const [activeSessionId, setActiveSessionId] = useState(null);
   const [activeSessionUrl, setActiveSessionUrl] = useState("");
   const [isStatusChecking, setIsStatusChecking] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
   // Toast state
   const [toastVisible, setToastVisible] = useState(false);
@@ -244,6 +246,21 @@ const KYCVerificationScreen = () => {
     }
   };
 
+  const handleRefresh = async () => {
+    try {
+      setIsRefreshing(true);
+      if (activeSessionId) {
+        await finalizeSession(activeSessionId, "Identity status updated.");
+      } else {
+        await checkVerificationStatus();
+      }
+    } catch (error) {
+      console.error("[KYC] Refresh error:", error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   const handleHostedScan = async () => {
     if (!consentChecked) {
       showToast("Please check the consent box to proceed.", TOAST_TYPE.WARNING);
@@ -409,7 +426,17 @@ const KYCVerificationScreen = () => {
           <View style={{ width: 40 }} />
         </View>
 
-        <ScrollView contentContainerStyle={styles.scrollContent}>
+        <ScrollView 
+          contentContainerStyle={styles.scrollContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={handleRefresh}
+              colors={["#008751"]}
+              tintColor="#008751"
+            />
+          }
+        >
           <Text style={styles.title}>Verify Your Identity</Text>
           <Text style={styles.subtitle}>
             Complete secure identity verification using your government document and facial scan.

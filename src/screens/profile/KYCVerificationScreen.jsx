@@ -46,8 +46,6 @@ const CameraIcon = ({ size = 32, color = "#010135" }) => (
 
 const KYCVerificationScreen = () => {
   const router = useRouter();
-  const [verificationMode, setVerificationMode] = useState("scan");
-  const [nin, setNin] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
   const [consentChecked, setConsentChecked] = useState(false);
@@ -94,7 +92,6 @@ const KYCVerificationScreen = () => {
       const profile = await authService.fetchProfile();
       if (profile.data?.kycStatus === "VERIFIED") {
         setIsVerified(true);
-        setNin(profile.data.nin || "");
       }
     } catch (error) {
       console.error("Error checking verification status:", error);
@@ -196,45 +193,6 @@ const KYCVerificationScreen = () => {
     }
   };
 
-  const handleDatabaseValidate = async () => {
-    if (!consentChecked) {
-      showToast("Please check the consent box to proceed.", TOAST_TYPE.WARNING);
-      return;
-    }
-
-    const cleanedNin = nin.trim();
-    if (!/^[0-9]{11}$/.test(cleanedNin)) {
-      showToast("Enter a valid 11-digit ID number.", TOAST_TYPE.WARNING);
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-      setLoadingMessage("Starting Didit database validation...");
-      setRejectionReason(null);
-      showToast("Validating ID number...", TOAST_TYPE.INFO);
-
-      const response = await kycService.validateDiditDatabase(cleanedNin);
-      const { sessionId } = await launchDiditSession(response);
-
-      if (sessionId) {
-        await finalizeSession(sessionId, "ID number submitted successfully!");
-      } else if (response?.verified || response?.kycStatus === "VERIFIED") {
-        setIsVerified(true);
-        showToast("ID number verified successfully!", TOAST_TYPE.SUCCESS);
-      } else {
-        showToast(response?.message || "ID number submitted for validation.", TOAST_TYPE.SUCCESS);
-      }
-    } catch (error) {
-      const errorMsg = getErrorMessage(error, "Could not validate ID number.");
-      console.error("[KYC] Database validation error:", errorMsg);
-      showToast(errorMsg, TOAST_TYPE.ERROR);
-    } finally {
-      setIsLoading(false);
-      setLoadingMessage("");
-    }
-  };
-
   if (isVerified) {
     return (
       <SafeAreaView style={styles.container}>
@@ -326,101 +284,38 @@ const KYCVerificationScreen = () => {
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <Text style={styles.title}>Verify Your Identity</Text>
           <Text style={styles.subtitle}>
-            Choose either the hosted Didit scan or a direct ID number validation flow. Both routes stay on Didit for now.
+            Complete identity verification with the hosted Didit scan flow.
           </Text>
 
-          <View style={styles.tabContainer}>
-            <TouchableOpacity
-              style={[styles.tabButton, verificationMode === "scan" && styles.tabButtonActive]}
-              onPress={() => setVerificationMode("scan")}
-            >
-              <Text style={[styles.tabButtonText, verificationMode === "scan" && styles.tabButtonTextActive]}>
-                Hosted Scan
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.tabButton, verificationMode === "number" && styles.tabButtonActive]}
-              onPress={() => setVerificationMode("number")}
-            >
-              <Text style={[styles.tabButtonText, verificationMode === "number" && styles.tabButtonTextActive]}>
-                ID Number
-              </Text>
-            </TouchableOpacity>
+          <View style={styles.noteContainer}>
+            <Text style={styles.noteTitle}>Hosted Didit scan:</Text>
+            <Text style={styles.noteText}>
+              Use the hosted Didit flow to scan your document and complete liveness verification.
+            </Text>
           </View>
 
-          {verificationMode === "scan" ? (
-            <>
-              <View style={styles.noteContainer}>
-                <Text style={styles.noteTitle}>Hosted Didit scan:</Text>
-                <Text style={styles.noteText}>
-                  Use the hosted Didit flow to scan your document and complete liveness verification.
-                </Text>
-              </View>
-
-              <TouchableOpacity 
-                style={styles.consentContainer} 
-                onPress={() => setConsentChecked(!consentChecked)}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.checkbox, consentChecked && styles.checkboxChecked]}>
-                  {consentChecked && (
-                    <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
-                      <Path d="M20 6L9 17L4 12" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-                    </Svg>
-                  )}
-                </View>
-                <Text style={styles.consentText}>
-                  I consent to the processing of my government ID document and facial verification via Didit.
-                </Text>
-              </TouchableOpacity>
-            </>
-          ) : (
-            <>
-              <View style={styles.noteContainer}>
-                <Text style={styles.noteTitle}>Direct ID validation:</Text>
-                <Text style={styles.noteText}>
-                  Enter your 11-digit ID number and submit it to the Didit database validation workflow.
-                </Text>
-              </View>
-
-              <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>ID Number</Text>
-                <TextInput
-                  style={styles.input}
-                  value={nin}
-                  onChangeText={setNin}
-                  placeholder="Enter 11-digit ID number"
-                  placeholderTextColor="#999999"
-                  keyboardType="number-pad"
-                  maxLength={11}
-                />
-              </View>
-
-              <TouchableOpacity 
-                style={styles.consentContainer} 
-                onPress={() => setConsentChecked(!consentChecked)}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.checkbox, consentChecked && styles.checkboxChecked]}>
-                  {consentChecked && (
-                    <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
-                      <Path d="M20 6L9 17L4 12" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-                    </Svg>
-                  )}
-                </View>
-                <Text style={styles.consentText}>
-                  I consent to the processing of my ID number through Didit for verification.
-                </Text>
-              </TouchableOpacity>
-            </>
-          )}
+          <TouchableOpacity 
+            style={styles.consentContainer} 
+            onPress={() => setConsentChecked(!consentChecked)}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.checkbox, consentChecked && styles.checkboxChecked]}>
+              {consentChecked && (
+                <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
+                  <Path d="M20 6L9 17L4 12" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                </Svg>
+              )}
+            </View>
+            <Text style={styles.consentText}>
+              I consent to the processing of my government ID document and facial verification via Didit.
+            </Text>
+          </TouchableOpacity>
         </ScrollView>
 
         <View style={styles.footer}>
           <TouchableOpacity
             style={[styles.verifyButton, (!consentChecked || isLoading) && styles.disabledButton]}
-            onPress={verificationMode === "scan" ? handleHostedScan : handleDatabaseValidate}
+            onPress={handleHostedScan}
             disabled={!consentChecked || isLoading}
           >
             {isLoading ? (
@@ -429,9 +324,7 @@ const KYCVerificationScreen = () => {
                 {!!loadingMessage && <Text style={styles.verifyButtonSubtext}>{loadingMessage}</Text>}
               </View>
             ) : (
-              <Text style={styles.verifyButtonText}>
-                {verificationMode === "scan" ? "Start Hosted Scan" : "Validate ID Number"}
-              </Text>
+              <Text style={styles.verifyButtonText}>Start Hosted Scan</Text>
             )}
           </TouchableOpacity>
         </View>

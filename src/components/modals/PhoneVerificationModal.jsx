@@ -107,13 +107,10 @@ const PhoneVerificationModal = ({ visible, phone, onClose, onVerified }) => {
     }
   }, [resendTimer]);
 
-  // Validate Nigerian phone number
+  // Validate phone number length and format
   const validatePhone = (number) => {
-    const cleaned = number.replace(/\s/g, '');
-    // Accept: 070x, 080x, 081x, 090x, 091x (local)
-    // Accept: +234 or 234 prefix with same patterns
-    const validPattern = /^(0[789][01]\d{8}|\+?234[789][01]\d{8})$/;
-    return validPattern.test(cleaned);
+    const cleaned = number.replace(/[\s\-()+]/g, '');
+    return /^\d{10,15}$/.test(cleaned);
   };
 
   // Format phone number for display

@@ -481,6 +481,13 @@ const PersonalInfoEditScreen = () => {
       return;
     }
 
+    // Direct verification trigger since they already have a phone number but it's unverified!
+    if (field === "phone" && userData.phone && !userData.phoneVerified) {
+      setPendingPhoneUpdate(userData.phone);
+      setShowPhoneVerificationModal(true);
+      return;
+    }
+
     const fieldLabels = {
       name: "Name",
       email: "Email",
@@ -639,44 +646,46 @@ const PersonalInfoEditScreen = () => {
             </View>
           )}
         </View>
-        {isComingSoon ? (
-          <View style={styles.comingSoonBadge}>
-            <Text style={styles.comingSoonText}>COMING SOON</Text>
-          </View>
-        ) : showVerification ? (
-          <View style={styles.verificationBadge}>
-            {isVerified ? (
-              <>
-                <VerifiedCheckIcon size={18} />
-                <Text style={[styles.verificationText, { color: "#4CAF50" }]}>
-                  VERIFIED
-                </Text>
-              </>
-            ) : (
-              <>
-                <UnverifiedIcon size={18} />
-                <Text style={[styles.verificationText, { color: "#EF6C00" }]}>
-                  UNVERIFIED
-                </Text>
-              </>
-            )}
-          </View>
-        ) : value ? (
-          <Text style={styles.infoValue}>{value}</Text>
-        ) : null}
-        {actionText && !showVerification && (
-          <TouchableOpacity onPress={onAction} disabled={disabled}>
-            <Text
-              style={[
-                styles.actionText,
-                disabled && styles.actionTextDisabled,
-                actionText === "Add NIN" && styles.actionTextOrange,
-              ]}
-            >
-              {actionText}
-            </Text>
-          </TouchableOpacity>
-        )}
+        <View style={styles.rightContainer}>
+          {isComingSoon ? (
+            <View style={styles.comingSoonBadge}>
+              <Text style={styles.comingSoonText}>COMING SOON</Text>
+            </View>
+          ) : showVerification ? (
+            <View style={styles.verificationBadge}>
+              {isVerified ? (
+                <>
+                  <VerifiedCheckIcon size={18} />
+                  <Text style={[styles.verificationText, { color: "#4CAF50" }]}>
+                    VERIFIED
+                  </Text>
+                </>
+              ) : (
+                <>
+                  <UnverifiedIcon size={18} />
+                  <Text style={[styles.verificationText, { color: "#EF6C00" }]}>
+                    UNVERIFIED
+                  </Text>
+                </>
+              )}
+            </View>
+          ) : value ? (
+            <Text style={styles.infoValue}>{value}</Text>
+          ) : null}
+          {actionText && (
+            <TouchableOpacity onPress={onAction} disabled={disabled}>
+              <Text
+                style={[
+                  styles.actionText,
+                  disabled && styles.actionTextDisabled,
+                  actionText === "Add NIN" && styles.actionTextOrange,
+                ]}
+              >
+                {actionText}
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
     );
   };
@@ -776,7 +785,13 @@ const PersonalInfoEditScreen = () => {
           />
           <InfoRow
             label={userData.phone || "Phone Number"}
-            actionText="Update"
+            actionText={
+              !userData.phone
+                ? "Add"
+                : !userData.phoneVerified
+                ? "Verify"
+                : "Update"
+            }
             onAction={() => handleUpdate("phone")}
             isEmpty={!userData.phone}
             showVerification={!!userData.phone}
@@ -1171,6 +1186,11 @@ const styles = StyleSheet.create({
   actionTextOrange: {
     color: "#EF6C00",
     fontWeight: "600",
+  },
+  rightContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
   },
   verificationBadge: {
     flexDirection: "row",

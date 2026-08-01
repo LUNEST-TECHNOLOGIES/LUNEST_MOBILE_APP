@@ -1695,7 +1695,8 @@ class AuthService {
         };
       }
 
-      console.log("[AuthService] Sending OTP to phone:", phone);
+      const phoneStr = typeof phone === 'object' ? (phone?.phone || phone?.phoneNumber || "") : (phone || "");
+      console.log("[AuthService] Sending OTP to phone:", phoneStr);
 
       const response = await fetch(`${this.baseURL}/v1/kyc/verify-phone/send-otp`, {
         method: "POST",
@@ -1703,7 +1704,7 @@ class AuthService {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ phone }),
+        body: JSON.stringify({ phone: phoneStr, phoneNumber: phoneStr }),
       });
 
       const data = await response.json();

@@ -789,6 +789,8 @@ const PersonalInfoEditScreen = () => {
             onAction={() => !userData.email && handleUpdate("email")}
             disabled={!!userData.email}
             isEmpty={!userData.email}
+            showVerification={!!userData.email}
+            isVerified={!!userData.email}
           />
           <InfoRow
             label={userData.phone || "Phone Number"}

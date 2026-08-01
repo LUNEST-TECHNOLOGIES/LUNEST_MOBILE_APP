@@ -1,7 +1,6 @@
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import * as WebBrowser from "expo-web-browser";
-import { DiditSdk } from "@didit-protocol/sdk-react-native";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -94,10 +93,26 @@ const KYCVerificationScreen = () => {
       const sessionToken = response.data?.session_token || response.data?.sessionToken || response.session_token || response.sessionToken;
       const sessionId = response.data?.sessionId || response.data?.session_id || response.sessionId;
 
-      if (sessionToken && typeof DiditSdk?.startVerification === "function") {
-        await DiditSdk.startVerification(sessionToken);
+      if (Platform.OS !== "web" && sessionToken) {
+        try {
+          const { DiditSdk } = require("@didit-protocol/sdk-react-native");
+          if (DiditSdk && typeof DiditSdk.startVerification === "function") {
+            await DiditSdk.startVerification(sessionToken);
+          } else if (sessionUrl) {
+            await WebBrowser.openBrowserAsync(sessionUrl);
+          }
+        } catch (sdkError) {
+          console.warn("[KYC] DiditSdk native module unavailable. Falling back to browser:", sdkError);
+          if (sessionUrl) {
+            await WebBrowser.openBrowserAsync(sessionUrl);
+          }
+        }
       } else if (sessionUrl) {
-        await WebBrowser.openBrowserAsync(sessionUrl);
+        if (Platform.OS === "web" && typeof window !== "undefined") {
+          window.open(sessionUrl, "_blank");
+        } else {
+          await WebBrowser.openBrowserAsync(sessionUrl);
+        }
       } else {
         showToast("Failed to generate verification session. Please try again.", TOAST_TYPE.ERROR);
         return;

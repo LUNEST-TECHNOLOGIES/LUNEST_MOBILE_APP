@@ -102,34 +102,29 @@ const KYCVerificationScreen = () => {
 
   const launchDiditSession = async (response) => {
     const sessionUrl = response?.url || response?.session_url;
-    const sessionToken = response?.session_token || response?.sessionToken;
     const sessionId = response?.sessionId || response?.session_id;
 
-    if (Platform.OS !== "web" && sessionToken) {
-      try {
-        const { DiditSdk } = require("@didit-protocol/sdk-react-native");
-        if (DiditSdk && typeof DiditSdk.startVerification === "function") {
-          await DiditSdk.startVerification(sessionToken);
-        } else if (sessionUrl) {
-          await WebBrowser.openBrowserAsync(sessionUrl);
-        }
-      } catch (sdkError) {
-        console.warn("[KYC] DiditSdk native module unavailable. Falling back to browser:", sdkError);
-        if (sessionUrl) {
-          await WebBrowser.openBrowserAsync(sessionUrl);
-        }
+    if (!sessionUrl) {
+      if (response?.verified || response?.kycStatus === "VERIFIED") {
+        setIsVerified(true);
+        return { verified: true };
       }
-    } else if (sessionUrl) {
-      if (Platform.OS === "web" && typeof window !== "undefined") {
-        window.open(sessionUrl, "_blank");
-      } else {
-        await WebBrowser.openBrowserAsync(sessionUrl);
-      }
-    } else if (response?.verified || response?.kycStatus === "VERIFIED") {
-      setIsVerified(true);
-      return { verified: true };
-    } else {
       throw new Error("Failed to generate verification session. Please try again.");
+    }
+
+    console.log("[KYC] Opening Didit verification session URL:", sessionUrl);
+
+    if (Platform.OS === "web") {
+      if (typeof window !== "undefined") {
+        window.open(sessionUrl, "_blank");
+      }
+    } else {
+      // Open securely in Expo's built-in in-app browser
+      await WebBrowser.openBrowserAsync(sessionUrl, {
+        showTitle: true,
+        enableBarCollapsing: true,
+        dismissButtonStyle: "close",
+      });
     }
 
     return { sessionId };

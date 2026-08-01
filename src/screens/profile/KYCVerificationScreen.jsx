@@ -79,6 +79,7 @@ const KYCVerificationScreen = () => {
     }
   };
 
+  const [rejectionReason, setRejectionReason] = useState(null);
 
   const handleVerify = async () => {
     if (!consentChecked) {
@@ -87,7 +88,10 @@ const KYCVerificationScreen = () => {
     }
 
     try {
-      showToast("Initializing Didit verification...", TOAST_TYPE.INFO);
+      setIsLoading(true);
+      setRejectionReason(null);
+      showToast("Starting Identity Verification...", TOAST_TYPE.INFO);
+
       const response = await kycService.createDiditSession();
       const sessionUrl = response.data?.url || response.url;
       const sessionToken = response.data?.session_token || response.data?.sessionToken || response.session_token || response.sessionToken;
@@ -115,11 +119,11 @@ const KYCVerificationScreen = () => {
         }
       } else {
         showToast("Failed to generate verification session. Please try again.", TOAST_TYPE.ERROR);
+        setIsLoading(false);
         return;
       }
 
-      // Check session status upon return
-      setIsLoading(true);
+      // Poll session status upon return
       const statusResult = await kycService.getDiditSessionStatus(sessionId);
 
       if (statusResult.data?.verified || statusResult.data?.kycStatus === "VERIFIED") {
@@ -135,9 +139,12 @@ const KYCVerificationScreen = () => {
           await setUserData(updatedUser);
         }
         showToast("Identity verified successfully!", TOAST_TYPE.SUCCESS);
-        setTimeout(() => router.back(), 2500);
+      } else if (statusResult.data?.kycStatus === "REJECTED") {
+        const reason = statusResult.data?.kycRejectionReason || "Verification was declined by provider.";
+        setRejectionReason(reason);
+        showToast(reason, TOAST_TYPE.ERROR);
       } else {
-        showToast("Verification session completed. Updating status...", TOAST_TYPE.INFO);
+        showToast("Verification in progress or pending final review.", TOAST_TYPE.INFO);
       }
     } catch (error) {
       const errorMsg = error.message || "Could not verify identity.";
@@ -165,12 +172,58 @@ const KYCVerificationScreen = () => {
               <Path d="M8 12L11 15L16 9" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             </Svg>
           </View>
-          <Text style={styles.successTitle}>Identity Verified</Text>
-          <Text style={styles.successSubtitle}>Your identity has been verified and your profile data has been updated.</Text>
+          <Text style={styles.successTitle}>Identity Verified! 🎉</Text>
+          <Text style={styles.successSubtitle}>Your identity has been verified. Your full name and verified government ID have been synced to your account profile.</Text>
 
-          <TouchableOpacity style={styles.doneButton} onPress={() => router.back()}>
-            <Text style={styles.doneButtonText}>Done</Text>
+          <View style={{ width: "100%", gap: 12, marginTop: 24 }}>
+            <TouchableOpacity style={styles.doneButton} onPress={() => router.replace("/(tabs)")}>
+              <Text style={styles.doneButtonText}>Explore Properties (Home)</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[styles.doneButton, { backgroundColor: "#F3F4F6", borderWidth: 1, borderColor: "#E5E7EB" }]} 
+              onPress={() => router.push("/profile/personal-info-edit")}
+            >
+              <Text style={[styles.doneButtonText, { color: "#1F2937" }]}>Back to Profile</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (rejectionReason) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <BackIcon />
           </TouchableOpacity>
+          <Text style={styles.headerTitle}>Verification Status</Text>
+          <View style={{ width: 40 }} />
+        </View>
+        <View style={styles.successContainer}>
+          <View style={[styles.successIcon, { backgroundColor: "#FEF2F2" }]}>
+            <Svg width={80} height={80} viewBox="0 0 24 24" fill="none">
+              <Circle cx="12" cy="12" r="10" fill="#EF4444" />
+              <Path d="M12 8V12M12 16H12.01" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </Svg>
+          </View>
+          <Text style={styles.successTitle}>Verification Needs Attention ⚠️</Text>
+          <Text style={[styles.successSubtitle, { color: "#DC2626" }]}>{rejectionReason}</Text>
+
+          <View style={{ width: "100%", gap: 12, marginTop: 24 }}>
+            <TouchableOpacity style={styles.doneButton} onPress={() => setRejectionReason(null)}>
+              <Text style={styles.doneButtonText}>Try Verification Again</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[styles.doneButton, { backgroundColor: "#F3F4F6", borderWidth: 1, borderColor: "#E5E7EB" }]} 
+              onPress={() => router.push("/profile/personal-info-edit")}
+            >
+              <Text style={[styles.doneButtonText, { color: "#1F2937" }]}>Back to Profile</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </SafeAreaView>
     );
@@ -242,6 +295,16 @@ const KYCVerificationScreen = () => {
         message={toastConfig.message}
         onHide={() => setToastVisible(false)}
       />
+
+      {isLoading && (
+        <View style={styles.loadingOverlay}>
+          <View style={styles.loadingCard}>
+            <ActivityIndicator size="large" color="#008751" />
+            <Text style={styles.loadingTitle}>Starting Identity Verification...</Text>
+            <Text style={styles.loadingSubtext}>Connecting to secure provider portal. Please complete your ID document scan and liveness check.</Text>
+          </View>
+        </View>
+      )}
     </SafeAreaView>
   );
 };
@@ -455,6 +518,41 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 16,
     fontWeight: "bold",
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0, 0, 0, 0.65)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+    zIndex: 999,
+  },
+  loadingCard: {
+    width: "100%",
+    maxWidth: 340,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    padding: 28,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 15,
+    elevation: 10,
+  },
+  loadingTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#010135",
+    marginTop: 16,
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  loadingSubtext: {
+    fontSize: 13,
+    color: "#64748B",
+    textAlign: "center",
+    lineHeight: 18,
   },
 });
 

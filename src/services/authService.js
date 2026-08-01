@@ -1699,10 +1699,10 @@ class AuthService {
       const data = await response.json();
       console.log("[AuthService] Send OTP response:", data);
 
-      if (response.ok && data.status === "success") {
+      if (response.ok && (data.success || data.status === "success")) {
         return {
           success: true,
-          data: data.data,
+          data: data.data || data,
           message: data.message || "OTP sent successfully",
         };
       }
@@ -1757,10 +1757,10 @@ class AuthService {
       const data = await response.json();
       console.log("[AuthService] Verify OTP response:", data);
 
-      if (response.ok && data.status === "success") {
+      if (response.ok && (data.success || data.status === "success" || data.status === "VERIFIED")) {
         return {
           success: true,
-          data: data.data,
+          data: data.data || data,
           message: data.message || "Phone verified successfully",
         };
       }

@@ -93,9 +93,10 @@ const KYCVerificationScreen = () => {
       showToast("Starting Identity Verification...", TOAST_TYPE.INFO);
 
       const response = await kycService.createDiditSession();
-      const sessionUrl = response.data?.url || response.url;
-      const sessionToken = response.data?.session_token || response.data?.sessionToken || response.session_token || response.sessionToken;
-      const sessionId = response.data?.sessionId || response.data?.session_id || response.sessionId;
+      // kycService returns response.data directly — do NOT read .data again
+      const sessionUrl = response?.url || response?.session_url;
+      const sessionToken = response?.session_token || response?.sessionToken;
+      const sessionId = response?.sessionId || response?.session_id;
 
       if (Platform.OS !== "web" && sessionToken) {
         try {
@@ -123,10 +124,10 @@ const KYCVerificationScreen = () => {
         return;
       }
 
-      // Poll session status upon return
+      // Poll session status upon return — getDiditSessionStatus also returns response.data directly
       const statusResult = await kycService.getDiditSessionStatus(sessionId);
 
-      if (statusResult.data?.verified || statusResult.data?.kycStatus === "VERIFIED") {
+      if (statusResult?.verified || statusResult?.kycStatus === "VERIFIED") {
         setIsVerified(true);
         const currentUser = await getUserData();
         if (currentUser) {
@@ -134,13 +135,13 @@ const KYCVerificationScreen = () => {
             ...currentUser,
             verified: true,
             kycStatus: "VERIFIED",
-            fullName: statusResult.data?.user?.fullName || currentUser.fullName,
+            fullName: statusResult?.user?.fullName || currentUser.fullName,
           };
           await setUserData(updatedUser);
         }
         showToast("Identity verified successfully!", TOAST_TYPE.SUCCESS);
-      } else if (statusResult.data?.kycStatus === "REJECTED") {
-        const reason = statusResult.data?.kycRejectionReason || "Verification was declined by provider.";
+      } else if (statusResult?.kycStatus === "REJECTED") {
+        const reason = statusResult?.kycRejectionReason || "Verification was declined by provider.";
         setRejectionReason(reason);
         showToast(reason, TOAST_TYPE.ERROR);
       } else {

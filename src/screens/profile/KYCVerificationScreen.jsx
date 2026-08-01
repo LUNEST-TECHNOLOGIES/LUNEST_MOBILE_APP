@@ -1,4 +1,4 @@
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import * as WebBrowser from "expo-web-browser";
 import {
@@ -47,6 +47,7 @@ const CameraIcon = ({ size = 32, color = "#010135" }) => (
 
 const KYCVerificationScreen = () => {
   const router = useRouter();
+  const params = useLocalSearchParams();
   const [isLoading, setIsLoading] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
   const [consentChecked, setConsentChecked] = useState(false);
@@ -96,10 +97,18 @@ const KYCVerificationScreen = () => {
         router.replace("/login");
         return;
       }
-      checkVerificationStatus();
+      
+      const urlSessionId = params?.sessionId || params?.verificationSessionId;
+      if (urlSessionId) {
+        console.log("[KYC] Found redirect sessionId in URL params:", urlSessionId);
+        setActiveSessionId(urlSessionId);
+        await finalizeSession(urlSessionId, "Identity verified successfully!");
+      } else {
+        checkVerificationStatus();
+      }
     };
     init();
-  }, []);
+  }, [params?.sessionId, params?.verificationSessionId]);
 
   const checkVerificationStatus = async () => {
     try {
@@ -244,7 +253,7 @@ const KYCVerificationScreen = () => {
       
       if (Platform.OS === "web" && typeof window !== "undefined") {
         const origin = window.location.origin;
-        callbackUrl = `${baseURL}/v1/kyc/didit/webhook?platform=pwa&origin=${encodeURIComponent(origin + "/profile/personal-info-edit")}`;
+        callbackUrl = `${baseURL}/v1/kyc/didit/webhook?platform=pwa&origin=${encodeURIComponent(origin + "/kyc-verification")}`;
       } else {
         callbackUrl = `${baseURL}/v1/kyc/didit/webhook?platform=native`;
       }

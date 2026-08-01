@@ -678,6 +678,20 @@ const BookingSummary = () => {
   };
 
   const handleProceedToPayment = async () => {
+    try {
+      const profile = await authService.fetchProfile();
+      const isVerified = profile?.data?.kycStatus === "VERIFIED" || !!profile?.data?.verified;
+      if (!isVerified) {
+        showToast("Identity Verification Required. Please complete KYC verification before placing a booking.", TOAST_TYPE.WARNING);
+        setTimeout(() => {
+          router.push("/profile/kyc-verification");
+        }, 1200);
+        return;
+      }
+    } catch (err) {
+      console.warn("[BookingSummary] Failed to check KYC status:", err);
+    }
+
     // Show confirmation modal first
     setShowConfirmModal(true);
   };

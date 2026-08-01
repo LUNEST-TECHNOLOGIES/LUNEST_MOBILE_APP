@@ -714,11 +714,13 @@ const PersonalInfoEditScreen = () => {
         {/* Personal Verification Section */}
         <SectionCard title="Personal verification">
           <InfoRow
-            label={userData.name || "Name"}
-            actionText={userData.isVerified ? "Verified" : "Update"}
-            onAction={() => handleUpdate("name")}
-            disabled={userData.isVerified}
+            label={userData.name ? `Name: ${userData.name}` : "Name"}
+            actionText={userData.isVerified ? "Verified" : ""}
+            onAction={null}
+            disabled={true}
             isEmpty={!userData.name}
+            showVerification={userData.isVerified}
+            isVerified={userData.isVerified}
           />
           <InfoRow
             label={userData.email || "Email"}

@@ -1,6 +1,7 @@
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import * as WebBrowser from "expo-web-browser";
+import { DiditSdk } from "@didit-protocol/sdk-react-native";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -103,34 +104,38 @@ const KYCVerificationScreen = () => {
       showToast("Initializing Didit verification...", TOAST_TYPE.INFO);
       const response = await kycService.createDiditSession();
       const sessionUrl = response.data?.url || response.url;
-      const sessionId = response.data?.sessionId || response.sessionId;
+      const sessionToken = response.data?.session_token || response.data?.sessionToken || response.session_token || response.sessionToken;
+      const sessionId = response.data?.sessionId || response.data?.session_id || response.sessionId;
 
-      if (sessionUrl) {
+      if (sessionToken && typeof DiditSdk?.startVerification === "function") {
+        await DiditSdk.startVerification(sessionToken);
+      } else if (sessionUrl) {
         await WebBrowser.openBrowserAsync(sessionUrl);
-
-        // Check session status upon return from browser
-        setIsLoading(true);
-        const statusResult = await kycService.getDiditSessionStatus(sessionId);
-
-        if (statusResult.data?.verified || statusResult.data?.kycStatus === "VERIFIED") {
-          setIsVerified(true);
-          const currentUser = await getUserData();
-          if (currentUser) {
-            const updatedUser = {
-              ...currentUser,
-              verified: true,
-              kycStatus: "VERIFIED",
-              fullName: statusResult.data?.user?.fullName || currentUser.fullName,
-            };
-            await setUserData(updatedUser);
-          }
-          showToast("Identity verified successfully!", TOAST_TYPE.SUCCESS);
-          setTimeout(() => router.back(), 2500);
-        } else {
-          showToast("Verification session completed. Updating status...", TOAST_TYPE.INFO);
-        }
       } else {
-        showToast("Failed to generate verification URL. Please try again.", TOAST_TYPE.ERROR);
+        showToast("Failed to generate verification session. Please try again.", TOAST_TYPE.ERROR);
+        return;
+      }
+
+      // Check session status upon return
+      setIsLoading(true);
+      const statusResult = await kycService.getDiditSessionStatus(sessionId);
+
+      if (statusResult.data?.verified || statusResult.data?.kycStatus === "VERIFIED") {
+        setIsVerified(true);
+        const currentUser = await getUserData();
+        if (currentUser) {
+          const updatedUser = {
+            ...currentUser,
+            verified: true,
+            kycStatus: "VERIFIED",
+            fullName: statusResult.data?.user?.fullName || currentUser.fullName,
+          };
+          await setUserData(updatedUser);
+        }
+        showToast("Identity verified successfully!", TOAST_TYPE.SUCCESS);
+        setTimeout(() => router.back(), 2500);
+      } else {
+        showToast("Verification session completed. Updating status...", TOAST_TYPE.INFO);
       }
     } catch (error) {
       const errorMsg = error.message || "Could not verify identity.";

@@ -139,6 +139,7 @@ const PersonalInfoEditScreen = () => {
     name: "",
     email: "",
     phone: "",
+    phoneVerified: false,
     gender: "",
     location: "",
     nin: "", // NIN / document number
@@ -309,6 +310,7 @@ const PersonalInfoEditScreen = () => {
             return savedAvatar || prev.avatarUri;
           })(),
           isVerified: serverProfileResult?.data?.kycStatus === 'VERIFIED' || !!serverProfileResult?.data?.verified || false,
+          phoneVerified: !!serverProfileResult?.data?.phoneVerified || false,
         }));
       } else if (
         authData ||
@@ -333,6 +335,7 @@ const PersonalInfoEditScreen = () => {
              return prev.avatarUri;
           })(),
           isVerified: serverProfileResult?.data?.kycStatus === 'VERIFIED' || !!serverProfileResult?.data?.verified || false,
+          phoneVerified: !!serverProfileResult?.data?.phoneVerified || false,
         }));
       }
     } catch (error) {
@@ -776,6 +779,8 @@ const PersonalInfoEditScreen = () => {
             actionText="Update"
             onAction={() => handleUpdate("phone")}
             isEmpty={!userData.phone}
+            showVerification={!!userData.phone}
+            isVerified={userData.phoneVerified}
           />
           <InfoRow
             label={userData.gender ? `Gender: ${userData.gender}` : "Gender: Not set"}

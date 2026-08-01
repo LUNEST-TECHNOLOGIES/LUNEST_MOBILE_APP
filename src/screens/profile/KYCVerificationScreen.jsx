@@ -167,7 +167,8 @@ const KYCVerificationScreen = () => {
 
     if (Platform.OS === "web") {
       if (typeof window !== "undefined") {
-        window.open(sessionUrl, "_blank");
+        // Redirect current window directly to prevent mobile browser pop-up blockers
+        window.location.href = sessionUrl;
       }
     } else {
       // Try to open with DiditSdk first if sessionToken exists

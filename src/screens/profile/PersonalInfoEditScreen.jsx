@@ -734,13 +734,13 @@ const PersonalInfoEditScreen = () => {
             isEmpty={!userData.phone}
           />
           <InfoRow
-            label={userData.gender ? `Gender: ${userData.gender}` : "Gender"}
-            actionText={userData.isVerified ? "Verified" : (userData.gender ? "Update" : "Add")}
-            onAction={() => handleUpdate("gender")}
+            label={userData.gender ? `Gender: ${userData.gender}` : "Gender: Not set"}
+            actionText={userData.isVerified ? "Verified" : ""}
+            onAction={null}
             isEmpty={!userData.gender}
             showVerification={userData.isVerified}
             isVerified={userData.isVerified}
-            disabled={userData.isVerified}
+            disabled={true}
           />
           <InfoRow
             label={userData.location || "Location"}

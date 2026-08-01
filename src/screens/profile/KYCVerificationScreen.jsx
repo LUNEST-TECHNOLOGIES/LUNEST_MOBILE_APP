@@ -10,7 +10,8 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
+  Linking
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Circle, Path } from "react-native-svg";
@@ -52,6 +53,8 @@ const KYCVerificationScreen = () => {
   const [loadingMessage, setLoadingMessage] = useState("");
   const [verifiedName, setVerifiedName] = useState("");
   const [verifiedId, setVerifiedId] = useState("");
+  const [activeSessionId, setActiveSessionId] = useState(null);
+  const [activeSessionUrl, setActiveSessionUrl] = useState("");
   
   // Toast state
   const [toastVisible, setToastVisible] = useState(false);
@@ -86,7 +89,16 @@ const KYCVerificationScreen = () => {
   };
 
   useEffect(() => {
-    checkVerificationStatus();
+    const init = async () => {
+      const loggedIn = await authService.isLoggedIn();
+      if (!loggedIn) {
+        console.warn("[KYC] User not logged in, redirecting to login");
+        router.replace("/login");
+        return;
+      }
+      checkVerificationStatus();
+    };
+    init();
   }, []);
 
   const checkVerificationStatus = async () => {
@@ -102,9 +114,24 @@ const KYCVerificationScreen = () => {
           const masked = rawNin.replace(/^(\d{3,4})\d+(\d{3})$/, "$1****$2");
           setVerifiedId(masked);
         }
+      } else if (profile.data?.kycData?.sessionId) {
+        setActiveSessionId(profile.data.kycData.sessionId);
+        setActiveSessionUrl(profile.data.kycData.sessionUrl || "");
       }
     } catch (error) {
       console.error("Error checking verification status:", error);
+    }
+  };
+
+  const handleBack = () => {
+    try {
+      if (router.canGoBack()) {
+        router.back();
+      } else {
+        router.replace("/(tabs)");
+      }
+    } catch (e) {
+      router.replace("/(tabs)");
     }
   };
 
@@ -137,22 +164,19 @@ const KYCVerificationScreen = () => {
           if (DiditSdk && typeof DiditSdk.startVerification === "function") {
             console.log("[KYC] Launching Didit SDK verification...");
             await DiditSdk.startVerification(sessionToken);
-            return { sessionId };
+            return { sessionId, sessionUrl };
           }
         } catch (sdkError) {
-          console.warn("[KYC] DiditSdk unavailable, falling back to in-app browser:", sdkError);
+          console.warn("[KYC] DiditSdk unavailable, falling back to default browser:", sdkError);
         }
       }
 
-      // Fallback: Open securely in Expo's built-in in-app browser
-      await WebBrowser.openBrowserAsync(sessionUrl, {
-        showTitle: true,
-        enableBarCollapsing: true,
-        dismissButtonStyle: "close",
-      });
+      // Fallback: Open in default system browser (Chrome/Safari) to ensure full WebRTC camera access
+      console.log("[KYC] Opening session URL in system default browser for WebRTC camera support");
+      await Linking.openURL(sessionUrl);
     }
 
-    return { sessionId };
+    return { sessionId, sessionUrl };
   };
 
   const finalizeSession = async (sessionId, successMessage) => {
@@ -164,6 +188,7 @@ const KYCVerificationScreen = () => {
 
     if (statusResult?.verified || statusResult?.kycStatus === "VERIFIED") {
       setIsVerified(true);
+      setActiveSessionId(null); // Clear active session ID on success
       setVerifiedName(statusResult?.user?.fullName || "");
       const rawNin = statusResult?.user?.nin || statusResult?.nin || "";
       if (rawNin) {
@@ -213,9 +238,45 @@ const KYCVerificationScreen = () => {
       setRejectionReason(null);
       showToast("Starting Identity Verification...", TOAST_TYPE.INFO);
 
-      const response = await kycService.createDiditSession();
-      const { sessionId } = await launchDiditSession(response);
-      await finalizeSession(sessionId, "Identity verified successfully!");
+      // Resolve platform and origin for redirect handling
+      let callbackUrl = undefined;
+      const baseURL = authService.baseURL;
+      
+      if (Platform.OS === "web" && typeof window !== "undefined") {
+        const origin = window.location.origin;
+        callbackUrl = `${baseURL}/v1/kyc/didit/webhook?platform=pwa&origin=${encodeURIComponent(origin + "/profile/personal-info-edit")}`;
+      } else {
+        callbackUrl = `${baseURL}/v1/kyc/didit/webhook?platform=native`;
+      }
+
+      const response = await kycService.createDiditSession(callbackUrl);
+      
+      // If backend returns that the user is already verified
+      if (response?.verified || response?.kycStatus === "VERIFIED" || response?.status === "VERIFIED") {
+        setIsVerified(true);
+        setActiveSessionId(null);
+        setVerifiedName(response?.verifiedName || response?.fullName || "");
+        const rawNin = response?.nin || "";
+        if (rawNin) {
+          const masked = rawNin.replace(/^(\d{3,4})\d+(\d{3})$/, "$1****$2");
+          setVerifiedId(masked);
+        }
+        showToast("Identity verified successfully!", TOAST_TYPE.SUCCESS);
+        return;
+      }
+
+      const { sessionId, sessionUrl } = await launchDiditSession(response);
+      
+      if (sessionId) {
+        setActiveSessionId(sessionId);
+        if (sessionUrl) setActiveSessionUrl(sessionUrl);
+        
+        if (Platform.OS !== "web") {
+          showToast("Opened verification in Chrome/Safari. Return here and tap 'Check Status' once done.", TOAST_TYPE.INFO);
+        } else {
+          await finalizeSession(sessionId, "Identity verified successfully!");
+        }
+      }
     } catch (error) {
       const errorMsg = getErrorMessage(error, "Could not verify identity.");
       console.error("[KYC] Verification error:", errorMsg);
@@ -230,7 +291,7 @@ const KYCVerificationScreen = () => {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <TouchableOpacity onPress={handleBack} style={styles.backButton}>
             <BackIcon />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>KYC Verified</Text>
@@ -283,7 +344,7 @@ const KYCVerificationScreen = () => {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <TouchableOpacity onPress={handleBack} style={styles.backButton}>
             <BackIcon />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Verification Status</Text>
@@ -323,7 +384,7 @@ const KYCVerificationScreen = () => {
         style={{ flex: 1 }}
       >
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <TouchableOpacity onPress={handleBack} style={styles.backButton}>
             <BackIcon />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Identity Verification</Text>
@@ -362,20 +423,40 @@ const KYCVerificationScreen = () => {
         </ScrollView>
 
         <View style={styles.footer}>
-          <TouchableOpacity
-            style={[styles.verifyButton, (!consentChecked || isLoading) && styles.disabledButton]}
-            onPress={handleHostedScan}
-            disabled={!consentChecked || isLoading}
-          >
-            {isLoading ? (
-              <View style={{ alignItems: "center" }}>
-                <ActivityIndicator color="white" />
-                {!!loadingMessage && <Text style={styles.verifyButtonSubtext}>{loadingMessage}</Text>}
-              </View>
-            ) : (
-              <Text style={styles.verifyButtonText}>Start Hosted Scan</Text>
-            )}
-          </TouchableOpacity>
+          {activeSessionId ? (
+            <View style={{ gap: 12 }}>
+              <TouchableOpacity
+                style={styles.verifyButton}
+                onPress={() => finalizeSession(activeSessionId, "Identity verified successfully!")}
+                disabled={isLoading}
+              >
+                {isLoading ? <ActivityIndicator color="white" /> : <Text style={styles.verifyButtonText}>Check Status / Refresh</Text>}
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.verifyButton, { backgroundColor: "#F3F4F6", borderWidth: 1, borderColor: "#E5E7EB" }]}
+                onPress={handleHostedScan}
+                disabled={isLoading}
+              >
+                <Text style={[styles.verifyButtonText, { color: "#1F2937" }]}>Restart Verification</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={[styles.verifyButton, (!consentChecked || isLoading) && styles.disabledButton]}
+              onPress={handleHostedScan}
+              disabled={!consentChecked || isLoading}
+            >
+              {isLoading ? (
+                <View style={{ alignItems: "center" }}>
+                  <ActivityIndicator color="white" />
+                  {!!loadingMessage && <Text style={styles.verifyButtonSubtext}>{loadingMessage}</Text>}
+                </View>
+              ) : (
+                <Text style={styles.verifyButtonText}>Start Hosted Scan</Text>
+              )}
+            </TouchableOpacity>
+          )}
         </View>
       </KeyboardAvoidingView>
       

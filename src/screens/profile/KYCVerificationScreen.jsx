@@ -448,7 +448,14 @@ const KYCVerificationScreen = () => {
                 onPress={() => finalizeSession(activeSessionId, "Identity verified successfully!")}
                 disabled={isStatusChecking}
               >
-                {isStatusChecking ? <ActivityIndicator color="white" /> : <Text style={styles.verifyButtonText}>Check Status / Refresh</Text>}
+                {isStatusChecking ? (
+                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                    <ActivityIndicator color="white" />
+                    <Text style={styles.verifyButtonText}>Checking status...</Text>
+                  </View>
+                ) : (
+                  <Text style={styles.verifyButtonText}>Check Status / Refresh</Text>
+                )}
               </TouchableOpacity>
               
               <TouchableOpacity

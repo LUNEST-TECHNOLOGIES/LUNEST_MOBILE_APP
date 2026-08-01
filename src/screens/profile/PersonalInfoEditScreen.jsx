@@ -141,7 +141,8 @@ const PersonalInfoEditScreen = () => {
     phone: "",
     gender: "",
     location: "",
-    nin: "", // NIN value - once provided, considered verified
+    nin: "", // NIN / document number
+    docTypeAbbrev: "NIN", // NIN, PASSPORT, DL, VOTER ID, etc.
     avatarUri: null,
     isVerified: false, // If true, name and NIN cannot be changed
     employment: {
@@ -222,10 +223,12 @@ const PersonalInfoEditScreen = () => {
       // Get saved local profile data
       const savedProfile = await profileService.getProfileData();
 
-      // Extract NIN, phone, name, gender from server profile
+      // Extract NIN, document type, phone, name, gender from server profile
       const serverNin =
         serverProfileResult?.data?.nin ||
         serverProfileResult?.data?.kycData?.documentNumber;
+      const serverDocTypeAbbrev =
+        serverProfileResult?.data?.kycData?.documentTypeAbbrev || "NIN";
       const serverPhone = serverProfileResult?.data?.phoneNumber;
       const serverName = serverProfileResult?.data?.fullName;
       const serverEmail = serverProfileResult?.data?.emailAddress;
@@ -247,6 +250,7 @@ const PersonalInfoEditScreen = () => {
           email: serverEmail || (authData && authData.email) || savedProfile.email || prev.email,
           gender: serverGender || (authData && authData.gender) || savedProfile.gender || prev.gender,
           nin: serverNin || (authData && authData.nin) || savedProfile.nin || prev.nin,
+          docTypeAbbrev: serverDocTypeAbbrev || prev.docTypeAbbrev || "NIN",
           phone: serverPhone || (authData && authData.phoneNumber) || savedProfile.phone || prev.phone,
           avatarUri: (() => {
             const serverAvatar = serverProfileResult?.data?.avatar;
@@ -274,6 +278,7 @@ const PersonalInfoEditScreen = () => {
           email: serverEmail || (authData && authData.email) || prev.email,
           gender: serverGender || (authData && authData.gender) || prev.gender,
           nin: serverNin || (authData && authData.nin) || prev.nin,
+          docTypeAbbrev: serverDocTypeAbbrev || prev.docTypeAbbrev || "NIN",
           phone: serverPhone || (authData && authData.phoneNumber) || prev.phone,
           avatarUri: (() => {
              const serverAvatar = serverProfileResult?.data?.avatar;

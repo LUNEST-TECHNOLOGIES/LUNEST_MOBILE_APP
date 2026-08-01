@@ -50,6 +50,8 @@ const KYCVerificationScreen = () => {
   const [isVerified, setIsVerified] = useState(false);
   const [consentChecked, setConsentChecked] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState("");
+  const [verifiedName, setVerifiedName] = useState("");
+  const [verifiedId, setVerifiedId] = useState("");
   
   // Toast state
   const [toastVisible, setToastVisible] = useState(false);
@@ -90,8 +92,16 @@ const KYCVerificationScreen = () => {
   const checkVerificationStatus = async () => {
     try {
       const profile = await authService.fetchProfile();
-      if (profile.data?.kycStatus === "VERIFIED") {
+      if (profile.data?.kycStatus === "VERIFIED" || profile.data?.verified) {
         setIsVerified(true);
+        setVerifiedName(profile.data?.fullName || "");
+        
+        // Mask the NIN/document number
+        const rawNin = profile.data?.nin || profile.data?.kycData?.documentNumber || "";
+        if (rawNin) {
+          const masked = rawNin.replace(/^(\d{3,4})\d+(\d{3})$/, "$1****$2");
+          setVerifiedId(masked);
+        }
       }
     } catch (error) {
       console.error("Error checking verification status:", error);
@@ -102,6 +112,7 @@ const KYCVerificationScreen = () => {
 
   const launchDiditSession = async (response) => {
     const sessionUrl = response?.url || response?.session_url;
+    const sessionToken = response?.session_token || response?.sessionToken;
     const sessionId = response?.sessionId || response?.session_id;
 
     if (!sessionUrl) {
@@ -112,14 +123,28 @@ const KYCVerificationScreen = () => {
       throw new Error("Failed to generate verification session. Please try again.");
     }
 
-    console.log("[KYC] Opening Didit verification session URL:", sessionUrl);
+    console.log("[KYC] Opening Didit verification session. URL:", sessionUrl);
 
     if (Platform.OS === "web") {
       if (typeof window !== "undefined") {
         window.open(sessionUrl, "_blank");
       }
     } else {
-      // Open securely in Expo's built-in in-app browser
+      // Try to open with DiditSdk first if sessionToken exists
+      if (sessionToken) {
+        try {
+          const { DiditSdk } = require("@didit-protocol/sdk-react-native");
+          if (DiditSdk && typeof DiditSdk.startVerification === "function") {
+            console.log("[KYC] Launching Didit SDK verification...");
+            await DiditSdk.startVerification(sessionToken);
+            return { sessionId };
+          }
+        } catch (sdkError) {
+          console.warn("[KYC] DiditSdk unavailable, falling back to in-app browser:", sdkError);
+        }
+      }
+
+      // Fallback: Open securely in Expo's built-in in-app browser
       await WebBrowser.openBrowserAsync(sessionUrl, {
         showTitle: true,
         enableBarCollapsing: true,
@@ -139,6 +164,12 @@ const KYCVerificationScreen = () => {
 
     if (statusResult?.verified || statusResult?.kycStatus === "VERIFIED") {
       setIsVerified(true);
+      setVerifiedName(statusResult?.user?.fullName || "");
+      const rawNin = statusResult?.user?.nin || statusResult?.nin || "";
+      if (rawNin) {
+        const masked = rawNin.replace(/^(\d{3,4})\d+(\d{3})$/, "$1****$2");
+        setVerifiedId(masked);
+      }
       const currentUser = await getUserData();
       if (currentUser) {
         const updatedUser = {
@@ -214,6 +245,22 @@ const KYCVerificationScreen = () => {
           </View>
           <Text style={styles.successTitle}>Identity Verified! 🎉</Text>
           <Text style={styles.successSubtitle}>Your identity has been verified. Your full name and verified government ID have been synced to your account profile.</Text>
+
+          {/* Masked identity display */}
+          {!!verifiedName && (
+            <View style={styles.verifiedInfoCard}>
+              <View style={{ width: "100%", marginBottom: 12 }}>
+                <Text style={{ fontSize: 11, fontWeight: "700", color: "#6B7280", letterSpacing: 1, marginBottom: 4 }}>VERIFIED NAME</Text>
+                <Text style={styles.infoValue}>{verifiedName}</Text>
+              </View>
+              {!!verifiedId && (
+                <View style={{ width: "100%", borderTopWidth: 1, borderTopColor: "#E5E7EB", paddingTop: 12 }}>
+                  <Text style={{ fontSize: 11, fontWeight: "700", color: "#6B7280", letterSpacing: 1, marginBottom: 4 }}>GOVERNMENT IDENTITY ID</Text>
+                  <Text style={styles.infoValue}>{verifiedId}</Text>
+                </View>
+              )}
+            </View>
+          )}
 
           <View style={{ width: "100%", gap: 12, marginTop: 24 }}>
             <TouchableOpacity style={styles.doneButton} onPress={() => router.replace("/(tabs)")}>

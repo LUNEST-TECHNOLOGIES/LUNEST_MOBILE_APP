@@ -139,6 +139,7 @@ const PersonalInfoEditScreen = () => {
     name: "",
     email: "",
     phone: "",
+    gender: "",
     location: "",
     nin: "", // NIN value - once provided, considered verified
     avatarUri: null,
@@ -158,11 +159,12 @@ const PersonalInfoEditScreen = () => {
       { value: userData.name, weight: 15 },
       { value: userData.email, weight: 15 },
       { value: userData.phone, weight: 15 },
-      { value: userData.location, weight: 12 },
-      { value: userData.nin, weight: 18 },
+      { value: userData.gender, weight: 10 },
+      { value: userData.location, weight: 10 },
+      { value: userData.nin, weight: 15 },
       { value: userData.avatarUri, weight: 5 },
-      { value: userData.employment.employerName, weight: 8 },
-      { value: userData.employment.employerAddress, weight: 7 },
+      { value: userData.employment.employerName, weight: 5 },
+      { value: userData.employment.employerAddress, weight: 5 },
       { value: userData.employment.employerContact, weight: 5 },
     ];
 
@@ -216,65 +218,36 @@ const PersonalInfoEditScreen = () => {
 
       // Fetch fresh profile data from server (includes NIN from signup)
       const serverProfileResult = await authService.fetchProfile();
-      console.log("=== PERSONAL INFO LOAD DEBUG ===");
-      console.log("Auth user data:", JSON.stringify(authData, null, 2));
-      console.log(
-        "Server profile data:",
-        JSON.stringify(serverProfileResult, null, 2),
-      );
 
       // Get saved local profile data
       const savedProfile = await profileService.getProfileData();
-      console.log("Local profile data:", JSON.stringify(savedProfile, null, 2));
 
-      // Extract NIN and phone from server (takes priority - from signup)
+      // Extract NIN, phone, name, gender from server profile
       const serverNin =
-        serverProfileResult &&
-        serverProfileResult.data &&
-        serverProfileResult.data.nin;
-      const serverPhone =
-        serverProfileResult &&
-        serverProfileResult.data &&
-        serverProfileResult.data.phoneNumber;
-      const serverName =
-        serverProfileResult &&
-        serverProfileResult.data &&
-        serverProfileResult.data.fullName;
-      const serverEmail =
-        serverProfileResult &&
-        serverProfileResult.data &&
-        serverProfileResult.data.emailAddress;
+        serverProfileResult?.data?.nin ||
+        serverProfileResult?.data?.kycData?.documentNumber;
+      const serverPhone = serverProfileResult?.data?.phoneNumber;
+      const serverName = serverProfileResult?.data?.fullName;
+      const serverEmail = serverProfileResult?.data?.emailAddress;
 
-      console.log("Server NIN:", serverNin);
-      console.log("Server Phone:", serverPhone);
+      const serverGenderRaw = serverProfileResult?.data?.gender || authData?.gender;
+      let serverGender = "";
+      if (serverGenderRaw) {
+        const g = String(serverGenderRaw).toUpperCase();
+        if (g.startsWith("M")) serverGender = "Male";
+        else if (g.startsWith("F")) serverGender = "Female";
+        else serverGender = "Others";
+      }
 
       if (savedProfile) {
         setUserData((prev) => ({
           ...prev,
           ...savedProfile,
-          // Auth/Server data takes priority for name and email
-          name:
-            serverName ||
-            (authData && authData.fullName) ||
-            savedProfile.name ||
-            prev.name,
-          email:
-            serverEmail ||
-            (authData && authData.email) ||
-            savedProfile.email ||
-            prev.email,
-          // Server NIN takes priority (from signup), then auth data, then local storage
-          nin:
-            serverNin ||
-            (authData && authData.nin) ||
-            savedProfile.nin ||
-            prev.nin,
-          // Server phone takes priority, then auth data, then local storage
-          phone:
-            serverPhone ||
-            (authData && authData.phoneNumber) ||
-            savedProfile.phone ||
-            prev.phone,
+          name: serverName || (authData && authData.fullName) || savedProfile.name || prev.name,
+          email: serverEmail || (authData && authData.email) || savedProfile.email || prev.email,
+          gender: serverGender || (authData && authData.gender) || savedProfile.gender || prev.gender,
+          nin: serverNin || (authData && authData.nin) || savedProfile.nin || prev.nin,
+          phone: serverPhone || (authData && authData.phoneNumber) || savedProfile.phone || prev.phone,
           avatarUri: (() => {
             const serverAvatar = serverProfileResult?.data?.avatar;
             if (serverAvatar) {
@@ -283,7 +256,6 @@ const PersonalInfoEditScreen = () => {
                }
                return serverAvatar;
             }
-            // Filter out blob URIs from savedProfile as they are temporary and invalid across sessions
             const savedAvatar = savedProfile.avatarUri;
             if (savedAvatar && (savedAvatar.startsWith("blob:") || savedAvatar.startsWith("data:"))) {
               return prev.avatarUri;
@@ -296,14 +268,13 @@ const PersonalInfoEditScreen = () => {
         authData ||
         (serverProfileResult && serverProfileResult.data)
       ) {
-        // Initialize with auth/server data if no saved profile
         setUserData((prev) => ({
           ...prev,
           name: serverName || (authData && authData.fullName) || prev.name,
           email: serverEmail || (authData && authData.email) || prev.email,
+          gender: serverGender || (authData && authData.gender) || prev.gender,
           nin: serverNin || (authData && authData.nin) || prev.nin,
-          phone:
-            serverPhone || (authData && authData.phoneNumber) || prev.phone,
+          phone: serverPhone || (authData && authData.phoneNumber) || prev.phone,
           avatarUri: (() => {
              const serverAvatar = serverProfileResult?.data?.avatar;
              if (serverAvatar) {
@@ -758,6 +729,15 @@ const PersonalInfoEditScreen = () => {
             isEmpty={!userData.phone}
           />
           <InfoRow
+            label={userData.gender ? `Gender: ${userData.gender}` : "Gender"}
+            actionText={userData.isVerified ? "Verified" : (userData.gender ? "Update" : "Add")}
+            onAction={() => handleUpdate("gender")}
+            isEmpty={!userData.gender}
+            showVerification={userData.isVerified}
+            isVerified={userData.isVerified}
+            disabled={userData.isVerified}
+          />
+          <InfoRow
             label={userData.location || "Location"}
             actionText="Change"
             onAction={() => handleUpdate("location")}
@@ -766,13 +746,13 @@ const PersonalInfoEditScreen = () => {
           <InfoRow
             label={
               userData.nin
-                ? `NIN: ${userData.nin.replace(/(\d{4})\d+(\d{3})/, "$1****$2")}`
-                : "NIN"
+                ? `Identity ID: ${userData.nin.replace(/^(\d{3,4})\d+(\d{3})$/, "$1****$2")}`
+                : "Identity Verification / NIN"
             }
-            actionText={userData.isVerified ? "Verified" : (!userData.nin ? "Add NIN" : "Update")}
-            onAction={() => handleUpdate("nin")}
+            actionText={userData.isVerified ? "Verified" : "Verify"}
+            onAction={() => router.push("/profile/kyc-verification")}
             isEmpty={!userData.nin}
-            showVerification={!!userData.nin}
+            showVerification={userData.isVerified}
             isVerified={userData.isVerified}
             disabled={userData.isVerified}
           />

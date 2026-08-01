@@ -276,7 +276,14 @@ const PersonalInfoEditScreen = () => {
       const serverName = serverProfileResult?.data?.fullName;
       const serverEmail = serverProfileResult?.data?.emailAddress;
 
-      const serverGenderRaw = serverProfileResult?.data?.gender || authData?.gender;
+      const decisionObj = serverProfileResult?.data?.kycData?.decision || {};
+      const idVerObj = Array.isArray(decisionObj.id_verifications) && decisionObj.id_verifications.length > 0
+        ? decisionObj.id_verifications[0]
+        : {};
+      const vDataObj = decisionObj.verification_data || idVerObj;
+      const decisionGender = idVerObj.gender || idVerObj.sex || vDataObj.gender || vDataObj.sex;
+
+      const serverGenderRaw = serverProfileResult?.data?.gender || authData?.gender || savedProfile?.gender || decisionGender;
       let serverGender = "";
       if (serverGenderRaw) {
         const g = String(serverGenderRaw).toUpperCase();
@@ -672,7 +679,7 @@ const PersonalInfoEditScreen = () => {
           ) : value ? (
             <Text style={styles.infoValue}>{value}</Text>
           ) : null}
-          {actionText && (
+          {actionText && actionText !== "Verified" && (
             <TouchableOpacity onPress={onAction} disabled={disabled}>
               <Text
                 style={[
@@ -769,7 +776,7 @@ const PersonalInfoEditScreen = () => {
         <SectionCard title="Personal verification">
           <InfoRow
             label={userData.name ? `Name: ${userData.name}` : "Name"}
-            actionText={userData.isVerified ? "Verified" : ""}
+            actionText=""
             onAction={null}
             disabled={true}
             isEmpty={!userData.name}
@@ -778,7 +785,7 @@ const PersonalInfoEditScreen = () => {
           />
           <InfoRow
             label={userData.email || "Email"}
-            actionText={userData.email ? "Verified" : "Update"}
+            actionText={userData.email ? "" : "Update"}
             onAction={() => !userData.email && handleUpdate("email")}
             disabled={!!userData.email}
             isEmpty={!userData.email}
@@ -799,12 +806,12 @@ const PersonalInfoEditScreen = () => {
           />
           <InfoRow
             label={userData.gender ? `Gender: ${userData.gender}` : "Gender: Not set"}
-            actionText={userData.isVerified ? "Verified" : ""}
-            onAction={null}
+            actionText={!userData.isVerified && !userData.gender ? "Update" : ""}
+            onAction={!userData.isVerified ? () => handleUpdate("gender") : null}
             isEmpty={!userData.gender}
             showVerification={userData.isVerified}
             isVerified={userData.isVerified}
-            disabled={true}
+            disabled={userData.isVerified}
           />
           <InfoRow
             label={userData.location || "Location"}
@@ -818,7 +825,7 @@ const PersonalInfoEditScreen = () => {
                 ? `Identity ID: ${userData.nin.replace(/^(\d{3,4})\d+(\d{3})$/, "$1****$2")}`
                 : "Identity Verification / NIN"
             }
-            actionText={userData.isVerified ? "Verified" : "Verify"}
+            actionText={userData.isVerified ? "" : "Verify"}
             onAction={() => router.push("/profile/kyc-verification")}
             isEmpty={!userData.nin}
             showVerification={userData.isVerified}

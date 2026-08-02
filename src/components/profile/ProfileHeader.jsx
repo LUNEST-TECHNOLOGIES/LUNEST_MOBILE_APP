@@ -81,6 +81,7 @@ const ProfileHeader = ({
   isHostMode = false,
   emailVerified = false,
   verified = false,
+  kycStatus = "NONE",
   avatarUri: externalAvatarUri,
   isLoading = false,
   onEditPress,
@@ -204,10 +205,18 @@ const ProfileHeader = ({
                 {name}
               </Text>
               <View style={styles.nameRowSpacer} />
-              {isFullyVerified ? (
+              {isFullyVerified || kycStatus === 'VERIFIED' ? (
                 <View style={styles.verifiedBadge}>
                   <VerifiedIcon size={16} />
                   <Text style={styles.verifiedText}>VERIFIED</Text>
+                </View>
+              ) : kycStatus === 'PENDING' || kycStatus === 'IN_REVIEW' ? (
+                <View style={styles.inReviewBadge}>
+                  <Text style={styles.inReviewText}>IN REVIEW</Text>
+                </View>
+              ) : kycStatus === 'REJECTED' || kycStatus === 'FAILED' ? (
+                <View style={styles.rejectedBadge}>
+                  <Text style={styles.rejectedText}>RE-SUBMIT</Text>
                 </View>
               ) : (
                 <View style={styles.unverifiedBadge}>
@@ -366,6 +375,32 @@ const styles = StyleSheet.create({
     fontWeight: "700",
 
     color: "#856404",
+  },
+  inReviewBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FEF3C7",
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  inReviewText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#D97706",
+  },
+  rejectedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FEE2E2",
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  rejectedText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#DC2626",
   },
   email: {
     fontSize: 14,

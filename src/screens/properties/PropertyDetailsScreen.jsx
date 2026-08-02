@@ -1075,7 +1075,7 @@ const PropertyDetailsScreen = () => {
             { text: "Cancel", style: "cancel" },
             {
               text: "Verify Now",
-              onPress: () => router.push("/kyc-verification"),
+              onPress: () => router.push("/profile/kyc-verification"),
             },
           ],
         );
@@ -2060,32 +2060,11 @@ const PropertyDetailsScreen = () => {
         <Pressable
           style={[
             styles.bookButton,
-            propertyData.isUnavailable && styles.bookButtonDisabled,
+            (propertyData.isBooked || propertyData.isPaused || propertyData.isUnavailable) &&
+              styles.bookButtonDisabled,
           ]}
-          disabled={propertyData.isUnavailable}
-          onPress={() => {
-            if (propertyData.isUnavailable) return;
-            router.push({
-              pathname: "/select-booking-details",
-              params: {
-                listingId: listingId,
-                propertyName: propertyData.title,
-                price: listing.propertyPrice?.price || listing.price || 0,
-                pricingPeriod: listing.pricingPeriod || "night",
-                regulations: JSON.stringify(propertyData.regulations),
-                maxGuests: listing.guests || 10,
-                bedrooms: listing.bedrooms || 0,
-                bathrooms: listing.bathrooms || 0,
-                location: propertyData.location,
-                coverImage: propertyData.images[0]?.uri || "",
-                securityDeposit: listing.securityDeposit || 0,
-                serviceCharge: listing.serviceCharge || 0,
-                petsFriendly: listing.petsFriendly ? "true" : "false",
-                childrenAllowed: listing.childrenAllowed ? "true" : "false",
-                hostId: listing.hostInfo?._id || listing.host?._id || "",
-              },
-            });
-          }}
+          disabled={propertyData.isBooked || propertyData.isPaused || propertyData.isUnavailable}
+          onPress={handleBooking}
         >
           <Text
             style={[

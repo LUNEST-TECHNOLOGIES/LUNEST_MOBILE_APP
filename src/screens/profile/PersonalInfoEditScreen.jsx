@@ -283,7 +283,7 @@ const PersonalInfoEditScreen = () => {
       const vDataObj = decisionObj.verification_data || idVerObj;
       const decisionGender = idVerObj.gender || idVerObj.sex || vDataObj.gender || vDataObj.sex;
 
-      const serverGenderRaw = serverProfileResult?.data?.gender || authData?.gender || savedProfile?.gender || decisionGender;
+      const serverGenderRaw = serverProfileResult?.data?.gender || decisionGender || authData?.gender || savedProfile?.gender;
       let serverGender = "";
       if (serverGenderRaw) {
         const g = String(serverGenderRaw).toUpperCase();
@@ -317,6 +317,8 @@ const PersonalInfoEditScreen = () => {
             return savedAvatar || prev.avatarUri;
           })(),
           isVerified: serverProfileResult?.data?.kycStatus === 'VERIFIED' || !!serverProfileResult?.data?.verified || false,
+          kycStatus: serverProfileResult?.data?.kycStatus || (serverProfileResult?.data?.verified ? 'VERIFIED' : 'NONE'),
+          kycRejectionReason: serverProfileResult?.data?.kycRejectionReason || serverProfileResult?.data?.kycData?.rejectionReason || '',
           phoneVerified: !!serverProfileResult?.data?.phoneVerified || false,
         }));
       } else if (
@@ -342,6 +344,8 @@ const PersonalInfoEditScreen = () => {
              return prev.avatarUri;
           })(),
           isVerified: serverProfileResult?.data?.kycStatus === 'VERIFIED' || !!serverProfileResult?.data?.verified || false,
+          kycStatus: serverProfileResult?.data?.kycStatus || (serverProfileResult?.data?.verified ? 'VERIFIED' : 'NONE'),
+          kycRejectionReason: serverProfileResult?.data?.kycRejectionReason || serverProfileResult?.data?.kycData?.rejectionReason || '',
           phoneVerified: !!serverProfileResult?.data?.phoneVerified || false,
         }));
       }
@@ -631,6 +635,7 @@ const PersonalInfoEditScreen = () => {
     onAction,
     isVerified,
     showVerification,
+    kycStatus,
     disabled,
     isEmpty,
     isComingSoon,
@@ -639,14 +644,32 @@ const PersonalInfoEditScreen = () => {
     const isEmptyField =
       isEmpty || (!value && !showVerification && (!label || label === ""));
 
+    const renderLabelContent = () => {
+      if (!label) return <Text style={styles.infoLabelEmpty}>Not set</Text>;
+
+      if (label.includes(": ")) {
+        const parts = label.split(": ");
+        const title = parts[0] + ": ";
+        const val = parts.slice(1).join(": ");
+        return (
+          <Text numberOfLines={2}>
+            <Text style={styles.infoLabelTitle}>{title}</Text>
+            <Text style={styles.infoLabelValue}>{val}</Text>
+          </Text>
+        );
+      }
+
+      return (
+        <Text style={[styles.infoLabelTitle, isEmptyField && styles.infoLabelEmpty]}>
+          {label}
+        </Text>
+      );
+    };
+
     return (
       <View style={styles.infoRow}>
         <View style={styles.infoLabelContainer}>
-          <Text
-            style={[styles.infoLabel, isEmptyField && styles.infoLabelEmpty]}
-          >
-            {label || "Not set"}
-          </Text>
+          {renderLabelContent()}
           {isEmptyField && (
             <View style={styles.needsUpdateBadge}>
               <Text style={styles.needsUpdateText}>Needs update</Text>
@@ -660,16 +683,30 @@ const PersonalInfoEditScreen = () => {
             </View>
           ) : showVerification ? (
             <View style={styles.verificationBadge}>
-              {isVerified ? (
+              {isVerified || kycStatus === 'VERIFIED' ? (
                 <>
                   <VerifiedCheckIcon size={18} />
                   <Text style={[styles.verificationText, { color: "#4CAF50" }]}>
                     VERIFIED
                   </Text>
                 </>
+              ) : kycStatus === 'PENDING' || kycStatus === 'IN_REVIEW' ? (
+                <>
+                  <UnverifiedIcon size={18} color="#F59E0B" />
+                  <Text style={[styles.verificationText, { color: "#F59E0B" }]}>
+                    IN REVIEW
+                  </Text>
+                </>
+              ) : kycStatus === 'REJECTED' || kycStatus === 'FAILED' ? (
+                <>
+                  <UnverifiedIcon size={18} color="#EF4444" />
+                  <Text style={[styles.verificationText, { color: "#EF4444" }]}>
+                    REJECTED
+                  </Text>
+                </>
               ) : (
                 <>
-                  <UnverifiedIcon size={18} />
+                  <UnverifiedIcon size={18} color="#EF6C00" />
                   <Text style={[styles.verificationText, { color: "#EF6C00" }]}>
                     UNVERIFIED
                   </Text>
@@ -686,6 +723,8 @@ const PersonalInfoEditScreen = () => {
                   styles.actionText,
                   disabled && styles.actionTextDisabled,
                   actionText === "Add NIN" && styles.actionTextOrange,
+                  (actionText === "Resubmit" || actionText === "Re-try") && { color: "#EF4444", fontWeight: "700" },
+                  (actionText === "In Review" || actionText === "Status") && { color: "#F59E0B", fontWeight: "700" },
                 ]}
               >
                 {actionText}
@@ -784,7 +823,7 @@ const PersonalInfoEditScreen = () => {
             isVerified={userData.isVerified}
           />
           <InfoRow
-            label={userData.email || "Email"}
+            label={userData.email ? `Email: ${userData.email}` : "Email"}
             actionText={userData.email ? "" : "Update"}
             onAction={() => !userData.email && handleUpdate("email")}
             disabled={!!userData.email}
@@ -793,7 +832,7 @@ const PersonalInfoEditScreen = () => {
             isVerified={!!userData.email}
           />
           <InfoRow
-            label={userData.phone || "Phone Number"}
+            label={userData.phone ? `Phone: ${userData.phone}` : "Phone Number"}
             actionText={
               !userData.phone
                 ? "Add"
@@ -827,14 +866,58 @@ const PersonalInfoEditScreen = () => {
                 ? `Identity ID: ${userData.nin.replace(/^(\d{3,4})\d+(\d{3})$/, "$1****$2")}`
                 : "Identity Verification / NIN"
             }
-            actionText={userData.isVerified ? "" : "Verify"}
+            actionText={
+              userData.isVerified
+                ? ""
+                : userData.kycStatus === 'PENDING' || userData.kycStatus === 'IN_REVIEW'
+                ? "Status"
+                : userData.kycStatus === 'REJECTED'
+                ? "Resubmit"
+                : "Verify"
+            }
             onAction={() => router.push("/profile/kyc-verification")}
-            isEmpty={!userData.nin}
-            showVerification={userData.isVerified}
+            isEmpty={!userData.nin && !userData.isVerified && (userData.kycStatus === 'NONE' || !userData.kycStatus)}
+            showVerification={true}
             isVerified={userData.isVerified}
+            kycStatus={userData.kycStatus}
             disabled={userData.isVerified}
           />
         </SectionCard>
+
+        {/* KYC Status Action Banners */}
+        {userData.kycStatus === 'REJECTED' && (
+          <TouchableOpacity
+            style={styles.rejectionCard}
+            onPress={() => router.push("/profile/kyc-verification")}
+            activeOpacity={0.85}
+          >
+            <View style={styles.rejectionCardHeader}>
+              <UnverifiedIcon size={20} color="#EF4444" />
+              <Text style={styles.rejectionCardTitle}>Action Required: Verification Declined</Text>
+            </View>
+            <Text style={styles.rejectionCardBody}>
+              {userData.kycRejectionReason || "Verification was declined by provider. Tap here to resubmit your identity document."}
+            </Text>
+            <Text style={styles.rejectionCardAction}>Tap to Resubmit →</Text>
+          </TouchableOpacity>
+        )}
+
+        {(userData.kycStatus === 'PENDING' || userData.kycStatus === 'IN_REVIEW') && (
+          <TouchableOpacity
+            style={styles.inReviewCard}
+            onPress={() => router.push("/profile/kyc-verification")}
+            activeOpacity={0.85}
+          >
+            <View style={styles.inReviewCardHeader}>
+              <UnverifiedIcon size={20} color="#F59E0B" />
+              <Text style={styles.inReviewCardTitle}>Verification Under Review</Text>
+            </View>
+            <Text style={styles.inReviewCardBody}>
+              Your identity verification is currently being reviewed. Tap to check your live status.
+            </Text>
+            <Text style={styles.inReviewCardAction}>Check Live Status →</Text>
+          </TouchableOpacity>
+        )}
 
         {/* Employment Information Section */}
         <SectionCard title="Employment information">
@@ -1153,11 +1236,20 @@ const styles = StyleSheet.create({
     gap: 8,
     flexWrap: "wrap",
   },
-  infoLabel: {
-    fontSize: 14,
+  infoLabelTitle: {
+    fontSize: 13,
     fontWeight: "500",
-
-    color: "#292929",
+    color: "#6B7280",
+  },
+  infoLabelValue: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#111827",
+  },
+  infoLabel: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: "#6B7280",
   },
   infoLabelEmpty: {
     color: "#999999",
@@ -1194,7 +1286,71 @@ const styles = StyleSheet.create({
   },
   actionTextOrange: {
     color: "#EF6C00",
-    fontWeight: "600",
+    fontWeight: "700",
+  },
+  rejectionCard: {
+    backgroundColor: "#FEF2F2",
+    borderColor: "#FECACA",
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 16,
+    marginHorizontal: 16,
+    marginBottom: 16,
+  },
+  rejectionCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 6,
+    gap: 8,
+  },
+  rejectionCardTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#DC2626",
+  },
+  rejectionCardBody: {
+    fontSize: 12,
+    color: "#991B1B",
+    lineHeight: 18,
+    marginBottom: 8,
+  },
+  rejectionCardAction: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#DC2626",
+    textDecorationLine: "underline",
+  },
+  inReviewCard: {
+    backgroundColor: "#FFFBEB",
+    borderColor: "#FDE68A",
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 16,
+    marginHorizontal: 16,
+    marginBottom: 16,
+  },
+  inReviewCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 6,
+    gap: 8,
+  },
+  inReviewCardTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#D97706",
+  },
+  inReviewCardBody: {
+    fontSize: 12,
+    color: "#92400E",
+    lineHeight: 18,
+    marginBottom: 8,
+  },
+  inReviewCardAction: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#D97706",
+    textDecorationLine: "underline",
   },
   rightContainer: {
     flexDirection: "row",

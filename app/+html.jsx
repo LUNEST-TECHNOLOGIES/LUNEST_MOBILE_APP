@@ -45,6 +45,7 @@ export default function Root({ children }) {
                 window.addEventListener('load', function() {
                   navigator.serviceWorker.register('/sw.js').then(function(registration) {
                     console.log('✅ [LUNEST PWA] ServiceWorker registered with scope:', registration.scope);
+                    registration.update();
                   }, function(err) {
                     console.log('⚠️ [LUNEST PWA] ServiceWorker registration failed:', err);
                   });

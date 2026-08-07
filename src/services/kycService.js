@@ -80,6 +80,20 @@ const kycService = {
       throw new Error(extractErrorMessage(error, "Failed to check Didit verification status"));
     }
   },
+
+  /**
+   * Verify NIN via Kora Identity API (second KYC option)
+   * @param {string} nin - 11-digit National Identification Number
+   */
+  koraVerifyNIN: async (nin) => {
+    try {
+      const response = await apiClient.post("/v1/kyc/kora/verify-nin", { nin });
+      return response.body || response.data || response;
+    } catch (error) {
+      console.error("Kora NIN Verification Error:", error.response?.data || error.message);
+      throw new Error(extractErrorMessage(error, "Failed to verify NIN via Kora. Please check your NIN and try again."));
+    }
+  },
 };
 
 export default kycService;

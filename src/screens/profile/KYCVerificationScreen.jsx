@@ -59,7 +59,12 @@ const KYCVerificationScreen = () => {
   const [activeSessionUrl, setActiveSessionUrl] = useState("");
   const [isStatusChecking, setIsStatusChecking] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  
+
+  // Method tab: 'DIDIT' = biometric scan (Didit), 'KORA' = NIN database check (Kora)
+  const [activeTab, setActiveTab] = useState("DIDIT");
+  const [ninInput, setNinInput] = useState("");
+  const [ninError, setNinError] = useState("");
+
   // Toast state
   const [toastVisible, setToastVisible] = useState(false);
   const [toastConfig, setToastConfig] = useState({
@@ -149,6 +154,62 @@ const KYCVerificationScreen = () => {
   };
 
   const [rejectionReason, setRejectionReason] = useState(null);
+
+  /** Handle Kora NIN verification (instant — no browser redirect) */
+  const handleKoraVerify = async () => {
+    setNinError("");
+    const cleanNin = ninInput.trim();
+    if (!cleanNin) {
+      setNinError("Please enter your NIN.");
+      return;
+    }
+    if (!/^[0-9]{11}$/.test(cleanNin)) {
+      setNinError("NIN must be exactly 11 digits.");
+      return;
+    }
+    if (!consentChecked) {
+      showToast("Please check the consent box to proceed.", TOAST_TYPE.WARNING);
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      setLoadingMessage("Verifying your NIN with Kora...");
+      setRejectionReason(null);
+      showToast("Verifying NIN...", TOAST_TYPE.INFO);
+
+      const result = await kycService.koraVerifyNIN(cleanNin);
+
+      if (result?.verified || result?.kycStatus === "VERIFIED" || result?.status === "VERIFIED") {
+        setIsVerified(true);
+        setVerifiedName(result?.verifiedName || result?.fullName || "");
+        const rawNin = result?.nin || cleanNin;
+        const masked = rawNin.replace(/^(\d{3,4})\d+(\d{3})$/, "$1****$2");
+        setVerifiedId(masked);
+
+        // Sync to local storage
+        const currentUser = await getUserData();
+        if (currentUser) {
+          await setUserData({
+            ...currentUser,
+            verified: true,
+            kycStatus: "VERIFIED",
+            fullName: result?.verifiedName || currentUser.fullName,
+          });
+        }
+        showToast("Identity verified successfully!", TOAST_TYPE.SUCCESS);
+      } else {
+        showToast(result?.message || "NIN verification failed. Please try again.", TOAST_TYPE.ERROR);
+      }
+    } catch (error) {
+      const errorMsg = getErrorMessage(error, "NIN verification failed. Please check your NIN and try again.");
+      console.error("[KYC] Kora verify error:", errorMsg);
+      showToast(errorMsg, TOAST_TYPE.ERROR);
+    } finally {
+      setIsLoading(false);
+      setLoadingMessage("");
+    }
+  };
 
   const launchDiditSession = async (response) => {
     const sessionUrl = response?.url || response?.session_url;
@@ -428,7 +489,7 @@ const KYCVerificationScreen = () => {
           <View style={{ width: 40 }} />
         </View>
 
-        <ScrollView 
+        <ScrollView
           contentContainerStyle={styles.scrollContent}
           refreshControl={
             <RefreshControl
@@ -441,18 +502,100 @@ const KYCVerificationScreen = () => {
         >
           <Text style={styles.title}>Verify Your Identity</Text>
           <Text style={styles.subtitle}>
-            Complete secure identity verification using your government document and facial scan.
+            Choose a verification method below. Both options are secure and accepted.
           </Text>
 
-          <View style={styles.noteContainer}>
-            <Text style={styles.noteTitle}>Identity Verification Scan:</Text>
-            <Text style={styles.noteText}>
-              Scan your valid government document and complete a liveness check to confirm your identity.
-            </Text>
+          {/* Method Tab Selector */}
+          <View style={styles.tabContainer}>
+            <TouchableOpacity
+              id="tab-didit"
+              style={[styles.tabButton, activeTab === "DIDIT" && styles.tabButtonActive]}
+              onPress={() => {
+                setActiveTab("DIDIT");
+                setNinError("");
+              }}
+              activeOpacity={0.75}
+            >
+              <Text style={[styles.tabButtonText, activeTab === "DIDIT" && styles.tabButtonTextActive]}>
+                📷 Document Scan
+              </Text>
+              <Text style={[styles.tabSubText, activeTab === "DIDIT" && styles.tabSubTextActive]}>
+                Didit · Biometric
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              id="tab-kora"
+              style={[styles.tabButton, activeTab === "KORA" && styles.tabButtonActive]}
+              onPress={() => {
+                setActiveTab("KORA");
+                setNinError("");
+              }}
+              activeOpacity={0.75}
+            >
+              <Text style={[styles.tabButtonText, activeTab === "KORA" && styles.tabButtonTextActive]}>
+                🔢 NIN Lookup
+              </Text>
+              <Text style={[styles.tabSubText, activeTab === "KORA" && styles.tabSubTextActive]}>
+                Kora · Database
+              </Text>
+            </TouchableOpacity>
           </View>
 
-          <TouchableOpacity 
-            style={styles.consentContainer} 
+          {/* ── DIDIT TAB ── */}
+          {activeTab === "DIDIT" && (
+            <View>
+              <View style={styles.noteContainer}>
+                <Text style={styles.noteTitle}>Identity Verification Scan:</Text>
+                <Text style={styles.noteText}>
+                  Scan your valid government document and complete a liveness check to confirm your identity.
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {/* ── KORA TAB ── */}
+          {activeTab === "KORA" && (
+            <View>
+              <View style={[styles.noteContainer, { borderLeftColor: "#008751" }]}>
+                <Text style={[styles.noteTitle, { color: "#006633" }]}>NIN Database Check:</Text>
+                <Text style={[styles.noteText, { color: "#006633" }]}>
+                  Enter your 11-digit National Identification Number (NIN). Kora will verify it directly against the government database — no camera or selfie needed.
+                </Text>
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>National Identification Number (NIN)</Text>
+                <TextInput
+                  id="kora-nin-input"
+                  style={[
+                    styles.input,
+                    ninError ? { borderColor: "#EF4444" } : null,
+                  ]}
+                  placeholder="Enter your 11-digit NIN"
+                  placeholderTextColor="#AAAAAA"
+                  value={ninInput}
+                  onChangeText={(text) => {
+                    setNinInput(text.replace(/[^0-9]/g, "").slice(0, 11));
+                    if (ninError) setNinError("");
+                  }}
+                  keyboardType="numeric"
+                  maxLength={11}
+                  returnKeyType="done"
+                />
+                {!!ninError && (
+                  <Text style={{ color: "#EF4444", fontSize: 12, marginTop: 4 }}>{ninError}</Text>
+                )}
+                <Text style={{ fontSize: 12, color: "#9CA3AF", marginTop: 6 }}>
+                  Your NIN is the 11-digit number on your National ID Slip or NIMC card.
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {/* Consent checkbox — shown for both tabs */}
+          <TouchableOpacity
+            style={styles.consentContainer}
             onPress={() => setConsentChecked(!consentChecked)}
             activeOpacity={0.7}
           >
@@ -464,41 +607,72 @@ const KYCVerificationScreen = () => {
               )}
             </View>
             <Text style={styles.consentText}>
-              I consent to the secure processing of my government ID document and facial liveness verification.
+              {activeTab === "KORA"
+                ? "I consent to the secure processing of my NIN for identity verification purposes."
+                : "I consent to the secure processing of my government ID document and facial liveness verification."}
             </Text>
           </TouchableOpacity>
         </ScrollView>
 
         <View style={styles.footer}>
-          {activeSessionId ? (
-            <View style={{ gap: 12 }}>
+          {/* ── DIDIT footer buttons ── */}
+          {activeTab === "DIDIT" && (
+            activeSessionId ? (
+              <View style={{ gap: 12 }}>
+                <TouchableOpacity
+                  id="btn-check-status"
+                  style={styles.verifyButton}
+                  onPress={() => finalizeSession(activeSessionId, "Identity verified successfully!")}
+                  disabled={isStatusChecking}
+                >
+                  {isStatusChecking ? (
+                    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                      <ActivityIndicator color="white" />
+                      <Text style={styles.verifyButtonText}>Checking status...</Text>
+                    </View>
+                  ) : (
+                    <Text style={styles.verifyButtonText}>Check Status / Refresh</Text>
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  id="btn-restart-didit"
+                  style={[styles.verifyButton, { backgroundColor: "#F3F4F6", borderWidth: 1, borderColor: "#E5E7EB" }]}
+                  onPress={handleHostedScan}
+                  disabled={isLoading}
+                >
+                  <Text style={[styles.verifyButtonText, { color: "#1F2937" }]}>Restart Verification</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
               <TouchableOpacity
-                style={styles.verifyButton}
-                onPress={() => finalizeSession(activeSessionId, "Identity verified successfully!")}
-                disabled={isStatusChecking}
+                id="btn-start-didit"
+                style={[styles.verifyButton, (!consentChecked || isLoading) && styles.disabledButton]}
+                onPress={handleHostedScan}
+                disabled={!consentChecked || isLoading}
               >
-                {isStatusChecking ? (
-                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                {isLoading ? (
+                  <View style={{ alignItems: "center" }}>
                     <ActivityIndicator color="white" />
-                    <Text style={styles.verifyButtonText}>Checking status...</Text>
+                    {!!loadingMessage && <Text style={styles.verifyButtonSubtext}>{loadingMessage}</Text>}
                   </View>
                 ) : (
-                  <Text style={styles.verifyButtonText}>Check Status / Refresh</Text>
+                  <Text style={styles.verifyButtonText}>Start Document Scan</Text>
                 )}
               </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={[styles.verifyButton, { backgroundColor: "#F3F4F6", borderWidth: 1, borderColor: "#E5E7EB" }]}
-                onPress={handleHostedScan}
-                disabled={isLoading}
-              >
-                <Text style={[styles.verifyButtonText, { color: "#1F2937" }]}>Restart Verification</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
+            )
+          )}
+
+          {/* ── KORA footer button ── */}
+          {activeTab === "KORA" && (
             <TouchableOpacity
-              style={[styles.verifyButton, (!consentChecked || isLoading) && styles.disabledButton]}
-              onPress={handleHostedScan}
+              id="btn-kora-verify"
+              style={[
+                styles.verifyButton,
+                { backgroundColor: "#008751" },
+                (!consentChecked || isLoading) && styles.disabledButton,
+              ]}
+              onPress={handleKoraVerify}
               disabled={!consentChecked || isLoading}
             >
               {isLoading ? (
@@ -507,11 +681,14 @@ const KYCVerificationScreen = () => {
                   {!!loadingMessage && <Text style={styles.verifyButtonSubtext}>{loadingMessage}</Text>}
                 </View>
               ) : (
-                <Text style={styles.verifyButtonText}>Start Hosted Scan</Text>
+                <Text style={styles.verifyButtonText}>Verify NIN with Kora</Text>
               )}
             </TouchableOpacity>
           )}
-          <Text style={styles.poweredByText}>Powered by Didit</Text>
+
+          <Text style={styles.poweredByText}>
+            {activeTab === "KORA" ? "Powered by Kora Identity" : "Powered by Didit"}
+          </Text>
         </View>
       </KeyboardAvoidingView>
       
@@ -595,13 +772,22 @@ const styles = StyleSheet.create({
     borderColor: "#010135",
   },
   tabButtonText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "700",
     color: "#4B5563",
     textAlign: "center",
   },
   tabButtonTextActive: {
     color: "#FFFFFF",
+  },
+  tabSubText: {
+    fontSize: 10,
+    color: "#9CA3AF",
+    marginTop: 2,
+    textAlign: "center",
+  },
+  tabSubTextActive: {
+    color: "rgba(255,255,255,0.75)",
   },
   inputContainer: {
     marginBottom: 24,

@@ -287,7 +287,9 @@ const maskIdNumber = (idStr) => {
 
     try {
       setIsStatusChecking(true);
-      const statusResult = await kycService.getDiditSessionStatus(sessionId);      if (statusResult?.verified || statusResult?.kycStatus === "VERIFIED") {
+      const statusResult = await kycService.getDiditSessionStatus(sessionId);
+
+      if (statusResult?.verified || statusResult?.kycStatus === "VERIFIED") {
         setIsVerified(true);
         setActiveSessionId(null); // Clear active session ID on success
         const nameToUse = statusResult?.user?.fullName || "";
@@ -322,7 +324,7 @@ const maskIdNumber = (idStr) => {
 
         showToast(successMessage || "Identity verified successfully!", TOAST_TYPE.SUCCESS);
         return;
-      } }
+      }
 
       if (statusResult?.kycStatus === "REJECTED") {
         const reason = statusResult?.kycRejectionReason || "Verification was declined by provider.";
@@ -346,6 +348,7 @@ const maskIdNumber = (idStr) => {
       setIsStatusChecking(false);
     }
   };
+
 
   const handleRefresh = async () => {
     try {

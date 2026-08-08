@@ -107,6 +107,14 @@ const KYCVerificationScreen = () => {
         router.replace("/login");
         return;
       }
+
+      // Always fetch fresh profile from server first to bust any stale local cache
+      try {
+        await authService.fetchProfile();
+        console.log("[KYC] Fresh profile synced from server on screen open");
+      } catch (e) {
+        console.warn("[KYC] Could not sync profile on init:", e?.message);
+      }
       
       const urlSessionId = params?.sessionId || params?.verificationSessionId;
       if (urlSessionId) {
@@ -118,6 +126,7 @@ const KYCVerificationScreen = () => {
       }
     };
     init();
+
 
     // Listen for app coming back to foreground (e.g. after completing Didit in system browser)
     const subscription = AppState.addEventListener("change", (nextAppState) => {

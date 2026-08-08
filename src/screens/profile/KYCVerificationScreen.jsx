@@ -19,6 +19,7 @@ import Svg, { Circle, Path } from "react-native-svg";
 import ToastNotification, { TOAST_TYPE } from "../../components/common/ToastNotification";
 import authService from "../../services/authService";
 import kycService from "../../services/kycService";
+import profileService from "../../services/profileService";
 import { getUserData, setUserData } from "../../services/userDataService";
 
 const BackIcon = ({ size = 24, color = "#000000" }) => (
@@ -282,6 +283,17 @@ const KYCVerificationScreen = () => {
           };
           await setUserData(updatedUser);
         }
+
+        // Sync profile data across app screens via profileService
+        await profileService.updateProfile({
+          verified: true,
+          kycStatus: "VERIFIED",
+          fullName: statusResult?.user?.fullName || currentUser?.fullName,
+        });
+
+        // Refetch latest profile from server to guarantee full sync
+        await authService.fetchProfile();
+
         showToast(successMessage || "Identity verified successfully!", TOAST_TYPE.SUCCESS);
         return;
       }

@@ -213,14 +213,8 @@ const maskIdNumber = (idStr) => {
 
       const result = await kycService.koraVerifyNIN(cleanNin);
 
-      // Check if backend automatically routed to Didit verification session on Kora restriction
-      if (result?.url || result?.session_url || result?.sessionId || result?.session_id) {
-        showToast("Direct NIN restricted on Korapay — routing to verification scan...", TOAST_TYPE.INFO);
-        await launchDiditSession(result);
-        return;
-      }
-
       if (result?.verified || result?.kycStatus === "VERIFIED" || result?.status === "VERIFIED" || result?.success === true) {
+
 
 
 

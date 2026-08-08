@@ -1229,20 +1229,21 @@ class AuthService {
         },
       );
 
-      // Update local storage with fresh data
+      // Update local storage with fresh data (syncing ID number, KYC status, and verification state)
       if (response.body) {
         await this.setUserData(response.body);
 
-        // Sync avatar and KYC status with profile service
-        const avatarUrl = ImageUtils.resolveImageUrlSync(response.body.avatar, this.baseURL);
-        await profileService.updateAvatar(avatarUrl);
+        const docNumber = response.body.nin || response.body.kycData?.documentNumber || null;
         await profileService.updateProfile({
           verified: response.body.verified === true || response.body.kycStatus === "VERIFIED" || response.body.kycStatus === "APPROVED",
           kycStatus: response.body.kycStatus || (response.body.verified ? "VERIFIED" : "NONE"),
+          idNumber: docNumber,
+          nin: docNumber,
           fullName: response.body.fullName,
           phone: response.body.phoneNumber || response.body.phone
         });
       }
+
 
 
       return {

@@ -284,12 +284,16 @@ const KYCVerificationScreen = () => {
           await setUserData(updatedUser);
         }
 
-        // Sync profile data across app screens via profileService
+        // Sync profile data across app screens via profileService (ID number & KYC status focus)
+        const docNumber = statusResult?.user?.nin || statusResult?.nin || currentUser?.nin || "";
         await profileService.updateProfile({
           verified: true,
           kycStatus: "VERIFIED",
+          idNumber: docNumber,
+          nin: docNumber,
           fullName: statusResult?.user?.fullName || currentUser?.fullName,
         });
+
 
         // Refetch latest profile from server to guarantee full sync
         await authService.fetchProfile();

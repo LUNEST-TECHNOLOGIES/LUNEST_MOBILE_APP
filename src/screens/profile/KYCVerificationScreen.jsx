@@ -150,7 +150,17 @@ const maskIdNumber = (idStr) => {
   const checkVerificationStatus = async () => {
     try {
       // Trigger real-time Didit decision sync with backend first
-      await kycService.syncDiditStatus();
+      const syncRes = await kycService.syncDiditStatus();
+      const syncUser = syncRes?.user || syncRes?.data || syncRes;
+      if (syncUser?.verified === true || syncUser?.kycStatus === "VERIFIED" || syncUser?.kycStatus === "APPROVED") {
+        setIsVerified(true);
+        setVerifiedName(syncUser.fullName || "");
+        const rawNin = syncUser.nin || syncUser.kycData?.documentNumber || syncUser.idNumber || "";
+        const masked = maskIdNumber(rawNin);
+        setVerifiedId(masked || "ID Verified");
+        showToast("Identity verified successfully!", TOAST_TYPE.SUCCESS);
+        return;
+      }
 
       const profile = await authService.fetchProfile();
       const userBody = profile.data || {};
@@ -173,6 +183,7 @@ const maskIdNumber = (idStr) => {
       console.error("Error checking verification status:", error);
     }
   };
+
 
   const handleBack = () => {
     try {

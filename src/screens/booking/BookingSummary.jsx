@@ -22,6 +22,7 @@ import ArrowLeftIcon from "../../assets/icons/bookings/arrow-left.svg";
 import CalendarIcon from "../../assets/icons/vuesax/outline/calendar.svg";
 import ToastNotification, { TOAST_TYPE } from "../../components/common/ToastNotification";
 import ConfirmBookingModal from "../../components/modals/ConfirmBookingModal";
+import KycRequiredModal from "../../components/modals/KycRequiredModal";
 import PaymentMethodModal from "../../components/modals/PaymentMethodModal";
 import authService from "../../services/authService";
 import bookingService from "../../services/bookingService";
@@ -35,6 +36,7 @@ const BookingSummary = () => {
   const params = useLocalSearchParams();
   const insets = useSafeAreaInsets();
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showKycModal, setShowKycModal] = useState(false);
   const [showCancelPolicy, setShowCancelPolicy] = useState(false);
   // Show payment modal immediately if coming from reservation Pay Now
   const [showPaymentModal, setShowPaymentModal] = useState(
@@ -682,10 +684,7 @@ const BookingSummary = () => {
       const profile = await authService.fetchProfile();
       const isVerified = profile?.data?.kycStatus === "VERIFIED" || !!profile?.data?.verified;
       if (!isVerified) {
-        showToast("Identity Verification Required. Please complete KYC verification before placing a booking.", TOAST_TYPE.WARNING);
-        setTimeout(() => {
-          router.push("/profile/kyc-verification");
-        }, 1200);
+        setShowKycModal(true);
         return;
       }
     } catch (err) {
@@ -1623,9 +1622,15 @@ const BookingSummary = () => {
           onWalletSelect={handleWalletSelect}
           loading={isProcessing}
           totalAmount={bookingSummary.pricing.total}
-          hideReserveOption={params.fromReservation === "true"}
           bookingDetails={bookingSummary}
         />
+
+        {/* KYC Required Modal */}
+        <KycRequiredModal
+          visible={showKycModal}
+          onClose={() => setShowKycModal(false)}
+        />
+
 
         {/* Processing Overlay */}
         {isProcessing && (

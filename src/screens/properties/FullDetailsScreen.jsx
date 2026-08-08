@@ -22,9 +22,11 @@ import EllipseAvatar from "../../assets/icons/Ellipse 10.svg";
 import ShieldTickIcon from "../../assets/icons/shield-tick.svg";
 import StarIcon from "../../assets/icons/star.svg";
 import ImageViewerModal from "../../components/modals/ImageViewerModal";
+import KycRequiredModal from "../../components/modals/KycRequiredModal";
 import ReviewFeedbackModal from "../../components/modals/ReviewFeedbackModal";
 import VerifiedInfoOverlay from "../../components/modals/VerifiedInfoOverlay";
 import bookingService from "../../services/bookingService";
+import profileService from "../../services/profileService";
 import Skeleton from "../../components/common/Skeleton";
 import configService from "../../services/configService";
 import { getAmenityIcon } from "../../utils/amenityIcons";
@@ -251,6 +253,7 @@ const FullDetailsScreen = () => {
   const [hostTotalListings, setHostTotalListings] = useState(0);
   const [listingReviews, setListingReviews] = useState([]);
   const [showReviewModal, setShowReviewModal] = useState(false);
+  const [showKycModal, setShowKycModal] = useState(false);
   const [isPostingReview, setIsPostingReview] = useState(false);
   const [isUploadingImages, setIsUploadingImages] = useState(false);
   const [userHasBooked, setUserHasBooked] = useState(false);
@@ -491,7 +494,18 @@ const FullDetailsScreen = () => {
     return null;
   };
 
-  const handleBooking = () => {
+  const handleBooking = async () => {
+    try {
+      const profileData = await profileService.getProfileData();
+      const isKycVerified = profileData?.kycStatus === "VERIFIED" || profileData?.verified === true;
+      if (!isKycVerified) {
+        setShowKycModal(true);
+        return;
+      }
+    } catch (err) {
+      console.warn("[FullDetailsScreen] Profile check error:", err);
+    }
+
     router.push({
       pathname: "/select-booking-details",
       params: {
@@ -1398,6 +1412,12 @@ const FullDetailsScreen = () => {
               </Text>
             </Pressable>
           </View>
+
+          {/* KYC Required Modal */}
+          <KycRequiredModal
+            visible={showKycModal}
+            onClose={() => setShowKycModal(false)}
+          />
         </View>
       ) : (
         <View style={styles.errorContainer}>

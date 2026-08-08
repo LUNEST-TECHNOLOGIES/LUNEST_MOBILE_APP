@@ -48,6 +48,7 @@ import {
 } from "react-native-safe-area-context";
 import { MapView, Marker, PROVIDER_GOOGLE } from "../../components/MapViewWrapper";
 import ImageViewerModal from "../../components/modals/ImageViewerModal";
+import KycRequiredModal from "../../components/modals/KycRequiredModal";
 import ReviewFeedbackModal from "../../components/modals/ReviewFeedbackModal";
 import VerifiedInfoOverlay from "../../components/modals/VerifiedInfoOverlay";
 import PropertyDetailsSkeleton from "../../components/skeletons/PropertyDetailsSkeleton";
@@ -392,6 +393,7 @@ const PropertyDetailsScreen = () => {
   const [hostCurrentRating, setHostCurrentRating] = useState(null);
   const [hostTotalListings, setHostTotalListings] = useState(1);
   const [showPhoneModal, setShowPhoneModal] = useState(false);
+  const [showKycModal, setShowKycModal] = useState(false);
   const [reviewText, setReviewText] = useState("");
   const [reviewRating, setReviewRating] = useState(0);
   const [showReviewModal, setShowReviewModal] = useState(false);
@@ -1068,17 +1070,7 @@ const PropertyDetailsScreen = () => {
       // 1b. Validate KYC Verification Status
       const isKycVerified = profileData?.kycStatus === "VERIFIED" || profileData?.verified === true;
       if (!isKycVerified) {
-        Alert.alert(
-          "Identity Verification Required",
-          "You must verify your identity to proceed with booking a property.",
-          [
-            { text: "Cancel", style: "cancel" },
-            {
-              text: "Verify Now",
-              onPress: () => router.push("/profile/kyc-verification"),
-            },
-          ],
-        );
+        setShowKycModal(true);
         return;
       }
 
@@ -2080,6 +2072,12 @@ const PropertyDetailsScreen = () => {
           </Text>
         </Pressable>
       </View>
+
+      {/* KYC Required Modal */}
+      <KycRequiredModal
+        visible={showKycModal}
+        onClose={() => setShowKycModal(false)}
+      />
 
       {/* Phone Number Required Modal */}
       <Modal

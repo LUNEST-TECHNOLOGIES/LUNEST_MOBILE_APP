@@ -1,5 +1,5 @@
 // Service Worker for LUNEST Mobile PWA
-const CACHE_NAME = 'lunest-pwa-v1';
+const CACHE_NAME = 'lunest-pwa-v3';
 const ASSETS_TO_CACHE = [
   '/',
   '/manifest.json',
@@ -14,6 +14,7 @@ self.addEventListener('install', (event) => {
       return cache.addAll(ASSETS_TO_CACHE);
     }).then(() => self.skipWaiting())
   );
+
 });
 
 self.addEventListener('activate', (event) => {

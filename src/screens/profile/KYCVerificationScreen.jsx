@@ -620,54 +620,65 @@ const maskIdNumber = (idStr) => {
 
           {/* ── DIDIT TAB ── */}
           {activeTab === "DIDIT" && (
-            <View>
-              <View style={styles.noteContainer}>
-                <Text style={styles.noteTitle}>Identity Verification Scan:</Text>
-                <Text style={styles.noteText}>
-                  Scan your valid government document and complete a liveness check to confirm your identity.
-                </Text>
+            <View style={styles.diditNoteContainer}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+                  <Circle cx="12" cy="12" r="10" fill="#EEF2FF" stroke="#010135" strokeWidth="2" />
+                  <Path d="M12 16V12M12 8H12.01" stroke="#010135" strokeWidth="2.5" strokeLinecap="round" />
+                </Svg>
+                <Text style={styles.diditNoteTitle}>Identity Verification Scan</Text>
               </View>
+              <Text style={styles.diditNoteText}>
+                Scan your valid government ID document and complete a liveness check to verify your identity instantly.
+              </Text>
             </View>
           )}
 
           {/* ── KORA TAB ── */}
           {activeTab === "KORA" && (
             <View>
-              <View style={[styles.noteContainer, { borderLeftColor: "#008751" }]}>
-                <Text style={[styles.noteTitle, { color: "#006633" }]}>NIN Database Check:</Text>
-                <Text style={[styles.noteText, { color: "#006633" }]}>
-                  Enter your 11-digit National Identification Number (NIN). Kora will verify it directly against the government database — no camera or selfie needed.
+              <View style={styles.koraNoteContainer}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                  <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+                    <Circle cx="12" cy="12" r="10" fill="#ECFDF5" stroke="#008751" strokeWidth="2" />
+                    <Path d="M12 16V12M12 8H12.01" stroke="#008751" strokeWidth="2.5" strokeLinecap="round" />
+                  </Svg>
+                  <Text style={styles.koraNoteTitle}>Government NIN Lookup</Text>
+                </View>
+                <Text style={styles.koraNoteText}>
+                  Enter your 11-digit NIN or 16-character Virtual NIN (vNIN). Kora will verify your identity directly against the official database.
                 </Text>
               </View>
 
               <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>National Identification Number (NIN)</Text>
+                <Text style={styles.inputLabel}>National Identification Number (NIN / vNIN)</Text>
                 <TextInput
                   id="kora-nin-input"
                   style={[
                     styles.input,
                     ninError ? { borderColor: "#EF4444" } : null,
                   ]}
-                  placeholder="Enter your 11-digit NIN"
-                  placeholderTextColor="#AAAAAA"
+                  placeholder="Enter 11-digit NIN or 16-character vNIN"
+                  placeholderTextColor="#9CA3AF"
                   value={ninInput}
                   onChangeText={(text) => {
-                    setNinInput(text.replace(/[^0-9]/g, "").slice(0, 11));
+                    setNinInput(text.trim().toUpperCase());
                     if (ninError) setNinError("");
                   }}
-                  keyboardType="numeric"
-                  maxLength={11}
+                  autoCapitalize="characters"
+                  maxLength={16}
                   returnKeyType="done"
                 />
                 {!!ninError && (
                   <Text style={{ color: "#EF4444", fontSize: 12, marginTop: 4 }}>{ninError}</Text>
                 )}
-                <Text style={{ fontSize: 12, color: "#9CA3AF", marginTop: 6 }}>
-                  Your NIN is the 11-digit number on your National ID Slip or NIMC card.
+                <Text style={{ fontSize: 12, color: "#6B7280", marginTop: 6, lineHeight: 16 }}>
+                  Supports 11-digit raw NIN or 16-character Virtual NIN (vNIN generated via *346*3*NIN*121097#).
                 </Text>
               </View>
             </View>
           )}
+
 
           {/* Consent checkbox — shown for both tabs */}
           <TouchableOpacity
@@ -917,24 +928,45 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
   },
-  noteContainer: {
-    backgroundColor: "#FFF9E6",
+  diditNoteContainer: {
+    backgroundColor: "#F4F6FF",
     padding: 16,
-    borderRadius: 12,
+    borderRadius: 14,
     borderLeftWidth: 4,
-    borderLeftColor: "#FFC107",
+    borderLeftColor: "#010135",
+    marginBottom: 8,
   },
-  noteTitle: {
+  diditNoteTitle: {
     fontSize: 14,
-    fontWeight: "bold",
-    color: "#856404",
-    marginBottom: 4,
+    fontWeight: "700",
+    color: "#010135",
+    letterSpacing: -0.2,
   },
-  noteText: {
+  diditNoteText: {
     fontSize: 13,
-    color: "#856404",
-    lineHeight: 18,
+    color: "#374151",
+    lineHeight: 20,
   },
+  koraNoteContainer: {
+    backgroundColor: "#F0FDF4",
+    padding: 16,
+    borderRadius: 14,
+    borderLeftWidth: 4,
+    borderLeftColor: "#008751",
+    marginBottom: 16,
+  },
+  koraNoteTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#065F46",
+    letterSpacing: -0.2,
+  },
+  koraNoteText: {
+    fontSize: 13,
+    color: "#047857",
+    lineHeight: 20,
+  },
+
   consentContainer: {
     flexDirection: "row",
     alignItems: "center",

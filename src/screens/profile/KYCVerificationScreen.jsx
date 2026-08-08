@@ -12,7 +12,8 @@ import {
   TouchableOpacity,
   View,
   Linking,
-  RefreshControl
+  RefreshControl,
+  AppState
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Circle, Path } from "react-native-svg";
@@ -117,7 +118,23 @@ const KYCVerificationScreen = () => {
       }
     };
     init();
-  }, [params?.sessionId, params?.verificationSessionId]);
+
+    // Listen for app coming back to foreground (e.g. after completing Didit in system browser)
+    const subscription = AppState.addEventListener("change", (nextAppState) => {
+      if (nextAppState === "active") {
+        console.log("[KYC] App returned to active foreground state. Auto-syncing Didit verification status...");
+        if (activeSessionId) {
+          finalizeSession(activeSessionId, "Identity status updated.");
+        } else {
+          checkVerificationStatus();
+        }
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [params?.sessionId, params?.verificationSessionId, activeSessionId]);
 
 const maskIdNumber = (idStr) => {
   if (!idStr) return "";
@@ -132,6 +149,9 @@ const maskIdNumber = (idStr) => {
 
   const checkVerificationStatus = async () => {
     try {
+      // Trigger real-time Didit decision sync with backend first
+      await kycService.syncDiditStatus();
+
       const profile = await authService.fetchProfile();
       const userBody = profile.data || {};
       const isVerifiedStatus = userBody.kycStatus === "VERIFIED" || userBody.verified === true || userBody.kycStatus === "APPROVED";

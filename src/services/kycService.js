@@ -94,6 +94,21 @@ const kycService = {
       throw new Error(extractErrorMessage(error, "Failed to verify NIN via Kora. Please check your NIN and try again."));
     }
   },
+
+  /**
+   * Sync Didit verification status with backend
+   */
+  syncDiditStatus: async () => {
+    try {
+      const response = await apiClient.get("/v1/kyc/didit/sync");
+      return response.body || response.data || response;
+    } catch (error) {
+      console.warn("Didit Sync Warning:", error.response?.data || error.message);
+      return null;
+    }
+  },
 };
+
+
 
 export default kycService;

@@ -718,8 +718,9 @@ const maskIdNumber = (idStr) => {
                   <Text style={{ color: "#EF4444", fontSize: 12, marginTop: 4 }}>{ninError}</Text>
                 )}
                 <Text style={{ fontSize: 12, color: "#6B7280", marginTop: 6, lineHeight: 16 }}>
-                  Supports 11-digit raw NIN or 16-character Virtual NIN (vNIN generated via *346*3*NIN*121097#).
+                  Supports 11-digit raw NIN or 16-character Virtual NIN (vNIN). (Test Mode vNIN: KO111111111111IL)
                 </Text>
+
               </View>
             </View>
           )}

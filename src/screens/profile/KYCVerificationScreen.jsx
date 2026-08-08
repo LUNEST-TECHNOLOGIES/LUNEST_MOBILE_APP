@@ -234,7 +234,9 @@ const maskIdNumber = (idStr) => {
 
 
         setIsVerified(true);
+        setRejectionReason(null);
         const nameToUse = result?.verifiedName || result?.fullName || "";
+
         setVerifiedName(nameToUse);
         const rawNin = result?.nin || cleanNin;
         const masked = maskIdNumber(rawNin);

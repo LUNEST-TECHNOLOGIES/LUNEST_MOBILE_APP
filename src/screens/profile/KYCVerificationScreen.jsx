@@ -196,10 +196,11 @@ const maskIdNumber = (idStr) => {
       setNinError("Please enter your NIN.");
       return;
     }
-    if (!/^[0-9]{11}$/.test(cleanNin)) {
-      setNinError("NIN must be exactly 11 digits.");
+    if (!/^[0-9]{11}$/.test(cleanNin) && !/^[a-zA-Z0-9]{16}$/.test(cleanNin)) {
+      setNinError("NIN must be 11 digits or 16-character Virtual NIN (vNIN).");
       return;
     }
+
     if (!consentChecked) {
       showToast("Please check the consent box to proceed.", TOAST_TYPE.WARNING);
       return;

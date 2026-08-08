@@ -154,6 +154,7 @@ const maskIdNumber = (idStr) => {
       const syncUser = syncRes?.user || syncRes?.data || syncRes;
       if (syncUser?.verified === true || syncUser?.kycStatus === "VERIFIED" || syncUser?.kycStatus === "APPROVED") {
         setIsVerified(true);
+        setRejectionReason(null);
         setVerifiedName(syncUser.fullName || "");
         const rawNin = syncUser.nin || syncUser.kycData?.documentNumber || syncUser.idNumber || "";
         const masked = maskIdNumber(rawNin);
@@ -168,6 +169,7 @@ const maskIdNumber = (idStr) => {
 
       if (isVerifiedStatus) {
         setIsVerified(true);
+        setRejectionReason(null);
         setVerifiedName(userBody.fullName || "");
         
         // Mask the NIN/document number
@@ -179,6 +181,7 @@ const maskIdNumber = (idStr) => {
         setActiveSessionUrl(userBody.kycData.sessionUrl || "");
         setConsentChecked(true); // Pre-approve consent since they have a session
       }
+
     } catch (error) {
       console.error("Error checking verification status:", error);
     }
@@ -419,10 +422,11 @@ const maskIdNumber = (idStr) => {
       
       if (Platform.OS === "web" && typeof window !== "undefined") {
         const origin = window.location.origin;
-        callbackUrl = `${baseURL}/v1/kyc/didit/webhook?platform=pwa&origin=${encodeURIComponent(origin + "/profile/kyc-verification")}`;
+        callbackUrl = `${baseURL}/v1/kyc/didit/webhook?platform=pwa&origin=${encodeURIComponent(origin)}`;
       } else {
         callbackUrl = `${baseURL}/v1/kyc/didit/webhook?platform=native`;
       }
+
 
 
       const response = await kycService.createDiditSession(callbackUrl);
@@ -535,9 +539,17 @@ const maskIdNumber = (idStr) => {
           <Text style={[styles.successSubtitle, { color: "#DC2626" }]}>{rejectionReason}</Text>
 
           <View style={{ width: "100%", gap: 12, marginTop: 24 }}>
-            <TouchableOpacity style={styles.doneButton} onPress={() => setRejectionReason(null)}>
+            <TouchableOpacity 
+              style={styles.doneButton} 
+              onPress={() => {
+                setRejectionReason(null);
+                setActiveSessionId(null);
+                setActiveSessionUrl(null);
+              }}
+            >
               <Text style={styles.doneButtonText}>Try Verification Again</Text>
             </TouchableOpacity>
+
             
             <TouchableOpacity 
               style={[styles.doneButton, { backgroundColor: "#F3F4F6", borderWidth: 1, borderColor: "#E5E7EB" }]} 

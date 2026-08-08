@@ -330,10 +330,15 @@ const maskIdNumber = (idStr) => {
       setIsStatusChecking(true);
       const statusResult = await kycService.getDiditSessionStatus(sessionId);
 
-      if (statusResult?.verified || statusResult?.kycStatus === "VERIFIED") {
+      console.log("[KYC] finalizeSession raw statusResult:", JSON.stringify(statusResult));
+
+      const isVerified = statusResult?.verified === true || statusResult?.kycStatus === "VERIFIED";
+
+      if (isVerified) {
         setIsVerified(true);
+        setRejectionReason(null);
         setActiveSessionId(null); // Clear active session ID on success
-        const nameToUse = statusResult?.user?.fullName || "";
+        const nameToUse = statusResult?.user?.fullName || statusResult?.fullName || "";
         setVerifiedName(nameToUse);
         const rawNin = statusResult?.user?.nin || statusResult?.nin || statusResult?.user?.kycData?.documentNumber || "";
         const masked = maskIdNumber(rawNin);
@@ -367,8 +372,15 @@ const maskIdNumber = (idStr) => {
         return;
       }
 
-      if (statusResult?.kycStatus === "REJECTED") {
-        const reason = statusResult?.kycRejectionReason || "Verification was declined by provider.";
+      // Check for rejection/declined status
+      const resolvedKycStatus = statusResult?.kycStatus || statusResult?.status || "";
+      const isRejected = resolvedKycStatus === "REJECTED" || resolvedKycStatus === "DECLINED" || resolvedKycStatus === "FAILED";
+      if (isRejected) {
+        const reason =
+          statusResult?.kycRejectionReason ||
+          statusResult?.user?.kycRejectionReason ||
+          statusResult?.sync?.kycRejectionReason ||
+          "Verification was declined by provider.";
         setRejectionReason(reason);
         showToast(reason, TOAST_TYPE.ERROR);
         return;
@@ -555,7 +567,17 @@ const maskIdNumber = (idStr) => {
             
             <TouchableOpacity 
               style={[styles.doneButton, { backgroundColor: "#F3F4F6", borderWidth: 1, borderColor: "#E5E7EB" }]} 
-              onPress={() => router.push("/profile/personal-info-edit")}
+              onPress={() => {
+                try {
+                  if (router.canGoBack()) {
+                    router.back();
+                  } else {
+                    router.replace("/(tabs)/profile");
+                  }
+                } catch (e) {
+                  router.replace("/(tabs)/profile");
+                }
+              }}
             >
               <Text style={[styles.doneButtonText, { color: "#1F2937" }]}>Back to Profile</Text>
             </TouchableOpacity>

@@ -419,10 +419,11 @@ const maskIdNumber = (idStr) => {
       
       if (Platform.OS === "web" && typeof window !== "undefined") {
         const origin = window.location.origin;
-        callbackUrl = `${baseURL}/v1/kyc/didit/webhook?platform=pwa&origin=${encodeURIComponent(origin + "/kyc-verification")}`;
+        callbackUrl = `${baseURL}/v1/kyc/didit/webhook?platform=pwa&origin=${encodeURIComponent(origin + "/profile/kyc-verification")}`;
       } else {
         callbackUrl = `${baseURL}/v1/kyc/didit/webhook?platform=native`;
       }
+
 
       const response = await kycService.createDiditSession(callbackUrl);
       

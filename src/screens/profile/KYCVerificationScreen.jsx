@@ -193,7 +193,15 @@ const maskIdNumber = (idStr) => {
 
       const result = await kycService.koraVerifyNIN(cleanNin);
 
+      // Check if backend automatically routed to Didit verification session
+      if (result?.url || result?.session_url || result?.sessionId || result?.session_id) {
+        showToast("Routing to identity verification scan...", TOAST_TYPE.INFO);
+        await launchDiditSession(result);
+        return;
+      }
+
       if (result?.verified || result?.kycStatus === "VERIFIED" || result?.status === "VERIFIED" || result?.success === true) {
+
         setIsVerified(true);
         const nameToUse = result?.verifiedName || result?.fullName || "";
         setVerifiedName(nameToUse);

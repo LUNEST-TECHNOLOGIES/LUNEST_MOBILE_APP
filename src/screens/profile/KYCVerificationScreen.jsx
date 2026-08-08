@@ -119,22 +119,34 @@ const KYCVerificationScreen = () => {
     init();
   }, [params?.sessionId, params?.verificationSessionId]);
 
+const maskIdNumber = (idStr) => {
+  if (!idStr) return "";
+  const cleaned = String(idStr).trim();
+  if (cleaned.length <= 4) return "****";
+  const startLen = Math.min(4, Math.floor(cleaned.length / 3));
+  const endLen = Math.min(3, Math.floor(cleaned.length / 3));
+  const start = cleaned.substring(0, startLen);
+  const end = cleaned.substring(cleaned.length - endLen);
+  return `${start}****${end}`;
+};
+
   const checkVerificationStatus = async () => {
     try {
       const profile = await authService.fetchProfile();
-      if (profile.data?.kycStatus === "VERIFIED" || profile.data?.verified) {
+      const userBody = profile.data || {};
+      const isVerifiedStatus = userBody.kycStatus === "VERIFIED" || userBody.verified === true || userBody.kycStatus === "APPROVED";
+
+      if (isVerifiedStatus) {
         setIsVerified(true);
-        setVerifiedName(profile.data?.fullName || "");
+        setVerifiedName(userBody.fullName || "");
         
         // Mask the NIN/document number
-        const rawNin = profile.data?.nin || profile.data?.kycData?.documentNumber || "";
-        if (rawNin) {
-          const masked = rawNin.replace(/^(\d{3,4})\d+(\d{3})$/, "$1****$2");
-          setVerifiedId(masked);
-        }
-      } else if (profile.data?.kycData?.sessionId) {
-        setActiveSessionId(profile.data.kycData.sessionId);
-        setActiveSessionUrl(profile.data.kycData.sessionUrl || "");
+        const rawNin = userBody.nin || userBody.kycData?.documentNumber || userBody.idNumber || "";
+        const masked = maskIdNumber(rawNin);
+        setVerifiedId(masked || "ID Verified");
+      } else if (userBody.kycData?.sessionId) {
+        setActiveSessionId(userBody.kycData.sessionId);
+        setActiveSessionUrl(userBody.kycData.sessionUrl || "");
         setConsentChecked(true); // Pre-approve consent since they have a session
       }
     } catch (error) {
@@ -181,23 +193,36 @@ const KYCVerificationScreen = () => {
 
       const result = await kycService.koraVerifyNIN(cleanNin);
 
-      if (result?.verified || result?.kycStatus === "VERIFIED" || result?.status === "VERIFIED") {
+      if (result?.verified || result?.kycStatus === "VERIFIED" || result?.status === "VERIFIED" || result?.success === true) {
         setIsVerified(true);
-        setVerifiedName(result?.verifiedName || result?.fullName || "");
+        const nameToUse = result?.verifiedName || result?.fullName || "";
+        setVerifiedName(nameToUse);
         const rawNin = result?.nin || cleanNin;
-        const masked = rawNin.replace(/^(\d{3,4})\d+(\d{3})$/, "$1****$2");
+        const masked = maskIdNumber(rawNin);
         setVerifiedId(masked);
 
-        // Sync to local storage
+        // Sync to local storage & profileService
         const currentUser = await getUserData();
         if (currentUser) {
           await setUserData({
             ...currentUser,
             verified: true,
             kycStatus: "VERIFIED",
-            fullName: result?.verifiedName || currentUser.fullName,
+            fullName: nameToUse || currentUser.fullName,
+            nin: cleanNin,
           });
         }
+
+        await profileService.updateProfile({
+          verified: true,
+          kycStatus: "VERIFIED",
+          idNumber: cleanNin,
+          nin: cleanNin,
+          fullName: nameToUse || currentUser?.fullName,
+        });
+
+        await authService.fetchProfile();
+
         showToast("Identity verified successfully!", TOAST_TYPE.SUCCESS);
       } else {
         showToast(result?.message || "NIN verification failed. Please try again.", TOAST_TYPE.ERROR);
@@ -262,45 +287,42 @@ const KYCVerificationScreen = () => {
 
     try {
       setIsStatusChecking(true);
-      const statusResult = await kycService.getDiditSessionStatus(sessionId);
-
-      if (statusResult?.verified || statusResult?.kycStatus === "VERIFIED") {
+      const statusResult = await kycService.getDiditSessionStatus(sessionId);      if (statusResult?.verified || statusResult?.kycStatus === "VERIFIED") {
         setIsVerified(true);
         setActiveSessionId(null); // Clear active session ID on success
-        setVerifiedName(statusResult?.user?.fullName || "");
-        const rawNin = statusResult?.user?.nin || statusResult?.nin || "";
-        if (rawNin) {
-          const masked = rawNin.replace(/^(\d{3,4})\d+(\d{3})$/, "$1****$2");
-          setVerifiedId(masked);
-        }
+        const nameToUse = statusResult?.user?.fullName || "";
+        setVerifiedName(nameToUse);
+        const rawNin = statusResult?.user?.nin || statusResult?.nin || statusResult?.user?.kycData?.documentNumber || "";
+        const masked = maskIdNumber(rawNin);
+        setVerifiedId(masked || "ID Verified");
+
         const currentUser = await getUserData();
         if (currentUser) {
           const updatedUser = {
             ...currentUser,
             verified: true,
             kycStatus: "VERIFIED",
-            fullName: statusResult?.user?.fullName || currentUser.fullName,
+            fullName: nameToUse || currentUser.fullName,
+            nin: rawNin || currentUser.nin,
           };
           await setUserData(updatedUser);
         }
 
         // Sync profile data across app screens via profileService (ID number & KYC status focus)
-        const docNumber = statusResult?.user?.nin || statusResult?.nin || currentUser?.nin || "";
         await profileService.updateProfile({
           verified: true,
           kycStatus: "VERIFIED",
-          idNumber: docNumber,
-          nin: docNumber,
-          fullName: statusResult?.user?.fullName || currentUser?.fullName,
+          idNumber: rawNin,
+          nin: rawNin,
+          fullName: nameToUse || currentUser?.fullName,
         });
-
 
         // Refetch latest profile from server to guarantee full sync
         await authService.fetchProfile();
 
         showToast(successMessage || "Identity verified successfully!", TOAST_TYPE.SUCCESS);
         return;
-      }
+      } }
 
       if (statusResult?.kycStatus === "REJECTED") {
         const reason = statusResult?.kycRejectionReason || "Verification was declined by provider.";
@@ -422,20 +444,18 @@ const KYCVerificationScreen = () => {
           <Text style={styles.successSubtitle}>Your identity has been verified. Your full name and verified government ID have been synced to your account profile.</Text>
 
           {/* Masked identity display */}
-          {!!verifiedName && (
-            <View style={styles.verifiedInfoCard}>
+          <View style={styles.verifiedInfoCard}>
+            {!!verifiedName && (
               <View style={{ width: "100%", marginBottom: 12 }}>
                 <Text style={{ fontSize: 11, fontWeight: "700", color: "#6B7280", letterSpacing: 1, marginBottom: 4 }}>VERIFIED NAME</Text>
                 <Text style={styles.infoValue}>{verifiedName}</Text>
               </View>
-              {!!verifiedId && (
-                <View style={{ width: "100%", borderTopWidth: 1, borderTopColor: "#E5E7EB", paddingTop: 12 }}>
-                  <Text style={{ fontSize: 11, fontWeight: "700", color: "#6B7280", letterSpacing: 1, marginBottom: 4 }}>GOVERNMENT IDENTITY ID</Text>
-                  <Text style={styles.infoValue}>{verifiedId}</Text>
-                </View>
-              )}
+            )}
+            <View style={{ width: "100%", borderTopWidth: !!verifiedName ? 1 : 0, borderTopColor: "#E5E7EB", paddingTop: !!verifiedName ? 12 : 0 }}>
+              <Text style={{ fontSize: 11, fontWeight: "700", color: "#6B7280", letterSpacing: 1, marginBottom: 4 }}>GOVERNMENT IDENTITY ID</Text>
+              <Text style={styles.infoValue}>{verifiedId || "ID Verified"}</Text>
             </View>
-          )}
+          </View>
 
           <View style={{ width: "100%", gap: 12, marginTop: 24 }}>
             <TouchableOpacity style={styles.doneButton} onPress={() => router.replace("/(tabs)")}>

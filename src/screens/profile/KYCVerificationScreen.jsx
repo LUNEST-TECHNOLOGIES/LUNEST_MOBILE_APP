@@ -533,10 +533,11 @@ const maskIdNumber = (idStr) => {
             
             <TouchableOpacity 
               style={[styles.doneButton, { backgroundColor: "#F3F4F6", borderWidth: 1, borderColor: "#E5E7EB" }]} 
-              onPress={() => router.push("/profile/personal-info-edit")}
+              onPress={handleBack}
             >
               <Text style={[styles.doneButtonText, { color: "#1F2937" }]}>Back to Profile</Text>
             </TouchableOpacity>
+
           </View>
         </View>
       </SafeAreaView>

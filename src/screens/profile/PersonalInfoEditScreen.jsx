@@ -300,6 +300,29 @@ const PersonalInfoEditScreen = () => {
         else serverGender = "Others";
       }
 
+      const isServerVerified = serverProfileResult?.data?.verified === true || 
+        serverProfileResult?.data?.kycStatus === 'VERIFIED' || 
+        serverProfileResult?.data?.kycStatus === 'APPROVED' ||
+        savedProfile?.verified === true ||
+        savedProfile?.kycStatus === 'VERIFIED';
+
+      const resolvedKycStatus = isServerVerified 
+        ? 'VERIFIED' 
+        : (serverProfileResult?.data?.kycStatus || savedProfile?.kycStatus || 'NONE');
+
+      const resolvedRejectionReason = isServerVerified 
+        ? null 
+        : (serverProfileResult?.data?.kycRejectionReason || serverProfileResult?.data?.kycData?.rejectionReason || null);
+
+      if (isServerVerified) {
+        // Sync local storage to ensure stale rejection reason is purged
+        profileService.updateProfile({
+          verified: true,
+          kycStatus: 'VERIFIED',
+          kycRejectionReason: null,
+        }).catch(err => console.warn('[PersonalInfoEdit] Error syncing profile storage:', err));
+      }
+
       if (savedProfile) {
         setUserData((prev) => ({
           ...prev,
@@ -324,9 +347,9 @@ const PersonalInfoEditScreen = () => {
             }
             return savedAvatar || prev.avatarUri;
           })(),
-          isVerified: serverProfileResult?.data?.kycStatus === 'VERIFIED' || !!serverProfileResult?.data?.verified || false,
-          kycStatus: serverProfileResult?.data?.kycStatus || (serverProfileResult?.data?.verified ? 'VERIFIED' : 'NONE'),
-          kycRejectionReason: serverProfileResult?.data?.kycRejectionReason || serverProfileResult?.data?.kycData?.rejectionReason || '',
+          isVerified: isServerVerified,
+          kycStatus: resolvedKycStatus,
+          kycRejectionReason: resolvedRejectionReason,
           phoneVerified: !!serverProfileResult?.data?.phoneVerified || false,
         }));
       } else if (
@@ -351,12 +374,13 @@ const PersonalInfoEditScreen = () => {
              }
              return prev.avatarUri;
           })(),
-          isVerified: serverProfileResult?.data?.kycStatus === 'VERIFIED' || !!serverProfileResult?.data?.verified || false,
-          kycStatus: serverProfileResult?.data?.kycStatus || (serverProfileResult?.data?.verified ? 'VERIFIED' : 'NONE'),
-          kycRejectionReason: serverProfileResult?.data?.kycRejectionReason || serverProfileResult?.data?.kycData?.rejectionReason || '',
+          isVerified: isServerVerified,
+          kycStatus: resolvedKycStatus,
+          kycRejectionReason: resolvedRejectionReason,
           phoneVerified: !!serverProfileResult?.data?.phoneVerified || false,
         }));
       }
+
     } catch (error) {
       console.error("Error loading profile data:", error);
     } finally {

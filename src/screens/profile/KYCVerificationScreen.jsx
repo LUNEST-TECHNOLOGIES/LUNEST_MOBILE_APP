@@ -238,26 +238,21 @@ const maskIdNumber = (idStr) => {
       const result = await kycService.koraVerifyNIN(cleanNin);
 
       if (result?.verified || result?.kycStatus === "VERIFIED" || result?.status === "VERIFIED" || result?.success === true) {
-
-
-
-
         setIsVerified(true);
         setRejectionReason(null);
-        const nameToUse = result?.verifiedName || result?.fullName || "";
-
-        setVerifiedName(nameToUse);
-        const rawNin = result?.nin || cleanNin;
-        const masked = maskIdNumber(rawNin);
-        setVerifiedId(masked);
-
-        // Sync to local storage & profileService
+        setActiveSessionId(null);
+        setActiveSessionUrl(null);
         const currentUser = await getUserData();
+        const nameToUse = result?.verifiedName || result?.data?.fullName || currentUser?.fullName || "";
+        setVerifiedName(nameToUse);
+        setVerifiedId(maskIdNumber(cleanNin) || "ID Verified");
+
         if (currentUser) {
           await setUserData({
             ...currentUser,
             verified: true,
             kycStatus: "VERIFIED",
+            kycRejectionReason: null,
             fullName: nameToUse || currentUser.fullName,
             nin: cleanNin,
           });
@@ -266,6 +261,7 @@ const maskIdNumber = (idStr) => {
         await profileService.updateProfile({
           verified: true,
           kycStatus: "VERIFIED",
+          kycRejectionReason: null,
           idNumber: cleanNin,
           nin: cleanNin,
           fullName: nameToUse || currentUser?.fullName,
@@ -361,6 +357,7 @@ const maskIdNumber = (idStr) => {
             ...currentUser,
             verified: true,
             kycStatus: "VERIFIED",
+            kycRejectionReason: null,
             fullName: nameToUse || currentUser.fullName,
             nin: rawNin || currentUser.nin,
           };
@@ -371,10 +368,12 @@ const maskIdNumber = (idStr) => {
         await profileService.updateProfile({
           verified: true,
           kycStatus: "VERIFIED",
+          kycRejectionReason: null,
           idNumber: rawNin,
           nin: rawNin,
           fullName: nameToUse || currentUser?.fullName,
         });
+
 
         // Refetch latest profile from server to guarantee full sync
         await authService.fetchProfile();

@@ -80,6 +80,7 @@ const ProfileHeader = ({
   nin = "",
   isHostMode = false,
   emailVerified = false,
+  phoneVerified = false,
   verified = false,
   kycStatus = "NONE",
   avatarUri: externalAvatarUri,
@@ -89,10 +90,14 @@ const ProfileHeader = ({
   const { width } = useWindowDimensions();
   const containerWidth = Math.min(width - 40, 400);
 
-  // Calculate verification status - both phone AND NIN must be provided, AND verified flag from backend
-  const isPhoneVerified = !!phone && phone.trim().length > 0;
-  const isNinVerified = !!nin && nin.trim().length > 0;
-  const isFullyVerified = verified && isPhoneVerified && isNinVerified;
+  // Calculate distinct status flags for zero conflict
+  const isPhoneProvided = !!phone && phone.trim().length > 0;
+  const isPhoneVerified = isPhoneProvided && (phoneVerified === true || verified === true);
+  const isNinProvided = !!nin && nin.trim().length > 0;
+  const isIdentityVerified = verified === true || kycStatus === 'VERIFIED' || kycStatus === 'APPROVED';
+  
+  // Full verification requires both identity and phone verification
+  const isFullyVerified = isIdentityVerified && isPhoneVerified;
 
   // Profile avatar state - use passed prop or load from service
   const [avatarUri, setAvatarUri] = useState(externalAvatarUri);
@@ -205,10 +210,14 @@ const ProfileHeader = ({
                 {name}
               </Text>
               <View style={styles.nameRowSpacer} />
-              {isFullyVerified || kycStatus === 'VERIFIED' ? (
+              {isFullyVerified ? (
                 <View style={styles.verifiedBadge}>
                   <VerifiedIcon size={16} />
                   <Text style={styles.verifiedText}>VERIFIED</Text>
+                </View>
+              ) : isIdentityVerified ? (
+                <View style={styles.inReviewBadge}>
+                  <Text style={styles.inReviewText}>PHONE NEEDED</Text>
                 </View>
               ) : kycStatus === 'PENDING' || kycStatus === 'IN_REVIEW' ? (
                 <View style={styles.inReviewBadge}>
@@ -237,11 +246,12 @@ const ProfileHeader = ({
             {isPhoneVerified ? (
               <View style={styles.verifiedItemRow}>
                 <Text style={styles.phone}>{phone}</Text>
-                {verified || isPhoneVerified ? (
-                  <Text style={styles.verifiedSmallText}>✓ Verified</Text>
-                ) : (
-                  <Text style={styles.pendingSmallText}>Pending</Text>
-                )}
+                <Text style={styles.verifiedSmallText}>✓ Verified</Text>
+              </View>
+            ) : isPhoneProvided ? (
+              <View style={styles.verifiedItemRow}>
+                <Text style={styles.phone}>{phone}</Text>
+                <Text style={styles.pendingSmallText}>Unverified</Text>
               </View>
             ) : (
               <View style={styles.phoneWarningContainer}>
@@ -249,13 +259,13 @@ const ProfileHeader = ({
               </View>
             )}
 
-            {/* NIN Status */}
-            {isNinVerified ? (
+            {/* NIN / Identity Status */}
+            {isNinProvided || isIdentityVerified ? (
               <View style={styles.verifiedItemRow}>
                 <Text style={styles.ninText}>
-                  NIN: {nin.slice(0, 4)}****{nin.slice(-3)}
+                  {nin ? `NIN: ${nin.slice(0, 4)}****${nin.slice(-3)}` : "Identity Document"}
                 </Text>
-                {verified || kycStatus === 'VERIFIED' ? (
+                {isIdentityVerified ? (
                   <Text style={styles.verifiedSmallText}>✓ Verified</Text>
                 ) : (
                   <Text style={styles.pendingSmallText}>Pending verification</Text>
@@ -264,10 +274,11 @@ const ProfileHeader = ({
             ) : (
               <View style={styles.phoneWarningContainer}>
                 <Text style={styles.phoneWarningText}>
-                  ⚠️ Add NIN for verification
+                  ⚠️ Add NIN / Verify Identity
                 </Text>
               </View>
             )}
+
 
           </>
         )}

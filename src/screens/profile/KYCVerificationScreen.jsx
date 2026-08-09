@@ -341,7 +341,9 @@ const maskIdNumber = (idStr) => {
 
       console.log("[KYC] finalizeSession raw statusResult:", JSON.stringify(statusResult));
 
-      const isVerified = statusResult?.verified === true || statusResult?.kycStatus === "VERIFIED";
+      const isUrlApproved = String(params?.status || "").toUpperCase().includes("APPROV") || String(params?.status || "").toUpperCase().includes("VERIF");
+      const isVerified = statusResult?.verified === true || statusResult?.kycStatus === "VERIFIED" || statusResult?.kycStatus === "APPROVED" || isUrlApproved;
+
 
       if (isVerified) {
         setIsVerified(true);

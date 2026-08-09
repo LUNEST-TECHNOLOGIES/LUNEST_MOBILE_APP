@@ -1,8 +1,9 @@
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from 'expo-file-system';
-import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useRouter, useFocusEffect } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
+
 import {
     ActivityIndicator,
     Alert,
@@ -248,10 +249,17 @@ const PersonalInfoEditScreen = () => {
     setToastVisible(true);
   };
 
-  // Load saved profile data on mount
+  // Load saved profile data on mount and whenever returning to screen
   useEffect(() => {
     loadProfileData();
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadProfileData();
+    }, [])
+  );
+
 
   const loadProfileData = async () => {
     try {

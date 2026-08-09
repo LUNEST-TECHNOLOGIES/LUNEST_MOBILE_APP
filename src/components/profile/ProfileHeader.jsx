@@ -237,7 +237,7 @@ const ProfileHeader = ({
             {isPhoneVerified ? (
               <View style={styles.verifiedItemRow}>
                 <Text style={styles.phone}>{phone}</Text>
-                {verified ? (
+                {verified || isPhoneVerified ? (
                   <Text style={styles.verifiedSmallText}>✓ Verified</Text>
                 ) : (
                   <Text style={styles.pendingSmallText}>Pending</Text>
@@ -255,7 +255,7 @@ const ProfileHeader = ({
                 <Text style={styles.ninText}>
                   NIN: {nin.slice(0, 4)}****{nin.slice(-3)}
                 </Text>
-                {verified ? (
+                {verified || kycStatus === 'VERIFIED' ? (
                   <Text style={styles.verifiedSmallText}>✓ Verified</Text>
                 ) : (
                   <Text style={styles.pendingSmallText}>Pending verification</Text>
@@ -268,6 +268,7 @@ const ProfileHeader = ({
                 </Text>
               </View>
             )}
+
           </>
         )}
       </View>

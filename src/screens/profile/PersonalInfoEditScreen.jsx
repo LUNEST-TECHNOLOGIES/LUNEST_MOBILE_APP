@@ -5,17 +5,17 @@ import { useRouter, useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 
 import {
-    ActivityIndicator,
-    Alert,
-    Modal,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    useWindowDimensions,
-    View,
+  ActivityIndicator,
+  Alert,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  useWindowDimensions,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Circle, Path } from "react-native-svg";
@@ -220,7 +220,7 @@ const PersonalInfoEditScreen = () => {
 
     const userAgent = window.navigator.userAgent.toLowerCase();
     const isIosDevice = /iphone|ipad|ipod/.test(userAgent);
-    
+
     if (isIosDevice) {
       setIsIosPwa(true);
       setShowPwaInstall(true);
@@ -230,7 +230,7 @@ const PersonalInfoEditScreen = () => {
           setShowPwaInstall(true);
         }
       };
-      
+
       checkPrompt();
       window.addEventListener("beforeinstallprompt", checkPrompt);
       return () => window.removeEventListener("beforeinstallprompt", checkPrompt);
@@ -300,18 +300,18 @@ const PersonalInfoEditScreen = () => {
         else serverGender = "Others";
       }
 
-      const isServerVerified = serverProfileResult?.data?.verified === true || 
-        serverProfileResult?.data?.kycStatus === 'VERIFIED' || 
+      const isServerVerified = serverProfileResult?.data?.verified === true ||
+        serverProfileResult?.data?.kycStatus === 'VERIFIED' ||
         serverProfileResult?.data?.kycStatus === 'APPROVED' ||
         savedProfile?.verified === true ||
         savedProfile?.kycStatus === 'VERIFIED';
 
-      const resolvedKycStatus = isServerVerified 
-        ? 'VERIFIED' 
+      const resolvedKycStatus = isServerVerified
+        ? 'VERIFIED'
         : (serverProfileResult?.data?.kycStatus || savedProfile?.kycStatus || 'NONE');
 
-      const resolvedRejectionReason = isServerVerified 
-        ? null 
+      const resolvedRejectionReason = isServerVerified
+        ? null
         : (serverProfileResult?.data?.kycRejectionReason || serverProfileResult?.data?.kycData?.rejectionReason || null);
 
       if (isServerVerified) {
@@ -336,10 +336,10 @@ const PersonalInfoEditScreen = () => {
           avatarUri: (() => {
             const serverAvatar = serverProfileResult?.data?.avatar;
             if (serverAvatar) {
-               if (serverAvatar.startsWith("/")) {
-                 return `${authService.baseURL.replace(/\/$/, "")}${serverAvatar}`;
-               }
-               return serverAvatar;
+              if (serverAvatar.startsWith("/")) {
+                return `${authService.baseURL.replace(/\/$/, "")}${serverAvatar}`;
+              }
+              return serverAvatar;
             }
             const savedAvatar = savedProfile.avatarUri;
             if (savedAvatar && (savedAvatar.startsWith("blob:") || savedAvatar.startsWith("data:"))) {
@@ -365,14 +365,14 @@ const PersonalInfoEditScreen = () => {
           docTypeAbbrev: serverDocTypeAbbrev || prev.docTypeAbbrev || "NIN",
           phone: serverPhone || (authData && authData.phoneNumber) || prev.phone,
           avatarUri: (() => {
-             const serverAvatar = serverProfileResult?.data?.avatar;
-             if (serverAvatar) {
-                if (serverAvatar.startsWith("/")) {
-                  return `${authService.baseURL.replace(/\/$/, "")}${serverAvatar}`;
-                }
-                return serverAvatar;
-             }
-             return prev.avatarUri;
+            const serverAvatar = serverProfileResult?.data?.avatar;
+            if (serverAvatar) {
+              if (serverAvatar.startsWith("/")) {
+                return `${authService.baseURL.replace(/\/$/, "")}${serverAvatar}`;
+              }
+              return serverAvatar;
+            }
+            return prev.avatarUri;
           })(),
           isVerified: isServerVerified,
           kycStatus: resolvedKycStatus,
@@ -419,22 +419,22 @@ const PersonalInfoEditScreen = () => {
         mediaTypes: ["images"],
         allowsEditing: true,
         aspect: [1, 1],
-        quality: 0.4, // Low resolution selection for fast upload
+        quality: 0.5, // Compress image
       });
 
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
-        
+
         // Validate file type
         const validTypes = ['jpg', 'jpeg', 'png', 'webp', 'heic'];
         const extension = asset.uri.split('.').pop().toLowerCase();
-        
+
         // Also check mimeType if available
         const isImage = asset.type === 'image' || (asset.mimeType && asset.mimeType.startsWith('image/'));
-        
+
         if (!isImage && !validTypes.includes(extension)) {
-           showToast("Please select a valid image file (JPG, PNG, etc).", TOAST_TYPE.ERROR);
-           return;
+          showToast("Please select a valid image file (JPG, PNG, etc).", TOAST_TYPE.ERROR);
+          return;
         }
 
         setIsLoading(true);
@@ -606,7 +606,7 @@ const PersonalInfoEditScreen = () => {
         await saveProfileData(newUserData);
         setIsLoading(false);
         setShowEditModal(false);
-        
+
         // Show phone verification modal
         setPendingPhoneUpdate(editValue.trim());
         setShowPhoneVerificationModal(true);
@@ -800,219 +800,219 @@ const PersonalInfoEditScreen = () => {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-        {/* Profile Avatar Section */}
-        <View style={styles.avatarSection}>
-          <TouchableOpacity
-            style={styles.avatarContainer}
-            onPress={handlePhotoUpload}
-            activeOpacity={0.8}
-          >
-            {userData.avatarUri && !(typeof userData.avatarUri === 'string' && userData.avatarUri.startsWith("blob:") && Platform.OS !== "web") ? (
-              <Image
-                source={{ uri: userData.avatarUri }}
-                style={styles.avatar}
-                contentFit="cover"
-                cachePolicy="disk"
-                transition={200}
-              />
-            ) : (
-              <View style={styles.avatarPlaceholder}>
-                <ProfileAvatarIcon size={90} color="#192DFF" />
+          {/* Profile Avatar Section */}
+          <View style={styles.avatarSection}>
+            <TouchableOpacity
+              style={styles.avatarContainer}
+              onPress={handlePhotoUpload}
+              activeOpacity={0.8}
+            >
+              {userData.avatarUri && !(typeof userData.avatarUri === 'string' && userData.avatarUri.startsWith("blob:") && Platform.OS !== "web") ? (
+                <Image
+                  source={{ uri: userData.avatarUri }}
+                  style={styles.avatar}
+                  contentFit="cover"
+                  cachePolicy="disk"
+                  transition={200}
+                />
+              ) : (
+                <View style={styles.avatarPlaceholder}>
+                  <ProfileAvatarIcon size={90} color="#192DFF" />
+                </View>
+              )}
+              {/* Camera overlay */}
+              <View style={styles.cameraOverlay}>
+                <CameraIcon size={20} color="#FFFFFF" />
               </View>
-            )}
-            {/* Camera overlay */}
-            <View style={styles.cameraOverlay}>
-              <CameraIcon size={20} color="#FFFFFF" />
-            </View>
-            {isLoading && (
-              <View style={styles.loadingOverlay}>
-                <ActivityIndicator size="large" color="#192DFF" />
-              </View>
-            )}
-          </TouchableOpacity>
-          <Text style={styles.uploadHint}>Tap to change photo</Text>
+              {isLoading && (
+                <View style={styles.loadingOverlay}>
+                  <ActivityIndicator size="large" color="#192DFF" />
+                </View>
+              )}
+            </TouchableOpacity>
+            <Text style={styles.uploadHint}>Tap to change photo</Text>
 
-          {/* Verification Progress */}
-          <View style={styles.verificationProgress}>
-            <Text style={styles.verificationLabel}>Verification</Text>
-            <View style={styles.verificationBadgeOrange}>
-              <Text style={styles.verificationPercentText}>
-                {verificationPercent}% Complete
-              </Text>
+            {/* Verification Progress */}
+            <View style={styles.verificationProgress}>
+              <Text style={styles.verificationLabel}>Verification</Text>
+              <View style={styles.verificationBadgeOrange}>
+                <Text style={styles.verificationPercentText}>
+                  {verificationPercent}% Complete
+                </Text>
+              </View>
             </View>
           </View>
-        </View>
 
-        {/* Personal Verification Section */}
-        <SectionCard title="Personal verification">
-          <InfoRow
-            label={userData.name ? `Name: ${userData.name}` : "Name"}
-            actionText=""
-            onAction={null}
-            disabled={true}
-            isEmpty={!userData.name}
-            showVerification={userData.isVerified}
-            isVerified={userData.isVerified}
-          />
-          <InfoRow
-            label={userData.email ? `Email: ${userData.email}` : "Email"}
-            actionText={userData.email ? "" : "Update"}
-            onAction={() => !userData.email && handleUpdate("email")}
-            disabled={!!userData.email}
-            isEmpty={!userData.email}
-            showVerification={!!userData.email}
-            isVerified={!!userData.email}
-          />
-          <InfoRow
-            label={userData.phone ? `Phone: ${userData.phone}` : "Phone Number"}
-            actionText={
-              !userData.phone
-                ? "Add"
-                : !userData.phoneVerified
-                ? "Verify"
-                : "Update"
-            }
-            onAction={() => handleUpdate("phone")}
-            isEmpty={!userData.phone}
-            showVerification={!!userData.phone}
-            isVerified={userData.phoneVerified}
-          />
-          <InfoRow
-            label={userData.gender ? `Gender: ${userData.gender}` : "Gender: Not set"}
-            actionText={!userData.isVerified && !userData.gender ? "Update" : ""}
-            onAction={!userData.isVerified ? () => handleUpdate("gender") : null}
-            isEmpty={!userData.gender}
-            showVerification={userData.isVerified}
-            isVerified={userData.isVerified}
-            disabled={userData.isVerified}
-          />
-          <InfoRow
-            label={userData.location || "Location"}
-            actionText="Change"
-            onAction={() => handleUpdate("location")}
-            isEmpty={!userData.location}
-          />
-          <InfoRow
-            label={
-              userData.nin
-                ? `Identity ID: ${userData.nin.replace(/^(\d{3,4})\d+(\d{3})$/, "$1****$2")}`
-                : "Identity Verification / NIN"
-            }
-            actionText={
-              userData.isVerified
-                ? ""
-                : userData.kycStatus === 'PENDING' || userData.kycStatus === 'IN_REVIEW'
-                ? "Status"
-                : userData.kycStatus === 'REJECTED'
-                ? "Resubmit"
-                : "Verify"
-            }
-            onAction={() => router.push("/profile/kyc-verification")}
-            isEmpty={!userData.nin && !userData.isVerified && (userData.kycStatus === 'NONE' || !userData.kycStatus)}
-            showVerification={true}
-            isVerified={userData.isVerified}
-            kycStatus={userData.kycStatus}
-            disabled={userData.isVerified}
-          />
-        </SectionCard>
-
-        {/* KYC Status Action Banners */}
-        {userData.kycStatus === 'REJECTED' && (
-          <TouchableOpacity
-            style={styles.rejectionCard}
-            onPress={() => router.push("/profile/kyc-verification")}
-            activeOpacity={0.85}
-          >
-            <View style={styles.rejectionCardHeader}>
-              <UnverifiedIcon size={20} color="#EF4444" />
-              <Text style={styles.rejectionCardTitle}>Action Required: Verification Declined</Text>
-            </View>
-            <Text style={styles.rejectionCardBody}>
-              {userData.kycRejectionReason || "Verification was declined by provider. Tap here to resubmit your identity document."}
-            </Text>
-            <Text style={styles.rejectionCardAction}>Tap to Resubmit →</Text>
-          </TouchableOpacity>
-        )}
-
-        {(userData.kycStatus === 'PENDING' || userData.kycStatus === 'IN_REVIEW') && (
-          <TouchableOpacity
-            style={styles.inReviewCard}
-            onPress={() => router.push("/profile/kyc-verification")}
-            activeOpacity={0.85}
-          >
-            <View style={styles.inReviewCardHeader}>
-              <UnverifiedIcon size={20} color="#F59E0B" />
-              <Text style={styles.inReviewCardTitle}>Verification Under Review</Text>
-            </View>
-            <Text style={styles.inReviewCardBody}>
-              Your identity verification is currently being reviewed. Tap to check your live status.
-            </Text>
-            <Text style={styles.inReviewCardAction}>Check Live Status →</Text>
-          </TouchableOpacity>
-        )}
-
-        {/* Employment Information Section */}
-        <SectionCard title="Employment information">
-          <InfoRow
-            label={
-              userData.employment.employerName
-                ? `Employer: ${userData.employment.employerName}`
-                : "Employer Name"
-            }
-            actionText={userData.employment.employerName ? "Update" : "Add"}
-            onAction={() => handleUpdate("employerName", true)}
-            isEmpty={!userData.employment.employerName}
-          />
-          <InfoRow
-            label={
-              userData.employment.employerAddress
-                ? `Address: ${userData.employment.employerAddress}`
-                : "Employer Address"
-            }
-            actionText={userData.employment.employerAddress ? "Update" : "Add"}
-            onAction={() => handleUpdate("employerAddress", true)}
-            isEmpty={!userData.employment.employerAddress}
-          />
-           <InfoRow
-            label={
-              userData.employment.employerContact
-                ? `Contact: ${userData.employment.employerContact}`
-                : "Employer Contact"
-            }
-            actionText={userData.employment.employerContact ? "Update" : "Add"}
-            onAction={() => handleUpdate("employerContact", true)}
-            isEmpty={!userData.employment.employerContact}
-          />
-          {/* CAC and Business ID verification coming soon */}
-          <InfoRow
-            label="CAC verification"
-            showVerification
-            isVerified={userData.employment.cacVerified}
-            isComingSoon={true}
-          />
-          <InfoRow
-            label="Business ID"
-            showVerification
-            isVerified={userData.employment.businessIdVerified}
-            isComingSoon={true}
-          />
-        </SectionCard>
-
-        {/* PWA Install Shortcut Section */}
-        {showPwaInstall && (
-          <SectionCard title="Application settings">
+          {/* Personal Verification Section */}
+          <SectionCard title="Personal verification">
             <InfoRow
-              label="Add Lunest to Home Screen"
-              actionText="Install"
-              onAction={handlePwaInstall}
-              isEmpty={false}
+              label={userData.name ? `Name: ${userData.name}` : "Name"}
+              actionText=""
+              onAction={null}
+              disabled={true}
+              isEmpty={!userData.name}
+              showVerification={userData.isVerified}
+              isVerified={userData.isVerified}
+            />
+            <InfoRow
+              label={userData.email ? `Email: ${userData.email}` : "Email"}
+              actionText={userData.email ? "" : "Update"}
+              onAction={() => !userData.email && handleUpdate("email")}
+              disabled={!!userData.email}
+              isEmpty={!userData.email}
+              showVerification={!!userData.email}
+              isVerified={!!userData.email}
+            />
+            <InfoRow
+              label={userData.phone ? `Phone: ${userData.phone}` : "Phone Number"}
+              actionText={
+                !userData.phone
+                  ? "Add"
+                  : !userData.phoneVerified
+                    ? "Verify"
+                    : "Update"
+              }
+              onAction={() => handleUpdate("phone")}
+              isEmpty={!userData.phone}
+              showVerification={!!userData.phone}
+              isVerified={userData.phoneVerified}
+            />
+            <InfoRow
+              label={userData.gender ? `Gender: ${userData.gender}` : "Gender: Not set"}
+              actionText={!userData.isVerified && !userData.gender ? "Update" : ""}
+              onAction={!userData.isVerified ? () => handleUpdate("gender") : null}
+              isEmpty={!userData.gender}
+              showVerification={userData.isVerified}
+              isVerified={userData.isVerified}
+              disabled={userData.isVerified}
+            />
+            <InfoRow
+              label={userData.location || "Location"}
+              actionText="Change"
+              onAction={() => handleUpdate("location")}
+              isEmpty={!userData.location}
+            />
+            <InfoRow
+              label={
+                userData.nin
+                  ? `Identity ID: ${userData.nin.replace(/^(\d{3,4})\d+(\d{3})$/, "$1****$2")}`
+                  : "Identity Verification / NIN"
+              }
+              actionText={
+                userData.isVerified
+                  ? ""
+                  : userData.kycStatus === 'PENDING' || userData.kycStatus === 'IN_REVIEW'
+                    ? "Status"
+                    : userData.kycStatus === 'REJECTED'
+                      ? "Resubmit"
+                      : "Verify"
+              }
+              onAction={() => router.push("/profile/kyc-verification")}
+              isEmpty={!userData.nin && !userData.isVerified && (userData.kycStatus === 'NONE' || !userData.kycStatus)}
+              showVerification={true}
+              isVerified={userData.isVerified}
+              kycStatus={userData.kycStatus}
+              disabled={userData.isVerified}
             />
           </SectionCard>
-        )}
 
-        {/* Bottom spacing */}
-        <View style={styles.bottomSpacer} />
-      </ScrollView>
+          {/* KYC Status Action Banners */}
+          {userData.kycStatus === 'REJECTED' && (
+            <TouchableOpacity
+              style={styles.rejectionCard}
+              onPress={() => router.push("/profile/kyc-verification")}
+              activeOpacity={0.85}
+            >
+              <View style={styles.rejectionCardHeader}>
+                <UnverifiedIcon size={20} color="#EF4444" />
+                <Text style={styles.rejectionCardTitle}>Action Required: Verification Declined</Text>
+              </View>
+              <Text style={styles.rejectionCardBody}>
+                {userData.kycRejectionReason || "Verification was declined by provider. Tap here to resubmit your identity document."}
+              </Text>
+              <Text style={styles.rejectionCardAction}>Tap to Resubmit →</Text>
+            </TouchableOpacity>
+          )}
+
+          {(userData.kycStatus === 'PENDING' || userData.kycStatus === 'IN_REVIEW') && (
+            <TouchableOpacity
+              style={styles.inReviewCard}
+              onPress={() => router.push("/profile/kyc-verification")}
+              activeOpacity={0.85}
+            >
+              <View style={styles.inReviewCardHeader}>
+                <UnverifiedIcon size={20} color="#F59E0B" />
+                <Text style={styles.inReviewCardTitle}>Verification Under Review</Text>
+              </View>
+              <Text style={styles.inReviewCardBody}>
+                Your identity verification is currently being reviewed. Tap to check your live status.
+              </Text>
+              <Text style={styles.inReviewCardAction}>Check Live Status →</Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Employment Information Section */}
+          <SectionCard title="Employment information">
+            <InfoRow
+              label={
+                userData.employment.employerName
+                  ? `Employer: ${userData.employment.employerName}`
+                  : "Employer Name"
+              }
+              actionText={userData.employment.employerName ? "Update" : "Add"}
+              onAction={() => handleUpdate("employerName", true)}
+              isEmpty={!userData.employment.employerName}
+            />
+            <InfoRow
+              label={
+                userData.employment.employerAddress
+                  ? `Address: ${userData.employment.employerAddress}`
+                  : "Employer Address"
+              }
+              actionText={userData.employment.employerAddress ? "Update" : "Add"}
+              onAction={() => handleUpdate("employerAddress", true)}
+              isEmpty={!userData.employment.employerAddress}
+            />
+            <InfoRow
+              label={
+                userData.employment.employerContact
+                  ? `Contact: ${userData.employment.employerContact}`
+                  : "Employer Contact"
+              }
+              actionText={userData.employment.employerContact ? "Update" : "Add"}
+              onAction={() => handleUpdate("employerContact", true)}
+              isEmpty={!userData.employment.employerContact}
+            />
+            {/* CAC and Business ID verification coming soon */}
+            <InfoRow
+              label="CAC verification"
+              showVerification
+              isVerified={userData.employment.cacVerified}
+              isComingSoon={true}
+            />
+            <InfoRow
+              label="Business ID"
+              showVerification
+              isVerified={userData.employment.businessIdVerified}
+              isComingSoon={true}
+            />
+          </SectionCard>
+
+          {/* PWA Install Shortcut Section */}
+          {showPwaInstall && (
+            <SectionCard title="Application settings">
+              <InfoRow
+                label="Add Lunest to Home Screen"
+                actionText="Install"
+                onAction={handlePwaInstall}
+                isEmpty={false}
+              />
+            </SectionCard>
+          )}
+
+          {/* Bottom spacing */}
+          <View style={styles.bottomSpacer} />
+        </ScrollView>
       )}
 
       {/* Edit Modal */}

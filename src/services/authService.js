@@ -428,7 +428,7 @@ class AuthService {
       // Handle 401 Unauthorized - trigger automatic token refresh
       if (response.status === 401 && retryCount < 1) {
         console.warn("🔐 [AuthService] 401 Unauthorized detected. Attempting token refresh...");
-        
+
         // Don't refresh if we are already in the refresh endpoint
         if (!endpoint.includes("/v1/users/refresh")) {
           const refreshed = await this.refreshToken();
@@ -448,7 +448,7 @@ class AuthService {
         const errorData = await response.json().catch(() => ({}));
         console.log("❌ Error response data:", errorData);
         let errorMessage = errorData.message || errorData.error || errorData.msg || `HTTP ${response.status}`;
-        
+
         // Handle validation errors
         if (Array.isArray(errorData.errors) && errorData.errors.length > 0) {
           const detailMessages = errorData.errors.map(err => {
@@ -496,7 +496,7 @@ class AuthService {
         error.message.includes("ECONNREFUSED")
       ) {
         console.log("📡 [AuthService] Network error/change detected:", error.message);
-        
+
         if (retryCount < MAX_RETRIES) {
           console.log(`🔄 Retrying due to network state change (${retryCount + 1}/3)...`);
           // Wait a bit longer for network to stabilize
@@ -890,7 +890,7 @@ class AuthService {
 
       if (tokens && tokens.accessToken) {
         await this._storeTokens(tokens.accessToken, tokens.refreshToken);
-        
+
         if (user) {
           const safeUserData = {
             id: user.id || user._id,
@@ -1128,11 +1128,11 @@ class AuthService {
         return false;
       } catch (error) {
         console.error("Token refresh failed:", error);
-        
+
         // Only clear tokens if the refresh is explicitly rejected by the server (401, 403, 400, 404)
         // This prevents logging out users during temporary network glitches
         const isAuthError = error.status === 401 || error.status === 403 || error.status === 400 || error.status === 404;
-        
+
         if (isAuthError) {
           console.warn("[AuthService] Clearing tokens due to definitive auth failure:", error.status);
           await this._clearTokens();
@@ -1145,7 +1145,7 @@ class AuthService {
         } else {
           console.log("[AuthService] Refresh failed due to non-auth error (e.g. network). Keeping tokens.");
         }
-        
+
         return false;
       } finally {
         this._tokenRefreshPromise = null;
@@ -1401,7 +1401,7 @@ class AuthService {
             blob = await res.blob();
             type = blob.type || "image/jpeg";
           }
-          
+
           formData.append("avatar", blob, filename);
         } catch (error) {
           console.error("[AuthService] Web blob conversion failed:", error);
@@ -1576,7 +1576,7 @@ class AuthService {
         if (!uri) return;
         const filename = uri.split("/").pop() || `${fieldName}_upload.jpg`;
         const ext = filename.split('.').pop().toLowerCase();
-        
+
         // Comprehensive MIME type mapping to match backend applicationFileFilter
         let type = 'image/jpeg';
         if (['jpg', 'jpeg'].includes(ext)) type = 'image/jpeg';

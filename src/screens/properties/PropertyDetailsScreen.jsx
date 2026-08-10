@@ -960,21 +960,46 @@ const PropertyDetailsScreen = () => {
   // Handle hard error state - ONLY if no listing content exists to show
   // AND we're not in initial loading phase (prevent "Listing not found" glitch)
   if ((error || !listing) && !loading && !refreshing && !isFirstLoad) {
+    const isDeletedOrNotFound =
+      !listing ||
+      !error ||
+      error.toLowerCase().includes("not found") ||
+      error.toLowerCase().includes("deleted") ||
+      error.toLowerCase().includes("no longer available") ||
+      error.toLowerCase().includes("404");
+
     return (
-      <View style={[styles.container, { paddingBottom: insets.bottom, backgroundColor: "#fff" }]}>
+      <SafeAreaView style={[styles.container, { paddingBottom: insets.bottom, backgroundColor: "#010135" }]}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={handleErrorGoBack} style={styles.backButton}>
+            <ArrowLeftIcon width={24} height={24} color="#FFFFFF" />
+          </TouchableOpacity>
+          <Text style={[styles.headerTitle, { color: "#FFFFFF" }]}>Property Details</Text>
+          <View style={{ width: 40 }} />
+        </View>
         <View style={styles.errorContainer}>
-          <Ionicons name="alert-circle-outline" size={48} color="#EF4444" />
-          <Text style={styles.errorText}>{error || "Listing not found"}</Text>
+          <Ionicons name={isDeletedOrNotFound ? "home-outline" : "alert-circle-outline"} size={56} color="#6366F1" />
+          <Text style={[styles.errorText, { fontSize: 20, fontWeight: "700", color: "#FFFFFF", marginTop: 16, textAlign: "center" }]}>
+            {isDeletedOrNotFound ? "Property No Longer Available" : "Unable to Load Property"}
+          </Text>
+          <Text style={{ fontSize: 14, color: "#9CA3AF", textAlign: "center", marginTop: 8, marginBottom: 24, paddingHorizontal: 20, lineHeight: 20 }}>
+            {isDeletedOrNotFound
+              ? "This property has been deleted or unlisted by the host. Please explore other available properties on LUNEST."
+              : (error || "An error occurred while loading this listing.")}
+          </Text>
           <View style={styles.errorButtonsContainer}>
-            <Pressable style={styles.retryButton} onPress={handleRefresh}>
-              <Text style={styles.retryButtonText}>Try Again</Text>
+            <Pressable
+              style={[styles.retryButton, { backgroundColor: "#6366F1" }]}
+              onPress={() => router.replace("/(tabs)")}
+            >
+              <Text style={styles.retryButtonText}>Explore Properties</Text>
             </Pressable>
             <Pressable style={styles.goBackButton} onPress={handleErrorGoBack}>
               <Text style={styles.goBackButtonText}>Go Back</Text>
             </Pressable>
           </View>
         </View>
-      </View>
+      </SafeAreaView>
     );
   }
 

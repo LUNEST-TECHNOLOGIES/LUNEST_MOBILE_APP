@@ -446,9 +446,9 @@ const BookingConfirmationScreen = () => {
   // 1. Must NOT be the guest
   // 2. Must be in HOST mode OR be the actual host of this booking
   const isActualHost = currentUserId && booking?.listing?.host && 
-    ((typeof booking.listing.host === "string" && booking.listing.host === currentUserId) || 
-     booking.listing.host?._id === currentUserId ||
-     booking.listing.host?.id === currentUserId);
+    ((typeof booking.listing?.host === "string" && booking.listing.host === currentUserId) || 
+     booking.listing?.host?._id === currentUserId ||
+     booking.listing?.host?.id === currentUserId);
 
   const isHostView = booking && !isGuest && (currentMode === "HOST" || isActualHost);
   

@@ -35,11 +35,13 @@ const kycService = {
   /**
    * Initialize Didit KYC Verification Session
    * @param {string} [callbackUrl] - Optional callback link
+   * @param {boolean} [allowReverify=false] - Whether to allow re-verifying an already verified user
    */
-  createDiditSession: async (callbackUrl) => {
+  createDiditSession: async (callbackUrl, allowReverify = false) => {
     try {
       const response = await apiClient.post("/v1/kyc/didit/create-session", {
         callbackUrl,
+        allowReverify,
       });
       return response.body || response.data || response;
     } catch (error) {

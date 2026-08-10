@@ -337,7 +337,8 @@ const maskIdNumber = (idStr) => {
 
       console.log("[KYC] finalizeSession raw statusResult:", JSON.stringify(statusResult));
 
-      const isUrlApproved = String(params?.status || "").toUpperCase().includes("APPROV") || String(params?.status || "").toUpperCase().includes("VERIF");
+      const statusParam = String(params?.status || "").toUpperCase();
+      const isUrlApproved = statusParam.includes("APPROV") || statusParam.includes("VERIF") || statusParam.includes("PASS") || statusParam.includes("COMPLET") || statusParam.includes("SUCCE");
       const isVerified = statusResult?.verified === true || statusResult?.kycStatus === "VERIFIED" || statusResult?.kycStatus === "APPROVED" || isUrlApproved;
 
 
@@ -453,7 +454,7 @@ const maskIdNumber = (idStr) => {
 
 
 
-      const response = await kycService.createDiditSession(callbackUrl);
+      const response = await kycService.createDiditSession(callbackUrl, true);
       
       // If backend returns that the user is already verified
       if (response?.verified || response?.kycStatus === "VERIFIED" || response?.status === "VERIFIED") {
@@ -529,7 +530,18 @@ const maskIdNumber = (idStr) => {
             <TouchableOpacity style={styles.doneButton} onPress={() => router.replace("/(tabs)")}>
               <Text style={styles.doneButtonText}>Explore Properties (Home)</Text>
             </TouchableOpacity>
-            
+
+            <TouchableOpacity 
+              style={[styles.doneButton, { backgroundColor: "#EEF2FF", borderWidth: 1, borderColor: "#C7D2FE" }]} 
+              onPress={() => {
+                setIsVerified(false);
+                setConsentChecked(true);
+                setRejectionReason(null);
+              }}
+            >
+              <Text style={[styles.doneButtonText, { color: "#3730A3" }]}>Re-verify Identity / Update Scan</Text>
+            </TouchableOpacity>
+
             <TouchableOpacity 
               style={[styles.doneButton, { backgroundColor: "#F3F4F6", borderWidth: 1, borderColor: "#E5E7EB" }]} 
               onPress={handleBack}

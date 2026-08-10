@@ -75,6 +75,7 @@ class BookmarkService {
       const uniqueBookmarks = [];
 
       for (const bookmark of bookmarks) {
+        if (!bookmark || !bookmark.listing) continue; // Skip deleted listing entries
         let listingId = bookmark.listing;
         if (bookmark.listing && bookmark.listing._id) {
           listingId = bookmark.listing._id;
@@ -89,7 +90,7 @@ class BookmarkService {
         console.log(
           "[BookmarkService] Cleaned up " +
             (bookmarks.length - uniqueBookmarks.length) +
-            " duplicate bookmarks",
+            " duplicate/invalid bookmarks",
         );
         await this.saveLocalBookmarks(uniqueBookmarks);
       }
@@ -104,24 +105,22 @@ class BookmarkService {
   async fetchBookmarks(options = {}) {
     try {
       await this.initialize();
-      const token = await authService.getToken();
-
-      if (!token) {
+      const user = await authService.getUserData();
+      if (!user) {
         return { success: false, bookmarks: [] };
       }
 
       let url = this.baseURL + "/v1/bookmarks/bookmark";
+
       if (options.refresh) {
         url += "?refresh=true";
       }
 
       const response = await fetch(url, {
-        method: "POST",
         headers: {
+          Authorization: `Bearer ${this.authToken}`,
           "Content-Type": "application/json",
-          Authorization: "Bearer " + token,
         },
-        body: JSON.stringify({}),
       });
 
       if (!response.ok) {
@@ -134,6 +133,7 @@ class BookmarkService {
       if (result.body && Array.isArray(result.body)) {
         const seenListings = new Set();
         const uniqueBookmarks = result.body.filter(function (bookmark) {
+          if (!bookmark || !bookmark.listing) return false; // Exclude deleted property entries
           let listingId = bookmark.listing;
           if (bookmark.listing && bookmark.listing._id) {
             listingId = bookmark.listing._id;

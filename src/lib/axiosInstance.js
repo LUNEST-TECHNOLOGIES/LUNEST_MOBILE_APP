@@ -45,27 +45,44 @@ axiosInstance.interceptors.request.use(
 
 let isRedirectingToLogin = false;
 
-// Response Interceptor: Standard Error Handling
+// Response Interceptor: Standard Error Handling with Automatic Token Refresh
 axiosInstance.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
     const status = error.response?.status;
-    const url = error.config?.url || 'unknown';
+    const originalRequest = error.config;
+    const url = originalRequest?.url || 'unknown';
     
-    // Global 401 handler
-    if (status === 401 && !isRedirectingToLogin) {
+    // Global 401 handler with Automatic Token Refresh Retry
+    if (status === 401 && originalRequest && !originalRequest._retry && !isRedirectingToLogin) {
+      originalRequest._retry = true;
+      console.log("[Axios] Received 401 Unauthorized for:", url, "- Attempting automatic token refresh...");
+
+      try {
+        const refreshed = await authService.refreshToken();
+        if (refreshed) {
+          const newToken = await authService.getToken();
+          if (newToken) {
+            originalRequest.headers = originalRequest.headers || {};
+            originalRequest.headers.Authorization = `Bearer ${newToken}`;
+            console.log("✅ [Axios] Token refreshed successfully! Retrying request:", url);
+            return axiosInstance(originalRequest);
+          }
+        }
+      } catch (refreshErr) {
+        console.error("[Axios] Token refresh failed during 401 retry:", refreshErr?.message || refreshErr);
+      }
+
+      // Refresh failed or token permanently invalid — clear session and redirect to Login
       isRedirectingToLogin = true;
-      console.warn("[Axios] Unauthorized - clearing session and redirecting");
+      console.warn("[Axios] Token refresh failed — clearing session and redirecting to Login");
       
-      // Notify user
       notificationService.show({
         message: "Session expired. Please login again.",
         type: TOAST_TYPE.WARNING,
       });
 
-      // Clear session - do it without awaiting if possible to speed up redirect
       authService.logout();
-      
       isRedirectingToLogin = false;
       navigateToLogin();
     }

@@ -249,11 +249,7 @@ const PersonalInfoEditScreen = () => {
     setToastVisible(true);
   };
 
-  // Load saved profile data on mount and whenever returning to screen
-  useEffect(() => {
-    loadProfileData();
-  }, []);
-
+  // Load saved profile data on screen focus
   useFocusEffect(
     useCallback(() => {
       loadProfileData();

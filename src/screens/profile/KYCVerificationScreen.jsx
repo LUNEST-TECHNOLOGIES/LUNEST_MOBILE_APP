@@ -502,55 +502,60 @@ const maskIdNumber = (idStr) => {
           <Text style={styles.headerTitle}>KYC Verified</Text>
           <View style={{ width: 40 }} />
         </View>
-        <View style={styles.successContainer}>
-          <View style={styles.successIcon}>
-            <Svg width={80} height={80} viewBox="0 0 24 24" fill="none">
-              <Circle cx="12" cy="12" r="10" fill="#4CAF50" />
-              <Path d="M8 12L11 15L16 9" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            </Svg>
-          </View>
-          <Text style={styles.successTitle}>Identity Verified! 🎉</Text>
-          <Text style={styles.successSubtitle}>Your identity has been verified. Your full name and verified government ID have been synced to your account profile.</Text>
+        <ScrollView
+          contentContainerStyle={styles.scrollContentContainer}
+          showsVerticalScrollIndicator={false}
+          bounces={true}
+        >
+          <View style={styles.successContainer}>
+            <View style={styles.successIcon}>
+              <Svg width={60} height={60} viewBox="0 0 24 24" fill="none">
+                <Circle cx="12" cy="12" r="10" fill="#4CAF50" />
+                <Path d="M8 12L11 15L16 9" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </Svg>
+            </View>
+            <Text style={styles.successTitle}>Identity Verified! 🎉</Text>
+            <Text style={styles.successSubtitle}>Your identity has been verified. Your full name and verified government ID have been synced to your account profile.</Text>
 
-          {/* Masked identity display */}
-          <View style={styles.verifiedInfoCard}>
-            {!!verifiedName && (
-              <View style={{ width: "100%", marginBottom: 12 }}>
-                <Text style={{ fontSize: 11, fontWeight: "700", color: "#6B7280", letterSpacing: 1, marginBottom: 4 }}>VERIFIED NAME</Text>
-                <Text style={styles.infoValue}>{verifiedName}</Text>
+            {/* Masked identity display */}
+            <View style={styles.verifiedInfoCard}>
+              {!!verifiedName && (
+                <View style={{ width: "100%", marginBottom: 8 }}>
+                  <Text style={{ fontSize: 10, fontWeight: "700", color: "#6B7280", letterSpacing: 0.8, marginBottom: 2 }}>VERIFIED NAME</Text>
+                  <Text style={styles.infoValue}>{verifiedName}</Text>
+                </View>
+              )}
+              <View style={{ width: "100%", borderTopWidth: !!verifiedName ? 1 : 0, borderTopColor: "#E5E7EB", paddingTop: !!verifiedName ? 8 : 0 }}>
+                <Text style={{ fontSize: 10, fontWeight: "700", color: "#6B7280", letterSpacing: 0.8, marginBottom: 2 }}>GOVERNMENT IDENTITY ID</Text>
+                <Text style={styles.infoValue}>{verifiedId || "ID Verified"}</Text>
               </View>
-            )}
-            <View style={{ width: "100%", borderTopWidth: !!verifiedName ? 1 : 0, borderTopColor: "#E5E7EB", paddingTop: !!verifiedName ? 12 : 0 }}>
-              <Text style={{ fontSize: 11, fontWeight: "700", color: "#6B7280", letterSpacing: 1, marginBottom: 4 }}>GOVERNMENT IDENTITY ID</Text>
-              <Text style={styles.infoValue}>{verifiedId || "ID Verified"}</Text>
+            </View>
+
+            <View style={{ width: "100%", gap: 8, marginTop: 12 }}>
+              <TouchableOpacity style={styles.doneButton} onPress={() => router.replace("/(tabs)")}>
+                <Text style={styles.doneButtonText}>Explore Properties (Home)</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={[styles.doneButton, { backgroundColor: "#EEF2FF", borderWidth: 1, borderColor: "#C7D2FE" }]} 
+                onPress={() => {
+                  setIsVerified(false);
+                  setConsentChecked(true);
+                  setRejectionReason(null);
+                }}
+              >
+                <Text style={[styles.doneButtonText, { color: "#3730A3" }]}>Re-verify Identity / Update Scan</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={[styles.doneButton, { backgroundColor: "#F3F4F6", borderWidth: 1, borderColor: "#E5E7EB" }]} 
+                onPress={handleBack}
+              >
+                <Text style={[styles.doneButtonText, { color: "#1F2937" }]}>Back to Profile</Text>
+              </TouchableOpacity>
             </View>
           </View>
-
-          <View style={{ width: "100%", gap: 12, marginTop: 24 }}>
-            <TouchableOpacity style={styles.doneButton} onPress={() => router.replace("/(tabs)")}>
-              <Text style={styles.doneButtonText}>Explore Properties (Home)</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={[styles.doneButton, { backgroundColor: "#EEF2FF", borderWidth: 1, borderColor: "#C7D2FE" }]} 
-              onPress={() => {
-                setIsVerified(false);
-                setConsentChecked(true);
-                setRejectionReason(null);
-              }}
-            >
-              <Text style={[styles.doneButtonText, { color: "#3730A3" }]}>Re-verify Identity / Update Scan</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={[styles.doneButton, { backgroundColor: "#F3F4F6", borderWidth: 1, borderColor: "#E5E7EB" }]} 
-              onPress={handleBack}
-            >
-              <Text style={[styles.doneButtonText, { color: "#1F2937" }]}>Back to Profile</Text>
-            </TouchableOpacity>
-
-          </View>
-        </View>
+        </ScrollView>
       </SafeAreaView>
     );
   }
@@ -565,47 +570,52 @@ const maskIdNumber = (idStr) => {
           <Text style={styles.headerTitle}>Verification Status</Text>
           <View style={{ width: 40 }} />
         </View>
-        <View style={styles.successContainer}>
-          <View style={[styles.successIcon, { backgroundColor: "#FEF2F2" }]}>
-            <Svg width={80} height={80} viewBox="0 0 24 24" fill="none">
-              <Circle cx="12" cy="12" r="10" fill="#EF4444" />
-              <Path d="M12 8V12M12 16H12.01" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            </Svg>
-          </View>
-          <Text style={styles.successTitle}>Verification Needs Attention ⚠️</Text>
-          <Text style={[styles.successSubtitle, { color: "#DC2626" }]}>{rejectionReason}</Text>
+        <ScrollView
+          contentContainerStyle={styles.scrollContentContainer}
+          showsVerticalScrollIndicator={false}
+          bounces={true}
+        >
+          <View style={styles.successContainer}>
+            <View style={[styles.successIcon, { backgroundColor: "#FEF2F2" }]}>
+              <Svg width={60} height={60} viewBox="0 0 24 24" fill="none">
+                <Circle cx="12" cy="12" r="10" fill="#EF4444" />
+                <Path d="M12 8V12M12 16H12.01" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </Svg>
+            </View>
+            <Text style={styles.successTitle}>Verification Needs Attention ⚠️</Text>
+            <Text style={[styles.successSubtitle, { color: "#DC2626" }]}>{rejectionReason}</Text>
 
-          <View style={{ width: "100%", gap: 12, marginTop: 24 }}>
-            <TouchableOpacity 
-              style={styles.doneButton} 
-              onPress={() => {
-                setRejectionReason(null);
-                setActiveSessionId(null);
-                setActiveSessionUrl(null);
-              }}
-            >
-              <Text style={styles.doneButtonText}>Try Verification Again</Text>
-            </TouchableOpacity>
+            <View style={{ width: "100%", gap: 8, marginTop: 16 }}>
+              <TouchableOpacity 
+                style={styles.doneButton} 
+                onPress={() => {
+                  setRejectionReason(null);
+                  setActiveSessionId(null);
+                  setActiveSessionUrl(null);
+                }}
+              >
+                <Text style={styles.doneButtonText}>Try Verification Again</Text>
+              </TouchableOpacity>
 
-            
-            <TouchableOpacity 
-              style={[styles.doneButton, { backgroundColor: "#F3F4F6", borderWidth: 1, borderColor: "#E5E7EB" }]} 
-              onPress={() => {
-                try {
-                  if (router.canGoBack()) {
-                    router.back();
-                  } else {
+              <TouchableOpacity 
+                style={[styles.doneButton, { backgroundColor: "#F3F4F6", borderWidth: 1, borderColor: "#E5E7EB" }]} 
+                onPress={() => {
+                  try {
+                    if (router.canGoBack()) {
+                      router.back();
+                    } else {
+                      router.replace("/(tabs)/profile");
+                    }
+                  } catch (e) {
                     router.replace("/(tabs)/profile");
                   }
-                } catch (e) {
-                  router.replace("/(tabs)/profile");
-                }
-              }}
-            >
-              <Text style={[styles.doneButtonText, { color: "#1F2937" }]}>Back to Profile</Text>
-            </TouchableOpacity>
+                }}
+              >
+                <Text style={[styles.doneButtonText, { color: "#1F2937" }]}>Back to Profile</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
+        </ScrollView>
       </SafeAreaView>
     );
   }
@@ -1082,49 +1092,63 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     textAlign: "center",
   },
-  successContainer: {
-    flex: 1,
+  scrollContentContainer: {
+    flexGrow: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    paddingBottom: 32,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 40,
+  },
+  successContainer: {
+    width: "100%",
+    maxWidth: 440,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 8,
   },
   successIcon: {
-    marginBottom: 24,
+    marginBottom: 12,
+    alignItems: "center",
+    justifyContent: "center",
   },
   successTitle: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: "bold",
     color: "#010135",
-    marginBottom: 12,
+    marginBottom: 6,
+    textAlign: "center",
   },
   successSubtitle: {
-    fontSize: 16,
-    color: "#666666",
+    fontSize: 13,
+    color: "#4B5563",
     textAlign: "center",
-    lineHeight: 24,
-    marginBottom: 32,
+    lineHeight: 19,
+    marginBottom: 16,
   },
   verifiedInfoCard: {
     width: "100%",
     backgroundColor: "#F5F7FF",
-    padding: 20,
-    borderRadius: 16,
-    marginBottom: 40,
+    padding: 14,
+    borderRadius: 14,
+    marginBottom: 16,
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#E0E7FF",
   },
   infoLabel: {
-    fontSize: 14,
+    fontSize: 12,
     color: "#666666",
-    marginBottom: 8,
+    marginBottom: 4,
   },
   infoValue: {
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: "bold",
     color: "#010135",
   },
   doneButton: {
     width: "100%",
-    height: 56,
+    height: 46,
     backgroundColor: "#010135",
     borderRadius: 12,
     justifyContent: "center",
@@ -1132,8 +1156,8 @@ const styles = StyleSheet.create({
   },
   doneButtonText: {
     color: "white",
-    fontSize: 16,
-    fontWeight: "bold",
+    fontSize: 14,
+    fontWeight: "600",
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,

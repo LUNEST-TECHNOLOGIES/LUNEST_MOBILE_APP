@@ -419,7 +419,7 @@ const PersonalInfoEditScreen = () => {
         mediaTypes: ["images"],
         allowsEditing: true,
         aspect: [1, 1],
-        quality: 0.5, // Compress image
+        quality: 1, // Full resolution selection
       });
 
       if (!result.canceled && result.assets[0]) {

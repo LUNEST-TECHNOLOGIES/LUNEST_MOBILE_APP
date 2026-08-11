@@ -88,6 +88,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "33dd6ebf-5088-4f44-8735-b398277ac23c"
+      }
+    },
+    "owner": "geminiking3"
   }
 }

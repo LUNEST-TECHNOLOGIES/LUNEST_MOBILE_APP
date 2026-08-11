@@ -168,7 +168,6 @@ const maskIdNumber = (idStr) => {
         const rawNin = syncUser.nin || syncUser.kycData?.documentNumber || syncUser.idNumber || "";
         const masked = maskIdNumber(rawNin);
         setVerifiedId(masked || "ID Verified");
-        showToast("Identity verified successfully!", TOAST_TYPE.SUCCESS);
         return;
       }
 
@@ -534,17 +533,6 @@ const maskIdNumber = (idStr) => {
             <View style={{ width: "100%", gap: 8, marginTop: 12 }}>
               <TouchableOpacity style={styles.doneButton} onPress={() => router.replace("/(tabs)")}>
                 <Text style={styles.doneButtonText}>Explore Properties (Home)</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity 
-                style={[styles.doneButton, { backgroundColor: "#EEF2FF", borderWidth: 1, borderColor: "#C7D2FE" }]} 
-                onPress={() => {
-                  setIsVerified(false);
-                  setConsentChecked(true);
-                  setRejectionReason(null);
-                }}
-              >
-                <Text style={[styles.doneButtonText, { color: "#3730A3" }]}>Re-verify Identity / Update Scan</Text>
               </TouchableOpacity>
 
               <TouchableOpacity 

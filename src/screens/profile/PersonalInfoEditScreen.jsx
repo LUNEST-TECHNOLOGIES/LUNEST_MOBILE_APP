@@ -710,7 +710,11 @@ const PersonalInfoEditScreen = () => {
               <Text style={styles.comingSoonText}>COMING SOON</Text>
             </View>
           ) : showVerification ? (
-            <View style={styles.verificationBadge}>
+            <TouchableOpacity 
+              style={styles.verificationBadge} 
+              onPress={onAction}
+              activeOpacity={0.85}
+            >
               {isVerified || kycStatus === 'VERIFIED' ? (
                 <>
                   <VerifiedCheckIcon size={18} />
@@ -740,7 +744,7 @@ const PersonalInfoEditScreen = () => {
                   </Text>
                 </>
               )}
-            </View>
+            </TouchableOpacity>
           ) : value ? (
             <Text style={styles.infoValue}>{value}</Text>
           ) : null}
@@ -908,7 +912,7 @@ const PersonalInfoEditScreen = () => {
               showVerification={true}
               isVerified={userData.isVerified}
               kycStatus={userData.kycStatus}
-              disabled={userData.isVerified}
+              disabled={false}
             />
           </SectionCard>
 

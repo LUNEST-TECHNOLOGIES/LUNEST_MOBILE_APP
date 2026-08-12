@@ -21,45 +21,77 @@ const GooglePlacesAutocompleteWeb = React.forwardRef((props, ref) => {
     return require('../config/appConfig').APP_CONFIG.GOOGLE_MAPS_API_KEY || '';
   };
 
-  // Fetch predictions from Google Places API
+  // Fetch predictions from Google Places API with OpenStreetMap fallback
   const fetchPredictions = useCallback(async (input) => {
     if (!input || input.length < 2) {
       setPredictions([]);
+      setShowDropdown(false);
       return;
     }
 
     setLoading(true);
     try {
-      const sessionToken = sessionStorage.getItem('places_session_token') || 
+      const sessionToken = (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('places_session_token')) || 
                           Math.random().toString(36).substring(2);
-      sessionStorage.setItem('places_session_token', sessionToken);
+      if (typeof sessionStorage !== 'undefined') {
+        sessionStorage.setItem('places_session_token', sessionToken);
+      }
 
       const baseUrl = await configService.getBaseURL();
-      const types = props.query?.types || 'address';
       const components = props.query?.components || 'country:ng';
       
-      const url = `${baseUrl.replace(/\/$/, '')}/v1/listings/proxy-places?type=autocomplete&input=${encodeURIComponent(input)}&types=${types}&components=${components}&sessiontoken=${sessionToken}`;
+      // Call Google Places Proxy (without restrictive types=address to allow cities & neighborhoods)
+      const cleanBase = baseUrl.replace(/\/$/, '');
+      const proxyUrl = cleanBase.endsWith('/v1') 
+        ? `${cleanBase}/listings/proxy-places?type=autocomplete&input=${encodeURIComponent(input)}&components=${components}&sessiontoken=${sessionToken}`
+        : `${cleanBase}/v1/listings/proxy-places?type=autocomplete&input=${encodeURIComponent(input)}&components=${components}&sessiontoken=${sessionToken}`;
       
-      console.log('[GooglePlacesWeb] Fetching via proxy:', url);
+      console.log('[GooglePlacesWeb] Fetching predictions via proxy:', proxyUrl);
       
-      const response = await fetch(url);
+      const response = await fetch(proxyUrl);
       const data = await response.json();
       
-      console.log('[GooglePlacesWeb] Response status:', data.status);
-      
-      if (data.status === 'OK' && data.predictions) {
-        setPredictions(data.predictions.slice(0, 5));
+      if (data.status === 'OK' && Array.isArray(data.predictions) && data.predictions.length > 0) {
+        setPredictions(data.predictions.slice(0, 6));
         setShowDropdown(true);
-      } else {
-        setPredictions([]);
+        return;
       }
     } catch (error) {
-      console.error('[GooglePlacesWeb] Fetch error:', error);
-      setPredictions([]);
+      console.warn('[GooglePlacesWeb] Proxy fetch error, falling back to OSM:', error?.message);
+    }
+
+    // OpenStreetMap Nominatim fallback for Web/PWA
+    try {
+      console.log('[GooglePlacesWeb] Trying OpenStreetMap Nominatim fallback for:', input);
+      const osmUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(input)}&countrycodes=ng&addressdetails=1&limit=5`;
+      const osmRes = await fetch(osmUrl, {
+        headers: { 'Accept-Language': 'en' }
+      });
+      const osmData = await osmRes.json();
+      if (Array.isArray(osmData) && osmData.length > 0) {
+        const mappedOsm = osmData.map((item) => ({
+          description: item.display_name,
+          place_id: `osm_${item.place_id}`,
+          isOsm: true,
+          osmData: {
+            lat: Number(item.lat),
+            lng: Number(item.lon),
+            address: item.address || {},
+            displayName: item.display_name,
+          }
+        }));
+        setPredictions(mappedOsm);
+        setShowDropdown(true);
+        return;
+      }
+    } catch (osmErr) {
+      console.warn('[GooglePlacesWeb] OSM fallback error:', osmErr?.message);
     } finally {
       setLoading(false);
     }
-  }, []);
+
+    setPredictions([]);
+  }, [props.query]);
 
   // Debounced search
   const handleInputChange = (text) => {
@@ -80,9 +112,42 @@ const GooglePlacesAutocompleteWeb = React.forwardRef((props, ref) => {
     setShowDropdown(false);
     
     try {
+      if (prediction.isOsm && prediction.osmData) {
+        const osm = prediction.osmData;
+        const details = {
+          geometry: {
+            location: {
+              lat: osm.lat,
+              lng: osm.lng,
+            }
+          },
+          address_components: [
+            { long_name: osm.address?.road || osm.address?.suburb || '', types: ['route'] },
+            { long_name: osm.address?.city || osm.address?.state_district || osm.address?.county || '', types: ['locality'] },
+            { long_name: osm.address?.state || '', types: ['administrative_area_level_1'] },
+            { long_name: osm.address?.country || 'Nigeria', types: ['country'] },
+          ],
+          formatted_address: osm.displayName,
+        };
+
+        const dataObject = {
+          description: prediction.description,
+          place_id: prediction.place_id,
+        };
+
+        setQuery(prediction.description);
+        if (props.onPress) {
+          props.onPress(dataObject, details);
+        }
+        return;
+      }
+
       const baseUrl = await configService.getBaseURL();
-      const sessionToken = sessionStorage.getItem('places_session_token') || '';
-      const url = `${baseUrl.replace(/\/$/, '')}/v1/listings/proxy-places?type=details&place_id=${prediction.place_id}&sessiontoken=${sessionToken}`;
+      const sessionToken = (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('places_session_token')) || '';
+      const cleanBase = baseUrl.replace(/\/$/, '');
+      const url = cleanBase.endsWith('/v1')
+        ? `${cleanBase}/listings/proxy-places?type=details&place_id=${prediction.place_id}&sessiontoken=${sessionToken}`
+        : `${cleanBase}/v1/listings/proxy-places?type=details&place_id=${prediction.place_id}&sessiontoken=${sessionToken}`;
       
       const response = await fetch(url);
       const data = await response.json();
@@ -91,7 +156,6 @@ const GooglePlacesAutocompleteWeb = React.forwardRef((props, ref) => {
         const result = data.result;
         const location = result.geometry?.location;
         
-        // Build data object compatible with react-native-google-places-autocomplete
         const details = {
           geometry: {
             location: {
@@ -101,7 +165,6 @@ const GooglePlacesAutocompleteWeb = React.forwardRef((props, ref) => {
           },
           address_components: result.address_components || [],
           formatted_address: result.formatted_address || prediction.description,
-          name: result.name || '',
         };
 
         const dataObject = {
@@ -120,8 +183,9 @@ const GooglePlacesAutocompleteWeb = React.forwardRef((props, ref) => {
       console.warn('[GooglePlacesWeb] Place details error:', error);
     } finally {
       setLoading(false);
-      // Clear session token after selection
-      sessionStorage.removeItem('places_session_token');
+      if (typeof sessionStorage !== 'undefined') {
+        sessionStorage.removeItem('places_session_token');
+      }
     }
   };
 

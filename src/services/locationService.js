@@ -20,6 +20,9 @@ class LocationService {
      * @returns {Promise<boolean>} Whether permission was granted
      */
     async requestPermissions() {
+        if (Platform.OS === 'web') {
+            return true;
+        }
         try {
             const { status: foregroundStatus } = await Location.requestForegroundPermissionsAsync();
 
@@ -55,6 +58,9 @@ class LocationService {
      * @returns {Promise<boolean>}
      */
     async hasPermissions() {
+        if (Platform.OS === 'web') {
+            return true;
+        }
         try {
             const { status } = await Location.getForegroundPermissionsAsync();
             return status === 'granted';
@@ -62,6 +68,59 @@ class LocationService {
             console.error('❌ [LocationService] Error checking permissions:', error);
             return false;
         }
+    }
+
+    /**
+     * Get IP-based location fallback for Web/PWA/Emulators when GPS is unavailable
+     */
+    async getIpLocationFallback() {
+        try {
+            console.log('📍 [LocationService] Fetching IP-based location fallback...');
+            const response = await fetch('https://ipapi.co/json/');
+            const data = await response.json();
+            if (data && data.latitude && data.longitude) {
+                const fallback = {
+                    coords: {
+                        latitude: Number(data.latitude),
+                        longitude: Number(data.longitude),
+                        accuracy: 1000,
+                    },
+                    address: {
+                        city: data.city || 'Lagos',
+                        region: data.region || 'Lagos',
+                        country: data.country_name || 'Nigeria',
+                        postalCode: data.postal || '100001',
+                        street: data.city || 'Victoria Island',
+                        fullAddress: `${data.city || 'Victoria Island'}, ${data.region || 'Lagos'}, ${data.country_name || 'Nigeria'}`
+                    },
+                    timestamp: Date.now(),
+                };
+                this.lastLocation = fallback;
+                return fallback;
+            }
+        } catch (err) {
+            console.warn('⚠️ [LocationService] IP location fallback failed:', err?.message);
+        }
+
+        // Ultimate default fallback (Lagos, Nigeria)
+        const defaultLocation = {
+            coords: {
+                latitude: 6.5244,
+                longitude: 3.3792,
+                accuracy: 5000,
+            },
+            address: {
+                city: 'Lagos',
+                region: 'Lagos State',
+                country: 'Nigeria',
+                postalCode: '100001',
+                street: 'Victoria Island',
+                fullAddress: 'Victoria Island, Lagos, Nigeria'
+            },
+            timestamp: Date.now(),
+        };
+        this.lastLocation = defaultLocation;
+        return defaultLocation;
     }
 
     /**
@@ -73,35 +132,64 @@ class LocationService {
         try {
             console.log('📍 [LocationService] Getting current location...');
 
-            // Request permissions if not granted
+            // Web & PWA Handling: Use browser geolocation API with timeout and IP fallback
+            if (Platform.OS === 'web') {
+                return new Promise((resolve) => {
+                    if (typeof window !== 'undefined' && window.navigator && window.navigator.geolocation) {
+                        window.navigator.geolocation.getCurrentPosition(
+                            (pos) => {
+                                const loc = {
+                                    coords: {
+                                        latitude: pos.coords.latitude,
+                                        longitude: pos.coords.longitude,
+                                        accuracy: pos.coords.accuracy || 10,
+                                    },
+                                    timestamp: pos.timestamp,
+                                };
+                                this.lastLocation = loc;
+                                console.log('✅ [LocationService] Web Geolocation obtained:', loc);
+                                resolve(loc);
+                            },
+                            async (err) => {
+                                console.warn('⚠️ [LocationService] Web Geolocation failed/denied:', err?.message);
+                                const fallback = await this.getIpLocationFallback();
+                                resolve(fallback);
+                            },
+                            { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
+                        );
+                    } else {
+                        this.getIpLocationFallback().then(resolve);
+                    }
+                });
+            }
+
+            // Native Mobile Handling
             const hasPermission = await this.hasPermissions();
             if (!hasPermission) {
                 const granted = await this.requestPermissions();
-                if (!granted) return null;
+                if (!granted) {
+                    return await this.getIpLocationFallback();
+                }
             }
 
-            // Enhanced acquisition: Try getCurrentPositionAsync with timeout or fallback to getLastKnownPosition
             let location = null;
             try {
-                // Set a 30s timeout for high accuracy location to handle slow GPS/emulator
                 location = await Promise.race([
                     Location.getCurrentPositionAsync({
                         accuracy: options.accuracy || Location.Accuracy.Balanced,
                         ...options,
                     }),
                     new Promise((_, reject) => 
-                        setTimeout(() => reject(new Error('Location request timed out')), 30000)
+                        setTimeout(() => reject(new Error('Location request timed out')), 15000)
                     )
                 ]);
             } catch (posError) {
                 console.warn('⚠️ [LocationService] Position async failed or timed out:', posError.message);
-                console.log('📍 [LocationService] Attempting to get last known position...');
                 location = await Location.getLastKnownPositionAsync();
             }
 
             if (!location) {
-                console.warn('❌ [LocationService] Failed to obtain any location data.');
-                return this.lastLocation; // Return cached if available
+                return await this.getIpLocationFallback();
             }
 
             this.lastLocation = {
@@ -113,11 +201,10 @@ class LocationService {
                 timestamp: location.timestamp,
             };
 
-            console.log('✅ [LocationService] Location obtained:', this.lastLocation);
             return this.lastLocation;
         } catch (error) {
             console.error('❌ [LocationService] Error getting location:', error);
-            return this.lastLocation;
+            return await this.getIpLocationFallback();
         }
     }
 

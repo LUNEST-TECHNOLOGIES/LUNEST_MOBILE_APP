@@ -278,15 +278,26 @@ class APIClient {
   }
 
   /**
+   * Helper to construct clean URL string without duplicate /v1 prefixes
+   * @private
+   */
+  buildUrl(endpoint) {
+    const cleanBase = (this.baseURL || "").replace(/\/$/, "");
+    let cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
+    if (cleanBase.endsWith("/v1") && cleanEndpoint.startsWith("/v1/")) {
+      cleanEndpoint = cleanEndpoint.substring(3);
+    }
+    return `${cleanBase}${cleanEndpoint}`;
+  }
+
+  /**
    * GET request
    * @param {string} endpoint - API endpoint
    * @param {Object} options - Request options (params, headers, etc)
    * @returns {Promise<*>}
    */
   async get(endpoint, options = {}) {
-    const cleanBase = this.baseURL.replace(/\/$/, "");
-    const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
-    let urlString = `${cleanBase}${cleanEndpoint}`;
+    let urlString = this.buildUrl(endpoint);
 
     if (options.params) {
       const searchParams = new URLSearchParams();
@@ -318,9 +329,7 @@ class APIClient {
    * @returns {Promise<*>}
    */
   async post(endpoint, data, options = {}) {
-    const cleanBase = this.baseURL.replace(/\/$/, "");
-    const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
-    const urlString = `${cleanBase}${cleanEndpoint}`;
+    const urlString = this.buildUrl(endpoint);
     const headers = await this.buildHeaders(options.headers);
 
     const requestBody = JSON.stringify(data);
@@ -342,9 +351,7 @@ class APIClient {
    * @returns {Promise<*>}
    */
   async put(endpoint, data, options = {}) {
-    const cleanBase = this.baseURL.replace(/\/$/, "");
-    const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
-    const urlString = `${cleanBase}${cleanEndpoint}`;
+    const urlString = this.buildUrl(endpoint);
     
     const { headers: customHeaders, ...restOptions } = options || {};
     const headers = await this.buildHeaders(customHeaders);
@@ -364,9 +371,7 @@ class APIClient {
    * @returns {Promise<*>}
    */
   async delete(endpoint, options = {}) {
-    const cleanBase = this.baseURL.replace(/\/$/, "");
-    const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
-    const urlString = `${cleanBase}${cleanEndpoint}`;
+    const urlString = this.buildUrl(endpoint);
     
     const { headers: customHeaders, ...restOptions } = options || {};
     const headers = await this.buildHeaders(customHeaders);

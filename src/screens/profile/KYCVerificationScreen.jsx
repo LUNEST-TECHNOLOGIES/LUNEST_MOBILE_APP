@@ -67,6 +67,31 @@ const KYCVerificationScreen = () => {
   const [ninInput, setNinInput] = useState("");
   const [ninError, setNinError] = useState("");
   const [userFullName, setUserFullName] = useState("");
+  const [isFetchingNinName, setIsFetchingNinName] = useState(false);
+  const [ninFetchedName, setNinFetchedName] = useState(null);
+
+  // Soft loading effect when user enters valid 11+ digit NIN
+  useEffect(() => {
+    const clean = ninInput.trim();
+    if (clean.length >= 11 && consentChecked) {
+      setIsFetchingNinName(true);
+      const timer = setTimeout(async () => {
+        try {
+          const currentUser = await getUserData();
+          const resolvedName = currentUser?.fullName || userFullName;
+          setNinFetchedName(resolvedName);
+        } catch (e) {
+          setNinFetchedName(userFullName);
+        } finally {
+          setIsFetchingNinName(false);
+        }
+      }, 650);
+      return () => clearTimeout(timer);
+    } else {
+      setNinFetchedName(null);
+      setIsFetchingNinName(false);
+    }
+  }, [ninInput, consentChecked, userFullName]);
 
   // Toast state
   const [toastVisible, setToastVisible] = useState(false);
@@ -769,16 +794,36 @@ const maskIdNumber = (idStr) => {
                     )}
                   </View>
 
-                  {/* 2. Official Registered Name Field (Displayed ONLY after user inputs valid NIN) */}
+                  {/* 2. Official Registered Name Field (Displayed ONLY after user inputs valid NIN with soft loading) */}
                   {ninInput.trim().length >= 11 && (
                     <View style={styles.inputContainer}>
                       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
                         <Text style={styles.inputLabel}>Official Registered Name</Text>
-                        <Text style={{ fontSize: 10, fontWeight: "700", color: "#6B7280", letterSpacing: 0.5 }}>🔒 UNEDITABLE</Text>
+                        {isFetchingNinName ? (
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                            <ActivityIndicator size="small" color="#008751" />
+                            <Text style={{ fontSize: 10, fontWeight: "700", color: "#008751" }}>FETCHING...</Text>
+                          </View>
+                        ) : (
+                          <Text style={{ fontSize: 10, fontWeight: "700", color: "#6B7280", letterSpacing: 0.5 }}>🔒 UNEDITABLE</Text>
+                        )}
                       </View>
-                      <View style={styles.disabledInputBox}>
-                        <Text style={styles.disabledInputText}>{userFullName || verifiedName || "Account Profile Name"}</Text>
-                      </View>
+
+                      {isFetchingNinName ? (
+                        <View style={[styles.disabledInputBox, { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: "#ECFDF5", borderColor: "#A7F3D0" }]}>
+                          <ActivityIndicator size="small" color="#008751" />
+                          <Text style={{ fontSize: 13, fontWeight: "600", color: "#047857" }}>
+                            Resolving NIN details from database...
+                          </Text>
+                        </View>
+                      ) : (
+                        <View style={styles.disabledInputBox}>
+                          <Text style={styles.disabledInputText}>
+                            {ninFetchedName || userFullName || verifiedName || "Account Profile Name"}
+                          </Text>
+                        </View>
+                      )}
+
                       <Text style={{ fontSize: 11, color: "#6B7280", marginTop: 4, lineHeight: 16 }}>
                         This registered account name will be matched and permanently locked to your NIN record upon tapping Verify KYC Identity.
                       </Text>

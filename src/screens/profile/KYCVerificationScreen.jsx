@@ -66,6 +66,7 @@ const KYCVerificationScreen = () => {
   const [activeTab, setActiveTab] = useState("DIDIT");
   const [ninInput, setNinInput] = useState("");
   const [ninError, setNinError] = useState("");
+  const [userFullName, setUserFullName] = useState("");
 
   // Toast state
   const [toastVisible, setToastVisible] = useState(false);
@@ -107,6 +108,17 @@ const KYCVerificationScreen = () => {
         router.replace("/login");
         return;
       }
+
+      try {
+        const uData = await getUserData();
+        if (uData?.fullName) {
+          setUserFullName(uData.fullName);
+        }
+        const p = await authService.fetchProfile();
+        if (p?.data?.fullName) {
+          setUserFullName(p.data.fullName);
+        }
+      } catch (e) {}
 
       // Always fetch fresh profile from server first to bust any stale local cache
       try {
@@ -694,69 +706,101 @@ const maskIdNumber = (idStr) => {
           {/* ── KORA TAB ── */}
           {activeTab === "KORA" && (
             <View>
-              <View style={styles.koraNoteContainer}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                  <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-                    <Circle cx="12" cy="12" r="10" fill="#ECFDF5" stroke="#008751" strokeWidth="2" />
-                    <Path d="M12 16V12M12 8H12.01" stroke="#008751" strokeWidth="2.5" strokeLinecap="round" />
-                  </Svg>
-                  <Text style={styles.koraNoteTitle}>Government NIN Lookup</Text>
+              {/* Consent Checkbox First for Kora */}
+              <TouchableOpacity
+                style={[styles.consentContainer, { marginBottom: 16, marginTop: 4 }]}
+                onPress={() => setConsentChecked(!consentChecked)}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.checkbox, consentChecked && styles.checkboxChecked]}>
+                  {consentChecked && (
+                    <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
+                      <Path d="M20 6L9 17L4 12" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                    </Svg>
+                  )}
                 </View>
-                <Text style={styles.koraNoteText}>
-                  Enter your 11-digit NIN or 16-character Virtual NIN (vNIN). Kora will verify your identity directly against the official database.
+                <Text style={styles.consentText}>
+                  I consent to the secure processing of my NIN for identity verification purposes.
                 </Text>
-              </View>
+              </TouchableOpacity>
 
-              <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>National Identification Number (NIN / vNIN)</Text>
-                <TextInput
-                  id="kora-nin-input"
-                  style={[
-                    styles.input,
-                    ninError ? { borderColor: "#EF4444" } : null,
-                  ]}
-                  placeholder="Enter 11-digit NIN or 16-character vNIN"
-                  placeholderTextColor="#9CA3AF"
-                  value={ninInput}
-                  onChangeText={(text) => {
-                    setNinInput(text.trim().toUpperCase());
-                    if (ninError) setNinError("");
-                  }}
-                  autoCapitalize="characters"
-                  maxLength={16}
-                  returnKeyType="done"
-                />
-                {!!ninError && (
-                  <Text style={{ color: "#EF4444", fontSize: 12, marginTop: 4 }}>{ninError}</Text>
-                )}
-                <Text style={{ fontSize: 12, color: "#6B7280", marginTop: 6, lineHeight: 16 }}>
-                  Supports 11-digit raw NIN or 16-character Virtual NIN (vNIN). (Test Mode vNIN: KO111111111111IL)
-                </Text>
+              {!consentChecked ? (
+                <View style={styles.koraNoteContainer}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+                      <Circle cx="12" cy="12" r="10" fill="#ECFDF5" stroke="#008751" strokeWidth="2" />
+                      <Path d="M12 16V12M12 8H12.01" stroke="#008751" strokeWidth="2.5" strokeLinecap="round" />
+                    </Svg>
+                    <Text style={styles.koraNoteTitle}>Government NIN Lookup (Kora)</Text>
+                  </View>
+                  <Text style={styles.koraNoteText}>
+                    Please review and check the consent box above to reveal your registered full name and enter your NIN for identity verification.
+                  </Text>
+                </View>
+              ) : (
+                <View style={{ gap: 16 }}>
+                  {/* Unedited Registered Full Name Field */}
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.inputLabel}>REGISTERED FULL NAME (UNEDITABLE)</Text>
+                    <View style={styles.disabledInputBox}>
+                      <Text style={styles.disabledInputText}>{userFullName || verifiedName || "Account User Name"}</Text>
+                    </View>
+                    <Text style={{ fontSize: 11, color: "#6B7280", marginTop: 2 }}>
+                      Your government NIN will be verified against this official registered account name.
+                    </Text>
+                  </View>
 
-              </View>
+                  {/* NIN Input Field */}
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.inputLabel}>NATIONAL IDENTIFICATION NUMBER (NIN / vNIN)</Text>
+                    <TextInput
+                      id="kora-nin-input"
+                      style={[
+                        styles.input,
+                        ninError ? { borderColor: "#EF4444" } : null,
+                      ]}
+                      placeholder="Enter 11-digit NIN or 16-character vNIN"
+                      placeholderTextColor="#9CA3AF"
+                      value={ninInput}
+                      onChangeText={(text) => {
+                        setNinInput(text.trim().toUpperCase());
+                        if (ninError) setNinError("");
+                      }}
+                      autoCapitalize="characters"
+                      maxLength={16}
+                      returnKeyType="done"
+                    />
+                    {!!ninError && (
+                      <Text style={{ color: "#EF4444", fontSize: 12, marginTop: 4 }}>{ninError}</Text>
+                    )}
+                    <Text style={{ fontSize: 12, color: "#6B7280", marginTop: 6, lineHeight: 16 }}>
+                      Supports 11-digit raw NIN or 16-character Virtual NIN (vNIN).
+                    </Text>
+                  </View>
+                </View>
+              )}
             </View>
           )}
 
-
-          {/* Consent checkbox — shown for both tabs */}
-          <TouchableOpacity
-            style={styles.consentContainer}
-            onPress={() => setConsentChecked(!consentChecked)}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.checkbox, consentChecked && styles.checkboxChecked]}>
-              {consentChecked && (
-                <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
-                  <Path d="M20 6L9 17L4 12" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-                </Svg>
-              )}
-            </View>
-            <Text style={styles.consentText}>
-              {activeTab === "KORA"
-                ? "I consent to the secure processing of my NIN for identity verification purposes."
-                : "I consent to the secure processing of my government ID document and facial liveness verification."}
-            </Text>
-          </TouchableOpacity>
+          {/* Consent checkbox for DIDIT TAB only */}
+          {activeTab === "DIDIT" && (
+            <TouchableOpacity
+              style={styles.consentContainer}
+              onPress={() => setConsentChecked(!consentChecked)}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.checkbox, consentChecked && styles.checkboxChecked]}>
+                {consentChecked && (
+                  <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
+                    <Path d="M20 6L9 17L4 12" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                  </Svg>
+                )}
+              </View>
+              <Text style={styles.consentText}>
+                I consent to the secure processing of my government ID document and facial liveness verification.
+              </Text>
+            </TouchableOpacity>
+          )}
         </ScrollView>
 
         <View style={styles.footer}>
@@ -815,10 +859,10 @@ const maskIdNumber = (idStr) => {
               style={[
                 styles.verifyButton,
                 { backgroundColor: "#008751" },
-                (!consentChecked || isLoading) && styles.disabledButton,
+                (!consentChecked || !ninInput || isLoading) && styles.disabledButton,
               ]}
               onPress={handleKoraVerify}
-              disabled={!consentChecked || isLoading}
+              disabled={!consentChecked || !ninInput || isLoading}
             >
               {isLoading ? (
                 <View style={{ alignItems: "center" }}>
@@ -826,7 +870,7 @@ const maskIdNumber = (idStr) => {
                   {!!loadingMessage && <Text style={styles.verifyButtonSubtext}>{loadingMessage}</Text>}
                 </View>
               ) : (
-                <Text style={styles.verifyButtonText}>Verify NIN with Kora</Text>
+                <Text style={styles.verifyButtonText}>Verify KYC Identity</Text>
               )}
             </TouchableOpacity>
           )}
@@ -952,6 +996,20 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#010135",
     backgroundColor: "#F9F9F9",
+  },
+  disabledInputBox: {
+    height: 52,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    justifyContent: "center",
+    backgroundColor: "#F3F4F6",
+  },
+  disabledInputText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#1F2937",
   },
   selfieSection: {
     marginBottom: 32,

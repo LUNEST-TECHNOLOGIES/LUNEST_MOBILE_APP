@@ -63,6 +63,7 @@ import { fetchHostData } from "../../services/hostService";
 import listingService from "../../services/listingService";
 import locationService from "../../services/locationService";
 import profileService from "../../services/profileService";
+import { getUserData } from "../../services/userDataService";
 import { getAmenityIcon } from "../../utils/amenityIcons";
 import { formatCurrency } from "../../utils/currency";
 import { resolveImageUrlSync } from "../../utils/imageUtils";
@@ -1087,20 +1088,50 @@ const PropertyDetailsScreen = () => {
     }
   };
 
+  // Track last viewed listing for Home Explore screen re-ordering
+  useEffect(() => {
+    if (propertyData && propertyData.id) {
+      listingService.setLastViewedListing(propertyData);
+    }
+  }, [propertyData?.id]);
+
   const handleBooking = async () => {
     try {
-      // 1. Fetch latest profile data to ensure we have up-to-date info
-      const profileData = await profileService.getProfileData();
+      // 1. Fetch user profile from storage & authService
+      let currentUser = (await getUserData()) || (await authService.getUserData()) || {};
+      let profileData = (await profileService.getProfileData()) || {};
 
-      // 1b. Validate KYC Verification Status
-      const isKycVerified = profileData?.kycStatus === "VERIFIED" || profileData?.verified === true;
+      // 1b. Validate KYC Verification Status across all local data sources
+      let isKycVerified =
+        currentUser?.verified === true ||
+        currentUser?.kycStatus === "VERIFIED" ||
+        currentUser?.kycStatus === "APPROVED" ||
+        profileData?.verified === true ||
+        profileData?.kycStatus === "VERIFIED" ||
+        profileData?.kycStatus === "APPROVED";
+
+      // If cache indicates unverified, perform live check with server to be 100% accurate
+      if (!isKycVerified) {
+        try {
+          const freshProfile = await authService.fetchProfile();
+          const freshUser = freshProfile?.data || freshProfile?.body || freshProfile || {};
+          if (freshUser && (freshUser.verified === true || freshUser.kycStatus === "VERIFIED" || freshUser.kycStatus === "APPROVED")) {
+            isKycVerified = true;
+            currentUser = { ...currentUser, ...freshUser };
+          }
+        } catch (fetchErr) {
+          console.warn("[PropertyDetailsScreen] Live profile check error:", fetchErr?.message);
+        }
+      }
+
       if (!isKycVerified) {
         setShowKycModal(true);
         return;
       }
 
       // 2. Validate Email
-      if (!profileData?.email || !profileData?.emailAddress) {
+      const userEmail = profileData?.email || profileData?.emailAddress || currentUser?.email || currentUser?.emailAddress;
+      if (!userEmail) {
         Alert.alert(
           "Email Required",
           "Please update your email address in your profile to proceed with booking.",
@@ -1116,7 +1147,7 @@ const PropertyDetailsScreen = () => {
       }
 
       // 3. Validate Phone Number (min length check)
-      const userPhone = profileData?.phone || profileData?.phoneNumber;
+      const userPhone = profileData?.phone || profileData?.phoneNumber || currentUser?.phone || currentUser?.phoneNumber;
       if (!userPhone || String(userPhone).trim().length < 7) {
         setShowPhoneModal(true);
         return;

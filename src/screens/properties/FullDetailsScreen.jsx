@@ -25,8 +25,10 @@ import ImageViewerModal from "../../components/modals/ImageViewerModal";
 import KycRequiredModal from "../../components/modals/KycRequiredModal";
 import ReviewFeedbackModal from "../../components/modals/ReviewFeedbackModal";
 import VerifiedInfoOverlay from "../../components/modals/VerifiedInfoOverlay";
+import authService from "../../services/authService";
 import bookingService from "../../services/bookingService";
 import profileService from "../../services/profileService";
+import { getUserData } from "../../services/userDataService";
 import Skeleton from "../../components/common/Skeleton";
 import configService from "../../services/configService";
 import { getAmenityIcon } from "../../utils/amenityIcons";
@@ -494,10 +496,38 @@ const FullDetailsScreen = () => {
     return null;
   };
 
+  // Track last viewed listing for Home Explore screen re-ordering
+  useEffect(() => {
+    if (listing) {
+      listingService.setLastViewedListing(listing);
+    }
+  }, [listing]);
+
   const handleBooking = async () => {
     try {
-      const profileData = await profileService.getProfileData();
-      const isKycVerified = profileData?.kycStatus === "VERIFIED" || profileData?.verified === true;
+      let currentUser = (await getUserData()) || (await authService.getUserData()) || {};
+      let profileData = (await profileService.getProfileData()) || {};
+
+      let isKycVerified =
+        currentUser?.verified === true ||
+        currentUser?.kycStatus === "VERIFIED" ||
+        currentUser?.kycStatus === "APPROVED" ||
+        profileData?.verified === true ||
+        profileData?.kycStatus === "VERIFIED" ||
+        profileData?.kycStatus === "APPROVED";
+
+      if (!isKycVerified) {
+        try {
+          const freshProfile = await authService.fetchProfile();
+          const freshUser = freshProfile?.data || freshProfile?.body || freshProfile || {};
+          if (freshUser && (freshUser.verified === true || freshUser.kycStatus === "VERIFIED" || freshUser.kycStatus === "APPROVED")) {
+            isKycVerified = true;
+          }
+        } catch (err) {
+          console.warn("[FullDetailsScreen] Live profile check error:", err);
+        }
+      }
+
       if (!isKycVerified) {
         setShowKycModal(true);
         return;

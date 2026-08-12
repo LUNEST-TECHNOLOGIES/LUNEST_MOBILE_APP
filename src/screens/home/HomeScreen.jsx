@@ -94,10 +94,30 @@ const HomeScreen = () => {
     staleTime: 5 * 60_000, // 5 minutes
   });
 
-  // Flatten pages into a single array for FlashList
+  const [lastViewedTrigger, setLastViewedTrigger] = useState(0);
+
+  // Flatten pages into a single array for FlashList & prioritize last viewed listing at top of state
   const safeExploreListings = useMemo(() => {
-    return explorePages?.pages.flatMap((page) => page.listings || []) || [];
-  }, [explorePages]);
+    const rawListings = explorePages?.pages.flatMap((page) => page.listings || []) || [];
+    const lastId = listingService.getLastViewedListingId();
+    const lastData = listingService.getLastViewedListingData();
+
+    if (!lastId || rawListings.length === 0) return rawListings;
+
+    const existingIndex = rawListings.findIndex(
+      (item) => String(item.id || item._id) === String(lastId)
+    );
+
+    if (existingIndex > 0) {
+      const copy = [...rawListings];
+      const [viewedItem] = copy.splice(existingIndex, 1);
+      return [viewedItem, ...copy];
+    } else if (existingIndex === -1 && lastData) {
+      return [lastData, ...rawListings];
+    }
+
+    return rawListings;
+  }, [explorePages, lastViewedTrigger]);
 
   // Handle category filtering locally if needed, but we prefer server-side
   const filteredListings = safeExploreListings;
@@ -124,13 +144,14 @@ const HomeScreen = () => {
     }
   }, [safeExploreListings, topPicksListings]);
 
-  // Simplified focus effect - minimal refreshes to prevent glitching
+  // Focus effect - refresh last viewed state trigger & notification count
   useFocusEffect(
     useCallback(() => {
-      console.log("[HomeScreen] Screen focused");
+      console.log("[HomeScreen] Screen focused — prioritizing last viewed property");
       setSearchQuery("");
+      setLastViewedTrigger((prev) => prev + 1);
 
-      // Only refresh notification count silently
+      // Refresh notification count silently
       fetchNotificationCount();
     }, []),
   );
@@ -560,6 +581,7 @@ const HomeScreen = () => {
     }, 300);
     
     console.log("[HomeScreen] Prefetching & Navigating to property details:", listingId);
+    listingService.setLastViewedListing({ id: listingId });
     
     // Prefetch for ultra-snappy navigation
     queryClient.prefetchQuery({

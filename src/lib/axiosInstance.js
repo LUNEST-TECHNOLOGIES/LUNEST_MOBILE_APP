@@ -52,7 +52,7 @@ axiosInstance.interceptors.response.use(
     const status = error.response?.status;
     const originalRequest = error.config;
     const url = originalRequest?.url || 'unknown';
-    
+
     // Global 401 handler with Automatic Token Refresh Retry
     if (status === 401 && originalRequest && !originalRequest._retry && !isRedirectingToLogin) {
       originalRequest._retry = true;
@@ -76,7 +76,7 @@ axiosInstance.interceptors.response.use(
       // Refresh failed or token permanently invalid — clear session and redirect to Login
       isRedirectingToLogin = true;
       console.warn("[Axios] Token refresh failed — clearing session and redirecting to Login");
-      
+
       notificationService.show({
         message: "Session expired. Please login again.",
         type: TOAST_TYPE.WARNING,
@@ -86,7 +86,7 @@ axiosInstance.interceptors.response.use(
       isRedirectingToLogin = false;
       navigateToLogin();
     }
-    
+
     // Rate limit detection (429 Too Many Requests)
     if (status === 429) {
       const retryAfter = error.response?.headers?.['retry-after'];
@@ -98,7 +98,7 @@ axiosInstance.interceptors.response.use(
         message: error.response?.data?.message || 'Too many requests',
       });
     }
-    
+
     // Log other server errors for debugging
     if (status >= 500) {
       console.error("[Axios] Server Error:", {
@@ -107,7 +107,7 @@ axiosInstance.interceptors.response.use(
         message: error.response?.data?.message || error.message,
       });
     }
-    
+
     return Promise.reject(error);
   }
 );

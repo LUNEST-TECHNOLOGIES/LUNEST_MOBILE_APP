@@ -240,6 +240,28 @@ class ListingService {
   }
 
   /**
+   * Track the most recently viewed listing so Home/Explore screen can prioritize it
+   * @param {Object} listing - The listing object or ID
+   */
+  setLastViewedListing(listing) {
+    if (!listing) return;
+    const id = listing.id || listing._id || listing.listingId;
+    if (id) {
+      this._lastViewedListingId = String(id);
+      this._lastViewedListingData = listing;
+      console.log("[ListingService] Set last viewed listing:", this._lastViewedListingId);
+    }
+  }
+
+  getLastViewedListingId() {
+    return this._lastViewedListingId || null;
+  }
+
+  getLastViewedListingData() {
+    return this._lastViewedListingData || null;
+  }
+
+  /**
    * Fetch recently viewed listings for the authenticated user
    * @returns {Promise<Object>} Recently viewed listings
    */

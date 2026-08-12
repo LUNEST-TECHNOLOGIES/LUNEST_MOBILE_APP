@@ -27,6 +27,8 @@ import PaymentMethodModal from "../../components/modals/PaymentMethodModal";
 import authService from "../../services/authService";
 import bookingService from "../../services/bookingService";
 import paymentService from "../../services/paymentService";
+import profileService from "../../services/profileService";
+import { getUserData } from "../../services/userDataService";
 
 // Default property image fallback
 const DEFAULT_PROPERTY_IMAGE = require("../../assets/images/prop_image.png");
@@ -681,14 +683,33 @@ const BookingSummary = () => {
 
   const handleProceedToPayment = async () => {
     try {
-      const profile = await authService.fetchProfile();
-      const isVerified = profile?.data?.kycStatus === "VERIFIED" || !!profile?.data?.verified;
+      let currentUser = (await getUserData()) || (await authService.getUserData()) || {};
+      let profileData = (await profileService.getProfileData()) || {};
+
+      let isVerified =
+        currentUser?.verified === true ||
+        currentUser?.kycStatus === "VERIFIED" ||
+        currentUser?.kycStatus === "APPROVED" ||
+        profileData?.verified === true ||
+        profileData?.kycStatus === "VERIFIED" ||
+        profileData?.kycStatus === "APPROVED";
+
+      if (!isVerified) {
+        try {
+          const profile = await authService.fetchProfile();
+          const pData = profile?.data || profile?.body || profile;
+          isVerified = pData?.kycStatus === "VERIFIED" || pData?.kycStatus === "APPROVED" || !!pData?.verified;
+        } catch (err) {
+          console.warn("[BookingSummary] Failed to check live KYC status:", err);
+        }
+      }
+
       if (!isVerified) {
         setShowKycModal(true);
         return;
       }
     } catch (err) {
-      console.warn("[BookingSummary] Failed to check KYC status:", err);
+      console.warn("[BookingSummary] KYC validation error:", err);
     }
 
     // Show confirmation modal first

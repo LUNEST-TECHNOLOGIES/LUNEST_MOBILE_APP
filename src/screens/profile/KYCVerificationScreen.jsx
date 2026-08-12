@@ -21,7 +21,7 @@ import ToastNotification, { TOAST_TYPE } from "../../components/common/ToastNoti
 import authService from "../../services/authService";
 import kycService from "../../services/kycService";
 import profileService from "../../services/profileService";
-import { getUserData, setUserData, getUserDataSync } from "../../services/userDataService";
+import { getUserData, setUserData } from "../../services/userDataService";
 
 const BackIcon = ({ size = 24, color = "#000000" }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -48,56 +48,15 @@ const CameraIcon = ({ size = 32, color = "#010135" }) => (
   </Svg>
 );
 
-const maskIdNumber = (idStr) => {
-  if (!idStr) return "";
-  const cleaned = String(idStr).trim();
-  if (cleaned.length <= 4) return "****";
-  const startLen = Math.min(4, Math.floor(cleaned.length / 3));
-  const endLen = Math.min(3, Math.floor(cleaned.length / 3));
-  const start = cleaned.substring(0, startLen);
-  const end = cleaned.substring(cleaned.length - endLen);
-  return `${start}****${end}`;
-};
-
 const KYCVerificationScreen = () => {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const isParamVerified = String(params?.verified || "").toLowerCase() === "true" || String(params?.isVerified || "").toLowerCase() === "true";
-
-  // Instant frame-1 zero-glitch state initialization
-  const [isVerified, setIsVerified] = useState(() => {
-    if (isParamVerified) return true;
-    try {
-      const syncData = getUserDataSync();
-      return syncData?.verified === true || syncData?.kycStatus === "VERIFIED" || syncData?.kycStatus === "APPROVED";
-    } catch (e) {
-      return false;
-    }
-  });
-
-  const [verifiedName, setVerifiedName] = useState(() => {
-    try {
-      const syncData = getUserDataSync();
-      return syncData?.fullName || "";
-    } catch (e) {
-      return "";
-    }
-  });
-
-  const [verifiedId, setVerifiedId] = useState(() => {
-    try {
-      const syncData = getUserDataSync();
-      const rawNin = syncData?.nin || syncData?.kycData?.documentNumber || syncData?.idNumber || "";
-      return rawNin ? maskIdNumber(rawNin) : "";
-    } catch (e) {
-      return "";
-    }
-  });
-
-  const [isInitialLoading, setIsInitialLoading] = useState(() => !isVerified);
   const [isLoading, setIsLoading] = useState(false);
+  const [isVerified, setIsVerified] = useState(false);
   const [consentChecked, setConsentChecked] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState("");
+  const [verifiedName, setVerifiedName] = useState("");
+  const [verifiedId, setVerifiedId] = useState("");
   const [activeSessionId, setActiveSessionId] = useState(null);
   const [activeSessionUrl, setActiveSessionUrl] = useState("");
   const [isStatusChecking, setIsStatusChecking] = useState(false);
@@ -117,14 +76,14 @@ const KYCVerificationScreen = () => {
     if (clean.length >= 11 && consentChecked) {
       // 1. Check for dummy / repeating / sequential patterns locally
       const dummyNins = [
-        "00000000000", "11111111111", "22222222222", "33333333333", "44444444444", 
-        "55555555555", "66666666666", "77777777777", "88888888888", "99999999999", 
+        "00000000000", "11111111111", "22222222222", "33333333333", "44444444444",
+        "55555555555", "66666666666", "77777777777", "88888888888", "99999999999",
         "12345678901", "01234567890", "98765432109", "12121212121"
       ];
       const isSequentialOrRepeating = dummyNins.includes(clean) || /^(\d)\1{10}$/.test(clean);
 
       if (isSequentialOrRepeating) {
-        setNinError("Invalid National Identification Number. Dummy numbers are not permitted.");
+        setNinError("Invalid National Identification Number. Please check and try again.");
         setNinFetchedName(null);
         setIsFetchingNinName(false);
         return;
@@ -222,47 +181,32 @@ const KYCVerificationScreen = () => {
         return;
       }
 
-      // Instant local storage check to eliminate screen flicker for verified users
       try {
         const uData = await getUserData();
         if (uData?.fullName) {
           setUserFullName(uData.fullName);
         }
-        if (uData?.verified === true || uData?.kycStatus === "VERIFIED" || uData?.kycStatus === "APPROVED") {
-          setIsVerified(true);
-          setVerifiedName(uData.fullName || "");
-          const rawNin = uData.nin || uData.kycData?.documentNumber || uData.idNumber || "";
-          setVerifiedId(maskIdNumber(rawNin) || "ID Verified");
-          setIsInitialLoading(false);
-          return;
+        const p = await authService.fetchProfile();
+        if (p?.data?.fullName) {
+          setUserFullName(p.data.fullName);
         }
+      } catch (e) { }
 
-        const profileRes = await authService.fetchProfile();
-        const freshUser = profileRes?.data || {};
-        if (freshUser?.fullName) {
-          setUserFullName(freshUser.fullName);
-        }
-        if (freshUser?.verified === true || freshUser?.kycStatus === "VERIFIED" || freshUser?.kycStatus === "APPROVED") {
-          setIsVerified(true);
-          setVerifiedName(freshUser.fullName || "");
-          const rawNin = freshUser.nin || freshUser.kycData?.documentNumber || freshUser.idNumber || "";
-          setVerifiedId(maskIdNumber(rawNin) || "ID Verified");
-          setIsInitialLoading(false);
-          return;
-        }
-
-        const urlSessionId = params?.sessionId || params?.verificationSessionId;
-        if (urlSessionId) {
-          console.log("[KYC] Found redirect sessionId in URL params:", urlSessionId);
-          setActiveSessionId(urlSessionId);
-          await finalizeSession(urlSessionId, "Identity verified successfully!");
-        } else {
-          await checkVerificationStatus();
-        }
+      // Always fetch fresh profile from server first to bust any stale local cache
+      try {
+        await authService.fetchProfile();
+        console.log("[KYC] Fresh profile synced from server on screen open");
       } catch (e) {
-        console.warn("[KYC] Error in init check:", e?.message);
-      } finally {
-        setIsInitialLoading(false);
+        console.warn("[KYC] Could not sync profile on init:", e?.message);
+      }
+
+      const urlSessionId = params?.sessionId || params?.verificationSessionId;
+      if (urlSessionId) {
+        console.log("[KYC] Found redirect sessionId in URL params:", urlSessionId);
+        setActiveSessionId(urlSessionId);
+        await finalizeSession(urlSessionId, "Identity verified successfully!");
+      } else {
+        checkVerificationStatus();
       }
     };
     init();
@@ -630,17 +574,6 @@ const KYCVerificationScreen = () => {
       setLoadingMessage("");
     }
   };
-
-  if (isInitialLoading) {
-    return (
-      <SafeAreaView style={[styles.container, { justifyContent: "center", alignItems: "center", backgroundColor: "#FFFFFF" }]}>
-        <ActivityIndicator size="large" color="#008751" />
-        <Text style={{ marginTop: 14, fontSize: 13, color: "#64748B", fontWeight: "600" }}>
-          Loading verification status...
-        </Text>
-      </SafeAreaView>
-    );
-  }
 
   if (isVerified) {
     return (

@@ -780,6 +780,119 @@ class ListingService {
   }
 
   /**
+  /**
+   * Upload a video directly to S3 using a presigned PUT URL (fastest method)
+   * Flow: get presigned URL from backend → PUT directly to S3 → confirm
+   * @param {string} videoUri - Local URI or blob URL of the video
+   * @param {function} onProgress - Progress callback (0-100)
+   * @returns {Promise<{success, url}>}
+   */
+  async uploadVideoFast(videoUri, onProgress = null) {
+    console.log("[ListingService] Fast video upload via presigned S3 URL...");
+
+    try {
+      const token = await authService.getToken();
+      if (!token) return { success: false, message: "Authentication required" };
+
+      // Detect mime type and extension from URI
+      const isDataUrl = videoUri && videoUri.startsWith("data:");
+      let mimeType = "video/mp4";
+      let ext = "mp4";
+
+      if (isDataUrl) {
+        const match = videoUri.match(/data:([^;]+);/);
+        if (match) {
+          mimeType = match[1];
+          ext = mimeType.split("/")[1] || "mp4";
+        }
+      } else if (videoUri) {
+        const uriLower = videoUri.toLowerCase();
+        if (uriLower.includes(".mov")) { mimeType = "video/quicktime"; ext = "mov"; }
+        else if (uriLower.includes(".webm")) { mimeType = "video/webm"; ext = "webm"; }
+        else if (uriLower.includes(".avi")) { mimeType = "video/x-msvideo"; ext = "avi"; }
+        else if (uriLower.includes(".mkv")) { mimeType = "video/x-matroska"; ext = "mkv"; }
+        else if (uriLower.includes(".3gp")) { mimeType = "video/3gpp"; ext = "3gp"; }
+      }
+
+      // STEP 1: Request presigned upload URL from backend
+      const cleanBase = (await configService.getBaseURL()).replace(/\/$/, "");
+      const presignedEndpoint = cleanBase.endsWith("/v1")
+        ? `${cleanBase}/listings/presigned-upload-url`
+        : `${cleanBase}/v1/listings/presigned-upload-url`;
+
+      const urlRes = await fetch(presignedEndpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + token,
+        },
+        body: JSON.stringify({ contentType: mimeType, fileCategory: "videos" }),
+      });
+
+      if (!urlRes.ok) {
+        const err = await urlRes.json().catch(() => ({}));
+        throw new Error(err.message || "Failed to get upload URL");
+      }
+
+      const { body: urlBody } = await urlRes.json();
+      const { uploadUrl, publicUrl, s3Key } = urlBody || {};
+
+      if (!uploadUrl) throw new Error("No presigned URL returned from server");
+
+      // STEP 2: Prepare video blob
+      let videoBlob;
+      if (Platform.OS === "web") {
+        if (isDataUrl) {
+          const parts = videoUri.split(",");
+          const byteCharacters = atob(parts[1]);
+          const byteArr = new Uint8Array(byteCharacters.length);
+          for (let i = 0; i < byteCharacters.length; i++) byteArr[i] = byteCharacters.charCodeAt(i);
+          videoBlob = new Blob([byteArr], { type: mimeType });
+        } else {
+          const resp = await fetch(videoUri);
+          videoBlob = await resp.blob();
+        }
+      } else {
+        // Native: fetch the file as blob
+        const resp = await fetch(videoUri);
+        videoBlob = await resp.blob();
+      }
+
+      // STEP 3: PUT directly to S3 with progress tracking via XHR
+      const s3Url = await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("PUT", uploadUrl, true);
+        xhr.setRequestHeader("Content-Type", mimeType);
+
+        if (xhr.upload && onProgress) {
+          xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) {
+              onProgress(Math.round((e.loaded / e.total) * 100));
+            }
+          };
+        }
+
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            if (onProgress) onProgress(100);
+            resolve(publicUrl);
+          } else {
+            reject(new Error(`S3 PUT failed with status ${xhr.status}`));
+          }
+        };
+        xhr.onerror = () => reject(new Error("S3 PUT network error"));
+        xhr.send(videoBlob);
+      });
+
+      console.log("✅ [ListingService] Video fast-uploaded to S3:", s3Url);
+      return { success: true, url: String(s3Url), s3Key };
+    } catch (error) {
+      console.warn("[ListingService] Fast video upload failed, will fall back:", error.message);
+      return { success: false, message: error.message };
+    }
+  }
+
+   /**
    * Upload photos for a listing
    * @param {Array} imageUris - Array of local image URIs from device
    * @returns {Promise<Object>} Response with image URLs

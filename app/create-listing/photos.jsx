@@ -508,36 +508,47 @@ const Photos = () => {
               let compressedUri = compressionResult ? compressionResult.uri : asset.uri;
               setVideoProgress(70);
 
-              // Upload to server
+              // Upload to server — try fast presigned S3 path first, fall back to multipart
               try {
-                console.log("🎬 [Photos] Uploading video to server...");
-                const uploadVidRes = await listingService.uploadVideos([compressedUri]);
-                
-                if (uploadVidRes.success && uploadVidRes.videos && uploadVidRes.videos.length > 0) {
-                  const uploadedVid = uploadVidRes.videos[0];
-                  let serverUrl = typeof uploadedVid === "string" ? uploadedVid : (uploadedVid.url || uploadedVid.uri || uploadedVid.path);
-                  
-                  if (typeof serverUrl === "string" && serverUrl.trim()) {
-                    if (serverUrl.startsWith("/")) {
-                      const baseURL = await configService.getBaseURL();
-                      const cleanBase = baseURL.replace(/\/$/, "");
-                      serverUrl = cleanBase.endsWith("/v1") 
-                        ? `${cleanBase.replace(/\/v1$/, "")}${serverUrl}`
-                        : `${cleanBase}${serverUrl}`;
-                    }
-                    compressedUri = serverUrl;
-                    console.log("✅ [Photos] Video uploaded to S3:", compressedUri);
-                  }
-                  
-                  newDocVideos.push(compressedUri);
-                  successCount++;
+                console.log("🎬 [Photos] Uploading video via fast presigned S3 path...");
+                setVideoProgress(75);
+
+                let uploadedUrl = null;
+
+                // Primary: presigned direct-to-S3 upload with real progress
+                const fastRes = await listingService.uploadVideoFast(
+                  compressedUri,
+                  (pct) => setVideoProgress(75 + Math.round(pct * 0.24)) // 75→99
+                );
+
+                if (fastRes.success && fastRes.url) {
+                  uploadedUrl = fastRes.url;
+                  console.log("✅ [Photos] Video fast-uploaded to S3:", uploadedUrl);
                 } else {
-                  console.warn("⚠️ [Photos] Video upload returned no URLs, using local URI fallback:", uploadVidRes.message);
-                  newDocVideos.push(compressedUri);
-                  successCount++;
+                  // Fallback: multipart via backend
+                  console.warn("⚠️ [Photos] Fast upload failed, falling back to multipart:", fastRes.message);
+                  const uploadVidRes = await listingService.uploadVideos([compressedUri]);
+                  if (uploadVidRes.success && uploadVidRes.videos?.length > 0) {
+                    const uploadedVid = uploadVidRes.videos[0];
+                    let serverUrl = typeof uploadedVid === "string" ? uploadedVid : (uploadedVid.url || uploadedVid.uri || uploadedVid.path);
+                    if (typeof serverUrl === "string" && serverUrl.trim()) {
+                      if (serverUrl.startsWith("/")) {
+                        const baseURL = await configService.getBaseURL();
+                        const cleanBase = baseURL.replace(/\/$/, "");
+                        serverUrl = cleanBase.endsWith("/v1")
+                          ? `${cleanBase.replace(/\/v1$/, "")}${serverUrl}`
+                          : `${cleanBase}${serverUrl}`;
+                      }
+                      uploadedUrl = serverUrl;
+                    }
+                  }
                 }
+
+                newDocVideos.push(uploadedUrl || compressedUri);
+                successCount++;
+                setVideoProgress(100);
               } catch (upErr) {
-                console.warn("⚠️ [Photos] Video upload error, preserving video:", upErr?.message);
+                console.warn("⚠️ [Photos] All upload paths failed, using local URI:", upErr?.message);
                 newDocVideos.push(compressedUri);
                 successCount++;
               }

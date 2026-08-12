@@ -70,7 +70,7 @@ const KYCVerificationScreen = () => {
   const [isFetchingNinName, setIsFetchingNinName] = useState(false);
   const [ninFetchedName, setNinFetchedName] = useState(null);
 
-  // Soft loading effect when user enters valid 11+ digit NIN
+  // Check NIN status and resolve verified name ONLY if previously verified on account
   useEffect(() => {
     const clean = ninInput.trim().toUpperCase();
     if (clean.length >= 11 && consentChecked) {
@@ -96,22 +96,24 @@ const KYCVerificationScreen = () => {
       const timer = setTimeout(async () => {
         try {
           const currentUser = await getUserData();
-          const resolvedName = currentUser?.fullName || userFullName;
-          
-          if (!resolvedName || !resolvedName.trim()) {
-            setNinError("No record or name data found for this NIN. Please check your NIN.");
-            setNinFetchedName(null);
-          } else {
+          const userNin = (currentUser?.nin || currentUser?.kycData?.documentNumber || "").toString().trim().toUpperCase();
+
+          // Only display verified name if this exact NIN is already verified on the account
+          if (userNin && (userNin === clean || userNin.endsWith(clean.slice(-6)))) {
+            const resolvedName = currentUser?.fullName || currentUser?.kycData?.full_name || userFullName;
             setNinFetchedName(resolvedName);
+            setNinError("");
+          } else {
+            // New or unverified NIN — do not display false positive name
+            setNinFetchedName(null);
             setNinError("");
           }
         } catch (e) {
-          setNinError("Could not fetch identity data for this NIN. Please check your NIN.");
           setNinFetchedName(null);
         } finally {
           setIsFetchingNinName(false);
         }
-      }, 650);
+      }, 500);
 
       return () => clearTimeout(timer);
     } else {
@@ -840,23 +842,35 @@ const maskIdNumber = (idStr) => {
                         <View style={[styles.disabledInputBox, { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: "#ECFDF5", borderColor: "#A7F3D0" }]}>
                           <ActivityIndicator size="small" color="#008751" />
                           <Text style={{ fontSize: 13, fontWeight: "600", color: "#047857" }}>
-                            Resolving NIN details from database...
+                            Checking NIN status with database...
                           </Text>
                         </View>
-                      ) : (
+                      ) : ninFetchedName ? (
                         <View style={[styles.disabledInputBox, { flexDirection: "row", alignItems: "center", gap: 10, borderColor: "#A7F3D0", backgroundColor: "#F0FDF4" }]}>
                           <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
                             <Circle cx="12" cy="12" r="11" fill="#008751" />
                             <Path d="M7.5 12L10.5 15L16.5 9" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
                           </Svg>
                           <Text style={[styles.disabledInputText, { color: "#064E3B", fontWeight: "700" }]}>
-                            {ninFetchedName || userFullName || verifiedName || "Account Profile Name"}
+                            {ninFetchedName}
+                          </Text>
+                        </View>
+                      ) : (
+                        <View style={[styles.disabledInputBox, { flexDirection: "row", alignItems: "center", gap: 10, borderColor: "#E5E7EB", backgroundColor: "#F9FAFB" }]}>
+                          <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+                            <Circle cx="12" cy="12" r="10" stroke="#008751" strokeWidth="2" fill="none" />
+                            <Path d="M12 8V12M12 16H12.01" stroke="#008751" strokeWidth="2" strokeLinecap="round" />
+                          </Svg>
+                          <Text style={{ fontSize: 13, fontWeight: "600", color: "#374151" }}>
+                            Ready to verify NIN with official database
                           </Text>
                         </View>
                       )}
 
                       <Text style={{ fontSize: 11, color: "#6B7280", marginTop: 4, lineHeight: 16 }}>
-                        This registered account name will be matched and permanently locked to your NIN record upon tapping Verify KYC Identity.
+                        {ninFetchedName
+                          ? "This NIN is verified and locked to your account profile."
+                          : "Tap 'Verify KYC Identity' below to validate this NIN with Korapay and retrieve your official record."}
                       </Text>
                     </View>
                   )}

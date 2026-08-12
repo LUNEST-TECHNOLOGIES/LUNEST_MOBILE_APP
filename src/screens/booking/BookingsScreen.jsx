@@ -227,6 +227,7 @@ const BookingsScreen = () => {
             serviceCharge: booking.serviceCharge || booking.pricingBreakdown?.serviceCharge || 0,
             securityDeposit: booking.securityDeposit || booking.pricingBreakdown?.securityDeposit || 0,
             pricingBreakdown: booking.pricingBreakdown || null,
+            extensions: booking.extensions || [],
             taxes: booking.taxes || 0,
             paymentMethod: booking.paymentMethod,
             refCode: booking.refCode || booking.referenceCode,

@@ -1857,6 +1857,59 @@ const BookingConfirmationScreen = () => {
               </>
             )}
 
+            {/* Stay Extension History Card */}
+            {Array.isArray(booking?.extensions) && booking.extensions.length > 0 && (
+              <View style={[styles.card, { marginTop: 16, backgroundColor: "#F8FAFC", borderColor: "#CBD5E1", borderWidth: 1 }]}>
+                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                  <Text style={{ fontSize: 15, fontWeight: "700", color: "#010135" }}>
+                    Stay Extension History ({booking.extensions.length}) ✨
+                  </Text>
+                  <View style={{ backgroundColor: "#010135", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 }}>
+                    <Text style={{ color: "#FFFFFF", fontSize: 10, fontWeight: "700" }}>2% App Fee</Text>
+                  </View>
+                </View>
+
+                {booking.extensions.map((ext, idx) => (
+                  <View
+                    key={ext.extensionId || idx}
+                    style={{
+                      backgroundColor: "#FFFFFF",
+                      borderRadius: 12,
+                      padding: 12,
+                      marginBottom: idx === booking.extensions.length - 1 ? 0 : 10,
+                      borderWidth: 1,
+                      borderColor: "#E2E8F0"
+                    }}
+                  >
+                    <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 4 }}>
+                      <Text style={{ fontSize: 13, fontWeight: "700", color: "#010135" }}>
+                        Extension #{idx + 1} ({ext.extraNights} night{ext.extraNights > 1 ? "s" : ""})
+                      </Text>
+                      <Text style={{ fontSize: 13, fontWeight: "800", color: "#010135" }}>
+                        ₦{formatCurrency(ext.guestTotal || 0)}
+                      </Text>
+                    </View>
+
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginVertical: 4 }}>
+                      <Text style={{ fontSize: 12, color: "#64748B" }}>
+                        {ext.previousCheckOut ? format(new Date(ext.previousCheckOut), "MMM d, yyyy") : ""}
+                      </Text>
+                      <Ionicons name="arrow-forward" size={14} color="#010135" />
+                      <Text style={{ fontSize: 12, fontWeight: "700", color: "#010135" }}>
+                        {ext.newCheckOut ? format(new Date(ext.newCheckOut), "MMM d, yyyy") : ""}
+                      </Text>
+                    </View>
+
+                    {ext.paidAt && (
+                      <Text style={{ fontSize: 11, color: "#94A3B8", marginTop: 2 }}>
+                        Paid on {format(new Date(ext.paidAt), "MMM d, yyyy 'at' h:mm a")}
+                      </Text>
+                    )}
+                  </View>
+                ))}
+              </View>
+            )}
+
             {/* Booking Ref Code */}
             <View style={[styles.detailRow, { marginTop: 15 }]}>
               <Text style={styles.detailLabel}>Booking ref. code:</Text>

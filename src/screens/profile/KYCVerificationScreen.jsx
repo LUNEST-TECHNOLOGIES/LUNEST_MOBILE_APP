@@ -70,14 +70,20 @@ const KYCVerificationScreen = () => {
   const [isFetchingNinName, setIsFetchingNinName] = useState(false);
   const [ninFetchedName, setNinFetchedName] = useState(null);
 
-  // Check NIN status and resolve verified name ONLY if previously verified on account
+  // Soft check with Korapay/Database when user enters 11+ digit NIN
   useEffect(() => {
     const clean = ninInput.trim().toUpperCase();
     if (clean.length >= 11 && consentChecked) {
-      // 1. Check for obvious dummy/repeating sequences
-      const dummyNins = ["00000000000", "11111111111", "22222222222", "33333333333", "44444444444", "55555555555", "66666666666", "77777777777", "88888888888", "99999999999", "12345678901"];
-      if (dummyNins.includes(clean)) {
-        setNinError("Invalid National Identification Number provided. Please check and try again.");
+      // 1. Check for dummy / repeating / sequential patterns locally
+      const dummyNins = [
+        "00000000000", "11111111111", "22222222222", "33333333333", "44444444444", 
+        "55555555555", "66666666666", "77777777777", "88888888888", "99999999999", 
+        "12345678901", "01234567890", "98765432109", "12121212121"
+      ];
+      const isSequentialOrRepeating = dummyNins.includes(clean) || /^(\d)\1{10}$/.test(clean);
+
+      if (isSequentialOrRepeating) {
+        setNinError("Invalid National Identification Number. Dummy numbers are not permitted.");
         setNinFetchedName(null);
         setIsFetchingNinName(false);
         return;
@@ -95,25 +101,37 @@ const KYCVerificationScreen = () => {
 
       const timer = setTimeout(async () => {
         try {
+          // Check if this NIN is already cached & verified on user profile first
           const currentUser = await getUserData();
           const userNin = (currentUser?.nin || currentUser?.kycData?.documentNumber || "").toString().trim().toUpperCase();
 
-          // Only display verified name if this exact NIN is already verified on the account
-          if (userNin && (userNin === clean || userNin.endsWith(clean.slice(-6)))) {
-            const resolvedName = currentUser?.fullName || currentUser?.kycData?.full_name || userFullName;
-            setNinFetchedName(resolvedName);
+          if (userNin && userNin === clean && (currentUser?.verified || currentUser?.kycStatus === "VERIFIED")) {
+            const cachedName = currentUser?.fullName || currentUser?.kycData?.full_name || userFullName;
+            setNinFetchedName(cachedName);
+            setNinError("");
+            setIsFetchingNinName(false);
+            return;
+          }
+
+          // Trigger live Kora verification soft check
+          const res = await kycService.koraVerifyNIN(clean);
+          if (res?.verified || res?.kycStatus === "VERIFIED" || res?.status === "VERIFIED" || res?.success === true) {
+            const fetchedName = res?.verifiedName || res?.fullName || res?.data?.full_name || res?.data?.verifiedName || currentUser?.fullName || userFullName;
+            setNinFetchedName(fetchedName);
             setNinError("");
           } else {
-            // New or unverified NIN — do not display false positive name
             setNinFetchedName(null);
-            setNinError("");
+            setNinError(res?.message || "Invalid NIN. No government record found for this number.");
           }
-        } catch (e) {
+        } catch (error) {
+          const errMsg = getErrorMessage(error, "Invalid NIN or verification provider error.");
+          console.warn("[KYC Soft Check] Verification error:", errMsg);
           setNinFetchedName(null);
+          setNinError(errMsg);
         } finally {
           setIsFetchingNinName(false);
         }
-      }, 500);
+      }, 750);
 
       return () => clearTimeout(timer);
     } else {
@@ -172,7 +190,7 @@ const KYCVerificationScreen = () => {
         if (p?.data?.fullName) {
           setUserFullName(p.data.fullName);
         }
-      } catch (e) {}
+      } catch (e) { }
 
       // Always fetch fresh profile from server first to bust any stale local cache
       try {
@@ -181,7 +199,7 @@ const KYCVerificationScreen = () => {
       } catch (e) {
         console.warn("[KYC] Could not sync profile on init:", e?.message);
       }
-      
+
       const urlSessionId = params?.sessionId || params?.verificationSessionId;
       if (urlSessionId) {
         console.log("[KYC] Found redirect sessionId in URL params:", urlSessionId);
@@ -211,16 +229,16 @@ const KYCVerificationScreen = () => {
     };
   }, [params?.sessionId, params?.verificationSessionId, activeSessionId]);
 
-const maskIdNumber = (idStr) => {
-  if (!idStr) return "";
-  const cleaned = String(idStr).trim();
-  if (cleaned.length <= 4) return "****";
-  const startLen = Math.min(4, Math.floor(cleaned.length / 3));
-  const endLen = Math.min(3, Math.floor(cleaned.length / 3));
-  const start = cleaned.substring(0, startLen);
-  const end = cleaned.substring(cleaned.length - endLen);
-  return `${start}****${end}`;
-};
+  const maskIdNumber = (idStr) => {
+    if (!idStr) return "";
+    const cleaned = String(idStr).trim();
+    if (cleaned.length <= 4) return "****";
+    const startLen = Math.min(4, Math.floor(cleaned.length / 3));
+    const endLen = Math.min(3, Math.floor(cleaned.length / 3));
+    const start = cleaned.substring(0, startLen);
+    const end = cleaned.substring(cleaned.length - endLen);
+    return `${start}****${end}`;
+  };
 
   const checkVerificationStatus = async () => {
     try {
@@ -245,7 +263,7 @@ const maskIdNumber = (idStr) => {
         setIsVerified(true);
         setRejectionReason(null);
         setVerifiedName(userBody.fullName || "");
-        
+
         // Mask the NIN/document number
         const rawNin = userBody.nin || userBody.kycData?.documentNumber || userBody.idNumber || "";
         const masked = maskIdNumber(rawNin);
@@ -509,7 +527,7 @@ const maskIdNumber = (idStr) => {
       // Resolve platform and origin for redirect handling
       let callbackUrl = undefined;
       const baseURL = authService.baseURL;
-      
+
       if (Platform.OS === "web" && typeof window !== "undefined") {
         const origin = window.location.origin;
         callbackUrl = `${baseURL}/v1/kyc/didit/webhook?platform=pwa&origin=${encodeURIComponent(origin)}`;
@@ -520,7 +538,7 @@ const maskIdNumber = (idStr) => {
 
 
       const response = await kycService.createDiditSession(callbackUrl, true);
-      
+
       // If backend returns that the user is already verified
       if (response?.verified || response?.kycStatus === "VERIFIED" || response?.status === "VERIFIED") {
         setIsVerified(true);
@@ -536,11 +554,11 @@ const maskIdNumber = (idStr) => {
       }
 
       const { sessionId, sessionUrl } = await launchDiditSession(response);
-      
+
       if (sessionId) {
         setActiveSessionId(sessionId);
         if (sessionUrl) setActiveSessionUrl(sessionUrl);
-        
+
         if (Platform.OS !== "web") {
           showToast("Opened verification in Chrome/Safari. Return here and tap 'Check Status' once done.", TOAST_TYPE.INFO);
         } else {
@@ -601,8 +619,8 @@ const maskIdNumber = (idStr) => {
                 <Text style={styles.doneButtonText}>Explore Properties (Home)</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity 
-                style={[styles.doneButton, { backgroundColor: "#F3F4F6", borderWidth: 1, borderColor: "#E5E7EB" }]} 
+              <TouchableOpacity
+                style={[styles.doneButton, { backgroundColor: "#F3F4F6", borderWidth: 1, borderColor: "#E5E7EB" }]}
                 onPress={handleBack}
               >
                 <Text style={[styles.doneButtonText, { color: "#1F2937" }]}>Back to Profile</Text>
@@ -640,8 +658,8 @@ const maskIdNumber = (idStr) => {
             <Text style={[styles.successSubtitle, { color: "#DC2626" }]}>{rejectionReason}</Text>
 
             <View style={{ width: "100%", gap: 8, marginTop: 16 }}>
-              <TouchableOpacity 
-                style={styles.doneButton} 
+              <TouchableOpacity
+                style={styles.doneButton}
                 onPress={() => {
                   setRejectionReason(null);
                   setActiveSessionId(null);
@@ -651,8 +669,8 @@ const maskIdNumber = (idStr) => {
                 <Text style={styles.doneButtonText}>Try Verification Again</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity 
-                style={[styles.doneButton, { backgroundColor: "#F3F4F6", borderWidth: 1, borderColor: "#E5E7EB" }]} 
+              <TouchableOpacity
+                style={[styles.doneButton, { backgroundColor: "#F3F4F6", borderWidth: 1, borderColor: "#E5E7EB" }]}
                 onPress={() => {
                   try {
                     if (router.canGoBack()) {
@@ -977,7 +995,7 @@ const maskIdNumber = (idStr) => {
           </Text>
         </View>
       </KeyboardAvoidingView>
-      
+
       <ToastNotification
         visible={toastVisible}
         type={toastConfig.type}

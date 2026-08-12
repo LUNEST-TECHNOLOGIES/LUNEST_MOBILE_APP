@@ -935,6 +935,13 @@ const PropertyDetailsScreen = () => {
     geocodedCoords,
   ]);
 
+  // Track last viewed listing for Home Explore screen re-ordering (placed before conditional returns)
+  useEffect(() => {
+    if (propertyData && propertyData.id) {
+      listingService.setLastViewedListing(propertyData);
+    }
+  }, [propertyData?.id]);
+
   // Progressive loading: handles first-load vs refresh transitions
   // Added skeletonDelay and ensure we don't show error while loading
   const { showSkeleton, isRefreshing, contentReady, isFirstLoad } =
@@ -1087,13 +1094,6 @@ const PropertyDetailsScreen = () => {
       console.error("Error sharing:", error);
     }
   };
-
-  // Track last viewed listing for Home Explore screen re-ordering
-  useEffect(() => {
-    if (propertyData && propertyData.id) {
-      listingService.setLastViewedListing(propertyData);
-    }
-  }, [propertyData?.id]);
 
   const handleBooking = async () => {
     try {

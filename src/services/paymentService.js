@@ -29,8 +29,9 @@ class PaymentService {
       if (!email) {
         try {
           const { getUserData } = require("./userDataService");
-          const user = await getUserData();
-          email = user?.emailAddress || user?.email || "";
+          const authService = require("./authService").default;
+          const userObj = (await getUserData()) || (await authService.getUserData()) || {};
+          email = userObj?.emailAddress || userObj?.email || "";
         } catch (_) {}
       }
 

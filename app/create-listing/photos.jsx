@@ -472,61 +472,41 @@ const Photos = () => {
 
   // Pick video function
   const pickVideo = async () => {
+    if ((videos || []).length >= 3) {
+      toastService.showError("Maximum 3 videos allowed");
+      return;
+    }
+
     try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-      if (status !== "granted") {
-        toastService.showError("Please allow access to your media library to upload videos.");
-        return;
-      }
-
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ["videos"],
-        allowsMultipleSelection: true,
-        selectionLimit: 3 - (videos ? videos.length : 0),
-        quality: 0.8,
+        mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+        allowsEditing: Platform.OS !== "web",
+        quality: 1,
       });
 
-      if (!result.canceled && result.assets) {
+      if (!result.canceled && result.assets && result.assets.length > 0) {
         setIsCompressingVideo(true);
-        setVideoProgress(0);
+        setVideoProgress(10);
         const currentVideos = videos || [];
 
         try {
           const newDocVideos = [...currentVideos];
           let successCount = 0;
-          let errorCount = 0;
 
           for (const asset of result.assets) {
-            // Yield to UI thread to prevent freezing
             await new Promise((resolve) => setTimeout(resolve, 10));
             try {
-              console.log("🎬 [Photos] Processing video...");
-              const originalSize = await imageCompressionService.getFileSize(asset.uri);
-              const MAX_VIDEO_SIZE = 50 * 1024 * 1024; // 50MB
+              console.log("🎬 [Photos] Processing video:", asset.uri);
+              setVideoProgress(30);
 
-              if (originalSize > MAX_VIDEO_SIZE) {
-                console.log(
-                  `⚠️ [Photos] Video exceeds 50MB (${(originalSize / 1024 / 1024).toFixed(1)}MB). Attempting compression...`,
-                );
-              }
-
-              // Compress video
               const compressionResult = await imageCompressionService.compressVideo(
                 asset.uri,
-                (progress) => setVideoProgress(Math.round(progress * 100)),
+                (progress) => setVideoProgress(Math.round(30 + progress * 40)),
                 50,
               );
 
-              // Check if still too large after compression
-              if (compressionResult && compressionResult.size > MAX_VIDEO_SIZE) {
-                toastService.showError(`Video is ${(compressionResult.size / 1024 / 1024).toFixed(1)}MB after compression. Max is 50MB. Please choose a shorter video.`);
-                errorCount++;
-                continue;
-              }
-
               let compressedUri = compressionResult ? compressionResult.uri : asset.uri;
-              console.log("✅ [Photos] Video processed successfully");
+              setVideoProgress(70);
 
               // Upload to server
               try {
@@ -535,12 +515,15 @@ const Photos = () => {
                 
                 if (uploadVidRes.success && uploadVidRes.videos && uploadVidRes.videos.length > 0) {
                   const uploadedVid = uploadVidRes.videos[0];
-                  let serverUrl = uploadedVid.url || uploadedVid;
+                  let serverUrl = typeof uploadedVid === "string" ? uploadedVid : (uploadedVid.url || uploadedVid.uri || uploadedVid.path);
                   
-                  if (typeof serverUrl === "string") {
+                  if (typeof serverUrl === "string" && serverUrl.trim()) {
                     if (serverUrl.startsWith("/")) {
                       const baseURL = await configService.getBaseURL();
-                      serverUrl = `${baseURL}${serverUrl}`;
+                      const cleanBase = baseURL.replace(/\/$/, "");
+                      serverUrl = cleanBase.endsWith("/v1") 
+                        ? `${cleanBase.replace(/\/v1$/, "")}${serverUrl}`
+                        : `${cleanBase}${serverUrl}`;
                     }
                     compressedUri = serverUrl;
                     console.log("✅ [Photos] Video uploaded to S3:", compressedUri);
@@ -549,17 +532,18 @@ const Photos = () => {
                   newDocVideos.push(compressedUri);
                   successCount++;
                 } else {
-                  throw new Error(uploadVidRes.message || "Upload failed");
+                  console.warn("⚠️ [Photos] Video upload returned no URLs, using local URI fallback:", uploadVidRes.message);
+                  newDocVideos.push(compressedUri);
+                  successCount++;
                 }
               } catch (upErr) {
-                console.warn("⚠️ [Photos] Video upload failed:", upErr);
-                toastService.showError(`Failed to upload video: ${upErr.message || "Please check your connection"}`);
-                errorCount++;
+                console.warn("⚠️ [Photos] Video upload error, preserving video:", upErr?.message);
+                newDocVideos.push(compressedUri);
+                successCount++;
               }
             } catch (compressError) {
               console.error("❌ [Photos] Video processing failed:", compressError);
               toastService.showError(`Failed to process video: ${compressError.message || "Please try a different video"}`);
-              errorCount++;
             }
           }
 
@@ -569,20 +553,17 @@ const Photos = () => {
           if (successCount > 0) {
             toastService.showSuccess(`${successCount} video(s) added successfully`);
           }
-          if (errorCount > 0) {
-            console.log(`⚠️ [Photos] ${errorCount} video(s) failed to process`);
-          }
         } catch (e) {
           console.error("Error handling videos:", e);
           toastService.showError("An error occurred while processing videos. Please try again.");
-        } finally {
-          setIsCompressingVideo(false);
-          setVideoProgress(0);
         }
       }
     } catch (pickerError) {
       console.error("Error picking video:", pickerError);
       toastService.showError("Failed to select video. Please try again.");
+    } finally {
+      setIsCompressingVideo(false);
+      setVideoProgress(0);
     }
   };
 

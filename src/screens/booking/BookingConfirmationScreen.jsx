@@ -6,6 +6,7 @@ import * as FileSystem from "expo-file-system";
 import * as Print from "expo-print";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Sharing from "expo-sharing";
+import * as WebBrowser from "expo-web-browser";
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -155,21 +156,29 @@ const BookingConfirmationScreen = () => {
         quote.guestTotal,
         userEmail,
         {
+          type: "STAY_EXTENSION",
           isExtension: true,
           bookingId: booking._id,
+          listingId: booking.listing?._id || booking.listing,
           extraNights: quote.extraNights,
           unitType: quote.unit,
           duration: quote.dur,
-          description: `Stay Extension (${quote.extraNights} nights) - ${val('listingTitle', 'propertyName', 'Property')}`,
+          description: `Stay Extension (${quote.extraNights} night${quote.extraNights > 1 ? 's' : ''}) - ${val('listingTitle', 'propertyName', 'Property')}`,
+          origin: Platform.OS === "web" ? "web" : "mobile",
         }
       );
 
       const authUrl = paymentRes?.data?.authorization_url || paymentRes?.authorization_url || paymentRes?.url;
       const ref = paymentRes?.data?.reference || paymentRes?.reference;
 
-      if (authUrl && ref) {
+      if (authUrl) {
         setShowExtendStayModal(false);
-        await Linking.openURL(authUrl);
+
+        if (Platform.OS === "web" && typeof window !== "undefined") {
+          window.location.href = authUrl;
+        } else {
+          await WebBrowser.openBrowserAsync(authUrl);
+        }
 
         Alert.alert(
           "Payment Initialized 💳",

@@ -1725,34 +1725,37 @@ const BookingConfirmationScreen = () => {
               // Host View: Show earnings and security deposit held
               <>
                 <View style={[styles.detailRow, { marginBottom: 4 }]}>
-                  <Text style={styles.detailLabel}>Rent + Service Fee:</Text>
+                  <Text style={styles.detailLabel}>Initial Booking Earnings:</Text>
                   <Text style={styles.detailValue}>
-                    ₦{formatCurrency(rentFee)}
+                    ₦{formatCurrency((pBreakdown?.rentFee || rentFee) - (pBreakdown?.hostFee || hostAppCharge))}
                   </Text>
                 </View>
+
+                {Array.isArray(booking?.extensions) && booking.extensions.length > 0 && (
+                  <View style={[styles.detailRow, { marginBottom: 4 }]}>
+                    <Text style={styles.detailLabel}>Stay Extension Earnings ({booking.extensions.length}):</Text>
+                    <Text style={styles.detailValue}>
+                      + ₦{formatCurrency(booking.extensions.reduce((sum, ext) => sum + (ext.hostEarnings || 0), 0))}
+                    </Text>
+                  </View>
+                )}
+
                 <View style={[styles.detailRow, { marginBottom: 4 }]}>
-                  <Text style={styles.detailLabel}>
-                    Host/Landlord Fee (incl. VAT):
-                  </Text>
-                  <Text style={styles.detailValue}>
-                    - ₦{formatCurrency(hostAppCharge)}
-                  </Text>
-                </View>
-                <View style={[styles.detailRow, { marginBottom: 4 }]}>
-                  <Text style={styles.detailLabel}>Caution Fee (Held):</Text>
+                  <Text style={styles.detailLabel}>Caution Fee (Held in Escrow):</Text>
                   <Text style={styles.detailValue}>
                     ₦{formatCurrency(securityDeposit)}
                   </Text>
                 </View>
+
                 <View style={styles.totalRow}>
-                  <Text style={styles.totalLabel}>Your Earnings:</Text>
-                  <Text style={styles.totalValue}>
-                    ₦{formatCurrency(rentFee - hostAppCharge)}
+                  <Text style={styles.totalLabel}>Total Earnings (On Hold):</Text>
+                  <Text style={[styles.totalValue, { color: "#010135" }]}>
+                    ₦{formatCurrency(pBreakdown?.hostEarnings ?? (rentFee - hostAppCharge))}
                   </Text>
                 </View>
+
                 <Text style={styles.escrowNote}>
-                  * Caution fee is held in escrow and will be released to guest
-                  unless a dispute is raised.
+                  * Total earnings are held in escrow and will be released to your wallet 2 hours after guest check-in / check-out.
                 </Text>
               </>
             ) : (

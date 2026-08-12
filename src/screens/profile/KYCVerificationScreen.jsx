@@ -844,12 +844,12 @@ const maskIdNumber = (idStr) => {
                           </Text>
                         </View>
                       ) : (
-                        <View style={[styles.disabledInputBox, { flexDirection: "row", alignItems: "center", gap: 8 }]}>
-                          <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-                            <Circle cx="12" cy="12" r="10" fill="#008751" />
-                            <Path d="M8 12L11 15L16 9" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                        <View style={[styles.disabledInputBox, { flexDirection: "row", alignItems: "center", gap: 10, borderColor: "#A7F3D0", backgroundColor: "#F0FDF4" }]}>
+                          <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+                            <Circle cx="12" cy="12" r="11" fill="#008751" />
+                            <Path d="M7.5 12L10.5 15L16.5 9" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
                           </Svg>
-                          <Text style={styles.disabledInputText}>
+                          <Text style={[styles.disabledInputText, { color: "#064E3B", fontWeight: "700" }]}>
                             {ninFetchedName || userFullName || verifiedName || "Account Profile Name"}
                           </Text>
                         </View>

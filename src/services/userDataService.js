@@ -7,9 +7,18 @@ const STORAGE_KEYS = {
   USER_DATA: "userData",
 };
 
+let memoryUserDataCache = null;
+
+export function getUserDataSync() {
+  return memoryUserDataCache;
+}
+
 export async function getUserData() {
   try {
-    return await storageService.getItem(STORAGE_KEYS.USER_DATA);
+    if (memoryUserDataCache) return memoryUserDataCache;
+    const data = await storageService.getItem(STORAGE_KEYS.USER_DATA);
+    if (data) memoryUserDataCache = data;
+    return data;
   } catch (error) {
     console.error("Error getting user data:", error);
     return null;
@@ -18,6 +27,7 @@ export async function getUserData() {
 
 export async function setUserData(userData) {
   try {
+    memoryUserDataCache = userData;
     await storageService.setItem(STORAGE_KEYS.USER_DATA, userData);
     return true;
   } catch (error) {

@@ -288,8 +288,7 @@ const ProfileScreen = ({ isHostMode: isHostModeProp = false }) => {
         ? { text: "Verified", type: "success" } 
         : { text: "Pending verification", type: "warning" },
       onPress: () => {
-
-        router.push("/kyc-verification");
+        router.push({ pathname: "/kyc-verification", params: { verified: isVerified ? "true" : "false" } });
       },
     },
     {

@@ -144,7 +144,7 @@ export const ExtendStayModal = ({
           <View style={styles.header}>
             <View>
               <Text style={styles.title}>Extend Your Stay ✨</Text>
-              <Text style={styles.subtitle}>Discounted 2% LUNEST App Fee</Text>
+              <Text style={styles.subtitle}>App fee drops to 2% for stay extensions</Text>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
               <Ionicons name="close" size={24} color="#6B7280" />
@@ -202,11 +202,11 @@ export const ExtendStayModal = ({
                   </Text>
                 </View>
 
-                <Ionicons name="arrow-forward" size={20} color="#6366F1" />
+                <Ionicons name="arrow-forward" size={20} color="#010135" />
 
                 <View style={styles.dateCol}>
                   <Text style={styles.dateCardLabel}>NEW CHECKOUT</Text>
-                  <Text style={[styles.dateCardValue, { color: "#4F46E5", fontWeight: "700" }]}>
+                  <Text style={[styles.dateCardValue, { color: "#010135", fontWeight: "700" }]}>
                     {new Date(quote.newCheckOut).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                   </Text>
                 </View>
@@ -291,12 +291,12 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: "700",
-    color: "#0F172A"
+    color: "#010135"
   },
   subtitle: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#6366F1",
+    color: "#010135",
     marginTop: 2
   },
   closeButton: {
@@ -331,7 +331,7 @@ const styles = StyleSheet.create({
     borderRadius: 9
   },
   unitTabActive: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#010135",
     shadowColor: "#000",
     shadowOpacity: 0.05,
     shadowRadius: 2,
@@ -343,7 +343,7 @@ const styles = StyleSheet.create({
     color: "#64748B"
   },
   unitTabTextActive: {
-    color: "#4F46E5",
+    color: "#FFFFFF",
     fontWeight: "700"
   },
   counterRow: {
@@ -372,18 +372,18 @@ const styles = StyleSheet.create({
   durationValue: {
     fontSize: 16,
     fontWeight: "700",
-    color: "#0F172A"
+    color: "#010135"
   },
   dateCard: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-around",
-    backgroundColor: "#EEF2FF",
+    backgroundColor: "rgba(1, 1, 53, 0.05)",
     borderRadius: 16,
     padding: 16,
     marginVertical: 16,
     borderWidth: 1,
-    borderColor: "#C7D2FE"
+    borderColor: "rgba(1, 1, 53, 0.15)"
   },
   dateCol: {
     alignItems: "center"
@@ -391,14 +391,14 @@ const styles = StyleSheet.create({
   dateCardLabel: {
     fontSize: 10,
     fontWeight: "700",
-    color: "#6366F1",
+    color: "#010135",
     letterSpacing: 0.5,
     marginBottom: 4
   },
   dateCardValue: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#1E293B"
+    color: "#010135"
   },
   breakdownCard: {
     backgroundColor: "#F8FAFC",
@@ -411,7 +411,7 @@ const styles = StyleSheet.create({
   breakdownTitle: {
     fontSize: 14,
     fontWeight: "700",
-    color: "#0F172A",
+    color: "#010135",
     marginBottom: 12
   },
   breakdownRow: {
@@ -426,7 +426,7 @@ const styles = StyleSheet.create({
   },
   breakdownValue: {
     fontSize: 13,
-    color: "#0F172A",
+    color: "#010135",
     fontWeight: "600"
   },
   totalRow: {
@@ -438,19 +438,19 @@ const styles = StyleSheet.create({
   totalLabel: {
     fontSize: 14,
     fontWeight: "700",
-    color: "#0F172A"
+    color: "#010135"
   },
   totalValue: {
     fontSize: 16,
     fontWeight: "800",
-    color: "#4F46E5"
+    color: "#010135"
   },
   footer: {
     paddingHorizontal: 20,
     paddingTop: 12
   },
   confirmBtn: {
-    backgroundColor: "#4F46E5",
+    backgroundColor: "#010135",
     borderRadius: 14,
     paddingVertical: 14,
     alignItems: "center",

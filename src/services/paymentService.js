@@ -13,8 +13,27 @@ class PaymentService {
    * @param {object} metadata - Optional metadata
    * @returns {Promise<{authorization_url: string, access_code: string, reference: string}>}
    */
-  async initializePayment(amount, email, metadata = {}) {
+  async initializePayment(amountOrParams, emailParam, metadataParam = {}) {
     try {
+      let amount, email, metadata;
+      if (typeof amountOrParams === "object" && amountOrParams !== null) {
+        amount = amountOrParams.amount;
+        email = amountOrParams.email;
+        metadata = amountOrParams.metadata || amountOrParams;
+      } else {
+        amount = amountOrParams;
+        email = emailParam;
+        metadata = metadataParam;
+      }
+
+      if (!email) {
+        try {
+          const { getUserData } = require("./userDataService");
+          const user = await getUserData();
+          email = user?.emailAddress || user?.email || "";
+        } catch (_) {}
+      }
+
       console.log("[PaymentService] Initializing payment:", { amount, email });
 
       const response = await apiClient.post("/v1/payments/initialize", {
@@ -23,14 +42,15 @@ class PaymentService {
         metadata,
       });
 
-      if (response.success) {
+      if (response && (response.success || response.status || response.body || response.data)) {
+        const payload = response.body || response.data || response;
         console.log(
-          "[PaymentService] Payment initialized:",
-          response.body.reference,
+          "[PaymentService] Payment initialized successfully:",
+          payload?.reference || payload?.authorization_url,
         );
-        return response.body;
+        return payload;
       } else {
-        throw new Error(response.message || "Failed to initialize payment");
+        throw new Error(response?.message || "Failed to initialize payment");
       }
     } catch (error) {
       console.error("[PaymentService] Initialize payment error:", error);

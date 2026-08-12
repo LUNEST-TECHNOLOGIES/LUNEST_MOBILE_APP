@@ -142,18 +142,26 @@ const BookingConfirmationScreen = () => {
     if (!booking) return;
     setIsExtendingStay(true);
     try {
-      const paymentRes = await paymentService.initializePayment({
-        bookingId: booking._id,
-        amount: quote.guestTotal,
-        description: `Stay Extension (${quote.extraNights} nights) - ${val('listingTitle', 'propertyName', 'Property')}`,
-        metadata: {
+      const userObj = (await getUserData()) || {};
+      const userEmail =
+        booking?.bookedBy?.emailAddress ||
+        booking?.bookedBy?.email ||
+        userObj?.emailAddress ||
+        userObj?.email ||
+        "";
+
+      const paymentRes = await paymentService.initializePayment(
+        quote.guestTotal,
+        userEmail,
+        {
           isExtension: true,
           bookingId: booking._id,
           extraNights: quote.extraNights,
           unitType: quote.unit,
-          duration: quote.dur
+          duration: quote.dur,
+          description: `Stay Extension (${quote.extraNights} nights) - ${val('listingTitle', 'propertyName', 'Property')}`,
         }
-      });
+      );
 
       const authUrl = paymentRes?.data?.authorization_url || paymentRes?.authorization_url || paymentRes?.url;
       const ref = paymentRes?.data?.reference || paymentRes?.reference;
@@ -2344,10 +2352,10 @@ const BookingConfirmationScreen = () => {
             ) : statusLower === "ongoing" && !isHostView ? (
               <>
                 <Pressable
-                  style={[styles.primaryButton, styles.buttonFlex, { backgroundColor: "#4F46E5" }]}
+                  style={[styles.primaryButton, styles.buttonFlex, { backgroundColor: "#010135" }]}
                   onPress={() => setShowExtendStayModal(true)}
                 >
-                  <Text style={styles.primaryButtonText}>Extend Stay (2% Fee)</Text>
+                  <Text style={styles.primaryButtonText}>Extend Stay</Text>
                 </Pressable>
                 <Pressable
                   style={[styles.outlineButton, styles.buttonFlex, { marginLeft: 8 }]}

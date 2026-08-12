@@ -909,11 +909,13 @@ class ListingService {
         "[ListingService] Endpoint: POST /v1/listings/upload-images",
       );
 
-      // Use configService for dynamic URL detection
-      const baseURL = await configService.getBaseURL();
+      const cleanBase = (await configService.getBaseURL()).replace(/\/$/, "");
+      const uploadUrl = cleanBase.endsWith("/v1")
+        ? `${cleanBase}/listings/upload-images`
+        : `${cleanBase}/v1/listings/upload-images`;
 
       const response = await fetch(
-        baseURL + "/v1/listings/upload-images",
+        uploadUrl,
         {
           method: "POST",
           headers: {
@@ -1048,9 +1050,13 @@ class ListingService {
         };
       }
 
-      const baseURL = await configService.getBaseURL();
+      const cleanBase = (await configService.getBaseURL()).replace(/\/$/, "");
+      const uploadUrl = cleanBase.endsWith("/v1")
+        ? `${cleanBase}/listings/upload-videos`
+        : `${cleanBase}/v1/listings/upload-videos`;
+
       const response = await fetch(
-        baseURL + "/v1/listings/upload-videos",
+        uploadUrl,
         {
           method: "POST",
           headers: {

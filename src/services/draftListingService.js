@@ -319,7 +319,27 @@ class DraftListingService {
   async getAllDrafts() {
     try {
       const draftsKey = await this.getDraftsKey();
-      const drafts = await storageService.getItem(draftsKey);
+      let drafts = await storageService.getItem(draftsKey);
+      
+      // If local drafts are missing/empty and user is logged in, attempt remote merge automatically
+      if ((!drafts || drafts.length === 0) && (await authService.getToken())) {
+        console.log("⚡ [DraftListingService] No local drafts found. Pulling remote drafts from database...");
+        try {
+          const remoteResult = await listingService.fetchDraftsFromDatabase();
+          if (remoteResult?.success && Array.isArray(remoteResult.drafts) && remoteResult.drafts.length > 0) {
+            drafts = remoteResult.drafts.map(d => ({
+              ...d,
+              draftId: d.draftId || `remote_${d._id}`,
+              lastModified: d.lastModified || d.updatedAt || new Date().toISOString()
+            }));
+            await storageService.setItem(draftsKey, drafts);
+            console.log("✅ [DraftListingService] Hydrated", drafts.length, "remote drafts into local storage");
+          }
+        } catch (remoteErr) {
+          console.warn("⚠️ [DraftListingService] Remote draft pull error:", remoteErr.message);
+        }
+      }
+
       return drafts || [];
     } catch (error) {
       console.error("Error getting drafts:", error);

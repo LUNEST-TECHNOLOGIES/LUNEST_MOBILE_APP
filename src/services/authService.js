@@ -902,6 +902,16 @@ class AuthService {
             avatar: user.avatar || null,
           };
           await storageService.setItem(STORAGE_KEYS.USER_DATA, safeUserData);
+
+          // Auto-sync remote drafts from server immediately upon login so user sees drafts instantly across devices!
+          try {
+            const draftListingService = require("./draftListingService").default;
+            draftListingService.mergeWithRemoteDrafts().catch((err) =>
+              console.warn("[AuthService] Background draft sync failed upon login:", err.message),
+            );
+          } catch (e) {
+            console.warn("[AuthService] Failed to initialize draft auto-sync upon login:", e);
+          }
         }
       }
 

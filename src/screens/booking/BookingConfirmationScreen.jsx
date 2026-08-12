@@ -38,6 +38,7 @@ import PendingStatusIcon from "../../assets/icons/bookings/pending-status.svg";
 import ReservedIcon from "../../assets/icons/bookings/reserved.svg";
 import BookingRecoveryButton from "../../components/booking/BookingRecoveryButton";
 import CountdownTimer from "../../components/booking/confirmation/CountdownTimer";
+import { ExtendStayModal } from "../../components/booking/ExtendStayModal";
 import DownloadConfirmationModal from "../../components/common/DownloadConfirmationModal";
 import DownloadOptionsModal from "../../components/common/DownloadOptionsModal";
 import ToastNotification, {
@@ -132,6 +133,71 @@ const BookingConfirmationScreen = () => {
   const [showCautionActionModal, setShowCautionActionModal] = useState(false);
   const [cautionActionType, setCautionActionType] = useState("RELEASE"); // "RELEASE" or "DISPUTE"
   const [pendingCautionAction, setPendingCautionAction] = useState(null); // { action, reason }
+  
+  // ── Stay Extension State ──
+  const [showExtendStayModal, setShowExtendStayModal] = useState(false);
+  const [isExtendingStay, setIsExtendingStay] = useState(false);
+
+  const handleConfirmExtension = async (quote) => {
+    if (!booking) return;
+    setIsExtendingStay(true);
+    try {
+      const paymentRes = await paymentService.initializePayment({
+        bookingId: booking._id,
+        amount: quote.guestTotal,
+        description: `Stay Extension (${quote.extraNights} nights) - ${val('listingTitle', 'propertyName', 'Property')}`,
+        metadata: {
+          isExtension: true,
+          bookingId: booking._id,
+          extraNights: quote.extraNights,
+          unitType: quote.unit,
+          duration: quote.dur
+        }
+      });
+
+      const authUrl = paymentRes?.data?.authorization_url || paymentRes?.authorization_url || paymentRes?.url;
+      const ref = paymentRes?.data?.reference || paymentRes?.reference;
+
+      if (authUrl && ref) {
+        setShowExtendStayModal(false);
+        await Linking.openURL(authUrl);
+
+        Alert.alert(
+          "Payment Initialized 💳",
+          "Complete your stay extension payment in your browser. Tap 'Verify Payment' once completed.",
+          [
+            {
+              text: "Verify Payment",
+              onPress: async () => {
+                try {
+                  const verifyRes = await bookingService.confirmExtensionPayment(booking._id, {
+                    duration: quote.dur,
+                    unitType: quote.unit,
+                    paymentReference: ref
+                  });
+                  if (verifyRes?.success) {
+                    showToastMessage("Stay extended successfully! 🎉", TOAST_TYPE.SUCCESS);
+                    fetchBookingData();
+                  } else {
+                    showToastMessage(verifyRes?.message || "Payment verification pending", TOAST_TYPE.INFO);
+                  }
+                } catch (e) {
+                  showToastMessage("Verification error: " + e.message, TOAST_TYPE.ERROR);
+                }
+              }
+            }
+          ]
+        );
+      } else {
+        showToastMessage("Could not initialize extension payment.", TOAST_TYPE.ERROR);
+      }
+    } catch (e) {
+      console.error("[BookingConfirmationScreen] Extension error:", e);
+      showToastMessage("Extension payment error: " + (e.message || "Failed"), TOAST_TYPE.ERROR);
+    } finally {
+      setIsExtendingStay(false);
+    }
+  };
   
   // ── Derive Coupon Values from Params or Fetch ──
   const pBreakdown = booking?.pricingBreakdown;
@@ -2278,16 +2344,16 @@ const BookingConfirmationScreen = () => {
             ) : statusLower === "ongoing" && !isHostView ? (
               <>
                 <Pressable
-                  style={[styles.primaryButton, styles.buttonFlex]}
-                  onPress={() => setShowCheckoutModal(true)}
+                  style={[styles.primaryButton, styles.buttonFlex, { backgroundColor: "#4F46E5" }]}
+                  onPress={() => setShowExtendStayModal(true)}
                 >
-                  <Text style={styles.primaryButtonText}>Check-out</Text>
+                  <Text style={styles.primaryButtonText}>Extend Stay (2% Fee)</Text>
                 </Pressable>
                 <Pressable
-                  style={[styles.outlineDangerButton, styles.buttonFlex, { marginLeft: 10 }]}
-                  onPress={() => setShowDisputeModal(true)}
+                  style={[styles.outlineButton, styles.buttonFlex, { marginLeft: 8 }]}
+                  onPress={() => setShowCheckoutModal(true)}
                 >
-                  <Text style={styles.outlineDangerButtonText}>Report Issue</Text>
+                  <Text style={styles.outlineButtonText}>Check-out</Text>
                 </Pressable>
               </>
             ) : (
@@ -2407,6 +2473,15 @@ const BookingConfirmationScreen = () => {
         title={downloadModalState.title}
         message={downloadModalState.message}
         type={downloadModalState.type}
+      />
+
+      {/* Extend Stay Modal */}
+      <ExtendStayModal
+        visible={showExtendStayModal}
+        onClose={() => setShowExtendStayModal(false)}
+        booking={booking}
+        onConfirmExtension={handleConfirmExtension}
+        isProcessing={isExtendingStay}
       />
 
       {/* Cancel Reservation Modal */}

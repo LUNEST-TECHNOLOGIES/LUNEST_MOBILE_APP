@@ -1103,6 +1103,74 @@ class BookingService {
       };
     }
   }
+  /**
+   * Get stay extension quote (2% Discounted Fee)
+   */
+  async getExtensionQuote(bookingId, duration, unitType = "DAILY") {
+    try {
+      const response = await apiClient.post(`/v1/bookings/${bookingId}/extension/quote`, {
+        duration,
+        unitType
+      });
+      return {
+        success: true,
+        data: (response && response.body) || (response && response.data)
+      };
+    } catch (error) {
+      console.error("❌ [BookingService] getExtensionQuote error:", error);
+      return {
+        success: false,
+        message: error.message || "Failed to calculate extension quote"
+      };
+    }
+  }
+
+  /**
+   * Confirm stay extension payment
+   */
+  async confirmExtensionPayment(bookingId, { duration, unitType, paymentReference, paymentMethod }) {
+    try {
+      const response = await apiClient.post(`/v1/bookings/${bookingId}/extension/confirm`, {
+        duration,
+        unitType,
+        paymentReference,
+        paymentMethod
+      });
+      return {
+        success: true,
+        data: (response && response.body) || (response && response.data)
+      };
+    } catch (error) {
+      console.error("❌ [BookingService] confirmExtensionPayment error:", error);
+      return {
+        success: false,
+        message: error.message || "Failed to confirm extension payment"
+      };
+    }
+  }
+
+  /**
+   * Toggle auto-recurring rent extension
+   */
+  async toggleRecurringRent(bookingId, enabled, interval, authorizationCode) {
+    try {
+      const response = await apiClient.post(`/v1/bookings/${bookingId}/recurring-rent/toggle`, {
+        enabled,
+        interval,
+        authorizationCode
+      });
+      return {
+        success: true,
+        data: (response && response.body) || (response && response.data)
+      };
+    } catch (error) {
+      console.error("❌ [BookingService] toggleRecurringRent error:", error);
+      return {
+        success: false,
+        message: error.message || "Failed to update recurring rent preference"
+      };
+    }
+  }
 }
 
 const bookingService = new BookingService();

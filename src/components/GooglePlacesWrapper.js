@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { GooglePlacesAutocomplete as GoogleAutocomplete } from 'react-native-google-places-autocomplete';
+import configService from '../services/configService';
 
 /**
  * GooglePlacesWrapper - Web Implementation with Autocomplete
@@ -22,15 +23,6 @@ const GooglePlacesAutocompleteWeb = React.forwardRef((props, ref) => {
 
   // Fetch predictions from Google Places API
   const fetchPredictions = useCallback(async (input) => {
-    const key = getApiKey();
-    console.log('[GooglePlacesWeb] API Key present:', !!key, 'Input:', input);
-    
-    if (!key) {
-      console.error('[GooglePlacesWeb] No API key provided!');
-      setPredictions([]);
-      return;
-    }
-    
     if (!input || input.length < 2) {
       setPredictions([]);
       return;
@@ -42,11 +34,11 @@ const GooglePlacesAutocompleteWeb = React.forwardRef((props, ref) => {
                           Math.random().toString(36).substring(2);
       sessionStorage.setItem('places_session_token', sessionToken);
 
-      const baseUrl = require('../config/appConfig').APP_CONFIG.REFERRAL_DOMAIN;
+      const baseUrl = await configService.getBaseURL();
       const types = props.query?.types || 'address';
       const components = props.query?.components || 'country:ng';
       
-      const url = `${baseUrl}/v1/listings/proxy-places?type=autocomplete&input=${encodeURIComponent(input)}&types=${types}&components=${components}&sessiontoken=${sessionToken}`;
+      const url = `${baseUrl.replace(/\/$/, '')}/v1/listings/proxy-places?type=autocomplete&input=${encodeURIComponent(input)}&types=${types}&components=${components}&sessiontoken=${sessionToken}`;
       
       console.log('[GooglePlacesWeb] Fetching via proxy:', url);
       
@@ -88,9 +80,9 @@ const GooglePlacesAutocompleteWeb = React.forwardRef((props, ref) => {
     setShowDropdown(false);
     
     try {
-      const baseUrl = require('../config/appConfig').APP_CONFIG.REFERRAL_DOMAIN;
+      const baseUrl = await configService.getBaseURL();
       const sessionToken = sessionStorage.getItem('places_session_token') || '';
-      const url = `${baseUrl}/v1/listings/proxy-places?type=details&place_id=${prediction.place_id}&sessiontoken=${sessionToken}`;
+      const url = `${baseUrl.replace(/\/$/, '')}/v1/listings/proxy-places?type=details&place_id=${prediction.place_id}&sessiontoken=${sessionToken}`;
       
       const response = await fetch(url);
       const data = await response.json();

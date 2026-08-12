@@ -520,31 +520,21 @@ class BookingService {
     }
 
     try {
-      const token = await authService.getToken();
-      if (!token) return { success: false, message: "Authentication required" };
-
-      const response = await apiClient.post(
-        `/v1/bookings/${bookingId}/check-in`,
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      );
+      const response = await apiClient.post(`/v1/bookings/${bookingId}/check-in`, {});
 
       console.log("✅ [BookingService] Check-in confirmed successfully");
       return {
         success: true,
-        message: "Check-in confirmed. Host earnings released.",
+        message: response?.message || "Check-in confirmed. Host earnings released.",
         booking: (response && response.body) || (response && response.data),
       };
     } catch (error) {
       console.error("❌ [BookingService] Error confirming check-in:", error);
+      const serverMessage = error?.response?.data?.message || error?.message;
       const categorized = NetworkErrorHandler.categorizeError(error);
       return {
         success: false,
-        message: categorized.userMessage || "Failed to confirm check-in",
+        message: serverMessage || categorized.userMessage || "Failed to confirm check-in",
       };
     }
   }

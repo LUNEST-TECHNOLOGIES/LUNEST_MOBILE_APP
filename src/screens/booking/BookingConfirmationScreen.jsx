@@ -1921,11 +1921,14 @@ const BookingConfirmationScreen = () => {
                       </Text>
                     </View>
 
-                    {ext.paidAt && (
-                      <Text style={{ fontSize: 11, color: "#94A3B8", marginTop: 2 }}>
-                        Paid on {format(new Date(ext.paidAt), "MMM d, yyyy 'at' h:mm a")}
+                    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
+                      <Text style={{ fontSize: 11, color: "#94A3B8" }}>
+                        {ext.paidAt ? `Paid on ${format(new Date(ext.paidAt), "MMM d, yyyy 'at' h:mm a")}` : ""}
                       </Text>
-                    )}
+                      <Text style={{ fontSize: 11, fontWeight: "600", color: "#010135" }}>
+                        Method: {ext.paymentMethod === "WALLET" ? "Wallet" : ext.paymentMethod === "PAYSTACK" ? "Paystack (Card)" : "Card"}
+                      </Text>
+                    </View>
                   </View>
                 ))}
               </View>

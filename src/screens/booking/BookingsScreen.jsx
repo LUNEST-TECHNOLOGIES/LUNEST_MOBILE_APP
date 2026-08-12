@@ -444,7 +444,7 @@ const BookingsScreen = () => {
             serviceCharge: booking.serviceCharge || 0,
             taxes: booking.taxes || 0,
             totalPaid: booking.totalPrice || 0,
-            paymentMethod: booking.paymentMethod || "Wallet Balance",
+            paymentMethod: booking.paymentMethod ? (booking.paymentMethod === "PAYSTACK" ? "Card (Paystack)" : booking.paymentMethod === "CARD" ? "Card" : booking.paymentMethod === "WALLET" ? "Wallet" : booking.paymentMethod) : "Card (Paystack)",
             guestName: booking.hostName || "Host",
             guestPhone: booking.hostPhone || "",
             guestEmail: booking.hostEmail || "",

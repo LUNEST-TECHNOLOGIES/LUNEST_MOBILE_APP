@@ -916,13 +916,13 @@ const TransactionHistoryScreen = () => {
     const isInflow = isInflowTransaction(item.type, item.originalType);
 
     // Format payment method for display
-    const paymentMethod = item.method || "SYSTEM";
+    const rawMethod = item.channel || item.method || "CARD";
     const methodLabel =
-      paymentMethod === "PAYSTACK"
-        ? "Paystack"
-        : paymentMethod === "WALLET"
+      rawMethod === "PAYSTACK" || rawMethod === "CARD"
+        ? "Card (Paystack)"
+        : rawMethod === "WALLET"
           ? "Wallet"
-          : paymentMethod;
+          : rawMethod;
 
     // Use backend description when it contains a booking ref or recognizable detail
     const isStandardized =

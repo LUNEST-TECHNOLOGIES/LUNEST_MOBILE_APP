@@ -176,36 +176,57 @@ const BookingConfirmationScreen = () => {
 
         if (Platform.OS === "web" && typeof window !== "undefined") {
           window.location.href = authUrl;
-        } else {
-          await WebBrowser.openBrowserAsync(authUrl);
+          return;
         }
 
-        Alert.alert(
-          "Payment Initialized 💳",
-          "Complete your stay extension payment in your browser. Tap 'Verify Payment' once completed.",
-          [
-            {
-              text: "Verify Payment",
-              onPress: async () => {
-                try {
-                  const verifyRes = await bookingService.confirmExtensionPayment(booking._id, {
-                    duration: quote.dur,
-                    unitType: quote.unit,
-                    paymentReference: ref
-                  });
-                  if (verifyRes?.success) {
-                    showToastMessage("Stay extended successfully! 🎉", TOAST_TYPE.SUCCESS);
-                    fetchBookingData();
-                  } else {
-                    showToastMessage(verifyRes?.message || "Payment verification pending", TOAST_TYPE.INFO);
-                  }
-                } catch (e) {
-                  showToastMessage("Verification error: " + e.message, TOAST_TYPE.ERROR);
-                }
-              }
+        // On mobile: open in-app browser for payment redirect
+        await WebBrowser.openBrowserAsync(authUrl);
+
+        // Auto-verify extension payment after user completes payment and returns
+        if (ref) {
+          try {
+            showToastMessage("Verifying extension payment...", TOAST_TYPE.INFO);
+            const verifyRes = await bookingService.confirmExtensionPayment(booking._id, {
+              duration: quote.dur,
+              unitType: quote.unit,
+              paymentReference: ref
+            });
+            if (verifyRes?.success) {
+              showToastMessage("Stay extended successfully! 🎉", TOAST_TYPE.SUCCESS);
+              fetchBookingData();
+            } else {
+              Alert.alert(
+                "Payment Pending 💳",
+                "If you completed the payment, tap 'Verify Payment' to complete your stay extension.",
+                [
+                  {
+                    text: "Verify Payment",
+                    onPress: async () => {
+                      try {
+                        const retryRes = await bookingService.confirmExtensionPayment(booking._id, {
+                          duration: quote.dur,
+                          unitType: quote.unit,
+                          paymentReference: ref
+                        });
+                        if (retryRes?.success) {
+                          showToastMessage("Stay extended successfully! 🎉", TOAST_TYPE.SUCCESS);
+                          fetchBookingData();
+                        } else {
+                          showToastMessage(retryRes?.message || "Payment verification pending", TOAST_TYPE.INFO);
+                        }
+                      } catch (err) {
+                        showToastMessage("Verification error: " + err.message, TOAST_TYPE.ERROR);
+                      }
+                    }
+                  },
+                  { text: "Dismiss", style: "cancel" }
+                ]
+              );
             }
-          ]
-        );
+          } catch (e) {
+            console.error("[BookingConfirmationScreen] Auto-verify extension error:", e);
+          }
+        }
       } else {
         showToastMessage("Could not initialize extension payment.", TOAST_TYPE.ERROR);
       }

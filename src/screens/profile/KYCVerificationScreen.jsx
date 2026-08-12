@@ -213,8 +213,6 @@ const KYCVerificationScreen = () => {
     return fallbackMessage;
   };
 
-  const [isInitialLoading, setIsInitialLoading] = useState(true);
-
   useEffect(() => {
     const init = async () => {
       const loggedIn = await authService.isLoggedIn();
@@ -236,11 +234,9 @@ const KYCVerificationScreen = () => {
           const rawNin = uData.nin || uData.kycData?.documentNumber || uData.idNumber || "";
           setVerifiedId(maskIdNumber(rawNin) || "ID Verified");
           setIsInitialLoading(false);
+          return;
         }
-      } catch (e) {}
 
-      // Always fetch fresh profile from server first to bust any stale local cache
-      try {
         const profileRes = await authService.fetchProfile();
         const freshUser = profileRes?.data || {};
         if (freshUser?.fullName) {
@@ -254,19 +250,19 @@ const KYCVerificationScreen = () => {
           setIsInitialLoading(false);
           return;
         }
+
+        const urlSessionId = params?.sessionId || params?.verificationSessionId;
+        if (urlSessionId) {
+          console.log("[KYC] Found redirect sessionId in URL params:", urlSessionId);
+          setActiveSessionId(urlSessionId);
+          await finalizeSession(urlSessionId, "Identity verified successfully!");
+        } else {
+          await checkVerificationStatus();
+        }
       } catch (e) {
-        console.warn("[KYC] Could not sync profile on init:", e?.message);
+        console.warn("[KYC] Error in init check:", e?.message);
       } finally {
         setIsInitialLoading(false);
-      }
-
-      const urlSessionId = params?.sessionId || params?.verificationSessionId;
-      if (urlSessionId) {
-        console.log("[KYC] Found redirect sessionId in URL params:", urlSessionId);
-        setActiveSessionId(urlSessionId);
-        await finalizeSession(urlSessionId, "Identity verified successfully!");
-      } else {
-        await checkVerificationStatus();
       }
     };
     init();

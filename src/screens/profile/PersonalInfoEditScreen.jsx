@@ -907,7 +907,7 @@ const PersonalInfoEditScreen = () => {
                       ? "Resubmit"
                       : "Verify"
               }
-              onAction={() => router.push("/profile/kyc-verification")}
+              onAction={() => router.push({ pathname: "/profile/kyc-verification", params: { verified: userData.isVerified ? "true" : "false" } })}
               isEmpty={!userData.nin && !userData.isVerified && (userData.kycStatus === 'NONE' || !userData.kycStatus)}
               showVerification={true}
               isVerified={userData.isVerified}
@@ -920,7 +920,7 @@ const PersonalInfoEditScreen = () => {
           {userData.kycStatus === 'REJECTED' && (
             <TouchableOpacity
               style={styles.rejectionCard}
-              onPress={() => router.push("/profile/kyc-verification")}
+              onPress={() => router.push({ pathname: "/profile/kyc-verification", params: { verified: userData.isVerified ? "true" : "false" } })}
               activeOpacity={0.85}
             >
               <View style={styles.rejectionCardHeader}>

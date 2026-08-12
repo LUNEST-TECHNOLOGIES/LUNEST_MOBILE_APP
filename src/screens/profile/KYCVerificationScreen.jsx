@@ -734,23 +734,12 @@ const maskIdNumber = (idStr) => {
                     <Text style={styles.koraNoteTitle}>Government NIN Lookup (Kora)</Text>
                   </View>
                   <Text style={styles.koraNoteText}>
-                    Please review and check the consent box above to reveal your registered full name and enter your NIN for identity verification.
+                    Please review and check the consent box above to reveal the NIN input field and account full name.
                   </Text>
                 </View>
               ) : (
                 <View style={{ gap: 16 }}>
-                  {/* Unedited Registered Full Name Field */}
-                  <View style={styles.inputContainer}>
-                    <Text style={styles.inputLabel}>REGISTERED FULL NAME (UNEDITABLE)</Text>
-                    <View style={styles.disabledInputBox}>
-                      <Text style={styles.disabledInputText}>{userFullName || verifiedName || "Account User Name"}</Text>
-                    </View>
-                    <Text style={{ fontSize: 11, color: "#6B7280", marginTop: 2 }}>
-                      Your government NIN will be verified against this official registered account name.
-                    </Text>
-                  </View>
-
-                  {/* NIN Input Field */}
+                  {/* 1. NIN / vNIN Input Field */}
                   <View style={styles.inputContainer}>
                     <Text style={styles.inputLabel}>NATIONAL IDENTIFICATION NUMBER (NIN / vNIN)</Text>
                     <TextInput
@@ -775,6 +764,17 @@ const maskIdNumber = (idStr) => {
                     )}
                     <Text style={{ fontSize: 12, color: "#6B7280", marginTop: 6, lineHeight: 16 }}>
                       Supports 11-digit raw NIN or 16-character Virtual NIN (vNIN).
+                    </Text>
+                  </View>
+
+                  {/* 2. Unedited Plain Full Name Field */}
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.inputLabel}>REGISTERED FULL NAME (UNEDITABLE)</Text>
+                    <View style={styles.disabledInputBox}>
+                      <Text style={styles.disabledInputText}>{userFullName || verifiedName || "Account User Name"}</Text>
+                    </View>
+                    <Text style={{ fontSize: 11, color: "#6B7280", marginTop: 2 }}>
+                      Official registered full name associated with your account that will be matched against your NIN database record.
                     </Text>
                   </View>
                 </View>

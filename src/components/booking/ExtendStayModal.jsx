@@ -24,11 +24,53 @@ export const ExtendStayModal = ({
   const [quote, setQuote] = useState(null);
   const [isCalculating, setIsCalculating] = useState(false);
 
+  // Helper to determine the property's base rental period
+  const getPropertyBaseUnit = () => {
+    const rawPeriod = (
+      booking?.listing?.pricingPeriod ||
+      booking?.pricingPeriod ||
+      booking?.rentalType ||
+      booking?.listing?.rentalType ||
+      booking?.unitType ||
+      "night"
+    ).toString().toLowerCase();
+
+    if (rawPeriod.includes("year") || rawPeriod.includes("annual")) return "YEARLY";
+    if (rawPeriod.includes("month")) return "MONTHLY";
+    if (rawPeriod.includes("week")) return "WEEKLY";
+    return "DAILY";
+  };
+
+  // Helper to get allowed extension unit choices based on property rental type
+  const getAvailableUnits = () => {
+    const baseUnit = getPropertyBaseUnit();
+    switch (baseUnit) {
+      case "YEARLY":
+        return ["YEARLY"];
+      case "MONTHLY":
+        return ["MONTHLY", "YEARLY"];
+      case "WEEKLY":
+        return ["WEEKLY", "MONTHLY"];
+      case "DAILY":
+      default:
+        return ["DAILY", "WEEKLY", "MONTHLY"];
+    }
+  };
+
   useEffect(() => {
     if (visible && booking) {
+      const baseUnit = getPropertyBaseUnit();
+      setUnitType(baseUnit);
+      setDuration(1);
+      calculateQuote(1, baseUnit);
+    }
+  }, [visible, booking]);
+
+  useEffect(() => {
+    if (visible && booking && unitType) {
       calculateQuote(duration, unitType);
     }
-  }, [visible, duration, unitType, booking]);
+  }, [duration, unitType]);
 
   const calculateQuote = (dur, unit) => {
     if (!booking) return;
@@ -87,6 +129,8 @@ export const ExtendStayModal = ({
 
   if (!visible) return null;
 
+  const availableUnits = getAvailableUnits();
+
   return (
     <Modal
       visible={visible}
@@ -109,9 +153,9 @@ export const ExtendStayModal = ({
 
           <ScrollView style={styles.scrollBody} showsVerticalScrollIndicator={false}>
             {/* Unit Selector Tabs */}
-            <Text style={styles.sectionLabel}>Extension Unit</Text>
+            <Text style={styles.sectionLabel}>Extension Unit ({getPropertyBaseUnit()} property)</Text>
             <View style={styles.unitTabContainer}>
-              {["DAILY", "WEEKLY", "MONTHLY", "YEARLY"].map((u) => (
+              {availableUnits.map((u) => (
                 <TouchableOpacity
                   key={u}
                   style={[styles.unitTab, unitType === u && styles.unitTabActive]}

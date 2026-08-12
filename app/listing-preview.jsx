@@ -380,7 +380,7 @@ const ListingPreview = () => {
           <View style={{ width: 40 }} />
         </View>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#192DFF" />
+          <ActivityIndicator size="large" color="#010135" />
           <Text style={styles.loadingText}>Loading listing...</Text>
         </View>
       </SafeAreaView>
@@ -1017,7 +1017,7 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: "#192DFF",
+    backgroundColor: "#010135",
     justifyContent: "center",
     alignItems: "center",
     marginTop: 2,
@@ -1046,7 +1046,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: "#292929",
+    backgroundColor: "#010135",
     marginTop: 6,
   },
   listText: {
@@ -1126,12 +1126,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
   },
   primaryButton: {
-    backgroundColor: "#192DFF",
+    backgroundColor: "#010135",
   },
   secondaryButton: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#F8FAFC",
     borderWidth: 1,
-    borderColor: "#E0E0E0",
+    borderColor: "#E2E8F0",
   },
   buttonText: {
     fontSize: 16,
@@ -1141,7 +1141,7 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
   },
   secondaryButtonText: {
-    color: "#292929",
+    color: "#010135",
   },
 
   // Loading state

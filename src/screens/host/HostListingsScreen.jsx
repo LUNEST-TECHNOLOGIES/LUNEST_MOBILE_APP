@@ -904,16 +904,19 @@ const HostListingsScreen = () => {
       }
       // Filter out incomplete drafts (those with no meaningful data)
       const validDrafts = drafts.filter((draft) => {
-        // Must have a draftId
-        if (!draft.draftId) return false;
+        if (!draft || (!draft.draftId && !draft._id && !draft.id)) return false;
         
-        // Must have at least some meaningful data
-        const hasTitle = draft.propertyTitle && draft.propertyTitle !== "Untitled Draft";
-        const hasLocation = draft.city || draft.state || draft.address;
-        const hasPhotos = draft.photos && (Array.isArray(draft.photos) ? draft.photos.length > 0 : JSON.parse(draft.photos || "[]").length > 0);
-        const hasType = draft.propertyType && draft.propertyType !== "Unknown";
+        const hasTitle = (draft.propertyName || draft.propertyTitle || draft.title) &&
+                         draft.propertyTitle !== "Untitled Draft";
+        const hasLocation = draft.city || draft.state || draft.address || draft.location;
+        const hasPhotos = (draft.photos && (Array.isArray(draft.photos) ? draft.photos.length > 0 : true)) ||
+                          (draft.propertyImages && (Array.isArray(draft.propertyImages) ? draft.propertyImages.length > 0 : true)) ||
+                          (draft.images && (Array.isArray(draft.images) ? draft.images.length > 0 : true));
+        const hasType = (draft.propertyType || draft.category || draft.subCategory || draft.propertyCategory) && draft.propertyType !== "Unknown";
+        const hasPrice = Number(draft.price) > 0 || (draft.propertyPrice && Number(draft.propertyPrice.price) > 0);
         
-        return hasTitle || hasLocation || hasPhotos || hasType;
+        // Show all drafts unless explicitly empty
+        return hasTitle || hasLocation || hasPhotos || hasType || hasPrice || !!draft._id || !!draft.draftId;
       });
       
       console.log(`📋 [HostListingsScreen] Filtered ${drafts.length - validDrafts.length} incomplete drafts`);
@@ -924,12 +927,10 @@ const HostListingsScreen = () => {
         let coverImage = null;
         let imagesList = [];
 
-        if (draft.photos) {
+        const rawMedia = draft.photos || draft.propertyImages || draft.images;
+        if (rawMedia) {
           try {
-            const parsedPhotos =
-              typeof draft.photos === "string"
-                ? JSON.parse(draft.photos)
-                : draft.photos;
+            const parsedPhotos = typeof rawMedia === "string" ? JSON.parse(rawMedia) : rawMedia;
             if (Array.isArray(parsedPhotos) && parsedPhotos.length > 0) {
               coverImage = parsedPhotos[0];
               imagesList = parsedPhotos;
@@ -942,7 +943,7 @@ const HostListingsScreen = () => {
         // Ensure draft has a valid ID
         const draftId =
           draft.draftId ||
-          `draft_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+          (draft._id ? String(draft._id) : `draft_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
 
         // Enhanced location handling for drafts
           let draftLocation = "No location";
@@ -971,27 +972,26 @@ const HostListingsScreen = () => {
 
         return {
           id: draftId,
-          propertyName: draft.propertyTitle || "Untitled Draft",
-          propertyType: draft.propertyType || "Unknown",
+          propertyName: draft.propertyName || draft.propertyTitle || draft.title || "Untitled Draft",
+          propertyType: draft.propertyType || draft.propertyCategory || draft.category || "Rental",
           location: draftLocation,
-          listingType: draft.intent === "sale" ? "For Sale" : "For Rent",
+          listingType: (draft.intent || "").toLowerCase() === "sale" ? "For Sale" : "For Rent",
           rentalType: draft.pricingPeriod || "Daily",
           price: draft.price
             ? parseInt(String(draft.price).replace(/,/g, ""))
-            : 0,
+            : (draft.propertyPrice?.price || 0),
           priceUnit: draft.pricingPeriod || "Night",
           status: "DRAFT",
           image: coverImage || null,
           images: imagesList,
           isDraft: true,
-          draftData: Object.keys(draft).length > 0 ? { ...draft, draftId } : null, // Only set draftData if draft is not empty
-          createdAt: draft.createdAt || draft.timestamp || Date.now(), // Add timestamp for sorting
+          draftData: Object.keys(draft).length > 0 ? { ...draft, draftId } : null,
+          createdAt: draft.createdAt || draft.timestamp || Date.now(),
           updatedAt:
             draft.updatedAt ||
             draft.lastModified ||
             draft.timestamp ||
-            Date.now(), // Track last edit time
-          // Additional data for preview screen
+            Date.now(),
           description: draft.description || draft.propertyDescription || "",
           bedrooms: draft.bedrooms || draft.bedroomCount || 0,
           bathrooms: draft.bathrooms || draft.bathroomCount || 0,

@@ -92,48 +92,57 @@ const HOUSE_RULES_MAP = {
   recycling: "Recycling Required",
 };
 
+const RULES_ARRAY_FALLBACK = [
+  "No Smoking",
+  "No Pets",
+  "No Parties or Events",
+  "Quiet Hours (10 PM - 8 AM)",
+  "No Unregistered Guests",
+  "No Shoes Inside",
+  "No Cooking",
+  "Recycling Required",
+];
+
 // Helper function to convert house rule IDs to readable labels
 const convertRegulationsToLabels = (regulations) => {
-  if (!regulations || !Array.isArray(regulations)) return [];
+  if (!regulations) return [];
+  const list = Array.isArray(regulations) ? regulations : [regulations];
 
-  return regulations
+  return list
     .map((regulation) => {
-      // Ensure we have a valid value
       if (regulation === null || regulation === undefined) return null;
+      const stringRegulation = String(regulation).trim();
+      if (!stringRegulation) return null;
 
-      const stringRegulation = String(regulation);
-
-      // If regulation is already a readable string, return it
-      if (typeof regulation === "string" && regulation.length > 5) {
-        return regulation;
-      }
-
-      // If it's a rule ID, convert it
+      // Direct map match
       if (HOUSE_RULES_MAP[stringRegulation]) {
         return HOUSE_RULES_MAP[stringRegulation];
       }
 
-      // If it's a number or numeric string, try to map it (0,1,2 problem)
-      if (typeof regulation === "number" || /^\d+$/.test(stringRegulation)) {
-        // This handles the 0,1,2 issue - these might be indices or IDs
-        const ruleIds = Object.keys(HOUSE_RULES_MAP);
-        const index = parseInt(regulation);
-        if (ruleIds[index]) {
-          return HOUSE_RULES_MAP[ruleIds[index]];
+      // Numeric index match (e.g., 0, 1, 2)
+      if (/^\d+$/.test(stringRegulation)) {
+        const index = parseInt(stringRegulation, 10);
+        if (RULES_ARRAY_FALLBACK[index]) {
+          return RULES_ARRAY_FALLBACK[index];
         }
-        return `Rule ${regulation}`;
+        return null; // Skip invalid numeric strings
       }
 
-      // Fallback: try to beautify the string
-      return stringRegulation
-        .replace(/_/g, " ")
-        .replace(/\b\w/g, (l) => l.toUpperCase());
+      // If it's already a descriptive label string
+      if (stringRegulation.length > 3) {
+        return stringRegulation
+          .replace(/_/g, " ")
+          .replace(/\b\w/g, (l) => l.toUpperCase());
+      }
+
+      return null;
     })
     .filter(Boolean); // Remove null, undefined, empty values
 };
 
 import configService from "../src/services/configService";
 import listingService from "../src/services/listingService";
+import bookingService from "../src/services/bookingService";
 
 const ListingPreview = () => {
   const router = useRouter();
@@ -141,6 +150,8 @@ const ListingPreview = () => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [loading, setLoading] = useState(false);
   const [fetchedData, setFetchedData] = useState(null);
+  const [reviews, setReviews] = useState([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const isHost = params.isHost === "true";
 
@@ -249,6 +260,25 @@ const ListingPreview = () => {
 
     fetchListingData();
   }, [params.listingId]);
+
+  useEffect(() => {
+    const fetchReviews = async () => {
+      const targetId = params.listingId || fetchedData?._id || fetchedData?.id;
+      if (!targetId) return;
+      try {
+        setReviewsLoading(true);
+        const res = await bookingService.fetchListingReviews(targetId);
+        if (res?.success && Array.isArray(res.reviews)) {
+          setReviews(res.reviews);
+        }
+      } catch (err) {
+        console.warn("Error fetching reviews for preview:", err);
+      } finally {
+        setReviewsLoading(false);
+      }
+    };
+    fetchReviews();
+  }, [params.listingId, fetchedData?._id]);
 
   const listingData = useMemo(() => {
     // Use fetched data if available
@@ -695,6 +725,54 @@ const ListingPreview = () => {
             </View>
           </View>
         )}
+
+        {/* Guest Reviews Section */}
+        <View style={styles.section}>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+            <Text style={styles.sectionTitle}>Guest Reviews & Ratings</Text>
+            <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: "#FEF3C7", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 14 }}>
+              <Text style={{ fontSize: 13, color: "#D97706", fontWeight: "700", marginRight: 4 }}>★</Text>
+              <Text style={{ fontSize: 12, color: "#B45309", fontWeight: "700" }}>
+                {reviews.length > 0
+                  ? (reviews.reduce((acc, r) => acc + (Number(r.rating) || 5), 0) / reviews.length).toFixed(1)
+                  : "New"} ({reviews.length})
+              </Text>
+            </View>
+          </View>
+
+          {reviewsLoading ? (
+            <ActivityIndicator size="small" color="#008751" style={{ marginVertical: 14 }} />
+          ) : reviews && reviews.length > 0 ? (
+            <View style={{ gap: 12 }}>
+              {reviews.map((rev, idx) => (
+                <View key={rev.id || idx} style={{ backgroundColor: "#F8FAFC", padding: 14, borderRadius: 12, borderWidth: 1, borderColor: "#E2E8F0" }}>
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                    <Text style={{ fontSize: 14, fontWeight: "600", color: "#1E293B" }}>
+                      {rev.reviewer?.fullName || rev.guestName || "Verified Guest"}
+                    </Text>
+                    <Text style={{ fontSize: 12, color: "#D97706", fontWeight: "700" }}>
+                      {"★".repeat(Math.min(5, Math.max(1, Math.round(rev.rating || 5))))}
+                    </Text>
+                  </View>
+                  <Text style={{ fontSize: 13, color: "#475569", lineHeight: 18 }}>
+                    {rev.comment || rev.reviewText || "Great stay! Highly recommended."}
+                  </Text>
+                  {rev.createdAt && (
+                    <Text style={{ fontSize: 10, color: "#94A3B8", marginTop: 6 }}>
+                      {new Date(rev.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                    </Text>
+                  )}
+                </View>
+              ))}
+            </View>
+          ) : (
+            <View style={{ backgroundColor: "#F8FAFC", padding: 16, borderRadius: 12, alignItems: "center" }}>
+              <Text style={{ fontSize: 13, color: "#64748B", textAlign: "center", lineHeight: 18 }}>
+                No guest reviews yet. Reviews from verified guests will appear here once bookings are completed.
+              </Text>
+            </View>
+          )}
+        </View>
 
         {/* Bottom Spacer for buttons */}
         <View style={styles.bottomSpacer} />

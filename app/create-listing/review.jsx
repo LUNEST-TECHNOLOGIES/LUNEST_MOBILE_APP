@@ -178,6 +178,17 @@ const HOUSE_RULES_MAP = {
   recycling: "Recycling Required",
 };
 
+const RULES_ARRAY_FALLBACK = [
+  "No Smoking",
+  "No Pets",
+  "No Parties or Events",
+  "Quiet Hours (10 PM - 8 AM)",
+  "No Unregistered Guests",
+  "No Shoes Inside",
+  "No Cooking",
+  "Recycling Required",
+];
+
 // Helper function to convert house rule IDs to readable labels
 const convertHouseRulesToLabels = (rules) => {
   if (!rules) return [];
@@ -187,49 +198,40 @@ const convertHouseRulesToLabels = (rules) => {
     return Object.entries(rules)
       .filter(([_, enabled]) => enabled)
       .map(([ruleId, _]) => {
-        if (!ruleId || ruleId === null || ruleId === undefined) return null;
-        const stringId = String(ruleId);
-        return (
-          HOUSE_RULES_MAP[stringId] ||
-          stringId.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())
-        );
+        if (!ruleId) return null;
+        const stringId = String(ruleId).trim();
+        if (HOUSE_RULES_MAP[stringId]) return HOUSE_RULES_MAP[stringId];
+        if (/^\d+$/.test(stringId) && RULES_ARRAY_FALLBACK[parseInt(stringId, 10)]) {
+          return RULES_ARRAY_FALLBACK[parseInt(stringId, 10)];
+        }
+        return stringId.length > 3 ? stringId.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()) : null;
       })
-      .filter(Boolean); // Remove null, undefined, empty values
+      .filter(Boolean);
   }
 
-  if (typeof rules === "string") {
-    try {
-      // Try to parse as JSON first
-      const parsed = JSON.parse(rules);
-      if (typeof parsed === "object") {
-        return convertHouseRulesToLabels(parsed);
+  const list = Array.isArray(rules) ? rules : typeof rules === "string" ? rules.split(",") : [rules];
+
+  return list
+    .map((ruleId) => {
+      if (ruleId === null || ruleId === undefined) return null;
+      const stringId = String(ruleId).trim();
+      if (!stringId) return null;
+
+      if (HOUSE_RULES_MAP[stringId]) return HOUSE_RULES_MAP[stringId];
+
+      if (/^\d+$/.test(stringId)) {
+        const index = parseInt(stringId, 10);
+        if (RULES_ARRAY_FALLBACK[index]) return RULES_ARRAY_FALLBACK[index];
+        return null;
       }
-      // If it's a plain string, return as is
-      return [rules];
-    } catch (e) {
-      // If not JSON, treat as comma-separated string
-      return rules
-        .split(",")
-        .map((rule) => rule.trim())
-        .filter((rule) => rule);
-    }
-  }
 
-  if (Array.isArray(rules)) {
-    // Handle array of rule IDs
-    return rules
-      .map((ruleId) => {
-        if (!ruleId || ruleId === null || ruleId === undefined) return null;
-        const stringId = String(ruleId);
-        return (
-          HOUSE_RULES_MAP[stringId] ||
-          stringId.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())
-        );
-      })
-      .filter(Boolean); // Remove null, undefined, empty values
-  }
+      if (stringId.length > 3) {
+        return stringId.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+      }
 
-  return [];
+      return null;
+    })
+    .filter(Boolean);
 };
 
 // Review Component

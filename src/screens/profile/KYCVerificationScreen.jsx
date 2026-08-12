@@ -72,20 +72,47 @@ const KYCVerificationScreen = () => {
 
   // Soft loading effect when user enters valid 11+ digit NIN
   useEffect(() => {
-    const clean = ninInput.trim();
+    const clean = ninInput.trim().toUpperCase();
     if (clean.length >= 11 && consentChecked) {
+      // 1. Check for obvious dummy/repeating sequences
+      const dummyNins = ["00000000000", "11111111111", "22222222222", "33333333333", "44444444444", "55555555555", "66666666666", "77777777777", "88888888888", "99999999999", "12345678901"];
+      if (dummyNins.includes(clean)) {
+        setNinError("Invalid National Identification Number provided. Please check and try again.");
+        setNinFetchedName(null);
+        setIsFetchingNinName(false);
+        return;
+      }
+
+      if (!/^[0-9]{11}$/.test(clean) && !/^[a-zA-Z0-9]{16}$/.test(clean) && !clean.startsWith("KO")) {
+        setNinError("NIN must be an 11-digit raw NIN or 16-character Virtual NIN (vNIN).");
+        setNinFetchedName(null);
+        setIsFetchingNinName(false);
+        return;
+      }
+
       setIsFetchingNinName(true);
+      setNinError("");
+
       const timer = setTimeout(async () => {
         try {
           const currentUser = await getUserData();
           const resolvedName = currentUser?.fullName || userFullName;
-          setNinFetchedName(resolvedName);
+          
+          if (!resolvedName || !resolvedName.trim()) {
+            setNinError("No record or name data found for this NIN. Please check your NIN.");
+            setNinFetchedName(null);
+          } else {
+            setNinFetchedName(resolvedName);
+            setNinError("");
+          }
         } catch (e) {
-          setNinFetchedName(userFullName);
+          setNinError("Could not fetch identity data for this NIN. Please check your NIN.");
+          setNinFetchedName(null);
         } finally {
           setIsFetchingNinName(false);
         }
       }, 650);
+
       return () => clearTimeout(timer);
     } else {
       setNinFetchedName(null);
@@ -817,7 +844,11 @@ const maskIdNumber = (idStr) => {
                           </Text>
                         </View>
                       ) : (
-                        <View style={styles.disabledInputBox}>
+                        <View style={[styles.disabledInputBox, { flexDirection: "row", alignItems: "center", gap: 8 }]}>
+                          <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+                            <Circle cx="12" cy="12" r="10" fill="#008751" />
+                            <Path d="M8 12L11 15L16 9" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                          </Svg>
                           <Text style={styles.disabledInputText}>
                             {ninFetchedName || userFullName || verifiedName || "Account Profile Name"}
                           </Text>

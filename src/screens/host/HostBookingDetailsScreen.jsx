@@ -239,30 +239,63 @@ const HostBookingDetailsScreen = () => {
     params.propertyName ||
     "Property";
 
-  const getFullAddressStr = (obj) => {
-    if (!obj) return "";
-    if (typeof obj === "string") return obj;
-    if (typeof obj === "object") {
-      return [
-        obj.streetAddress || obj.address || obj.street || obj.fullAddress || obj.formattedAddress,
-        obj.neighborhood || obj.area || obj.lga,
-        obj.city,
-        obj.state,
-        obj.country
-      ].filter(Boolean).filter(x => typeof x === "string" && x.trim()).join(", ");
+  const propertyAddress = useMemo(() => {
+    const listing = booking?.listing;
+    const addrParts = [];
+
+    // 1. Try fullAddress from propertyLocation
+    if (listing?.propertyLocation?.fullAddress && typeof listing.propertyLocation.fullAddress === "string" && listing.propertyLocation.fullAddress.trim()) {
+      return listing.propertyLocation.fullAddress.trim();
     }
-    return "";
-  };
 
-  const rawAddrObj = booking?.listing?.address || booking?.listing?.propertyLocation || booking?.listing?.location || booking?.propertyAddress || params.propertyAddress;
-  const addressFormatted = getFullAddressStr(rawAddrObj);
+    // 2. Try street address
+    let street = "";
+    if (typeof listing?.address === "string" && listing.address.trim()) {
+      street = listing.address.trim();
+    } else if (typeof listing?.address === "object" && listing?.address) {
+      street = listing.address.streetAddress || listing.address.address || listing.address.street || listing.address.fullAddress || "";
+    } else if (listing?.streetAddress) {
+      street = String(listing.streetAddress).trim();
+    }
 
-  const propertyAddress = addressFormatted || [
-    booking?.listing?.streetAddress || (typeof booking?.listing?.address === "string" ? booking?.listing?.address : null),
-    booking?.listing?.neighborhood || booking?.listing?.city,
-    booking?.listing?.state,
-    booking?.listing?.country
-  ].filter(Boolean).filter(x => typeof x === "string" && x.trim()).join(", ") || "Full property address on file";
+    if (street) addrParts.push(street);
+
+    // 3. City / Area / Neighborhood
+    const city = listing?.city || (typeof listing?.address === "object" ? listing?.address?.city : null) || listing?.neighborhood;
+    if (city && typeof city === "string" && city.trim() && !street.toLowerCase().includes(city.toLowerCase().trim())) {
+      addrParts.push(city.trim());
+    }
+
+    // 4. State
+    const state = listing?.state || (typeof listing?.address === "object" ? listing?.address?.state : null);
+    if (state && typeof state === "string" && state.trim() && !street.toLowerCase().includes(state.toLowerCase().trim())) {
+      addrParts.push(state.trim());
+    }
+
+    // 5. Country
+    const country = listing?.country || "Nigeria";
+    if (country && typeof country === "string" && country.trim() && !street.toLowerCase().includes(country.toLowerCase().trim())) {
+      addrParts.push(country.trim());
+    }
+
+    if (addrParts.length > 0) {
+      return addrParts.join(", ");
+    }
+
+    // Fallbacks from booking / params
+    if (booking?.propertyAddress && typeof booking.propertyAddress === "string") return booking.propertyAddress;
+    if (booking?.location && typeof booking.location === "string") return booking.location;
+    if (params.propertyAddress && typeof params.propertyAddress === "string") return params.propertyAddress;
+    if (params.location && typeof params.location === "string") return params.location;
+
+    // Fallback using property title
+    const name = booking?.listing?.propertyName || booking?.listing?.title || params.propertyName;
+    if (name) {
+      return `${name}, Nigeria`;
+    }
+
+    return "Location on file";
+  }, [booking, params]);
 
   // Property image with stability for RCTImageView
   const propertyImageSource = useMemo(() => {

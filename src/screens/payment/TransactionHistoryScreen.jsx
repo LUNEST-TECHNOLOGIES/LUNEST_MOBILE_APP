@@ -484,10 +484,15 @@ const TransactionHistoryScreen = () => {
         setTransactions(mappedTxns);
         setLastUpdated(new Date());
 
-        // Calculate totals
+        // Calculate totals (only for successful or pending/on-hold transactions)
         let inflow = 0;
         let outflow = 0;
         mappedTxns.forEach((txn) => {
+          const status = (txn.status || "").toUpperCase();
+          if (status === "FAILED" || status === "CANCELLED" || status === "REJECTED") {
+            return;
+          }
+
           if (isInflowTransaction(txn.type, txn.originalType)) {
             inflow += txn.amount;
           } else {

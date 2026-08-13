@@ -272,14 +272,19 @@ const ListingCard = ({
     return periodMap[period] || capitalizeFirst(period);
   };
 
-  // Use image placeholder for draft listings, or actual image if available
-  const imageSource = (listing?.status && listing.status.toUpperCase() === "DRAFT") || isDraft
-    ? require("../../assets/images/prop_image.png")
-    : listing.image
-      ? typeof listing.image === "string"
-        ? { uri: listing.image }
-        : listing.image
-      : require("../../assets/images/prop_image.png");
+  // Use uploaded cover image if available (draft or live), otherwise fallback to prop_image.png placeholder
+  const getCoverImage = () => {
+    let raw = listing?.image || listing?.coverImage || listing?.photos?.[0] || listing?.images?.[0] || listing?.propertyImages?.[0];
+    if (typeof raw === "object" && raw) {
+      raw = raw.url || raw.uri || raw.path || null;
+    }
+    if (typeof raw === "string" && raw.trim()) {
+      return { uri: raw };
+    }
+    return require("../../assets/images/prop_image.png");
+  };
+
+  const imageSource = getCoverImage();
 
   const handleCardPress = () => {
     if (onCardPress) {
@@ -288,11 +293,15 @@ const ListingCard = ({
       // Navigate to preview screen
       try {
         const images =
-          listing.images && listing.images.length > 0
-            ? listing.images
-            : listing.image
-              ? [listing.image]
-              : [];
+          listing.photos && listing.photos.length > 0
+            ? listing.photos
+            : listing.images && listing.images.length > 0
+              ? listing.images
+              : listing.propertyImages && listing.propertyImages.length > 0
+                ? listing.propertyImages
+                : listing.image
+                  ? [listing.image]
+                  : [];
 
         router.push({
           pathname: "/listing-preview",

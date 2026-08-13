@@ -188,7 +188,13 @@ const ListingPreview = () => {
               return null;
             };
 
-            const processedImages = (listing.propertyImages || [])
+            const rawImages = listing.photos?.length
+              ? listing.photos
+              : listing.images?.length
+                ? listing.images
+                : listing.propertyImages || [];
+
+            const processedImages = rawImages
               .map(convertImageUrl)
               .filter(Boolean);
 
@@ -305,7 +311,11 @@ const ListingPreview = () => {
         ),
         landmarks: safeParseArray(params.landmarks, []),
         features: safeParseArray(params.features, []),
-        images: safeParseArray(params.images, []),
+        images: safeParseArray(params.images, []).length
+          ? safeParseArray(params.images, [])
+          : safeParseArray(params.photos, []).length
+            ? safeParseArray(params.photos, [])
+            : safeParseArray(params.propertyImages, []),
         status: params.status || "PENDING",
         // Additional fields
         houseRules: params.houseRules || "",
@@ -385,7 +395,28 @@ const ListingPreview = () => {
         </View>
       </SafeAreaView>
     );
-  }
+  const isDraft = (listingData?.status && listingData.status.toUpperCase() === "DRAFT") || params.status === "DRAFT" || params.isDraft === "true";
+
+  const handleEditDraft = () => {
+    const targetDraftId = params.draftId || params.listingId || listingData._id || listingData.id;
+    const stepMap = {
+      1: "/create-listing/intent",
+      2: "/create-listing/property-details",
+      3: "/create-listing/location",
+      4: "/create-listing/pricing",
+      5: "/create-listing/amenities",
+      6: "/create-listing/photos",
+      7: "/create-listing/availability",
+      8: "/create-listing/terms-agreement",
+    };
+    const currentStep = listingData.currentStep || listingData.step || 6;
+    const targetPath = stepMap[currentStep] || "/create-listing/photos";
+
+    router.push({
+      pathname: targetPath,
+      params: { draftId: targetDraftId },
+    });
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -399,7 +430,13 @@ const ListingPreview = () => {
           </Text>
           {isHost && <StatusBadge status={listingData.status} />}
         </View>
-        <View style={{ width: 40 }} />
+        {isDraft ? (
+          <Pressable style={styles.headerEditButton} onPress={handleEditDraft}>
+            <Text style={styles.headerEditButtonText}>Edit</Text>
+          </Pressable>
+        ) : (
+          <View style={{ width: 40 }} />
+        )}
       </View>
 
       <ScrollView
@@ -409,8 +446,7 @@ const ListingPreview = () => {
       >
         {/* Image Carousel */}
         <View style={[styles.imageSection, { height: screenWidth * 0.75 }]}>
-          {(listingData?.status && listingData.status.toUpperCase() === "DRAFT") ||
-          !listingData.images ||
+          {!listingData.images ||
           listingData.images.length === 0 ||
           !listingData.images.some((img) => img) ? (
             <Image

@@ -285,7 +285,14 @@ const HostEarningsScreen = () => {
             }
           });
 
-          setSummary({ totalEarnings, pendingEarnings, paidOut });
+          const finalTotalEarnings = Math.max(totalEarnings, statsData.totalEarnings || 0, statsData.walletBalance || 0);
+          const finalPendingEarnings = Math.max(pendingEarnings, statsData.pendingBalance || 0);
+
+          setSummary({
+            totalEarnings: finalTotalEarnings,
+            pendingEarnings: finalPendingEarnings,
+            paidOut
+          });
         }
       }
     } catch (err) {

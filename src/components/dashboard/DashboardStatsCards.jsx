@@ -107,12 +107,13 @@ const DashboardStatsCards = ({
   totalListings = 0,
   hostRating = 0,
   hostRatingCount = 0,
-  bookingsPeriod = "30 days",
-  earningsPeriod = "Last 30 Days",
 }) => {
+  const effectiveEarnings = Number(totalEarnings) || Number(walletBalance) || 0;
+  const effectiveWallet = Number(walletBalance) || Number(totalEarnings) || 0;
+
   // Safe string conversion for all dynamic text
-  const safeEarningsValue = String(formatCurrency(totalEarnings));
-  const safeWalletValue = String(formatCurrency(walletBalance));
+  const safeEarningsValue = String(formatCurrency(effectiveEarnings));
+  const safeWalletValue = String(formatCurrency(effectiveWallet));
   const safePendingValue = String(formatCurrency(pendingBalance));
   const safeOnHoldEarnings = String(formatCurrency(onHoldEarnings));
   const safeOnHoldCaution = String(formatCurrency(onHoldCaution));

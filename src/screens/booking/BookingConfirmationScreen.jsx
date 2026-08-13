@@ -494,23 +494,28 @@ const BookingConfirmationScreen = () => {
 
   // ── Step 3: Property Details ──
   const propertyName = booking?.listing?.propertyName || booking?.listing?.title || booking?.propertyName || params.propertyName || "-";
-
   const propertyAddress = (() => {
-    const isConfirmed = ["confirmed", "ongoing"].includes(statusLower);
-    if (isConfirmed) {
-      const listing = booking?.listing;
-      if (listing?.propertyLocation?.fullAddress) return listing.propertyLocation.fullAddress;
-      const parts = [];
-      if (listing?.address) parts.push(listing.address);
-      if (listing?.city) parts.push(listing.city);
-      if (listing?.state) parts.push(listing.state);
-      if (listing?.country) parts.push(listing.country);
-      if (parts.length > 0) return parts.join(", ");
-      return booking?.location || params.location || "-";
-    }
     const listing = booking?.listing;
+    const isConfirmed = ["confirmed", "ongoing"].includes(statusLower);
+    if (isConfirmed && listing) {
+      if (typeof listing.address === "string" && listing.address.trim()) {
+        const parts = [listing.address, listing.city, listing.state, listing.country].filter(Boolean);
+        return parts.join(", ");
+      }
+      if (typeof listing.address === "object" && listing.address) {
+        const parts = [
+          listing.address.streetAddress || listing.address.address || listing.address.street,
+          listing.address.neighborhood || listing.address.city || listing.city,
+          listing.address.state || listing.state,
+          listing.address.country || listing.country
+        ].filter(Boolean);
+        if (parts.length > 0) return parts.join(", ");
+      }
+      if (listing.propertyLocation?.fullAddress) return listing.propertyLocation.fullAddress;
+      if (listing.fullAddress) return listing.fullAddress;
+    }
     if (listing?.city && listing?.state) return `${listing.city}, ${listing.state}`;
-    return params.location || "-";
+    return booking?.location || params.location || "Full address on file";
   })();
 
   // ── Step 4: Pricing & Fees ──
@@ -1905,47 +1910,91 @@ const BookingConfirmationScreen = () => {
                   </View>
                 </View>
 
-                {booking.extensions.map((ext, idx) => (
-                  <View
-                    key={ext.extensionId || idx}
-                    style={{
-                      backgroundColor: "#FFFFFF",
-                      borderRadius: 12,
-                      padding: 12,
-                      marginBottom: idx === booking.extensions.length - 1 ? 0 : 10,
-                      borderWidth: 1,
-                      borderColor: "#E2E8F0"
-                    }}
-                  >
-                    <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 4 }}>
-                      <Text style={{ fontSize: 13, fontWeight: "700", color: "#010135" }}>
-                        Extension #{idx + 1} ({ext.extraNights} night{ext.extraNights > 1 ? "s" : ""})
-                      </Text>
-                      <Text style={{ fontSize: 13, fontWeight: "800", color: "#010135" }}>
-                        ₦{formatCurrency(ext.guestTotal || 0)}
-                      </Text>
-                    </View>
+                {booking.extensions.map((ext, idx) => {
+                  const isHostMode = isHost;
+                  const displayTotal = isHostMode ? (ext.hostEarnings || 0) : (ext.guestTotal || 0);
+                  return (
+                    <View
+                      key={ext.extensionId || idx}
+                      style={{
+                        backgroundColor: "#FFFFFF",
+                        borderRadius: 12,
+                        padding: 12,
+                        marginBottom: idx === booking.extensions.length - 1 ? 0 : 10,
+                        borderWidth: 1,
+                        borderColor: "#E2E8F0"
+                      }}
+                    >
+                      <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 4 }}>
+                        <Text style={{ fontSize: 13, fontWeight: "700", color: "#010135" }}>
+                          Extension #{idx + 1} ({ext.extraNights} night{ext.extraNights > 1 ? "s" : ""})
+                        </Text>
+                        <Text style={{ fontSize: 13, fontWeight: "800", color: isHostMode ? "#059669" : "#010135" }}>
+                          {isHostMode ? `Net Payout: ₦${formatCurrency(displayTotal)}` : `Total: ₦${formatCurrency(displayTotal)}`}
+                        </Text>
+                      </View>
 
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginVertical: 4 }}>
-                      <Text style={{ fontSize: 12, color: "#64748B" }}>
-                        {ext.previousCheckOut ? format(new Date(ext.previousCheckOut), "MMM d, yyyy") : ""}
-                      </Text>
-                      <Ionicons name="arrow-forward" size={14} color="#010135" />
-                      <Text style={{ fontSize: 12, fontWeight: "700", color: "#010135" }}>
-                        {ext.newCheckOut ? format(new Date(ext.newCheckOut), "MMM d, yyyy") : ""}
-                      </Text>
-                    </View>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginVertical: 4 }}>
+                        <Text style={{ fontSize: 12, color: "#64748B" }}>
+                          {ext.previousCheckOut ? format(new Date(ext.previousCheckOut), "MMM d, yyyy") : ""}
+                        </Text>
+                        <Ionicons name="arrow-forward" size={14} color="#010135" />
+                        <Text style={{ fontSize: 12, fontWeight: "700", color: "#010135" }}>
+                          {ext.newCheckOut ? format(new Date(ext.newCheckOut), "MMM d, yyyy") : ""}
+                        </Text>
+                      </View>
 
-                    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
-                      <Text style={{ fontSize: 11, color: "#94A3B8" }}>
-                        {ext.paidAt ? `Paid on ${format(new Date(ext.paidAt), "MMM d, yyyy 'at' h:mm a")}` : ""}
-                      </Text>
-                      <Text style={{ fontSize: 11, fontWeight: "600", color: "#010135" }}>
-                        Method: {ext.paymentMethod === "WALLET" ? "Wallet" : ext.paymentMethod === "PAYSTACK" ? "Paystack (Card)" : "Card"}
-                      </Text>
+                      {/* Detailed Fee Breakdown */}
+                      <View style={{ backgroundColor: "#F8FAFC", borderRadius: 8, padding: 8, marginTop: 6 }}>
+                        <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 3 }}>
+                          <Text style={{ fontSize: 11, color: "#64748B" }}>Extension Rent:</Text>
+                          <Text style={{ fontSize: 11, fontWeight: "600", color: "#010135" }}>₦{formatCurrency(ext.rentFee || 0)}</Text>
+                        </View>
+
+                        {isHostMode ? (
+                          <>
+                            <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 3 }}>
+                              <Text style={{ fontSize: 11, color: "#64748B" }}>Host Fee (2% Discounted):</Text>
+                              <Text style={{ fontSize: 11, fontWeight: "600", color: "#EF4444" }}>-₦{formatCurrency(ext.hostFee || 0)}</Text>
+                            </View>
+                            <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 3 }}>
+                              <Text style={{ fontSize: 11, color: "#64748B" }}>VAT on Host Fee (7.5%):</Text>
+                              <Text style={{ fontSize: 11, fontWeight: "600", color: "#EF4444" }}>-₦{formatCurrency(ext.hostVat || 0)}</Text>
+                            </View>
+                            <View style={{ flexDirection: "row", justifyContent: "space-between", borderTopWidth: 1, borderTopColor: "#CBD5E1", paddingTop: 4, marginTop: 2 }}>
+                              <Text style={{ fontSize: 11, fontWeight: "700", color: "#059669" }}>Host Net Earning:</Text>
+                              <Text style={{ fontSize: 11, fontWeight: "800", color: "#059669" }}>₦{formatCurrency(ext.hostEarnings || 0)}</Text>
+                            </View>
+                          </>
+                        ) : (
+                          <>
+                            <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 3 }}>
+                              <Text style={{ fontSize: 11, color: "#64748B" }}>Guest Service Fee (2% Discounted):</Text>
+                              <Text style={{ fontSize: 11, fontWeight: "600", color: "#010135" }}>+₦{formatCurrency(ext.guestFee || 0)}</Text>
+                            </View>
+                            <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 3 }}>
+                              <Text style={{ fontSize: 11, color: "#64748B" }}>VAT on Fee (7.5%):</Text>
+                              <Text style={{ fontSize: 11, fontWeight: "600", color: "#010135" }}>+₦{formatCurrency(ext.guestVat || 0)}</Text>
+                            </View>
+                            <View style={{ flexDirection: "row", justifyContent: "space-between", borderTopWidth: 1, borderTopColor: "#CBD5E1", paddingTop: 4, marginTop: 2 }}>
+                              <Text style={{ fontSize: 11, fontWeight: "700", color: "#010135" }}>Total Amount Paid:</Text>
+                              <Text style={{ fontSize: 11, fontWeight: "800", color: "#010135" }}>₦{formatCurrency(ext.guestTotal || 0)}</Text>
+                            </View>
+                          </>
+                        )}
+                      </View>
+
+                      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 6 }}>
+                        <Text style={{ fontSize: 10, color: "#94A3B8" }}>
+                          {ext.paidAt ? `Paid on ${format(new Date(ext.paidAt), "MMM d, yyyy 'at' h:mm a")}` : ""}
+                        </Text>
+                        <Text style={{ fontSize: 10, fontWeight: "600", color: "#010135" }}>
+                          Method: {ext.paymentMethod === "WALLET" ? "Wallet" : ext.paymentMethod === "PAYSTACK" ? "Paystack (Card)" : "Card"}
+                        </Text>
+                      </View>
                     </View>
-                  </View>
-                ))}
+                  );
+                })}
               </View>
             )}
 

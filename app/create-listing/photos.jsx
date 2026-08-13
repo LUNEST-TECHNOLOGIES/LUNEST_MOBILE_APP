@@ -111,6 +111,28 @@ const Photos = () => {
     return unsubscribe;
   }, []);
 
+  // Smooth incremental progress ticker for image upload (75%, 76%, 77% ... 98%)
+  useEffect(() => {
+    let interval;
+    if (isCompressing) {
+      interval = setInterval(() => {
+        setImageProgress((prev) => (prev >= 98 ? 98 : prev + 1));
+      }, 100);
+    }
+    return () => clearInterval(interval);
+  }, [isCompressing]);
+
+  // Smooth incremental progress ticker for video upload (75%, 76%, 77% ... 98%)
+  useEffect(() => {
+    let interval;
+    if (isCompressingVideo) {
+      interval = setInterval(() => {
+        setVideoProgress((prev) => (prev >= 98 ? 98 : prev + 1));
+      }, 120);
+    }
+    return () => clearInterval(interval);
+  }, [isCompressingVideo]);
+
   // Flag to ensure we only load from draft/params once on mount
   const [initialLoadDone, setInitialLoadDone] = useState(false);
   // Stable reference to params.photos
@@ -140,25 +162,12 @@ const Photos = () => {
         console.log('📸 [Photos] No photos found in draft or params');
       }
 
-      // Filter and validate photos - only keep S3 URLs, discard local paths
-      const validPhotos = loadedPhotos.filter(p => {
-        const uri = typeof p === "string" ? p : (p?.url || p?.uri);
-        if (!uri) return false;
-        
-        // Accept: Full HTTP(S) URLs (S3), data URLs (web)
-        // Reject: Local file paths that won't persist
-        const isValidUrl = uri.startsWith('http') || uri.startsWith('data:');
-        const isLocalPath = uri.includes('file://') || uri.includes('documentDirectory') || uri.includes('cache');
-        
-        if (isLocalPath) {
-          console.warn('⚠️ [Photos] Discarding local path (will not persist):', uri.substring(0, 50));
-          return false;
-        }
-        
-        return isValidUrl;
-      });
+      // Filter and validate photos - keep all valid photo URIs and paths
+      const validPhotos = loadedPhotos
+        .map(p => (typeof p === "string" ? p : (p?.url || p?.uri || p?.path || null)))
+        .filter(Boolean);
       
-      console.log(`📝 [Photos] Valid S3 URLs: ${validPhotos.length}/${loadedPhotos.length}`);
+      console.log(`📝 [Photos] Loaded photos: ${validPhotos.length}/${loadedPhotos.length}`);
       setPhotos(validPhotos);
 
       let loadedVideos = [];

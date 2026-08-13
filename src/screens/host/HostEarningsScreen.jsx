@@ -254,6 +254,9 @@ const HostEarningsScreen = () => {
           let paidOut = 0;
 
           mapped.forEach((txn) => {
+            const status = (txn.status || "").toUpperCase();
+            if (status === "FAILED" || status === "CANCELLED" || status === "REJECTED") return;
+
             // Sum all earning-related categories, accounting for credits and debits
             const isFinancialValue = [
               "HOST_EARNING",

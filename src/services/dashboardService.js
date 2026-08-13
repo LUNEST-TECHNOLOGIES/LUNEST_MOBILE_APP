@@ -54,29 +54,15 @@ class DashboardService {
 
       const userProfile = userProfileResult.status === 'fulfilled' ? (userProfileResult.value?.data || userProfileResult.value || {}) : {};
 
-      // Calculate fallback earnings directly from bookings array if backend stats return 0
-      const calculatedEarningsFromBookings = bookings.reduce((sum, b) => {
-        const status = b.status ? b.status.toUpperCase() : "";
-        if (["COMPLETED", "CONFIRMED", "ONGOING"].includes(status)) {
-          let hostEarning = Number(b.pricingBreakdown?.hostEarnings || 0);
-          if (!hostEarning && b.totalAmount?.price) {
-            hostEarning = Math.round(Number(b.totalAmount.price) * 0.95);
-          }
-          if (Array.isArray(b.extensions)) {
-            b.extensions.forEach((ext) => {
-              hostEarning += Number(ext.hostEarnings || 0);
-            });
-          }
-          return sum + hostEarning;
-        }
-        return sum;
-      }, 0);
-
+      // Use backend API stats as the authoritative source for earnings.
+      // DO NOT calculate from bookings array — pricingBreakdown.hostEarnings may already
+      // include extension earnings, causing double-counting if extensions are added again.
       const rawStatsEarnings = typeof stats.totalEarnings === "number" ? stats.totalEarnings : 0;
       const rawWalletBalance = typeof stats.walletBalance === "number" ? stats.walletBalance : 0;
 
-      const totalBusinessEarnings = Math.max(rawStatsEarnings, rawWalletBalance, calculatedEarningsFromBookings);
-      const walletBalance = Math.max(rawWalletBalance, rawStatsEarnings);
+      // Use the higher of API earnings vs wallet balance (wallet is the ground truth)
+      const totalBusinessEarnings = Math.max(rawStatsEarnings, rawWalletBalance);
+      const walletBalance = rawWalletBalance || rawStatsEarnings;
       const totalListings = typeof stats.totalListings === "number" ? stats.totalListings : listings.length;
       const totalBookings = typeof stats.totalBookings === "number" ? stats.totalBookings : bookings.length;
 

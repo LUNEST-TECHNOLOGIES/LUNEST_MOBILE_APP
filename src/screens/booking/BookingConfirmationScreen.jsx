@@ -496,26 +496,33 @@ const BookingConfirmationScreen = () => {
   const propertyName = booking?.listing?.propertyName || booking?.listing?.title || booking?.propertyName || params.propertyName || "-";
   const propertyAddress = (() => {
     const listing = booking?.listing;
-    const isConfirmed = ["confirmed", "ongoing"].includes(statusLower);
-    if (isConfirmed && listing) {
+    if (listing) {
+      // Try flat string address field (most common in this schema)
       if (typeof listing.address === "string" && listing.address.trim()) {
-        const parts = [listing.address, listing.city, listing.state, listing.country].filter(Boolean);
+        const parts = [listing.address, listing.city, listing.state, listing.country].filter(Boolean).filter(x => x && x.trim());
         return parts.join(", ");
       }
+      // Try nested address object
       if (typeof listing.address === "object" && listing.address) {
         const parts = [
           listing.address.streetAddress || listing.address.address || listing.address.street,
-          listing.address.neighborhood || listing.address.city || listing.city,
+          listing.address.neighborhood || listing.address.lga || listing.address.area || listing.address.city || listing.city,
           listing.address.state || listing.state,
           listing.address.country || listing.country
-        ].filter(Boolean);
+        ].filter(Boolean).filter(x => x && x.trim());
         if (parts.length > 0) return parts.join(", ");
       }
-      if (listing.propertyLocation?.fullAddress) return listing.propertyLocation.fullAddress;
-      if (listing.fullAddress) return listing.fullAddress;
+      // Try propertyLocation.fullAddress
+      if (listing.propertyLocation?.fullAddress && listing.propertyLocation.fullAddress.trim()) {
+        return listing.propertyLocation.fullAddress;
+      }
+      // Try flat city + state at minimum
+      if (listing.city || listing.state) {
+        const parts = [listing.city, listing.state, listing.country].filter(Boolean).filter(x => x && x.trim());
+        if (parts.length > 0) return parts.join(", ");
+      }
     }
-    if (listing?.city && listing?.state) return `${listing.city}, ${listing.state}`;
-    return booking?.location || params.location || "Full address on file";
+    return params.location || booking?.location || "Address unavailable";
   })();
 
   // ── Step 4: Pricing & Fees ──
@@ -1911,7 +1918,7 @@ const BookingConfirmationScreen = () => {
                 </View>
 
                 {booking.extensions.map((ext, idx) => {
-                  const isHostMode = isHost;
+                  const isHostMode = isHostView;
                   const displayTotal = isHostMode ? (ext.hostEarnings || 0) : (ext.guestTotal || 0);
                   return (
                     <View

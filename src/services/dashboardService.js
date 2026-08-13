@@ -39,16 +39,17 @@ class DashboardService {
       ]);
 
       // Handle results gracefully
-      const stats = statsResult.status === 'fulfilled' ? statsResult.value.body : { totalListings: 0, totalBookings: 0, totalEarnings: 0, walletBalance: 0 };
-      const listings = listingsResult.status === 'fulfilled' ? listingsResult.value.listings || [] : [];
-      const bookings = bookingsResult.status === 'fulfilled' ? bookingsResult.value.bookings || [] : [];
+      const statsRes = statsResult.status === 'fulfilled' ? statsResult.value : null;
+      const stats = (statsRes && statsRes.body) ? statsRes.body : (statsRes && statsRes.data) ? statsRes.data : (statsRes || {});
+      const listings = listingsResult.status === 'fulfilled' ? (listingsResult.value?.listings || listingsResult.value || []) : [];
+      const bookings = bookingsResult.status === 'fulfilled' ? (bookingsResult.value?.bookings || bookingsResult.value || []) : [];
       const userProfile = userProfileResult.status === 'fulfilled' ? (userProfileResult.value?.data || userProfileResult.value || {}) : {};
 
       // Host-specific stats from backend
-      const totalListings = stats.totalListings;
-      const totalBookings = stats.totalBookings;
-      const totalBusinessEarnings = stats.totalEarnings;
-      const walletBalance = stats.walletBalance;
+      const totalListings = stats.totalListings || 0;
+      const totalBookings = stats.totalBookings || 0;
+      const totalBusinessEarnings = stats.totalEarnings || 0;
+      const walletBalance = stats.walletBalance || 0;
 
       // Filter bookings for UI displays
       const confirmedBookings = bookings.filter((b) => {

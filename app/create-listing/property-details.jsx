@@ -196,24 +196,28 @@ const PropertyDetails = () => {
   // Load draft data on mount
   const isInitialized = useRef(false);
   useEffect(() => {
-    if (draftData && !isInitialized.current) {
-      setPropertyTitle(draftData.propertyTitle || "");
-      setRentalPurpose(draftData.rentalPurpose || null);
-      setFurnishing(draftData.furnishing || null);
-      setBedrooms(draftData.bedrooms || 0);
-      setBathrooms(draftData.bathrooms || 0);
-      setGuestCapacity(draftData.guestCapacity || 0);
-      setTitleType(draftData.titleType || "");
-      setPropertyHighlight(draftData.propertyHighlight || "");
-      setRoomSizes(draftData.roomSizes?.join(", ") || "");
-      setTotalSquareFootage(draftData.totalSquareFootage || "");
-      setUsageType(draftData.usageType || "");
-      setSittingRooms(draftData.sittingRooms || 0);
-      setLounges(draftData.lounges || 0);
-      setWorkspaces(draftData.workspaces || 0);
-      isInitialized.current = true;
+    if ((draftData || Object.keys(params).length > 0) && !isInitialized.current) {
+      const data = draftData || {};
+      setPropertyTitle(data.propertyTitle || params.propertyTitle || "");
+      setRentalPurpose(data.rentalPurpose || data.purpose || params.rentalPurpose || params.purpose || null);
+      setFurnishing(data.furnishing || params.furnishing || null);
+      setBedrooms(Number(data.bedrooms || params.bedrooms || 0));
+      setBathrooms(Number(data.bathrooms || params.bathrooms || 0));
+      setGuestCapacity(Number(data.guestCapacity || params.guestCapacity || 0));
+      setTitleType(data.titleType || params.titleType || "");
+      setPropertyHighlight(data.propertyHighlight || params.propertyHighlight || data.description || "");
+      setRoomSizes(Array.isArray(data.roomSizes) ? data.roomSizes.join(", ") : (data.roomSizes || params.roomSizes || ""));
+      setTotalSquareFootage(data.totalSquareFootage || params.totalSquareFootage || "");
+      setUsageType(data.usageType || params.usageType || "");
+      setSittingRooms(Number(data.sittingRooms || params.sittingRooms || 0));
+      setLounges(Number(data.lounges || params.lounges || 0));
+      setWorkspaces(Number(data.workspaces || params.workspaces || 0));
+      
+      if (Object.keys(data).length > 0) {
+        isInitialized.current = true;
+      }
     }
-  }, [draftData]);
+  }, [draftData, params]);
 
   // Debounce the draft save to prevent input lag
   const debouncedSaveDraft = useCallback(

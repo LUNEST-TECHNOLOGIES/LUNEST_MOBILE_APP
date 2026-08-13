@@ -46,6 +46,7 @@ import bookingService from "../../services/bookingService";
 import configService from "../../services/configService";
 import { downloadFile, saveRefAsImage } from "../../utils/downloadUtils";
 import { resolveImageUrlSync } from "../../utils/imageUtils";
+import { format } from "date-fns";
 
 const logoImage = require("../../assets/images/LUNEST PNG 1 1.png"); // New Import
 

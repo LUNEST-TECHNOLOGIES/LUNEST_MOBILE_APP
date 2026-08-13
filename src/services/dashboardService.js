@@ -207,8 +207,16 @@ class DashboardService {
           userName,
           location: `${location}`,
           plan,
-          totalEarnings: totalBusinessEarnings, // Business earnings from bookings
+          totalEarnings: totalBusinessEarnings, // Business earnings from completed bookings
           walletBalance, // Actual wallet balance
+          onHoldEarnings: stats.onHoldEarnings || 0,
+          onHoldCaution: stats.onHoldCaution || 0,
+          onHoldPlatformFee: stats.onHoldPlatformFee || 0,
+          onHoldVat: stats.onHoldVat || 0,
+          pendingBalance: stats.pendingBalance || ((stats.onHoldEarnings || 0) + (stats.onHoldCaution || 0)),
+          pendingBalanceLabel: stats.pendingBalanceLabel || "Total On Hold:",
+          hostRating: stats.hostRating || 0,
+          hostRatingCount: stats.hostRatingCount || 0,
           totalBookings,
           totalListings,
           upcomingBookings,

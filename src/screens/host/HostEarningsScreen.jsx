@@ -167,14 +167,13 @@ const HostEarningsScreen = () => {
         startDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
       }
 
-      let txnUrl = `${baseURL}/v1/my-transactions?limit=50`;
-      if (startDate) {
-        txnUrl += `&startDate=${startDate.toISOString()}&endDate=${now.toISOString()}`;
-      }
+      // Fetch wallet, transactions, and host dashboard stats in parallel
+      const statsUrl = `${baseURL}/notifications/host/dashboard-stats`;
+      const walletUrl = `${baseURL}/wallets/me`;
+      const txnUrl = `${baseURL}/transactions?limit=100`;
 
-      // Fetch wallet and transactions in parallel
-      const [walletRes, txnRes] = await Promise.all([
-        fetch(`${baseURL}/v1/wallet`, {
+      const [walletRes, txnRes, statsRes] = await Promise.all([
+        fetch(walletUrl, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -189,7 +188,20 @@ const HostEarningsScreen = () => {
             Authorization: `Bearer ${token}`,
           },
         }),
+        fetch(statsUrl, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }),
       ]);
+
+      let statsData = {};
+      if (statsRes.ok) {
+        const statsJson = await statsRes.json();
+        statsData = statsJson.body || statsJson.data || {};
+      }
 
       // Process wallet data
       if (walletRes.ok) {
@@ -197,8 +209,8 @@ const HostEarningsScreen = () => {
         const wallet = walletJson.body || walletJson.data || {};
         console.log("[HostEarnings] Wallet data:", wallet);
         setWalletData({
-          availableBalance: parseFloat(wallet.availableBalance) || 0,
-          pendingBalance: parseFloat(wallet.pendingBalance) || 0,
+          availableBalance: parseFloat(wallet.availableBalance || statsData.walletBalance) || 0,
+          pendingBalance: parseFloat(wallet.pendingBalance || statsData.pendingBalance) || 0,
           inflow: parseFloat(wallet.inflow) || 0,
           outflow: parseFloat(wallet.outflow) || 0,
         });
@@ -218,6 +230,12 @@ const HostEarningsScreen = () => {
             .map((txn) => ({
               ...txn,
               displayType: txn.category || txn.type,
+              id: txn._id || txn.reference,
+              title: txn.description || txn.category || "Transaction",
+              date: txn.createdAt || txn.timestamp || new Date().toISOString(),
+              formattedAmount: `${txn.type === "DEBIT" ? "-" : "+"} ₦${(
+                txn.amount || 0
+              ).toLocaleString()}`,
               timestamp: txn.createdAt || txn.timestamp,
               amount: parseFloat(txn.amount) || 0,
               status: txn.status || "COMPLETED",

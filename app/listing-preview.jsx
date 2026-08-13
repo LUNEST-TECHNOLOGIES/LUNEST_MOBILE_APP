@@ -395,6 +395,8 @@ const ListingPreview = () => {
         </View>
       </SafeAreaView>
     );
+  }
+
   const isDraft = (listingData?.status && listingData.status.toUpperCase() === "DRAFT") || params.status === "DRAFT" || params.isDraft === "true";
 
   const handleEditDraft = () => {

@@ -309,13 +309,13 @@ const Photos = () => {
               // For web: compress the image using canvas and use the data URL
               console.log("🌐 [Photos] Processing web image...");
               const compressionResult =
-                await imageCompressionService.compressImage(asset.uri, 10);
+                await imageCompressionService.compressImage(asset.uri, 2);
               finalUri = compressionResult.uri;
               console.log("✅ [Photos] Web image compressed");
             } else {
               // For native: compress and copy to permanent storage
               const compressionResult =
-                await imageCompressionService.compressImage(asset.uri, 10);
+                await imageCompressionService.compressImage(asset.uri, 2);
               const compressedUri = compressionResult.uri;
 
               const fileName = `listing_photo_${Date.now()}_${Math.random().toString(36).substring(7)}.jpg`;

@@ -413,11 +413,24 @@ const ListingPreview = () => {
           !listingData.images ||
           listingData.images.length === 0 ||
           !listingData.images.some((img) => img) ? (
-            <Image
-              style={[styles.image, { width: screenWidth }]}
-              source={require("../src/assets/images/prop_image.png")}
-              resizeMode="cover"
-            />
+            <View
+              style={[
+                styles.image,
+                {
+                  width: screenWidth,
+                  height: "100%",
+                  backgroundColor: "#0F172A",
+                  alignItems: "center",
+                  justifyContent: "center",
+                },
+              ]}
+            >
+              <Image
+                style={{ width: screenWidth, height: "100%" }}
+                source={require("../src/assets/images/black_placeholder.png")}
+                resizeMode="cover"
+              />
+            </View>
           ) : (
             <ScrollView
               horizontal

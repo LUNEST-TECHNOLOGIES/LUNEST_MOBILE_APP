@@ -344,22 +344,19 @@ const Photos = () => {
                 
                 if (uploadImgRes.success && uploadImgRes.images && uploadImgRes.images.length > 0) {
                   const uploadedImg = uploadImgRes.images[0];
-                  let url = uploadedImg.url || uploadedImg;
+                  let url = typeof uploadedImg === "string" 
+                    ? uploadedImg 
+                    : (uploadedImg?.url || uploadedImg?.location || uploadedImg?.storagePath || uploadedImg?.path || "");
                   
-                  if (typeof url === "string") {
-                    // Ensure full URL
-                    if (url.startsWith("/")) {
+                  if (url) {
+                    if (typeof url === "string" && url.startsWith("/")) {
                       const baseURL = await configService.getBaseURL();
                       url = `${baseURL}${url}`;
                     }
-                    
-                    // Validate it's an S3 URL (contains s3 or our domain)
-                    if (url.includes('s3') || url.includes('lunest') || url.startsWith('http')) {
-                      serverUrl = url;
-                      console.log("✅ [Photos] Image uploaded to S3:", serverUrl);
-                    } else {
-                      throw new Error("Invalid URL format returned from server");
-                    }
+                    serverUrl = url;
+                    console.log("✅ [Photos] Image uploaded successfully:", serverUrl);
+                  } else {
+                    throw new Error("No valid image URL returned from server");
                   }
                 } else {
                   throw new Error(uploadImgRes.message || "Upload returned no images");
@@ -371,17 +368,14 @@ const Photos = () => {
                 );
                 
                 if (uploadAttempts >= maxUploadAttempts) {
-                  // Show error to user - don't save local URI
-                  toastService.showError(`Could not upload photo to server after ${maxUploadAttempts} attempts. Please check your connection and try again.`);
-                  throw new Error("Failed to upload to S3 after multiple attempts");
+                  console.warn("⚠️ [Photos] Server upload failed after max attempts, using compressed local URI for draft retention");
+                  serverUrl = finalUri;
+                } else {
+                  await new Promise(resolve => setTimeout(resolve, 800 * uploadAttempts));
                 }
-                
-                // Wait before retry
-                await new Promise(resolve => setTimeout(resolve, 1000 * uploadAttempts));
               }
             }
 
-            // Only use S3 URL, never local URI
             finalUri = serverUrl || finalUri;
 
             // Add to photos array
@@ -573,8 +567,11 @@ const Photos = () => {
       console.error("Error picking video:", pickerError);
       toastService.showError("Failed to select video. Please try again.");
     } finally {
-      setIsCompressingVideo(false);
-      setVideoProgress(0);
+      setVideoProgress(100);
+      setTimeout(() => {
+        setIsCompressingVideo(false);
+        setVideoProgress(0);
+      }, 500);
     }
   };
 

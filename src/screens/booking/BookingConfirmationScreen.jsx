@@ -135,7 +135,7 @@ const BookingConfirmationScreen = () => {
   const [showCautionActionModal, setShowCautionActionModal] = useState(false);
   const [cautionActionType, setCautionActionType] = useState("RELEASE"); // "RELEASE" or "DISPUTE"
   const [pendingCautionAction, setPendingCautionAction] = useState(null); // { action, reason }
-  
+
   // ── Stay Extension State ──
   const [showExtendStayModal, setShowExtendStayModal] = useState(false);
   const [isExtendingStay, setIsExtendingStay] = useState(false);
@@ -237,30 +237,30 @@ const BookingConfirmationScreen = () => {
       setIsExtendingStay(false);
     }
   };
-  
+
   // ── Derive Coupon Values from Params or Fetch ──
   const pBreakdown = booking?.pricingBreakdown;
-  
+
   // C) AUTO-CALCULATE COUPON DISCOUNT: If coupon is applied but discount is 0/missing, calculate it on-the-fly
   const rawCouponApplied = (params.couponApplied === "true") || !!(booking?.couponApplied?.code || booking?.couponCode);
   const rawCouponCode = params.couponCode || booking?.couponApplied?.code || booking?.couponCode || (rawCouponApplied ? "Applied" : "");
-  
+
   // Get discount from multiple sources and validate
   let rawCouponDiscount = parseFloat(params.couponDiscount) || booking?.couponApplied?.discountApplied || pBreakdown?.couponDiscount || 0;
-  
+
   // If coupon is applied but discount is 0 or doesn't match expected value, recalculate
   let calculatedDiscount = rawCouponDiscount;
   const serviceBase = (pBreakdown?.rentFee || 0) + (pBreakdown?.serviceCharge || 0); // EXCLUDE caution fee from discount base
   const totalBaseBeforeDiscount = serviceBase + (pBreakdown?.securityDeposit || 0);
   const couponValue = booking?.couponApplied?.value || booking?.couponValue || 0;
-  
+
   // Recalculate based on type (PERCENTAGE vs FIXED/AMOUNT)
   const couponTypeRaw = booking?.couponApplied?.type || (params.couponType) || 'PERCENTAGE';
-  
+
   if (rawCouponApplied && couponValue > 0 && serviceBase > 0) {
-    const expectedDiscount = couponTypeRaw === 'PERCENTAGE' 
-        ? Math.round((serviceBase * couponValue) / 100)
-        : couponValue;
+    const expectedDiscount = couponTypeRaw === 'PERCENTAGE'
+      ? Math.round((serviceBase * couponValue) / 100)
+      : couponValue;
     // Use calculated if raw is 0 or differs significantly
     if (rawCouponDiscount === 0 || Math.abs(rawCouponDiscount - expectedDiscount) > serviceBase * 0.01) {
       calculatedDiscount = expectedDiscount;
@@ -273,7 +273,7 @@ const BookingConfirmationScreen = () => {
       });
     }
   }
-  
+
   // If we have a discounted subtotal but no discount amount, calculate discount from that
   if (calculatedDiscount === 0 && pBreakdown?.discountedSubtotal > 0 && totalBaseBeforeDiscount > 0) {
     const derivedDiscount = totalBaseBeforeDiscount - pBreakdown.discountedSubtotal;
@@ -281,40 +281,40 @@ const BookingConfirmationScreen = () => {
       calculatedDiscount = Math.round(derivedDiscount);
     }
   }
-  
+
   const couponApplied = rawCouponApplied || calculatedDiscount > 0;
   const couponCode = rawCouponCode;
   const couponDiscount = calculatedDiscount;
-  
+
   // Ensure that if we forcefully recalculated the discount, we also recalculate the 
   // cascading fields (App Fee, VAT, Total) so the math tallies perfectly in the UI.
   const hasRecalculated = calculatedDiscount !== rawCouponDiscount && rawCouponDiscount > 0;
-  
+
   // Base values
   const baseRentFee = pBreakdown?.rentFee || booking?.amount || 0;
   const baseServiceCharge = pBreakdown?.serviceCharge || booking?.serviceCharge || 0;
   const baseSecurityDeposit = pBreakdown?.securityDeposit || booking?.securityDeposit || 0;
-  
+
   // Recalculated values if needed
   // Calculate display values safely to prevent negative numbers
   const taxableSubtotal = baseRentFee + baseServiceCharge;
   const safeCouponDiscount = Math.min(couponDiscount, taxableSubtotal);
   const displayDiscountedTaxable = taxableSubtotal - safeCouponDiscount;
   const displayAfterCoupon = displayDiscountedTaxable + baseSecurityDeposit;
-  
+
   const guestFeePercent = pBreakdown?.guestFeePercent || 5;
   const vatPercent = pBreakdown?.vatPercent || 7.5;
-  
+
   const displayGuestFee = hasRecalculated ? Math.round((displayAfterCoupon * guestFeePercent) / 100) : (pBreakdown?.guestFee || 0);
   const displayGuestVat = hasRecalculated ? Math.round((displayGuestFee * vatPercent) / 100) : (pBreakdown?.guestVat || 0);
   const displayTotal = hasRecalculated ? (displayAfterCoupon + displayGuestFee + displayGuestVat) : (pBreakdown?.guestTotal || 0);
-  
+
   const subtotalBeforeDiscount = parseFloat(params.subtotalBeforeDiscount) || booking?.subtotalBeforeDiscount || pBreakdown?.subtotalBeforeCoupon || totalBaseBeforeDiscount || 0;
-  
+
   // Use stored coupon value from booking data, not calculated from discount amount
   const couponType = booking?.couponApplied?.type || (params.couponType) || (calculatedDiscount > 0 ? 'FIXED' : null);
   const storedCouponValue = booking?.couponApplied?.value || booking?.couponValue || 0;
-  
+
   // ONLY show percentage if the type is explicitly PERCENTAGE
   const couponPercentage = couponType === 'PERCENTAGE' ? storedCouponValue : 0;
   const isCouponFullCoverage = couponDiscount > 0 && subtotalBeforeDiscount > 0 && couponDiscount >= subtotalBeforeDiscount;
@@ -390,7 +390,7 @@ const BookingConfirmationScreen = () => {
     params.reserveAndPayLater === "true" ||
     (booking?.status || "").toLowerCase() === "reserved" ||
     (booking?.status || "").toLowerCase() === "pending_payment";
-    
+
   // 10 minutes (600s) for PENDING_PAYMENT, 1 hour (3600s) for standard RESERVED
   const countdownTime = statusLower === "pending_payment" ? 600 : (parseInt(params.countdownTime) || 3600);
 
@@ -402,7 +402,7 @@ const BookingConfirmationScreen = () => {
     authService
       .getUserData()
       .then((data) => setUserData(data))
-      .catch(() => {});
+      .catch(() => { });
 
     if (bookingId) {
       setLoading(true);
@@ -414,33 +414,33 @@ const BookingConfirmationScreen = () => {
   const bookingType = val("bookingType", "bookingType");
   const guests = val("guests", "guests", "1");
   const paymentMethod = val("paymentMethod", "paymentMethod");
-  
+
   // ── Step 2: Date Formatting (checkIn/checkOut) ──
   const checkIn = booking?.checkIn
     ? (() => {
-        try {
-          let date = new Date(booking.checkIn);
-          if (isNaN(date.getTime())) {
-            const isoMatch = booking.checkIn.toString().match(/(\d{4})-(\d{2})-(\d{2})/);
-            if (isoMatch) date = new Date(parseInt(isoMatch[1]), parseInt(isoMatch[2]) - 1, parseInt(isoMatch[3]));
-          }
-          if (isNaN(date.getTime())) return "Invalid Date";
-          const dateStr = date.toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" });
-          const timeStr = booking?.listing?.checkInTime || '02:00 PM – 04:00 PM';
-          return `${dateStr} @ ${timeStr}`;
-        } catch (error) { return "Date Error"; }
-      })()
+      try {
+        let date = new Date(booking.checkIn);
+        if (isNaN(date.getTime())) {
+          const isoMatch = booking.checkIn.toString().match(/(\d{4})-(\d{2})-(\d{2})/);
+          if (isoMatch) date = new Date(parseInt(isoMatch[1]), parseInt(isoMatch[2]) - 1, parseInt(isoMatch[3]));
+        }
+        if (isNaN(date.getTime())) return "Invalid Date";
+        const dateStr = date.toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" });
+        const timeStr = booking?.listing?.checkInTime || '02:00 PM – 04:00 PM';
+        return `${dateStr} @ ${timeStr}`;
+      } catch (error) { return "Date Error"; }
+    })()
     : params.checkIn || "-";
-    
+
   const isCheckInArrival = (() => {
     if (!booking?.checkIn) return false;
     try {
       const checkInDate = new Date(booking.checkIn);
       const now = new Date();
-      
+
       const checkInReset = new Date(checkInDate.getFullYear(), checkInDate.getMonth(), checkInDate.getDate());
       const nowReset = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      
+
       return nowReset >= checkInReset;
     } catch {
       return false;
@@ -454,7 +454,7 @@ const BookingConfirmationScreen = () => {
       const today = new Date();
       const checkInReset = new Date(checkInDate.getFullYear(), checkInDate.getMonth(), checkInDate.getDate());
       const todayReset = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-      
+
       return todayReset.getTime() === checkInReset.getTime();
     } catch {
       return false;
@@ -478,23 +478,23 @@ const BookingConfirmationScreen = () => {
 
   const checkOut = booking?.checkOut
     ? (() => {
-        try {
-          let date = new Date(booking.checkOut);
-          if (isNaN(date.getTime())) {
-            const isoMatch = booking.checkOut.toString().match(/(\d{4})-(\d{2})-(\d{2})/);
-            if (isoMatch) date = new Date(parseInt(isoMatch[1]), parseInt(isoMatch[2]) - 1, parseInt(isoMatch[3]));
-          }
-          if (isNaN(date.getTime())) return "Invalid Date";
-          const dateStr = date.toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" });
-          const timeStr = booking?.listing?.checkOutTime || '11:00 AM – 12:00 PM';
-          return `${dateStr} @ ${timeStr}`;
-        } catch (error) { return "Date Error"; }
-      })()
+      try {
+        let date = new Date(booking.checkOut);
+        if (isNaN(date.getTime())) {
+          const isoMatch = booking.checkOut.toString().match(/(\d{4})-(\d{2})-(\d{2})/);
+          if (isoMatch) date = new Date(parseInt(isoMatch[1]), parseInt(isoMatch[2]) - 1, parseInt(isoMatch[3]));
+        }
+        if (isNaN(date.getTime())) return "Invalid Date";
+        const dateStr = date.toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" });
+        const timeStr = booking?.listing?.checkOutTime || '11:00 AM – 12:00 PM';
+        return `${dateStr} @ ${timeStr}`;
+      } catch (error) { return "Date Error"; }
+    })()
     : params.checkOut || "-";
-    
+
   // ── Step 3: Property Details ──
   const propertyName = booking?.listing?.propertyName || booking?.listing?.title || booking?.propertyName || params.propertyName || "-";
-  
+
   const propertyAddress = (() => {
     const isConfirmed = ["confirmed", "ongoing"].includes(statusLower);
     if (isConfirmed) {
@@ -512,7 +512,7 @@ const BookingConfirmationScreen = () => {
     if (listing?.city && listing?.state) return `${listing.city}, ${listing.state}`;
     return params.location || "-";
   })();
-  
+
   // ── Step 4: Pricing & Fees ──
   const rawTotal = booking?.totalAmount?.price ?? booking?.amount ?? (params.totalPaid ? parseFloat(params.totalPaid) : 0);
   const safeTotal = isNaN(rawTotal) ? 0 : rawTotal;
@@ -521,42 +521,42 @@ const BookingConfirmationScreen = () => {
   const securityDeposit = pBreakdown?.securityDeposit ?? Math.round(safeTotal * 0.025);
   const appCharge = pBreakdown?.totalGuestFee ?? pBreakdown?.guestFee ?? 0;
   const hostAppCharge = pBreakdown?.totalHostFee !== undefined ? pBreakdown.totalHostFee : Math.round(rentFee * 0.03);
-  
+
   // Use pricing breakdown guestTotal which already has coupon applied, or calculate
   const calculatedSubtotal = (pBreakdown?.rentFee || 0) + (pBreakdown?.serviceCharge || 0) + (pBreakdown?.securityDeposit || 0);
   const finalSubtotal = pBreakdown?.discountedSubtotal || (calculatedSubtotal - couponDiscount) || calculatedSubtotal;
   const guestTotal = pBreakdown?.guestTotal ?? (finalSubtotal + appCharge) ?? safeTotal;
-  
-  const totalAmount = booking?.totalAmount?.price !== undefined 
-    ? `₦${Number(booking.totalAmount.price).toLocaleString()}` 
-    : booking?.total !== undefined 
-      ? `₦${Number(booking.total).toLocaleString()}` 
-      : params.totalPaid !== undefined 
-        ? `₦${Number(params.totalPaid).toLocaleString()}` 
+
+  const totalAmount = booking?.totalAmount?.price !== undefined
+    ? `₦${Number(booking.totalAmount.price).toLocaleString()}`
+    : booking?.total !== undefined
+      ? `₦${Number(booking.total).toLocaleString()}`
+      : params.totalPaid !== undefined
+        ? `₦${Number(params.totalPaid).toLocaleString()}`
         : "-";
-        
+
   const refCode = booking?.referenceCode || booking?.refCode || params.bookingRefCode || booking?._id || "-";
-  
+
   // ── Step 5: User & Views ──
   const { currentMode } = useUserMode();
   const currentUserId = userData?._id || userData?.id;
-  
+
   // Logic to determine if user is the Guest
-  const isGuest = currentUserId && booking?.bookedBy && 
-    ((typeof booking.bookedBy === "string" && booking.bookedBy === currentUserId) || 
-     booking.bookedBy?._id === currentUserId || 
-     booking.bookedBy?.id === currentUserId);
+  const isGuest = currentUserId && booking?.bookedBy &&
+    ((typeof booking.bookedBy === "string" && booking.bookedBy === currentUserId) ||
+      booking.bookedBy?._id === currentUserId ||
+      booking.bookedBy?.id === currentUserId);
 
   // Logic to determine if user should see the Host View
   // 1. Must NOT be the guest
   // 2. Must be in HOST mode OR be the actual host of this booking
-  const isActualHost = currentUserId && booking?.listing?.host && 
-    ((typeof booking.listing?.host === "string" && booking.listing.host === currentUserId) || 
-     booking.listing?.host?._id === currentUserId ||
-     booking.listing?.host?.id === currentUserId);
+  const isActualHost = currentUserId && booking?.listing?.host &&
+    ((typeof booking.listing?.host === "string" && booking.listing.host === currentUserId) ||
+      booking.listing?.host?._id === currentUserId ||
+      booking.listing?.host?.id === currentUserId);
 
   const isHostView = booking && !isGuest && (currentMode === "HOST" || isActualHost);
-  
+
   // ── Step 6: Payment Details ──
   const displayPaymentMethod = (() => {
     if (couponApplied && paymentMethod === "Coupon") return "Coupon Full Coverage";
@@ -564,7 +564,7 @@ const BookingConfirmationScreen = () => {
     const methodMap = { CARD: "Card", WALLET: "Wallet", PAYSTACK: "Card (Paystack)", Coupon: "Coupon Full Coverage" };
     return methodMap[paymentMethod] || paymentMethod;
   })();
-  
+
   // ── Step 7: Logging ──
   console.log('🔍 [BookingConfirmation] Final Data:', {
     bookingId,
@@ -594,7 +594,7 @@ const BookingConfirmationScreen = () => {
   useEffect(() => {
     if (params.isPending === "true" && bookingId && statusLower === "pending_payment") {
       console.log("🔄 [BookingConfirmation] Auto-triggering recovery for pending booking...");
-      
+
       // We can't directly call the button's internal state, so we simulate the verification
       // using the same logic the button uses, but via the UI modal for feedback.
       const triggerRecovery = async () => {
@@ -608,9 +608,9 @@ const BookingConfirmationScreen = () => {
         try {
           // Add a small delay to allow webhook processing if possible
           await new Promise(resolve => setTimeout(resolve, 1500));
-          
+
           const result = await paymentService.recoverBooking(bookingId);
-          
+
           if (result.success && result.booking?.status === 'CONFIRMED') {
             setDownloadModalState({
               visible: true,
@@ -619,7 +619,7 @@ const BookingConfirmationScreen = () => {
               message: 'Your booking has been successfully confirmed!'
             });
             await fetchBookingData();
-            
+
             setTimeout(() => {
               setDownloadModalState(prev => ({ ...prev, visible: false }));
               // Clear the isPending param to prevent re-triggering on refresh
@@ -628,12 +628,12 @@ const BookingConfirmationScreen = () => {
           } else {
             // If still pending, just close the modal and let the user use the manual button if they wish
             // but show a hint that it might still be processing
-            setDownloadModalState(prev => ({ 
-              ...prev, 
+            setDownloadModalState(prev => ({
+              ...prev,
               type: 'loading',
               message: 'Payment still processing. We will keep checking in the background.'
             }));
-            
+
             setTimeout(() => {
               setDownloadModalState(prev => ({ ...prev, visible: false }));
             }, 2000);
@@ -655,7 +655,7 @@ const BookingConfirmationScreen = () => {
 
     if (isPending && bookingId && booking) {
       console.log(`[BookingConfirmation] Starting status polling for ${bookingId} (Current: ${statusLower})`);
-      
+
       pollingInterval = setInterval(async () => {
         try {
           const result = await bookingService.fetchBookingById(bookingId);
@@ -664,7 +664,7 @@ const BookingConfirmationScreen = () => {
             if (newStatus !== statusLower) {
               console.log(`[BookingConfirmation] Status changed: ${statusLower} -> ${newStatus}`);
               setBooking(result.booking);
-              
+
               // If it's now confirmed, we can stop polling
               if (newStatus === "confirmed" || newStatus === "completed") {
                 clearInterval(pollingInterval);
@@ -685,7 +685,7 @@ const BookingConfirmationScreen = () => {
       }
     };
   }, [bookingId, statusLower, !!booking]);
-  
+
   // Status badge color
   const statusColors = {
     confirmed: { bg: "rgba(49, 235, 61, 0.3)", text: "#2e7d32" },
@@ -696,11 +696,11 @@ const BookingConfirmationScreen = () => {
     reserved: { bg: "rgba(33, 150, 243, 0.15)", text: "#1976d2" },
     expired: { bg: "rgba(244, 67, 54, 0.1)", text: "#c62828" },
     failed: { bg: "rgba(244, 67, 54, 0.2)", text: "#c62828" },
-     ongoing: { bg: "rgba(156, 39, 176, 0.15)", text: "#7b1fa2" },
-     pending_payment: { bg: "rgba(255, 193, 7, 0.2)", text: "#f57f17" },
-     disputed: { bg: "rgba(255, 191, 0, 0.2)", text: "#FFBF00" },
-     caution_disputed: { bg: "rgba(239, 68, 68, 0.15)", text: "#DC2626" },
-   };
+    ongoing: { bg: "rgba(156, 39, 176, 0.15)", text: "#7b1fa2" },
+    pending_payment: { bg: "rgba(255, 193, 7, 0.2)", text: "#f57f17" },
+    disputed: { bg: "rgba(255, 191, 0, 0.2)", text: "#FFBF00" },
+    caution_disputed: { bg: "rgba(239, 68, 68, 0.15)", text: "#DC2626" },
+  };
 
   // Status-specific icon for the hero banner
   const getStatusIcon = () => {
@@ -741,8 +741,8 @@ const BookingConfirmationScreen = () => {
         return "Enjoy Your Stay!";
       case "cancelled":
         // Show Refunded if guest received a refund
-        return (isGuest && booking?.guestRefundAmount > 0) || booking?.refundCouponCode 
-          ? "Your Booking is Refunded" 
+        return (isGuest && booking?.guestRefundAmount > 0) || booking?.refundCouponCode
+          ? "Your Booking is Refunded"
           : "Your Booking is Cancelled";
       case "pending_payment":
         return "Payment is Pending";
@@ -807,7 +807,7 @@ const BookingConfirmationScreen = () => {
   // ── Report Issue / Raise Dispute ──
   const handleReportIssue = async (reason) => {
     if (!bookingId || !reason.trim()) return;
-    
+
     setIsReportingIssue(true);
     try {
       const result = await bookingService.reportIssue(bookingId, reason);
@@ -815,7 +815,7 @@ const BookingConfirmationScreen = () => {
         setDisputeReason("");
         setShowDisputeModal(false);
         showToastMessage("Issue reported. This booking is now under review and funds have been locked.", TOAST_TYPE.SUCCESS);
-        
+
         // Refresh booking data to show DISPUTED status
         const fresh = await bookingService.fetchBookingById(bookingId);
         if (fresh?.success) setBooking(fresh.booking);
@@ -859,7 +859,7 @@ const BookingConfirmationScreen = () => {
   // ── Calculate Sliding Scale Refund Estimate for UI ──
   const getRefundEstimate = () => {
     if (!booking?.checkIn) return "Standard refund policy applies.";
-    
+
     const checkInDate = new Date(booking.checkIn);
     const now = new Date();
     const diffMs = checkInDate.getTime() - now.getTime();
@@ -905,7 +905,7 @@ const BookingConfirmationScreen = () => {
       } catch (logoError) {
         console.warn("[BookingConfirmation] Logo loading failed, proceeding without logo:", logoError.message);
       }
-      
+
       const cautionStatusText = (booking?.securityDepositResolution?.status || "HELD").replace(/_/g, " ");
       const cautionStatusGuestText = (booking?.securityDepositResolution?.status || "HELD/REFUNDABLE").replace(/_/g, " ");
 
@@ -943,36 +943,34 @@ const BookingConfirmationScreen = () => {
             <div class="row"><span class="label">Check in:</span><span class="value">${checkIn}</span></div>
             <div class="row"><span class="label">Check out:</span><span class="value">${checkOut}</span></div>
             <div class="row"><span class="label">Payment Method:</span><span class="value">${paymentMethod}</span></div>
-            ${
-              isHostView
-                ? `
+            ${isHostView
+          ? `
               <div class="row"><span class="label">Rent + Service Fee:</span><span class="value">₦${formatCurrency(rentFee)}</span></div>
               <div class="row"><span class="label">Host/Landlord Fee (incl. VAT):</span><span class="value">- ₦${formatCurrency(hostAppCharge)}</span></div>
               <div class="row"><span class="label">Caution Fee:</span><span class="value">₦${formatCurrency(securityDeposit)} (${cautionStatusText})</span></div>
               <div class="total-row"><span class="total-label">Your Earnings:</span><span class="total-value">₦${formatCurrency(rentFee - hostAppCharge)}</span></div>
             `
-                : `
+          : `
               <div class="row"><span class="label">Rent Fee:</span><span class="value">₦${formatCurrency(rentFee)}</span></div>
               <div class="row"><span class="label">Service Charge:</span><span class="value">₦${formatCurrency(serviceCharge)}</span></div>
               <div class="row"><span class="label">Caution Fee:</span><span class="value">₦${formatCurrency(securityDeposit)} (${cautionStatusGuestText})</span></div>
               ${couponApplied && safeCouponDiscount > 0 ? `
                 <div class="row"><span class="label" style="color: #2E7D32;">Discount (${couponCode})${couponPercentage > 0 ? ` (${couponPercentage}%)` : ""}:</span><span class="value" style="color: #2E7D32;">- ₦${formatCurrency(safeCouponDiscount)}</span></div>
               ` : ""}
-              ${
-                pBreakdown?.guestFee > 0
-                  ? `
+              ${pBreakdown?.guestFee > 0
+            ? `
                 <div class="row"><span class="label">App Charge:</span><span class="value">₦${formatCurrency(pBreakdown.guestFee)}</span></div>
                 <div class="row"><span class="label">VAT (7.5%):</span><span class="value">₦${formatCurrency(pBreakdown.guestVat)}</span></div>
               `
-                  : appCharge > 0
-                    ? `
+            : appCharge > 0
+              ? `
                 <div class="row"><span class="label">App Charge (incl. VAT):</span><span class="value">₦${formatCurrency(appCharge)}</span></div>
               `
-                    : ""
-              }
+              : ""
+          }
               <div class="total-row"><span class="total-label">Amount Paid:</span><span class="total-value">₦${formatCurrency(displayTotal || guestTotal)}</span></div>
             `
-            }
+        }
             <div class="row"><span class="label">Booking ref. code:</span><span class="value">${refCode}</span></div>
             <div class="footer">
                 <p>Lunest — You are Booked in Style!</p>
@@ -1002,14 +1000,14 @@ const BookingConfirmationScreen = () => {
       try {
         setIsCapturing(true);
         const { toPng } = require('html-to-image');
-        
+
         if (viewRef.current) {
           const dataUrl = await toPng(viewRef.current, {
             backgroundColor: "#FFFFFF",
             cacheBust: true,
             pixelRatio: 2,
           });
-          
+
           await saveRefAsImage(dataUrl, `Lunest-Booking-${refCode}.png`);
         } else {
           throw new Error("Capture reference not found");
@@ -1041,14 +1039,14 @@ const BookingConfirmationScreen = () => {
       setTimeout(async () => {
         try {
           let localUri;
-          
+
           if (Platform.OS === 'web') {
             const { toPng } = require('html-to-image');
             localUri = await toPng(viewRef.current, {
-                backgroundColor: "#FFFFFF",
-                cacheBust: true,
-                includeQueryParams: true,
-                pixelRatio: 2,
+              backgroundColor: "#FFFFFF",
+              cacheBust: true,
+              includeQueryParams: true,
+              pixelRatio: 2,
             });
           } else {
             localUri = await captureRef(viewRef, {
@@ -1056,9 +1054,9 @@ const BookingConfirmationScreen = () => {
               quality: 1,
             });
           }
-          
+
           await saveRefAsImage(localUri, `Booking_Confirmation_${refCode}.png`);
-          
+
           setDownloadModalState(prev => ({
             ...prev,
             visible: true,
@@ -1073,9 +1071,9 @@ const BookingConfirmationScreen = () => {
             visible: true,
             type: 'error',
             title: 'Capture Failed',
-            message: innerError?.message?.includes('CORS') 
-                ? 'Image server security (CORS) blocked the capture. Please contact support.'
-                : 'Failed to save the booking confirmation image.'
+            message: innerError?.message?.includes('CORS')
+              ? 'Image server security (CORS) blocked the capture. Please contact support.'
+              : 'Failed to save the booking confirmation image.'
           }));
         } finally {
           setIsCapturing(false);
@@ -1183,7 +1181,7 @@ const BookingConfirmationScreen = () => {
   const handleContinueToPayment = () => {
     // Collect all useful data from the existing booking object for the summary
     const guestsInfo = booking?.guests || {};
-    
+
     router.push({
       pathname: "/booking-summary",
       params: {
@@ -1236,7 +1234,7 @@ const BookingConfirmationScreen = () => {
     }
     try {
       setIsCancelling(true);
-      
+
       // Show processing modal
       setDownloadModalState({
         visible: true,
@@ -1244,7 +1242,7 @@ const BookingConfirmationScreen = () => {
         title: 'Cancelling Booking...',
         message: 'Processing your cancellation request. Please wait.'
       });
-      
+
       const result = await bookingService.updateBookingStatus(
         bookingId,
         "CANCELLED",
@@ -1253,19 +1251,19 @@ const BookingConfirmationScreen = () => {
           cancelNote: cancelNote.trim(),
         }
       );
-      
+
       if (result.success) {
         setShowCancelModal(false);
         setSelectedCancelReason(null);
         setCancelNote("");
-        
+
         // Update booking status in real-time
-        setBooking((prev) => ({ 
-          ...prev, 
+        setBooking((prev) => ({
+          ...prev,
           status: "CANCELLED",
           cancelledAt: new Date().toISOString()
         }));
-        
+
         // Hide processing modal and show success
         setDownloadModalState(prev => ({
           ...prev,
@@ -1273,15 +1271,15 @@ const BookingConfirmationScreen = () => {
           title: 'Booking Cancelled',
           message: 'Your booking has been cancelled successfully.'
         }));
-        
+
         // Show success toast
         showToastMessage("Booking cancelled successfully!", TOAST_TYPE.SUCCESS);
-        
+
         // Auto-hide the modal after 2 seconds
         setTimeout(() => {
           setDownloadModalState(prev => ({ ...prev, visible: false }));
         }, 2000);
-        
+
       } else {
         setDownloadModalState(prev => ({
           ...prev,
@@ -1309,7 +1307,7 @@ const BookingConfirmationScreen = () => {
       await Share.share({
         message: `Booking Confirmation\n\nProperty: ${propertyName}\nCheck-in: ${checkIn}\nCheck-out: ${checkOut}\nRef: ${refCode}\nStatus: ${status}`,
       });
-    } catch (_) {}
+    } catch (_) { }
   };
 
   // ───── Review Handlers ─────
@@ -1348,7 +1346,7 @@ const BookingConfirmationScreen = () => {
                 },
                 style: "cancel",
               },
-              { text: "OK", onPress: () => {} },
+              { text: "OK", onPress: () => { } },
             ],
           );
           uploadedImageUrls = [];
@@ -1406,7 +1404,7 @@ const BookingConfirmationScreen = () => {
       setCautionActionType(action === "DISPUTE" ? "DISPUTE" : "RELEASE");
       setPendingCautionAction({ action, reason });
       setShowCautionActionModal(true);
-      
+
       // If it was a dispute, we close the dispute input modal first
       if (action === "DISPUTE") {
         setShowCautionDisputeModal(false);
@@ -1546,26 +1544,28 @@ const BookingConfirmationScreen = () => {
           <View style={styles.statusRow}>
             <Text style={styles.statusLabel}>Booking Status</Text>
             <View
-              style={[styles.statusBadge, { backgroundColor: 
-                statusLower === 'cancelled' && ((isGuest && booking?.guestRefundAmount > 0) || booking?.refundCouponCode)
-                  ? statusColors.refunded.bg 
-                  : (statusLower === 'completed' && (booking?.cautionFeeStatus === 'DISPUTED' || booking?.securityDepositResolution?.status === 'DISPUTED')
+              style={[styles.statusBadge, {
+                backgroundColor:
+                  statusLower === 'cancelled' && ((isGuest && booking?.guestRefundAmount > 0) || booking?.refundCouponCode)
+                    ? statusColors.refunded.bg
+                    : (statusLower === 'completed' && (booking?.cautionFeeStatus === 'DISPUTED' || booking?.securityDepositResolution?.status === 'DISPUTED')
                       ? statusColors.caution_disputed.bg
                       : (statusLower === 'disputed' ? statusColors.disputed.bg : badgeColor.bg))
               }]}
             >
-              <Text style={[styles.statusText, { color: 
-                statusLower === 'cancelled' && ((isGuest && booking?.guestRefundAmount > 0) || booking?.refundCouponCode)
-                  ? statusColors.refunded.text 
-                  : (statusLower === 'completed' && (booking?.cautionFeeStatus === 'DISPUTED' || booking?.securityDepositResolution?.status === 'DISPUTED')
+              <Text style={[styles.statusText, {
+                color:
+                  statusLower === 'cancelled' && ((isGuest && booking?.guestRefundAmount > 0) || booking?.refundCouponCode)
+                    ? statusColors.refunded.text
+                    : (statusLower === 'completed' && (booking?.cautionFeeStatus === 'DISPUTED' || booking?.securityDepositResolution?.status === 'DISPUTED')
                       ? statusColors.caution_disputed.text
                       : (statusLower === 'disputed' ? statusColors.disputed.text : badgeColor.text))
               }]}>
                 {statusLower === 'cancelled' && ((isGuest && booking?.guestRefundAmount > 0) || booking?.refundCouponCode)
-                  ? 'Refunded' 
+                  ? 'Refunded'
                   : (statusLower === 'completed' && (booking?.cautionFeeStatus === 'DISPUTED' || booking?.securityDepositResolution?.status === 'DISPUTED')
-                      ? 'Caution Dispute'
-                      : (statusLower === 'disputed' ? 'Booking Dispute' : status))}
+                    ? 'Caution Dispute'
+                    : (statusLower === 'disputed' ? 'Booking Dispute' : status))}
               </Text>
             </View>
           </View>
@@ -1594,7 +1594,7 @@ const BookingConfirmationScreen = () => {
               )}
             </View>
           </ImageBackground>
- 
+
           {/* Payment Recovery Button - Only for PENDING_PAYMENT status (stuck payments) */}
           {statusLower === "pending_payment" && (booking?._id || booking?.id) && (
             <BookingRecoveryButton
@@ -1723,41 +1723,53 @@ const BookingConfirmationScreen = () => {
 
             {isHostView ? (
               // Host View: Show earnings and security deposit held
-              <>
-                <View style={[styles.detailRow, { marginBottom: 4 }]}>
-                  <Text style={styles.detailLabel}>Initial Booking Earnings:</Text>
-                  <Text style={styles.detailValue}>
-                    ₦{formatCurrency((pBreakdown?.rentFee || rentFee) - (pBreakdown?.hostFee || hostAppCharge))}
-                  </Text>
-                </View>
+              (() => {
+                const extEarnings = Array.isArray(booking?.extensions) 
+                  ? booking.extensions.reduce((sum, ext) => sum + (ext.hostEarnings || 0), 0) 
+                  : 0;
+                const totalHostEarnings = pBreakdown?.hostEarnings ?? (rentFee - hostAppCharge);
+                const initialHostEarnings = extEarnings > 0 && totalHostEarnings > extEarnings 
+                  ? (totalHostEarnings - extEarnings) 
+                  : ((pBreakdown?.rentFee || rentFee) - (pBreakdown?.hostFee || hostAppCharge));
 
-                {Array.isArray(booking?.extensions) && booking.extensions.length > 0 && (
-                  <View style={[styles.detailRow, { marginBottom: 4 }]}>
-                    <Text style={styles.detailLabel}>Stay Extension Earnings ({booking.extensions.length}):</Text>
-                    <Text style={styles.detailValue}>
-                      + ₦{formatCurrency(booking.extensions.reduce((sum, ext) => sum + (ext.hostEarnings || 0), 0))}
+                return (
+                  <>
+                    <View style={[styles.detailRow, { marginBottom: 4 }]}>
+                      <Text style={styles.detailLabel}>Initial Booking Earnings:</Text>
+                      <Text style={styles.detailValue}>
+                        ₦{formatCurrency(initialHostEarnings)}
+                      </Text>
+                    </View>
+
+                    {Array.isArray(booking?.extensions) && booking.extensions.length > 0 && (
+                      <View style={[styles.detailRow, { marginBottom: 4 }]}>
+                        <Text style={styles.detailLabel}>Stay Extension Earnings ({booking.extensions.length}):</Text>
+                        <Text style={styles.detailValue}>
+                          + ₦{formatCurrency(extEarnings)}
+                        </Text>
+                      </View>
+                    )}
+
+                    <View style={[styles.detailRow, { marginBottom: 4 }]}>
+                      <Text style={styles.detailLabel}>Caution Fee (Held in Escrow):</Text>
+                      <Text style={styles.detailValue}>
+                        ₦{formatCurrency(securityDeposit)}
+                      </Text>
+                    </View>
+
+                    <View style={styles.totalRow}>
+                      <Text style={styles.totalLabel}>Total Earnings (On Hold):</Text>
+                      <Text style={[styles.totalValue, { color: "#010135" }]}>
+                        ₦{formatCurrency(totalHostEarnings)}
+                      </Text>
+                    </View>
+
+                    <Text style={styles.escrowNote}>
+                      * Total earnings are held in escrow and will be released to your wallet 2 hours after guest check-in / check-out.
                     </Text>
-                  </View>
-                )}
-
-                <View style={[styles.detailRow, { marginBottom: 4 }]}>
-                  <Text style={styles.detailLabel}>Caution Fee (Held in Escrow):</Text>
-                  <Text style={styles.detailValue}>
-                    ₦{formatCurrency(securityDeposit)}
-                  </Text>
-                </View>
-
-                <View style={styles.totalRow}>
-                  <Text style={styles.totalLabel}>Total Earnings (On Hold):</Text>
-                  <Text style={[styles.totalValue, { color: "#010135" }]}>
-                    ₦{formatCurrency(pBreakdown?.hostEarnings ?? (rentFee - hostAppCharge))}
-                  </Text>
-                </View>
-
-                <Text style={styles.escrowNote}>
-                  * Total earnings are held in escrow and will be released to your wallet 2 hours after guest check-in / check-out.
-                </Text>
-              </>
+                  </>
+                );
+              })()
             ) : (
               // Guest View: Show all charges
               <>
@@ -1781,7 +1793,7 @@ const BookingConfirmationScreen = () => {
                     ₦{formatCurrency(securityDeposit)}
                   </Text>
                 </View>
-                
+
                 {/* Subtotal before coupon */}
                 <View style={[styles.detailRow, styles.breakdownRow, { marginTop: 4, paddingTop: 4, borderTopWidth: 1, borderTopColor: "#f0f0f0" }]}>
                   <Text style={[styles.detailLabel, { fontWeight: "600" }]}>Subtotal:</Text>
@@ -1789,7 +1801,7 @@ const BookingConfirmationScreen = () => {
                     ₦{formatCurrency(rentFee + serviceCharge + securityDeposit)}
                   </Text>
                 </View>
-                
+
                 {/* Coupon Discount Display */}
                 {couponApplied && couponDiscount > 0 && (
                   <>
@@ -1809,13 +1821,13 @@ const BookingConfirmationScreen = () => {
                         -₦{formatCurrency(safeCouponDiscount)}
                       </Text>
                     </View>
-                    
+
                     <View style={{ marginTop: 2, marginBottom: 8, paddingHorizontal: 4 }}>
                       <Text style={{ color: "#D32F2F", fontStyle: "italic", fontSize: 11, textAlign: 'right' }}>
                         * Coupon applies to Rent & Service only. Caution fee is preserved.
                       </Text>
                     </View>
-                    
+
                     {/* Show discounted subtotal if coupon applied */}
                     <View style={[styles.detailRow, styles.breakdownRow, { marginTop: 2 }]}>
                       <Text style={[styles.detailLabel, { fontWeight: "500", color: "#666" }]}>
@@ -1827,7 +1839,7 @@ const BookingConfirmationScreen = () => {
                     </View>
                   </>
                 )}
-                
+
                 {/* App Charge and VAT - calculated after coupon discount */}
                 {(pBreakdown?.guestFee !== undefined || hasRecalculated) ? (
                   <>
@@ -1862,7 +1874,7 @@ const BookingConfirmationScreen = () => {
                     </>
                   )
                 )}
-                
+
                 {/* Final Total / Amount Paid */}
                 <View style={[styles.totalRow, { marginTop: 8, paddingTop: 8, borderTopWidth: 2, borderTopColor: "#e0e0e0" }]}>
                   <Text style={[styles.totalLabel, { fontWeight: "700", fontSize: 16 }]}>
@@ -1872,7 +1884,7 @@ const BookingConfirmationScreen = () => {
                     ₦{formatCurrency(displayTotal)}
                   </Text>
                 </View>
-                
+
                 {!isHostView && (
                   <Text style={styles.escrowNote}>
                     * Caution fee is held securely in escrow and will be refunded after checkout, provided the host raises no disputes.
@@ -1944,7 +1956,7 @@ const BookingConfirmationScreen = () => {
                 <Text style={styles.detailValue} numberOfLines={1}>
                   {refCode}
                 </Text>
-                <TouchableOpacity 
+                <TouchableOpacity
                   onPress={async () => {
                     await Clipboard.setStringAsync(refCode);
                     showToastMessage("Booking reference copied!", TOAST_TYPE.SUCCESS);
@@ -1961,7 +1973,7 @@ const BookingConfirmationScreen = () => {
             {(statusLower === "ongoing" || statusLower === "confirmed") && !isHostView && (
               <View style={[styles.detailRow, { marginTop: 10 }]}>
                 <Text style={styles.detailLabel}>Payment Method:</Text>
-                <Text 
+                <Text
                   style={[
                     styles.detailValue,
                     couponApplied && { color: "#2E7D32", fontWeight: "600" }
@@ -1979,12 +1991,12 @@ const BookingConfirmationScreen = () => {
                   <Text style={styles.sectionTitle}>Host Contact Information</Text>
                 </View>
                 <View style={[styles.detailRow, { marginTop: 10 }]}>
-                    <View style={styles.hostInfoDetails}>
-                        <Text style={styles.detailLabel}>Host Name</Text>
-                        <Text style={styles.detailValue}>{booking?.listing?.host?.fullName || "Host"}</Text>
-                    </View>
+                  <View style={styles.hostInfoDetails}>
+                    <Text style={styles.detailLabel}>Host Name</Text>
+                    <Text style={styles.detailValue}>{booking?.listing?.host?.fullName || "Host"}</Text>
+                  </View>
                 </View>
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.callHostBtn}
                   onPress={() => {
                     const phone = booking?.listing?.host?.phoneNumber || booking?.listing?.host?.phone;
@@ -2071,7 +2083,7 @@ const BookingConfirmationScreen = () => {
                   name={
                     booking.securityDepositResolution.status ===
                       "RELEASE_TO_GUEST" ||
-                    booking.securityDepositResolution.status ===
+                      booking.securityDepositResolution.status ===
                       "RELEASED_TO_GUEST"
                       ? "checkmark-circle"
                       : "alert-circle"
@@ -2080,7 +2092,7 @@ const BookingConfirmationScreen = () => {
                   color={
                     booking.securityDepositResolution.status ===
                       "RELEASE_TO_GUEST" ||
-                    booking.securityDepositResolution.status ===
+                      booking.securityDepositResolution.status ===
                       "RELEASED_TO_GUEST"
                       ? "#22C55E"
                       : "#EF4444"
@@ -2093,18 +2105,18 @@ const BookingConfirmationScreen = () => {
                 {(booking.securityDepositResolution.status ===
                   "RELEASE_TO_GUEST" ||
                   booking.securityDepositResolution.status ===
-                    "RELEASED_TO_GUEST") &&
+                  "RELEASED_TO_GUEST") &&
                   (isHostView
                     ? `The caution fee of ₦${securityDeposit.toLocaleString()} has been released to the guest.`
                     : `Your caution fee of ₦${securityDeposit.toLocaleString()} has been released back to you.`)}
                 {(booking.securityDepositResolution.status ===
                   "RELEASE_TO_HOST" ||
                   booking.securityDepositResolution.status ===
-                    "RELEASED_TO_HOST" ||
+                  "RELEASED_TO_HOST" ||
                   booking.securityDepositResolution.status ===
-                    "RELEASE_TO_LANDLORD" ||
+                  "RELEASE_TO_LANDLORD" ||
                   booking.securityDepositResolution.status ===
-                    "RELEASED_TO_LANDLORD") &&
+                  "RELEASED_TO_LANDLORD") &&
                   (isHostView
                     ? `The caution fee of ₦${securityDeposit.toLocaleString()} was credited to you due to reported damages or issues.`
                     : `The caution fee of ₦${securityDeposit.toLocaleString()} was credited to the host due to reported damages or issues.`)}
@@ -2362,25 +2374,25 @@ const BookingConfirmationScreen = () => {
                 </Pressable>
               </>
             ) : statusLower === "failed" ? (
-                <>
-                  <Pressable
-                    style={[styles.primaryButton, styles.buttonFlex]}
-                    onPress={handleContinueToPayment}
-                  >
-                    <Text style={styles.primaryButtonText}>
-                      Retry Payment
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    style={[styles.outlineButton, styles.buttonFlex, { marginLeft: 10 }]}
-                    onPress={handleGoHome}
-                  >
-                    <Text style={styles.outlineButtonText}>Go Home</Text>
-                  </Pressable>
-                </>
-              ) : statusLower === "confirmed" ? (
-                <>
-                  {(isGuest || isHostView) && !booking?.guestCheckedIn && statusLower === "confirmed" ? (
+              <>
+                <Pressable
+                  style={[styles.primaryButton, styles.buttonFlex]}
+                  onPress={handleContinueToPayment}
+                >
+                  <Text style={styles.primaryButtonText}>
+                    Retry Payment
+                  </Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.outlineButton, styles.buttonFlex, { marginLeft: 10 }]}
+                  onPress={handleGoHome}
+                >
+                  <Text style={styles.outlineButtonText}>Go Home</Text>
+                </Pressable>
+              </>
+            ) : statusLower === "confirmed" ? (
+              <>
+                {(isGuest || isHostView) && !booking?.guestCheckedIn && statusLower === "confirmed" ? (
                   isCheckInArrival ? (
                     <Pressable
                       style={[styles.primaryButton, styles.buttonFlex, { backgroundColor: '#22C55E' }]}
@@ -2652,7 +2664,7 @@ const BookingConfirmationScreen = () => {
               <View style={styles.buttonStyle3Parent}>
                 <Pressable
                   style={[
-                    styles.buttonStyle3, 
+                    styles.buttonStyle3,
                     styles.modalButtonFlexBox,
                     !selectedCancelReason && styles.buttonStyle3Disabled
                   ]}

@@ -38,18 +38,27 @@ class DashboardService {
         authService.fetchProfile(),
       ]);
 
-      // Handle results gracefully
+      // Handle results gracefully with strict array type checks
       const statsRes = statsResult.status === 'fulfilled' ? statsResult.value : null;
       const stats = (statsRes && statsRes.body) ? statsRes.body : (statsRes && statsRes.data) ? statsRes.data : (statsRes || {});
-      const listings = listingsResult.status === 'fulfilled' ? (listingsResult.value?.listings || listingsResult.value || []) : [];
-      const bookings = bookingsResult.status === 'fulfilled' ? (bookingsResult.value?.bookings || bookingsResult.value || []) : [];
+
+      const rawListings = listingsResult.status === 'fulfilled' ? listingsResult.value : null;
+      const listings = Array.isArray(rawListings)
+        ? rawListings
+        : (Array.isArray(rawListings?.listings) ? rawListings.listings : (Array.isArray(rawListings?.data) ? rawListings.data : []));
+
+      const rawBookings = bookingsResult.status === 'fulfilled' ? bookingsResult.value : null;
+      const bookings = Array.isArray(rawBookings)
+        ? rawBookings
+        : (Array.isArray(rawBookings?.bookings) ? rawBookings.bookings : (Array.isArray(rawBookings?.data) ? rawBookings.data : []));
+
       const userProfile = userProfileResult.status === 'fulfilled' ? (userProfileResult.value?.data || userProfileResult.value || {}) : {};
 
-      // Host-specific stats from backend
-      const totalListings = stats.totalListings || 0;
-      const totalBookings = stats.totalBookings || 0;
-      const totalBusinessEarnings = stats.totalEarnings || 0;
-      const walletBalance = stats.walletBalance || 0;
+      // Host-specific stats from backend with strict fallback to actual array lengths
+      const totalListings = typeof stats.totalListings === "number" ? stats.totalListings : listings.length;
+      const totalBookings = typeof stats.totalBookings === "number" ? stats.totalBookings : bookings.length;
+      const totalBusinessEarnings = typeof stats.totalEarnings === "number" ? stats.totalEarnings : 0;
+      const walletBalance = typeof stats.walletBalance === "number" ? stats.walletBalance : 0;
 
       // Filter bookings for UI displays
       const confirmedBookings = bookings.filter((b) => {

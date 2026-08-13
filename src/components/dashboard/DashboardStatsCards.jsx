@@ -77,8 +77,9 @@ const RatingIcon = ({ size = 38 }) => (
 
 // Format currency with 2 decimal places
 const formatCurrency = (amount) => {
-  // Format with 2 decimal places
-  const formatted = amount.toFixed(2);
+  const num = typeof amount === "number" ? amount : parseFloat(amount || 0);
+  const validNum = isNaN(num) ? 0 : num;
+  const formatted = validNum.toFixed(2);
   return `₦${formatted.replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
 };
 

@@ -200,12 +200,18 @@ const BookingCard = ({
     guestId: booking.guestId, // Pass guestId directly to avoid email mismatch issues
   };
 
-  // Use local image or fallback to demo
+  // Use uploaded cover image or fallback to prop_image.png
   const getImageSource = () => {
-    if (!booking.propertyImage) return null;
-    const baseUrl = configService.getBaseURLSync();
-    const resolvedUrl = resolveImageUrlSync(booking.propertyImage, baseUrl);
-    return resolvedUrl ? { uri: resolvedUrl } : null;
+    let raw = booking.propertyImage || booking.listing?.photos?.[0] || booking.listing?.images?.[0] || booking.listing?.propertyImages?.[0] || booking.listing?.image;
+    if (typeof raw === "object" && raw) {
+      raw = raw.url || raw.uri || raw.path || null;
+    }
+    if (typeof raw === "string" && raw.trim()) {
+      const baseUrl = configService.getBaseURLSync();
+      const resolvedUrl = resolveImageUrlSync(raw, baseUrl);
+      if (resolvedUrl) return { uri: resolvedUrl };
+    }
+    return require("../../assets/images/prop_image.png");
   };
 
   return (

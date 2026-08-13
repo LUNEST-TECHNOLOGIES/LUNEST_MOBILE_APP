@@ -409,9 +409,16 @@ const ListingPreview = () => {
       >
         {/* Image Carousel */}
         <View style={[styles.imageSection, { height: screenWidth * 0.75 }]}>
-          {listingData.images &&
-          listingData.images.length > 0 &&
-          listingData.images.some((img) => img) ? (
+          {(listingData?.status && listingData.status.toUpperCase() === "DRAFT") ||
+          !listingData.images ||
+          listingData.images.length === 0 ||
+          !listingData.images.some((img) => img) ? (
+            <Image
+              style={[styles.image, { width: screenWidth }]}
+              source={require("../src/assets/images/prop_image.png")}
+              resizeMode="cover"
+            />
+          ) : (
             <ScrollView
               horizontal
               pagingEnabled
@@ -472,16 +479,11 @@ const ListingPreview = () => {
                 })
                 .filter(Boolean)}
             </ScrollView>
-          ) : (
-            <Image
-              style={[styles.image, { width: screenWidth }]}
-              source={require("../src/assets/images/prop_image.png")}
-              resizeMode="cover"
-            />
           )}
 
           {/* Image Counter */}
-          {listingData.images &&
+          {listingData?.status?.toUpperCase() !== "DRAFT" &&
+            listingData.images &&
             listingData.images.filter((img) => img).length > 0 && (
               <View style={styles.imageCounter}>
                 <Text style={styles.imageCounterText}>

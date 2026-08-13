@@ -272,12 +272,14 @@ const ListingCard = ({
     return periodMap[period] || capitalizeFirst(period);
   };
 
-  // Use local image or nothing (Strict: no fallback image)
-  const imageSource = listing.image
-    ? typeof listing.image === "string"
-      ? { uri: listing.image }
-      : listing.image
-    : null;
+  // Use image placeholder for draft listings, or actual image if available
+  const imageSource = (listing?.status && listing.status.toUpperCase() === "DRAFT") || isDraft
+    ? require("../../assets/images/prop_image.png")
+    : listing.image
+      ? typeof listing.image === "string"
+        ? { uri: listing.image }
+        : listing.image
+      : require("../../assets/images/prop_image.png");
 
   const handleCardPress = () => {
     if (onCardPress) {

@@ -41,6 +41,58 @@ class DraftListingService {
   }
 
   /**
+   * Filter out blob URLs from listing data
+   * Blob URLs are temporary browser URLs and should not be stored in database
+   * @param {Object} data - The listing data to filter
+   * @returns {Object} Filtered data without blob URLs
+   */
+  filterBlobUrls(data) {
+    if (!data || typeof data !== 'object') return data;
+
+    const filtered = { ...data };
+
+    // Helper to filter a single value
+    const filterValue = (value) => {
+      if (typeof value === 'string') {
+        return value.startsWith('blob:') ? null : value;
+      }
+      if (typeof value === 'object' && value !== null) {
+        const url = value.url || value.uri || value.src || value.location;
+        if (url && typeof url === 'string' && url.startsWith('blob:')) {
+          return null;
+        }
+        // Recursively filter nested objects
+        return this.filterBlobUrls(value);
+      }
+      if (Array.isArray(value)) {
+        return value.map(filterValue).filter(v => v !== null);
+      }
+      return value;
+    };
+
+    // Filter common image/video fields
+    const fieldsToFilter = [
+      'images', 'propertyImages', 'videos', 'propertyVideos',
+      'rawData.images', 'rawData.propertyImages', 'rawData.videos', 'rawData.propertyVideos'
+    ];
+
+    for (const field of fieldsToFilter) {
+      const keys = field.split('.');
+      if (keys.length === 1) {
+        if (filtered[keys[0]]) {
+          filtered[keys[0]] = filterValue(filtered[keys[0]]);
+        }
+      } else if (keys.length === 2) {
+        if (filtered[keys[0]] && filtered[keys[0]][keys[1]]) {
+          filtered[keys[0]][keys[1]] = filterValue(filtered[keys[0]][keys[1]]);
+        }
+      }
+    }
+
+    return filtered;
+  }
+
+  /**
    * Save a listing as draft
    * Saves locally first (fast), then syncs to database in background
    * @param {Object} listingData - The listing data to save
@@ -80,8 +132,11 @@ class DraftListingService {
       }
 
       // Stage 3: Prepare the final draft object safely
+      // Filter out blob URLs before saving - they are temporary and shouldn't be stored
+      const filteredListingData = this.filterBlobUrls(listingData);
+      
       const draftToSave = {
-        ...listingData,
+        ...filteredListingData,
         draftId: resolvedDraftId,
         lastModified: timestamp,
         status: "draft",

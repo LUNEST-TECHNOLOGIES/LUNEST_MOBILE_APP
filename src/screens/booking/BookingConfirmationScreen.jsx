@@ -152,10 +152,12 @@ const BookingConfirmationScreen = () => {
         userObj?.email ||
         "";
 
-      const paymentRes = await paymentService.initializePayment(
-        quote.guestTotal,
-        userEmail,
-        {
+      const selectedProvider = quote.provider === "kora" ? "kora" : "paystack";
+      const paymentRes = await paymentService.initializePayment({
+        amount: quote.guestTotal,
+        email: userEmail,
+        provider: selectedProvider,
+        metadata: {
           type: "STAY_EXTENSION",
           isExtension: true,
           bookingId: booking._id,
@@ -165,8 +167,8 @@ const BookingConfirmationScreen = () => {
           duration: quote.dur,
           description: `Stay Extension (${quote.extraNights} night${quote.extraNights > 1 ? 's' : ''}) - ${val('listingTitle', 'propertyName', 'Property')}`,
           origin: Platform.OS === "web" ? "web" : "mobile",
-        }
-      );
+        },
+      });
 
       const authUrl = paymentRes?.data?.authorization_url || paymentRes?.authorization_url || paymentRes?.url;
       const ref = paymentRes?.data?.reference || paymentRes?.reference;
@@ -186,11 +188,13 @@ const BookingConfirmationScreen = () => {
         if (ref) {
           try {
             showToastMessage("Verifying extension payment...", TOAST_TYPE.INFO);
-            const verifyRes = await bookingService.confirmExtensionPayment(booking._id, {
-              duration: quote.dur,
-              unitType: quote.unit,
-              paymentReference: ref
-            });
+            const verifyRes = selectedProvider === "kora"
+              ? await paymentService.verifyPayment(ref)
+              : await bookingService.confirmExtensionPayment(booking._id, {
+                  duration: quote.dur,
+                  unitType: quote.unit,
+                  paymentReference: ref
+                });
             if (verifyRes?.success) {
               showToastMessage("Stay extended successfully! 🎉", TOAST_TYPE.SUCCESS);
               fetchBookingData();
@@ -203,11 +207,13 @@ const BookingConfirmationScreen = () => {
                     text: "Verify Payment",
                     onPress: async () => {
                       try {
-                        const retryRes = await bookingService.confirmExtensionPayment(booking._id, {
-                          duration: quote.dur,
-                          unitType: quote.unit,
-                          paymentReference: ref
-                        });
+                        const retryRes = selectedProvider === "kora"
+                          ? await paymentService.verifyPayment(ref)
+                          : await bookingService.confirmExtensionPayment(booking._id, {
+                              duration: quote.dur,
+                              unitType: quote.unit,
+                              paymentReference: ref
+                            });
                         if (retryRes?.success) {
                           showToastMessage("Stay extended successfully! 🎉", TOAST_TYPE.SUCCESS);
                           fetchBookingData();
@@ -573,7 +579,7 @@ const BookingConfirmationScreen = () => {
   const displayPaymentMethod = (() => {
     if (couponApplied && paymentMethod === "Coupon") return "Coupon Full Coverage";
     if (!paymentMethod || paymentMethod === "-") return "Not Specified";
-    const methodMap = { CARD: "Card", WALLET: "Wallet", PAYSTACK: "Card (Paystack)", Coupon: "Coupon Full Coverage" };
+    const methodMap = { CARD: "Card", WALLET: "Wallet", PAYSTACK: "Card (Paystack)", KORA: "Kora", Coupon: "Coupon Full Coverage" };
     return methodMap[paymentMethod] || paymentMethod;
   })();
 
@@ -1347,21 +1353,9 @@ const BookingConfirmationScreen = () => {
         if (uploadResult.success && uploadResult.images) {
           uploadedImageUrls = uploadResult.images;
         } else {
-          Alert.alert(
-            "Upload Failed",
-            "Could not upload review images. Proceeding without them?",
-            [
-              {
-                text: "Cancel",
-                onPress: () => {
-                  throw new Error("Upload cancelled");
-                },
-                style: "cancel",
-              },
-              { text: "OK", onPress: () => { } },
-            ],
-          );
-          uploadedImageUrls = [];
+          Alert.alert("Upload Failed", "Could not upload review images. Please try again.");
+          setIsSubmittingReview(false);
+          return;
         }
       }
 
@@ -1996,7 +1990,7 @@ const BookingConfirmationScreen = () => {
                           {ext.paidAt ? `Paid on ${format(new Date(ext.paidAt), "MMM d, yyyy 'at' h:mm a")}` : ""}
                         </Text>
                         <Text style={{ fontSize: 10, fontWeight: "600", color: "#010135" }}>
-                          Method: {ext.paymentMethod === "WALLET" ? "Wallet" : ext.paymentMethod === "PAYSTACK" ? "Paystack (Card)" : "Card"}
+                          Method: {ext.paymentMethod === "WALLET" ? "Wallet" : ext.paymentMethod === "PAYSTACK" ? "Paystack (Card)" : ext.paymentMethod === "KORA" ? "Kora" : "Card"}
                         </Text>
                       </View>
                     </View>

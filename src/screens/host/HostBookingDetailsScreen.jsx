@@ -803,11 +803,9 @@ const HostBookingDetailsScreen = () => {
         if (uploadResult.success && uploadResult.images) {
           uploadedImageUrls = uploadResult.images;
         } else {
-          Alert.alert(
-            "Upload Failed",
-            "Could not upload review images. Proceeding without them?",
-          );
-          uploadedImageUrls = [];
+          Alert.alert("Upload Failed", "Could not upload review images. Please try again.");
+          setIsSubmittingReview(false);
+          return;
         }
       }
 
@@ -1409,7 +1407,7 @@ const HostBookingDetailsScreen = () => {
                     {ext.paidAt ? `Paid on ${format(new Date(ext.paidAt), "MMM d, yyyy 'at' h:mm a")}` : ""}
                   </Text>
                   <Text style={{ fontSize: 10, fontWeight: "600", color: "#010135" }}>
-                    Method: {ext.paymentMethod === "WALLET" ? "Wallet" : ext.paymentMethod === "PAYSTACK" ? "Paystack (Card)" : "Card"}
+                    Method: {ext.paymentMethod === "WALLET" ? "Wallet" : ext.paymentMethod === "PAYSTACK" ? "Paystack (Card)" : ext.paymentMethod === "KORA" ? "Kora" : "Card"}
                   </Text>
                 </View>
               </View>

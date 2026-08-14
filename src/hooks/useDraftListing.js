@@ -7,8 +7,39 @@
 
 import { useLocalSearchParams } from 'expo-router';
 import { AppState } from 'react-native';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import draftListingService from '../services/draftListingService';
+
+const draftRegistrations = new Map();
+let draftAppStateSubscription = null;
+let lastAppState = AppState.currentState;
+
+const ensureDraftAppStateSubscription = () => {
+  if (draftAppStateSubscription) return;
+
+  draftAppStateSubscription = AppState.addEventListener('change', (nextAppState) => {
+    const wasActive = lastAppState === 'active';
+    lastAppState = nextAppState;
+
+    if (!wasActive || !nextAppState.match(/inactive|background/)) return;
+
+    const latestDrafts = new Map();
+    for (const snapshot of draftRegistrations.values()) {
+      if (!snapshot?.draft?.draftId) continue;
+      const existing = latestDrafts.get(snapshot.draft.draftId);
+      if (!existing || String(snapshot.draft.lastModified || '') >= String(existing.lastModified || '')) {
+        latestDrafts.set(snapshot.draft.draftId, snapshot.draft);
+      }
+    }
+
+    for (const draft of latestDrafts.values()) {
+      console.log('📱 [useDraftListing] App backgrounded/closed - syncing current draft state');
+      draftListingService.saveDraft(draft, { syncImmediately: true }).catch((error) => {
+        console.warn('[useDraftListing] Auto-save failed on background:', error.message);
+      });
+    }
+  });
+};
 
 export const useDraftListing = () => {
   const params = useLocalSearchParams();
@@ -16,6 +47,21 @@ export const useDraftListing = () => {
   const [isLoadingDraft, setIsLoadingDraft] = useState(false);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [draftError, setDraftError] = useState(null);
+  const registrationId = useRef(Symbol('draft-registration'));
+
+  useEffect(() => {
+    const currentRegistrationId = registrationId.current;
+    ensureDraftAppStateSubscription();
+    return () => draftRegistrations.delete(currentRegistrationId);
+  }, []);
+
+  useEffect(() => {
+    if (draftData?.draftId) {
+      draftRegistrations.set(registrationId.current, { draft: draftData });
+    } else {
+      draftRegistrations.delete(registrationId.current);
+    }
+  }, [draftData]);
 
   // Load draft data from storage
   const loadDraftData = useCallback(async (draftId) => {
@@ -129,24 +175,6 @@ export const useDraftListing = () => {
       lastModified: new Date().toISOString(),
     }));
   }, []);
-
-  // Background Auto-Save: Sync current draft whenever the app is hidden/backgrounded
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', (nextAppState) => {
-      // 'inactive' = iOS app switcher, 'background' = Android/Home button
-      if (nextAppState.match(/inactive|background/) && draftData) {
-        console.log('📱 [useDraftListing] App backgrounded/closed - syncing current draft state');
-        // Directly call the service to avoid re-triggering state updates during backgrounding
-        draftListingService.saveDraft(draftData).catch(err => {
-          console.warn('[useDraftListing] Auto-save failed on background:', err.message);
-        });
-      }
-    });
-
-    return () => {
-      subscription.remove();
-    };
-  }, [draftData]);
 
   // Auto-load draft when draftId in params changes
   useEffect(() => {

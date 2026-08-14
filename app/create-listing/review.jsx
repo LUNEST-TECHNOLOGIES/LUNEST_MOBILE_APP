@@ -257,6 +257,7 @@ const Review = () => {
   const [isLoadingHost, setIsLoadingHost] = useState(false);
   const [showSaveAsNewModal, setShowSaveAsNewModal] = useState(false);
   const [isFallbackCreating, setIsFallbackCreating] = useState(false);
+  const preparedListingDataRef = useRef(null);
   
   // Toast Notification state
   const [toastVisible, setToastVisible] = useState(false);
@@ -526,15 +527,13 @@ const Review = () => {
           (video) =>
             video &&
             !video.startsWith("http://") &&
-            !video.startsWith("https://") &&
-            !video.startsWith("blob:"),
+            !video.startsWith("https://"),
         );
         const existingVideos = videos.filter(
           (video) =>
             video &&
             (video.startsWith("http://") ||
-              video.startsWith("https://") ||
-              video.startsWith("blob:")),
+              video.startsWith("https://")),
         );
 
         if (localVideos.length > 0) {
@@ -737,6 +736,7 @@ const Review = () => {
         status: "PENDING",
         draftId: draftId,
       };
+      preparedListingDataRef.current = listingData;
 
       // Add check-in/check-out times only if they were set
       if (mergedData.checkInTime) {
@@ -822,7 +822,7 @@ const Review = () => {
       setIsFallbackCreating(true);
       console.log("🆕 [Review] Falling back to createListing via Modal");
       
-      const listingData = generateListingData(mergedData);
+      const listingData = preparedListingDataRef.current || { ...mergedData };
       // Remove all ID fields to ensure a fresh create
       const { _id, id, listingId, ...newData } = listingData;
       
@@ -1429,7 +1429,7 @@ const Review = () => {
                   
                   <Text style={styles.modalTitle}>Listing Record Missing</Text>
                   <Text style={styles.modalMessage}>
-                      We couldn't find the original listing record to update. Your listing might have been removed or moved. 
+                      We could not find the original listing record to update. Your listing might have been removed or moved.
                       {"\n\n"}
                       Would you like to save this as a NEW listing instead?
                   </Text>

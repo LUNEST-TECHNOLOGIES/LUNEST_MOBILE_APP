@@ -1,6 +1,8 @@
 import { Platform } from "react-native";
 import configService from "../services/configService";
 
+const hasEmbeddedTemporaryMediaUrl = (value) => /^https?:\/\/.*\/(?:blob:|data:|file:|content:)/i.test(String(value || '').trim());
+
 /**
  * Resolves an image path to a full URL
  * Works with relative paths, http URLs, and file:// URIs
@@ -15,6 +17,10 @@ export const resolveImageUrl = async (path, baseUrl = null) => {
   
   // Reject paths that contain "undefined" after string conversion
   if (stringPath === "undefined" || stringPath.includes("/undefined")) {
+    return null;
+  }
+
+  if (hasEmbeddedTemporaryMediaUrl(stringPath)) {
     return null;
   }
 
@@ -72,6 +78,10 @@ export const resolveImageUrlSync = (path, baseUrl) => {
   
   // Reject paths that contain "undefined" after string conversion
   if (stringPath === "undefined" || stringPath.includes("/undefined")) {
+    return null;
+  }
+
+  if (hasEmbeddedTemporaryMediaUrl(stringPath)) {
     return null;
   }
 

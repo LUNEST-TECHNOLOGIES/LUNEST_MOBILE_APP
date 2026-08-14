@@ -23,6 +23,7 @@ export const ExtendStayModal = ({
   const [unitType, setUnitType] = useState("DAILY"); // DAILY, WEEKLY, MONTHLY, YEARLY
   const [quote, setQuote] = useState(null);
   const [isCalculating, setIsCalculating] = useState(false);
+  const [paymentProvider, setPaymentProvider] = useState("paystack");
 
   // Helper to determine the property's base rental period
   const getPropertyBaseUnit = () => {
@@ -62,6 +63,7 @@ export const ExtendStayModal = ({
       const baseUnit = getPropertyBaseUnit();
       setUnitType(baseUnit);
       setDuration(1);
+      setPaymentProvider("paystack");
       calculateQuote(1, baseUnit);
     }
   }, [visible, booking]);
@@ -124,7 +126,7 @@ export const ExtendStayModal = ({
 
   const handleConfirm = () => {
     if (!quote) return;
-    onConfirmExtension(quote);
+    onConfirmExtension({ ...quote, provider: paymentProvider });
   };
 
   if (!visible) return null;
@@ -241,6 +243,32 @@ export const ExtendStayModal = ({
                 </View>
               </View>
             )}
+
+            <Text style={styles.sectionLabel}>Payment Provider</Text>
+            <View style={styles.providerRow}>
+              {[
+                { id: "paystack", label: "Paystack" },
+                { id: "kora", label: "Kora" },
+              ].map((provider) => (
+                <TouchableOpacity
+                  key={provider.id}
+                  style={[
+                    styles.providerOption,
+                    paymentProvider === provider.id && styles.providerOptionSelected,
+                  ]}
+                  onPress={() => setPaymentProvider(provider.id)}
+                >
+                  <Text
+                    style={[
+                      styles.providerOptionText,
+                      paymentProvider === provider.id && styles.providerOptionTextSelected,
+                    ]}
+                  >
+                    {provider.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </ScrollView>
 
           {/* Action Footer */}
@@ -316,6 +344,33 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     marginBottom: 8,
     marginTop: 8
+  },
+  providerRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginBottom: 20,
+  },
+  providerOption: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: "#CBD5E1",
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+  },
+  providerOptionSelected: {
+    borderColor: "#010135",
+    backgroundColor: "#EEF2FF",
+  },
+  providerOptionText: {
+    color: "#475569",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  providerOptionTextSelected: {
+    color: "#010135",
+    fontWeight: "700",
   },
   unitTabContainer: {
     flexDirection: "row",

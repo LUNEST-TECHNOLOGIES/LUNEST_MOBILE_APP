@@ -62,6 +62,7 @@ const AddFundsScreen = () => {
   const insets = useSafeAreaInsets();
 
   const [amount, setAmount] = useState("");
+  const [paymentProvider, setPaymentProvider] = useState("paystack");
   const [loading, setLoading] = useState({ active: false, message: "" });
   const queryClient = useQueryClient();
   const [toast, setToast] = useState({
@@ -237,7 +238,7 @@ const AddFundsScreen = () => {
     setAmount(preset.toString());
   };
 
-  const handlePayWithPaystack = async () => {
+  const handlePayWithProvider = async () => {
     const numericAmount = Number(amount);
 
     if (!numericAmount || numericAmount < 100) {
@@ -278,19 +279,23 @@ const AddFundsScreen = () => {
         callbackUrl = `${API_BASE}/v1/payment/callback?type=wallet_funding&amount=${numericAmount}&origin=mobile`;
       }
 
-      setLoading({ active: true, message: "Connecting to Paystack..." });
+      setLoading({
+        active: true,
+        message: `Connecting to ${paymentProvider === "kora" ? "Kora" : "Paystack"}...`,
+      });
 
-      const paymentData = await paymentService.initializePayment(
-        numericAmount,
+      const paymentData = await paymentService.initializePayment({
+        amount: numericAmount,
         email,
-        {
+        provider: paymentProvider,
+        metadata: {
           type: "WALLET_FUNDING",
           userId: userData?._id || userData?.id,
           description: `Add ${formatCurrency(numericAmount)} to wallet`,
           callback_url: callbackUrl,
           origin: Platform.OS === "web" ? "web" : "mobile",
         },
-      );
+      });
 
       if (!paymentData?.authorization_url) {
         showToast("Failed to initialize payment", "error");
@@ -447,7 +452,8 @@ const AddFundsScreen = () => {
 
             {/* Paystack Option */}
             <TouchableOpacity
-              style={[styles.paymentOption, styles.paymentOptionSelected]}
+              style={[styles.paymentOption, paymentProvider === "paystack" && styles.paymentOptionSelected]}
+              onPress={() => setPaymentProvider("paystack")}
               activeOpacity={0.8}
             >
               <View style={styles.paymentOptionLeft}>
@@ -461,15 +467,33 @@ const AddFundsScreen = () => {
                   </Text>
                 </View>
               </View>
-              <View style={styles.radioSelected} />
+              {paymentProvider === "paystack" && <View style={styles.radioSelected} />}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.paymentOption, { marginTop: 12 }, paymentProvider === "kora" && styles.paymentOptionSelected]}
+              onPress={() => setPaymentProvider("kora")}
+              activeOpacity={0.8}
+            >
+              <View style={styles.paymentOptionLeft}>
+                <View style={styles.paymentIconContainer}>
+                  <Text style={{ fontSize: 18, fontWeight: "800", color: "#010135" }}>K</Text>
+                </View>
+                <View style={styles.paymentOptionText}>
+                  <Text style={styles.paymentOptionTitle}>Kora</Text>
+                  <Text style={styles.paymentOptionSubtitle}>
+                    Secure card and bank payment
+                  </Text>
+                </View>
+              </View>
+              {paymentProvider === "kora" && <View style={styles.radioSelected} />}
             </TouchableOpacity>
           </View>
 
           {/* Security Note */}
           <View style={styles.securityNote}>
             <Text style={styles.securityNoteText}>
-              🔒 Your payment is secured by Paystack. We do not store your card
-              details.
+              🔒 Your payment is securely processed by {paymentProvider === "kora" ? "Kora" : "Paystack"}. We do not store your card details.
             </Text>
           </View>
         </ScrollView>
@@ -484,7 +508,7 @@ const AddFundsScreen = () => {
               styles.payButton,
               (!amount || Number(amount) < 100) && styles.payButtonDisabled,
             ]}
-            onPress={handlePayWithPaystack}
+            onPress={handlePayWithProvider}
             disabled={loading.active || !amount || Number(amount) < 100}
           >
             {loading.active ? (

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, Text, ActivityIndicator } from 'react-native';
+import { Pressable, Text, ActivityIndicator, Platform } from 'react-native';
 import { buttonStyles } from '../constants/styles';
 import { COLORS } from '../constants/theme';
 
@@ -18,6 +18,13 @@ const Button = ({
   textStyle,
   ...props
 }) => {
+  const handlePress = (event) => {
+    if (Platform.OS === 'web' && typeof document !== 'undefined' && document.activeElement?.blur) {
+      document.activeElement.blur();
+    }
+    onPress?.(event);
+  };
+
   // Get variant styles
   const getVariantStyles = () => {
     switch (variant) {
@@ -57,7 +64,7 @@ const Button = ({
 
   return (
     <Pressable
-      onPress={onPress}
+      onPress={handlePress}
       disabled={disabled || loading}
       style={[
         ...getVariantStyles(),

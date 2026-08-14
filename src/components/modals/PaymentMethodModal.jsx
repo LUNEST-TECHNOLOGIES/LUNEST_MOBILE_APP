@@ -38,6 +38,12 @@ const PAYMENT_METHODS = [
     icon: "wallet-outline",
   },
   {
+    id: "kora",
+    name: "Kora",
+    description: "Pay securely with Kora",
+    icon: "shield-checkmark-outline",
+  },
+  {
     id: "wallet",
     name: "Wallet",
     description: "Pay from your Lunest wallet",
@@ -55,7 +61,7 @@ const PaymentMethodModal = ({
   hideReserveOption = false,
 }) => {
   const insets = useSafeAreaInsets();
-  const [selectedMethod, setSelectedMethod] = useState(null);
+  const [selectedMethod, setSelectedMethod] = useState("paystack");
   const [reserveAndPayLater, setReserveAndPayLater] = useState(false);
   
   // Animation and Gestures for Swipe-to-Close
@@ -96,6 +102,8 @@ const PaymentMethodModal = ({
   useEffect(() => {
     if (visible) {
       panY.setValue(0);
+      setSelectedMethod("paystack");
+      setReserveAndPayLater(false);
     }
   }, [visible, panY]);
 

@@ -337,7 +337,7 @@ const LandlordRequestForm = () => {
         email: userData.email,
         phone: userData.phone,
         location: userData.location,
-        nin: userData.nin, // Auto-appended from KYC
+        maskedNin: userData.nin, // Display-only value derived from KYC
         gender: gender,
         propertyTypes: selectedPropertyTypes,
         customPropertyType: customPropertyType,
@@ -727,6 +727,9 @@ const LandlordRequestForm = () => {
                   )}
                 </TouchableOpacity>
                 <Text style={[styles.uploadLabel, { color: '#D32F2F' }]}>Valid ID Document *</Text>
+                <Text style={styles.privacyStatement}>
+                  LUNEST uses these documents only to verify the applicant, landlord, and property authority. Access is restricted to authorized review personnel and the documents are not used for marketing.
+                </Text>
               </View>
 
               {/* Landlord ID Upload (Conditional for Managers/Realtors) */}
@@ -756,9 +759,6 @@ const LandlordRequestForm = () => {
                     )}
                   </TouchableOpacity>
                   <Text style={[styles.uploadLabel, { color: '#D32F2F' }]}>Landlord ID Document *</Text>
-                  <Text style={styles.privacyStatement}>
-                    Your ID documents are encrypted and stored securely. They will only be used for verification purposes and shared with authorized admin personnel for review.
-                  </Text>
                 </View>
               )}
 

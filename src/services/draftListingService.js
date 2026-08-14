@@ -14,6 +14,9 @@ const DRAFTS_KEY_PREFIX = "listingDrafts_";
 
 // Track which drafts are currently being synced to prevent duplicates
 const syncingDrafts = new Set();
+const pendingSyncs = new Map();
+const syncTimers = new Map();
+const SYNC_DEBOUNCE_MS = 750;
 // In-memory cache for the most recently saved/accessed draft to prevent race conditions during navigation
 const draftCache = new Map();
 
@@ -46,45 +49,48 @@ class DraftListingService {
    * @param {Object} data - The listing data to filter
    * @returns {Object} Filtered data without blob URLs
    */
-  filterBlobUrls(data) {
+  filterTemporaryMediaUrls(data, { allowDeviceUris = true } = {}) {
     if (!data || typeof data !== 'object') return data;
 
     const filtered = { ...data };
+    const temporaryPattern = allowDeviceUris
+      ? /(?:^|\/)(?:blob:|data:)/i
+      : /(?:^|\/)(?:blob:|data:|file:|content:)/i;
 
-    // Helper to filter a single value
     const filterValue = (value) => {
+      if (Array.isArray(value)) {
+        return value.map(filterValue).filter((item) => item !== null);
+      }
       if (typeof value === 'string') {
-        return value.startsWith('blob:') ? null : value;
+        return temporaryPattern.test(value.trim()) ? null : value;
       }
       if (typeof value === 'object' && value !== null) {
-        const url = value.url || value.uri || value.src || value.location;
-        if (url && typeof url === 'string' && url.startsWith('blob:')) {
+        const url = value.url || value.uri || value.src || value.location || value.path || value.storagePath;
+        if (url && typeof url === 'string' && temporaryPattern.test(url.trim())) {
           return null;
         }
-        // Recursively filter nested objects
-        return this.filterBlobUrls(value);
-      }
-      if (Array.isArray(value)) {
-        return value.map(filterValue).filter(v => v !== null);
+        return Object.fromEntries(
+          Object.entries(value)
+            .map(([key, nestedValue]) => [key, filterValue(nestedValue)])
+            .filter(([, nestedValue]) => nestedValue !== null),
+        );
       }
       return value;
     };
 
-    // Filter common image/video fields
-    const fieldsToFilter = [
-      'images', 'propertyImages', 'videos', 'propertyVideos',
-      'rawData.images', 'rawData.propertyImages', 'rawData.videos', 'rawData.propertyVideos'
-    ];
+    const mediaFields = ['photos', 'images', 'propertyImages', 'video', 'videos', 'propertyVideos'];
 
-    for (const field of fieldsToFilter) {
-      const keys = field.split('.');
-      if (keys.length === 1) {
-        if (filtered[keys[0]]) {
-          filtered[keys[0]] = filterValue(filtered[keys[0]]);
-        }
-      } else if (keys.length === 2) {
-        if (filtered[keys[0]] && filtered[keys[0]][keys[1]]) {
-          filtered[keys[0]][keys[1]] = filterValue(filtered[keys[0]][keys[1]]);
+    for (const field of mediaFields) {
+      if (filtered[field] !== undefined) {
+        filtered[field] = filterValue(filtered[field]);
+      }
+    }
+
+    if (filtered.rawData && typeof filtered.rawData === 'object') {
+      filtered.rawData = { ...filtered.rawData };
+      for (const field of mediaFields) {
+        if (filtered.rawData[field] !== undefined) {
+          filtered.rawData[field] = filterValue(filtered.rawData[field]);
         }
       }
     }
@@ -98,7 +104,7 @@ class DraftListingService {
    * @param {Object} listingData - The listing data to save
    * @returns {Promise<string>} The draft ID
    */
-  async saveDraft(listingData) {
+  async saveDraft(listingData, options = {}) {
     // Stage 1: Absolute defensive entry
     if (!listingData || typeof listingData !== 'object') {
       const errorMsg = "Invalid draft data: data is null or not an object";
@@ -132,8 +138,9 @@ class DraftListingService {
       }
 
       // Stage 3: Prepare the final draft object safely
-      // Filter out blob URLs before saving - they are temporary and shouldn't be stored
-      const filteredListingData = this.filterBlobUrls(listingData);
+      const filteredListingData = this.filterTemporaryMediaUrls(listingData, {
+        allowDeviceUris: true,
+      });
       
       const draftToSave = {
         ...filteredListingData,
@@ -182,7 +189,10 @@ class DraftListingService {
       // Stage 5: Background Database Sync (Heavily Guarded)
       // We don't await this to keep the UI snappy, but we catch all errors
       logService.logInfo("Saving draft locally", { draftId: resolvedDraftId });
-      this.syncToDatabase(finalDraftToSave).catch(err => {
+      const syncPromise = options.syncImmediately
+        ? this.syncToDatabase(finalDraftToSave)
+        : this.scheduleDatabaseSync(finalDraftToSave);
+      syncPromise.catch(err => {
         console.warn("⚠️ [DraftListingService] Background sync failed:", err.message);
         logService.logError("Draft background sync failed", { draftId: resolvedDraftId, message: err.message });
       });
@@ -194,40 +204,69 @@ class DraftListingService {
     }
   }
 
+  scheduleDatabaseSync(draftData) {
+    pendingSyncs.set(draftData.draftId, draftData);
+
+    const existingTimer = syncTimers.get(draftData.draftId);
+    if (existingTimer) clearTimeout(existingTimer);
+
+    const timer = setTimeout(() => {
+      syncTimers.delete(draftData.draftId);
+      this.syncToDatabase(draftData).catch((error) => {
+        console.warn("⚠️ [DraftListingService] Scheduled sync failed:", error.message);
+      });
+    }, SYNC_DEBOUNCE_MS);
+    syncTimers.set(draftData.draftId, timer);
+
+    return Promise.resolve();
+  }
+
   /**
    * Sync a draft to the database
    * @param {Object} draftData - The draft data to sync
    * @returns {Promise<void>}
    */
   async syncToDatabase(draftData) {
-    // Skip if already syncing this draft
+    const scheduledTimer = syncTimers.get(draftData.draftId);
+    if (scheduledTimer) {
+      clearTimeout(scheduledTimer);
+      syncTimers.delete(draftData.draftId);
+    }
+
+    const sanitizedDraft = this.filterTemporaryMediaUrls(draftData, {
+      allowDeviceUris: false,
+    });
+    pendingSyncs.set(draftData.draftId, sanitizedDraft);
+
     if (syncingDrafts.has(draftData.draftId)) {
-      console.log("⏳ [DraftListingService] Sync already in progress for:", draftData.draftId);
       return;
     }
 
-    // Add to syncing set
     syncingDrafts.add(draftData.draftId);
 
     try {
-      // Ensure isDraft is explicitly set to true for sync
-      const result = await listingService.saveDraftToDatabase({
-        ...draftData,
-        isDraft: true,
-      });
-      if (result.success) {
-        console.log("✅ Draft synced to database:", draftData.draftId);
-        logService.logInfo("Draft synced to database", { draftId: draftData.draftId });
+      while (pendingSyncs.has(draftData.draftId)) {
+        const nextDraft = pendingSyncs.get(draftData.draftId);
+        pendingSyncs.delete(draftData.draftId);
+
+        const result = await listingService.saveDraftToDatabase({
+          ...nextDraft,
+          isDraft: true,
+        });
+        if (!result.success) continue;
+
+        console.log("✅ Draft synced to database:", nextDraft.draftId);
+        logService.logInfo("Draft synced to database", { draftId: nextDraft.draftId });
         if (
           result.draft &&
           result.draft._id &&
-          draftData._id !== result.draft._id
+          nextDraft._id !== result.draft._id
         ) {
           try {
             const draftsKey = await this.getDraftsKey();
             const drafts = await this.getAllDrafts();
             const existingIndex = drafts.findIndex(
-              (d) => d.draftId === draftData.draftId,
+              (d) => d.draftId === nextDraft.draftId,
             );
             if (existingIndex >= 0) {
               // Store the MongoDB _id but preserve the local draftId for routing continuity

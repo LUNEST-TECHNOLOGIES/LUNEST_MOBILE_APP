@@ -1027,12 +1027,11 @@ class ListingService {
         }
       }
 
-      // If no valid images were added, return success with empty array
+      // Do not report success when browser/native conversion produced no files.
       if (imageCount === 0) {
-        console.log("[ListingService] No valid images to upload");
         return {
-          success: true,
-          message: "No valid images to upload",
+          success: false,
+          message: "No valid images were available to upload",
           images: [],
         };
       }
@@ -1071,18 +1070,32 @@ class ListingService {
 
       const apiResponse = await response.json();
 
-      console.log("[ListingService] Images uploaded successfully");
-      console.log("[ListingService] Response:", apiResponse);
+      const uploadedImages = apiResponse && apiResponse.body && apiResponse.body.images
+        ? apiResponse.body.images
+        : apiResponse && apiResponse.images
+          ? apiResponse.images
+          : [];
+      const durableImages = uploadedImages.filter((image) => {
+        const url = typeof image === "string"
+          ? image
+          : image?.url || image?.location || image?.storagePath || image?.path;
+        return typeof url === "string" && /^https?:\/\//i.test(url) && !/(?:^|\/)(?:blob:|data:|file:|content:)/i.test(url);
+      });
+
+      if (durableImages.length === 0) {
+        return {
+          success: false,
+          message: "The server did not return a durable image URL",
+          images: [],
+        };
+      }
+
+      console.log("[ListingService] Images uploaded successfully:", durableImages.length);
 
       return {
         success: true,
         message: "Images uploaded successfully",
-        images:
-          apiResponse && apiResponse.body && apiResponse.body.images
-            ? apiResponse.body.images
-            : apiResponse && apiResponse.images
-              ? apiResponse.images
-              : [],
+        images: durableImages,
       };
     } catch (error) {
       console.error("[ListingService] Error uploading images:", error);
@@ -1179,7 +1192,7 @@ class ListingService {
 
       if (videoCount === 0) {
         return {
-          success: true,
+          success: false,
           message: "No valid videos to upload",
           videos: [],
         };
@@ -1209,14 +1222,22 @@ class ListingService {
       }
 
       const apiResponse = await response.json();
+      const uploadedVideos = (apiResponse?.body?.videos || apiResponse?.videos || [])
+        .map((video) => typeof video === "string" ? video : video?.url || video?.uri || video?.location)
+        .filter((url) => /^https?:\/\//i.test(String(url)) && !/(?:^|\/)(?:blob:|data:|file:|content:)/i.test(String(url)));
+
+      if (uploadedVideos.length !== videoCount) {
+        return {
+          success: false,
+          message: "Video upload returned incomplete media URLs",
+          videos: [],
+        };
+      }
 
       return {
         success: true,
         message: "Videos uploaded successfully",
-        videos:
-          apiResponse && (apiResponse.body?.videos || apiResponse.videos)
-            ? apiResponse.body?.videos || apiResponse.videos
-            : [],
+        videos: uploadedVideos,
       };
     } catch (error) {
       console.error("[ListingService] Error uploading videos:", error);

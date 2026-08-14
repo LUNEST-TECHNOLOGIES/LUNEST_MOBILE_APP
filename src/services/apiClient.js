@@ -98,10 +98,8 @@ class APIClient {
     const token = await this.getAuthToken();
     const headers = { ...this.headers, ...customHeaders };
 
-    console.log("[APIClient] buildHeaders - token:", token);
     if (token) {
       headers["Authorization"] = `Bearer ${token}`;
-      console.log("[APIClient] Authorization header set:", headers["Authorization"]);
     } else {
       console.log("[APIClient] buildHeaders - No auth token found (Request may be public)");
     }

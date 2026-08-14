@@ -435,11 +435,9 @@ const FullDetailsScreen = () => {
         if (uploadResult.success && uploadResult.images) {
           uploadedImageUrls = uploadResult.images;
         } else {
-          Alert.alert(
-            "Upload Failed",
-            "Could not upload review images. Proceeding without them?",
-          );
-          uploadedImageUrls = [];
+          Alert.alert("Upload Failed", "Could not upload review images. Please try again.");
+          setIsPostingReview(false);
+          return;
         }
       }
 

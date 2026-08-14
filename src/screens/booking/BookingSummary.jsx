@@ -986,7 +986,8 @@ const BookingSummary = () => {
         }
       } else if (
         paymentData.paymentMethod === "paystack" ||
-        paymentData.paymentMethod === "card"
+        paymentData.paymentMethod === "card" ||
+        paymentData.paymentMethod === "kora"
       ) {
         try {
           setIsInitializingPayment(true);
@@ -1027,10 +1028,12 @@ const BookingSummary = () => {
             callbackUrl = `${API_BASE}/v1/payment/callback?type=booking_payment&bookingId=${bId}&amount=${displayTotal}&origin=mobile`;
           }
 
-          const paymentResult = await paymentService.initializePayment(
-            finalGuestTotal,
+          const selectedProvider = paymentData.paymentMethod === "kora" ? "kora" : "paystack";
+          const paymentResult = await paymentService.initializePayment({
+            amount: finalGuestTotal,
             email,
-            {
+            provider: selectedProvider,
+            metadata: {
               type: "BOOKING",
               bookingId: bId,
               guestId: user?._id || user?.id,
@@ -1040,7 +1043,7 @@ const BookingSummary = () => {
               origin: Platform.OS === "web" ? "web" : "mobile",
               callback_url: callbackUrl,
             },
-          );
+          });
 
           if (!paymentResult.authorization_url) {
             showToast("Failed to initialize payment. Please try again.", TOAST_TYPE.ERROR);
@@ -2114,4 +2117,3 @@ const styles = StyleSheet.create({
 });
 
 export default BookingSummary;
-

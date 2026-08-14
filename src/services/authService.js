@@ -1544,6 +1544,7 @@ class AuthService {
       const {
         propertyImages,
         validIdImage,
+        landlordIdImage,
         authorizationLetter,
         ...otherData
       } = applicationData;
@@ -1582,7 +1583,7 @@ class AuthService {
       };
 
       // Helper to append file to FormData with proper MIME detection
-      const appendFile = (fieldName, uri) => {
+      const appendFile = async (fieldName, uri) => {
         if (!uri) return;
         const filename = uri.split("/").pop() || `${fieldName}_upload.jpg`;
         const ext = filename.split('.').pop().toLowerCase();
@@ -1600,13 +1601,15 @@ class AuthService {
         else if (ext === 'mkv') type = 'video/x-matroska';
         else if (ext === 'webm') type = 'video/webm';
 
-        console.log(`[AuthService] Appending ${fieldName}:`, { filename, type, uri });
+        if (Platform.OS === "web") {
+          const response = await fetch(uri);
+          if (!response.ok) throw new Error(`Unable to read ${fieldName} for upload`);
+          const blob = await response.blob();
+          formData.append(fieldName, blob, filename);
+          return;
+        }
 
-        formData.append(fieldName, {
-          uri: uri, // [STABILIZATION] Keep file:// prefix for all platforms
-          name: filename,
-          type,
-        });
+        formData.append(fieldName, { uri, name: filename, type });
       };
 
       // Compress and append property images
@@ -1614,17 +1617,21 @@ class AuthService {
         const compressedPropertyImages = await Promise.all(
           propertyImages.map(uri => compressImage(uri))
         );
-        compressedPropertyImages.filter(uri => !!uri).forEach((uri) => appendFile("propertyImages", uri));
+        for (const uri of compressedPropertyImages.filter(Boolean)) {
+          await appendFile("propertyImages", uri);
+        }
       }
 
       // Compress and append single images
-      const [compressedId, compressedLetter] = await Promise.all([
+      const [compressedId, compressedLandlordId, compressedLetter] = await Promise.all([
         compressImage(validIdImage),
+        compressImage(landlordIdImage),
         compressImage(authorizationLetter),
       ]);
 
-      appendFile("validIdImage", compressedId);
-      appendFile("authorizationLetter", compressedLetter);
+      await appendFile("validIdImage", compressedId);
+      await appendFile("landlordIdImage", compressedLandlordId);
+      await appendFile("authorizationLetter", compressedLetter);
 
       const response = await this._secureRequest(
         `${this.baseURL}/v1/users/apply-host`,

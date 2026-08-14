@@ -307,12 +307,14 @@ const Photos = () => {
           }
         }
 
+        let failedUploads = 0;
+
         // Process and save each image immediately for fast saving
         for (const asset of result.assets) {
           // Yield to UI thread to prevent freezing
           await new Promise((resolve) => setTimeout(resolve, 10));
+          let finalUri = asset.uri;
           try {
-            let finalUri;
 
             if (Platform.OS === "web") {
               // For web: compress the image using canvas and use the data URL
@@ -377,15 +379,17 @@ const Photos = () => {
                 );
                 
                 if (uploadAttempts >= maxUploadAttempts) {
-                  console.warn("⚠️ [Photos] Server upload failed after max attempts, using compressed local URI for draft retention");
-                  serverUrl = finalUri;
+                  throw new Error("Image upload failed after maximum retries");
                 } else {
                   await new Promise(resolve => setTimeout(resolve, 800 * uploadAttempts));
                 }
               }
             }
 
-            finalUri = serverUrl || finalUri;
+            if (!serverUrl) {
+              throw new Error("Image upload did not return a durable URL");
+            }
+            finalUri = serverUrl;
 
             // Add to photos array
             const newPhotos = [...currentPhotos, finalUri].slice(0, 10);
@@ -405,33 +409,35 @@ const Photos = () => {
               );
             }
             // Update progress for each processed image
-            const currentImgProgress = Math.round(
-              ((currentPhotos.length - photos.length + 1) /
-                result.assets.length) *
-                100,
-            );
+            const currentImgProgress = Math.round((currentPhotos.length / result.assets.length) * 100);
             setImageProgress(currentImgProgress);
           } catch (error) {
             console.error("Error compressing/saving image:", error);
-            // Use original on error and still save
-            const newPhotos = [...currentPhotos, asset.uri].slice(0, 10);
-            setPhotos(newPhotos);
-            currentPhotos.push(asset.uri);
+            failedUploads += 1;
 
-            if (draftId) {
-              await saveDraftData({
-                photos: newPhotos,
-                video: videos,
-                propertyVideos: videos,
-                currentStep: 6,
-              });
+            // Browser blob/data URLs are session-only and must never be retained as a fallback.
+            // Native permanent file URIs remain useful for offline draft recovery.
+            if (Platform.OS !== "web" && finalUri && !/^https?:\/\//i.test(finalUri)) {
+              const newPhotos = [...currentPhotos, finalUri].slice(0, 10);
+              setPhotos(newPhotos);
+              currentPhotos.push(finalUri);
+
+              if (draftId) {
+                await saveDraftData({
+                  photos: newPhotos,
+                  video: videos,
+                  propertyVideos: videos,
+                  currentStep: 6,
+                });
+              }
             }
           }
         }
 
-        console.log(
-          `✅ All ${result.assets.length} photo(s) uploaded and saved${Platform.OS === "web" ? " (web)" : " to permanent storage"}`,
-        );
+        if (failedUploads > 0) {
+          toastService.showError(`${failedUploads} photo${failedUploads === 1 ? "" : "s"} could not be uploaded. Please try again.`);
+        }
+        console.log(`✅ [Photos] Added ${currentPhotos.length - (photos?.length || 0)} photo(s); ${failedUploads} upload(s) failed`);
       } catch (error) {
         console.error("Error processing images:", error);
         toastService.showError("Failed to process images. Please try again.");
@@ -547,13 +553,16 @@ const Photos = () => {
                   }
                 }
 
-                newDocVideos.push(uploadedUrl || compressedUri);
-                successCount++;
+                if (!uploadedUrl || !/^https?:\/\//i.test(uploadedUrl)) {
+                  throw new Error("Video upload did not return a durable URL");
+                }
+
+                newDocVideos.push(uploadedUrl);
+                successCount += 1;
                 setVideoProgress(100);
               } catch (upErr) {
-                console.warn("⚠️ [Photos] All upload paths failed, using local URI:", upErr?.message);
-                newDocVideos.push(compressedUri);
-                successCount++;
+                console.warn("⚠️ [Photos] All upload paths failed:", upErr?.message);
+                toastService.showError("Video upload failed. Please try again while connected to the internet.");
               }
             } catch (compressError) {
               console.error("❌ [Photos] Video processing failed:", compressError);

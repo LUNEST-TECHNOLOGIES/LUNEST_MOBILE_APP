@@ -1,13 +1,14 @@
 /**
  * Payment Service
- * Handles Paystack integration for wallet funding and withdrawals
+ * Handles provider-backed payments for wallet funding and withdrawals.
+ * Paystack remains the default provider for backward compatibility.
  */
 
 import apiClient from "./apiClient";
 
 class PaymentService {
   /**
-   * Initialize a payment (get Paystack checkout URL)
+   * Initialize a payment (get provider checkout URL)
    * @param {number} amount - Amount in Naira
    * @param {string} email - User's email
    * @param {object} metadata - Optional metadata
@@ -15,15 +16,17 @@ class PaymentService {
    */
   async initializePayment(amountOrParams, emailParam, metadataParam = {}) {
     try {
-      let amount, email, metadata;
+      let amount, email, metadata, provider;
       if (typeof amountOrParams === "object" && amountOrParams !== null) {
         amount = amountOrParams.amount;
         email = amountOrParams.email;
         metadata = amountOrParams.metadata || amountOrParams;
+        provider = amountOrParams.provider || amountOrParams.paymentProvider;
       } else {
         amount = amountOrParams;
         email = emailParam;
         metadata = metadataParam;
+        provider = metadataParam?.provider || metadataParam?.paymentProvider;
       }
 
       if (!email) {
@@ -37,11 +40,15 @@ class PaymentService {
 
       console.log("[PaymentService] Initializing payment:", { amount, email });
 
-      const response = await apiClient.post("/v1/payments/initialize", {
+      const payload = {
         amount,
         email,
         metadata,
-      });
+      };
+
+      if (provider) payload.provider = provider;
+
+      const response = await apiClient.post("/v1/payments/initialize", payload);
 
       if (response && (response.success || response.status || response.body || response.data)) {
         const payload = response.body || response.data || response;

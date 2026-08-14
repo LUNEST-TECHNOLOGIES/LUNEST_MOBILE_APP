@@ -541,7 +541,9 @@ const PropertyDetailsScreen = () => {
           );
           console.log("[PropertyDetailsScreen] Uploaded review images:", uploadedImageUrls);
         } else {
-          showToast("Could not upload review images. Submission may continue without them.", TOAST_TYPE.WARNING);
+          showToast("Could not upload review images. Please try again.", TOAST_TYPE.ERROR);
+          setIsPostingReview(false);
+          return;
         }
       }
 

@@ -559,6 +559,7 @@ class BookingService {
       if (!token) return { success: false, message: "Authentication required" };
 
       const formData = new FormData();
+      let appendedCount = 0;
       for (let i = 0; i < imageUris.length; i++) {
         const uri = imageUris[i];
         if (!uri) continue;
@@ -580,6 +581,7 @@ class BookingService {
               blob = await res.blob();
             }
             formData.append("images", blob, `review_${i}.jpg`);
+            appendedCount += 1;
           } catch (e) {
             console.warn("[BookingService] Skipping web image", i, e);
           }
@@ -591,7 +593,12 @@ class BookingService {
             type: ext === "png" ? "image/png" : "image/jpeg",
             name: filename,
           });
+          appendedCount += 1;
         }
+      }
+
+      if (appendedCount === 0) {
+        return { success: false, message: "No valid review images were available to upload" };
       }
 
       const baseURL = await configService.getBaseURL();
@@ -610,7 +617,12 @@ class BookingService {
       }
 
       const data = await response.json();
-      const images = data?.body?.images || data?.images || [];
+      const images = (data?.body?.images || data?.images || [])
+        .map((image) => typeof image === "string" ? image : image?.url || image?.uri || image?.location)
+        .filter((image) => /^https?:\/\//i.test(String(image)) && !/(?:^|\/)(?:blob:|data:|file:|content:)/i.test(String(image)));
+      if (images.length !== appendedCount) {
+        return { success: false, message: "Review image upload returned incomplete media URLs" };
+      }
       return { success: true, images };
     } catch (error) {
       console.error("[BookingService] uploadReviewImages error:", error);

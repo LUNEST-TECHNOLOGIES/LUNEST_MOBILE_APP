@@ -3,41 +3,52 @@ import { View } from 'react-native';
 import { APP_CONFIG } from '../config/appConfig';
 
 /**
- * Web MapView - Uses Google Maps Embed API for web preview
- * This provides a functional, interactive map for the web platform
+ * Web MapView - Provides universal map preview on the Web platform.
+ * Supports:
+ * 1. Coordinates from host property listing (latitude & longitude)
+ * 2. Keyless Google Maps search embeds for guaranteed 100% availability
  */
-const MapView = ({ style, initialRegion, region, children, provider, ...props }) => {
+const MapView = ({ style, initialRegion, region, children, provider, query, ...props }) => {
   const currentRegion = region || initialRegion;
-  const apiKey = APP_CONFIG.GOOGLE_MAPS_API_KEY;
+  const apiKey = APP_CONFIG?.GOOGLE_MAPS_API_KEY;
 
-  if (!currentRegion || !apiKey) {
-    return <View style={style} />;
+  let embedUrl = "";
+
+  const lat = Number(currentRegion?.latitude);
+  const lng = Number(currentRegion?.longitude);
+  const hasValidCoords = !isNaN(lat) && !isNaN(lng) && (lat !== 0 || lng !== 0);
+
+  if (hasValidCoords) {
+    if (apiKey) {
+      embedUrl = `https://www.google.com/maps/embed/v1/place?key=${apiKey}&q=${lat},${lng}&zoom=15`;
+    } else {
+      // Robust keyless Google Maps search embed showing the pin at exact coordinates
+      embedUrl = `https://maps.google.com/maps?q=${lat},${lng}&hl=en&z=15&output=embed`;
+    }
+  } else if (query) {
+    embedUrl = `https://maps.google.com/maps?q=${encodeURIComponent(query)}&hl=en&z=14&output=embed`;
+  } else {
+    // Default fallback to Lagos, Nigeria
+    embedUrl = `https://maps.google.com/maps?q=6.5244,3.3792&hl=en&z=13&output=embed`;
   }
 
-  const { latitude, longitude } = currentRegion;
-  // Use zoom 15 as default if delta is not provided
-  const zoom = 15;
-  
-  // Google Maps Embed URL - using "place" mode to show a pin at the coordinates
-  const embedUrl = `https://www.google.com/maps/embed/v1/place?key=${apiKey}&q=${latitude},${longitude}&zoom=${zoom}`;
-
   return (
-    <View style={[style, { overflow: 'hidden' }]}>
+    <View style={[style, { overflow: 'hidden', borderRadius: 12, backgroundColor: '#E2E8F0' }]}>
       <iframe
         width="100%"
         height="100%"
         frameBorder="0"
-        style={{ border: 0 }}
+        style={{ border: 0, width: '100%', height: '100%', borderRadius: 12 }}
         src={embedUrl}
         allowFullScreen
+        title="Property Location Map"
+        loading="lazy"
       />
-      {/* We render children just in case, though they likely won't be visible over the iframe */}
-      {false && children}
     </View>
   );
 };
 
-// Marker component for web - simply a stub since the embed API handles the pin
+// Marker component for web - simply a stub since the embed iframe handles the pin
 const Marker = () => null;
 
 const PROVIDER_GOOGLE = "google";

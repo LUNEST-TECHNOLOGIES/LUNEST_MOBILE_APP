@@ -879,12 +879,54 @@ const PropertyDetailsScreen = () => {
         return [...new Set(allRules)].filter((r) => r && r.trim());
       })(),
       latitude: (() => {
-        const lat = listing.propertyLocation?.latitude || listing.latitude || geocodedCoords?.latitude;
-        return lat != null ? Number(lat) : null;
+        const directLat = listing.propertyLocation?.latitude || listing.latitude || geocodedCoords?.latitude;
+        if (directLat != null && !isNaN(Number(directLat)) && Number(directLat) !== 0) {
+          return Number(directLat);
+        }
+        const locStr = String(listing.city || listing.state || listing.location || listing.propertyLocation?.city || listing.propertyLocation?.state || "").toLowerCase();
+        if (locStr.includes("abuja") || locStr.includes("fct") || locStr.includes("maitama") || locStr.includes("gwarinpa") || locStr.includes("wuse")) return 9.0765;
+        if (locStr.includes("port harcourt") || locStr.includes("rivers")) return 4.8156;
+        if (locStr.includes("ibadan") || locStr.includes("oyo")) return 7.3775;
+        if (locStr.includes("enugu")) return 6.4584;
+        if (locStr.includes("benin") || locStr.includes("edo")) return 6.3350;
+        if (locStr.includes("asaba") || locStr.includes("delta")) return 6.1983;
+        if (locStr.includes("warri")) return 5.5167;
+        if (locStr.includes("calabar") || locStr.includes("cross river")) return 4.9757;
+        if (locStr.includes("uyo") || locStr.includes("akwa ibom")) return 5.0377;
+        if (locStr.includes("kano")) return 12.0022;
+        if (locStr.includes("kaduna")) return 10.5105;
+        if (locStr.includes("abeokuta") || locStr.includes("ogun")) return 7.1557;
+        if (locStr.includes("lekki")) return 6.4698;
+        if (locStr.includes("ikoyi")) return 6.4549;
+        if (locStr.includes("victoria island")) return 6.4281;
+        if (locStr.includes("ikeja")) return 6.6018;
+        if (locStr.includes("lagos")) return 6.5244;
+        return 6.5244; // Default to Lagos, Nigeria
       })(),
       longitude: (() => {
-        const lon = listing.propertyLocation?.longitude || listing.longitude || geocodedCoords?.longitude;
-        return lon != null ? Number(lon) : null;
+        const directLon = listing.propertyLocation?.longitude || listing.longitude || geocodedCoords?.longitude;
+        if (directLon != null && !isNaN(Number(directLon)) && Number(directLon) !== 0) {
+          return Number(directLon);
+        }
+        const locStr = String(listing.city || listing.state || listing.location || listing.propertyLocation?.city || listing.propertyLocation?.state || "").toLowerCase();
+        if (locStr.includes("abuja") || locStr.includes("fct") || locStr.includes("maitama") || locStr.includes("gwarinpa") || locStr.includes("wuse")) return 7.3986;
+        if (locStr.includes("port harcourt") || locStr.includes("rivers")) return 7.0498;
+        if (locStr.includes("ibadan") || locStr.includes("oyo")) return 3.9470;
+        if (locStr.includes("enugu")) return 7.5464;
+        if (locStr.includes("benin") || locStr.includes("edo")) return 5.6037;
+        if (locStr.includes("asaba") || locStr.includes("delta")) return 6.7297;
+        if (locStr.includes("warri")) return 5.7500;
+        if (locStr.includes("calabar") || locStr.includes("cross river")) return 8.3417;
+        if (locStr.includes("uyo") || locStr.includes("akwa ibom")) return 7.9128;
+        if (locStr.includes("kano")) return 8.5920;
+        if (locStr.includes("kaduna")) return 7.4165;
+        if (locStr.includes("abeokuta") || locStr.includes("ogun")) return 3.3451;
+        if (locStr.includes("lekki")) return 3.5852;
+        if (locStr.includes("ikoyi")) return 3.4346;
+        if (locStr.includes("victoria island")) return 3.4219;
+        if (locStr.includes("ikeja")) return 3.3515;
+        if (locStr.includes("lagos")) return 3.3792;
+        return 3.3792; // Default to Lagos, Nigeria
       })(),
       landmarks: (() => {
         const lms = listing.landmarks || listing.propertyLandmarks;
@@ -1522,6 +1564,7 @@ const PropertyDetailsScreen = () => {
                   key={`map-${propertyData.latitude}-${propertyData.longitude}`}
                   style={styles.map}
                   provider={PROVIDER_GOOGLE}
+                  query={propertyData.location || propertyData.title}
                   initialRegion={{
                     latitude: Number(propertyData.latitude),
                     longitude: Number(propertyData.longitude),

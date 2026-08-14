@@ -90,9 +90,6 @@ class DraftListingService {
       // Stage 4: Local Storage Operations
       const draftsKey = await this.getDraftsKey();
       
-      // Update in-memory cache immediately - this is the source of truth for fast navigation
-      draftCache.set(resolvedDraftId, draftToSave);
-      
       const existingDrafts = (await this.getAllDrafts()) || [];
       const updatedDraftsList = [...existingDrafts];
       
@@ -102,11 +99,27 @@ class DraftListingService {
         (d?.draftId && d?.draftId === (listingData?._id || listingData?.id))
       );
       
+      let finalDraftToSave = draftToSave;
+      
       if (existingIndex >= 0) {
-        updatedDraftsList[existingIndex] = draftToSave;
+        // Merge new data with existing draft to preserve previously set fields
+        // Only replace fields that are explicitly provided in the new data
+        const existingDraft = updatedDraftsList[existingIndex];
+        finalDraftToSave = {
+          ...existingDraft, // Keep all existing fields
+          ...draftToSave, // Overwrite with new data
+          // Preserve critical fields that shouldn't be overwritten
+          draftId: existingDraft.draftId || draftToSave.draftId,
+          lastModified: timestamp,
+          status: "draft",
+        };
+        updatedDraftsList[existingIndex] = finalDraftToSave;
       } else {
         updatedDraftsList.unshift(draftToSave);
       }
+      
+      // Update in-memory cache with the final draft
+      draftCache.set(resolvedDraftId, finalDraftToSave);
 
       await storageService.setItem(draftsKey, updatedDraftsList);
       console.log("💾 [DraftListingService] Local save complete:", resolvedDraftId);
@@ -114,12 +127,12 @@ class DraftListingService {
       // Stage 5: Background Database Sync (Heavily Guarded)
       // We don't await this to keep the UI snappy, but we catch all errors
       logService.logInfo("Saving draft locally", { draftId: resolvedDraftId });
-      this.syncToDatabase(draftToSave).catch(err => {
+      this.syncToDatabase(finalDraftToSave).catch(err => {
         console.warn("⚠️ [DraftListingService] Background sync failed:", err.message);
         logService.logError("Draft background sync failed", { draftId: resolvedDraftId, message: err.message });
       });
       
-      return draftToSave;
+      return finalDraftToSave;
     } catch (error) {
       console.error("❌ [DraftListingService] CRITICAL save error:", error);
       throw error;

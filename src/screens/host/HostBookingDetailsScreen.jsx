@@ -379,37 +379,79 @@ const HostBookingDetailsScreen = () => {
 
   // Payment — use pricingBreakdown from API when available
   const breakdown = booking?.pricingBreakdown;
-  const totalPrice =
-    booking?.totalAmount?.price ?? parseFloat(params.price) ?? 0;
+  const listingPricePerNight = Number(booking?.listing?.price || 0);
+  const totalNights = Math.max(1, Number(nights) || 1);
 
-  // Host-centric pricing derived from breakdown or calculation
-  const rentFee = breakdown?.rentFee ?? Math.round(totalPrice * 0.7);
-  const serviceFee = breakdown?.serviceCharge ?? Math.round(totalPrice * 0.05);
+  // 1. Accommodation / Rent Fee for the booked nights:
+  const rentFee = (() => {
+    if (breakdown?.rentFee !== undefined && breakdown?.rentFee !== null && Number(breakdown.rentFee) > 0) {
+      return Number(breakdown.rentFee);
+    }
+    if (listingPricePerNight > 0) {
+      return listingPricePerNight * totalNights;
+    }
+    const rawPrice = Number(booking?.totalAmount?.price ?? parseFloat(params.price) ?? 0);
+    const secDep = Number(breakdown?.securityDeposit ?? breakdown?.cautionFee ?? booking?.listing?.securityDeposit ?? booking?.listing?.cautionFee ?? 0);
+    const sc = Number(breakdown?.serviceCharge ?? booking?.listing?.serviceCharge ?? 0);
+    const calcRent = rawPrice - secDep - sc;
+    return calcRent > 0 ? calcRent : rawPrice;
+  })();
 
-  // Use listing's security deposit as fallback to ensure consistency across the app
-  const securityDeposit =
+  // 2. Service Charge (Cleaning / Property Service):
+  const serviceFee = Number(
+    breakdown?.serviceCharge ??
+    booking?.listing?.serviceCharge ??
+    0
+  );
+
+  // 3. Caution Fee / Security Deposit (On Hold):
+  const securityDeposit = Number(
     breakdown?.securityDeposit ??
     breakdown?.cautionFee ??
     booking?.listing?.securityDeposit ??
     booking?.listing?.cautionFee ??
-    Math.round(totalPrice * 0.025);
+    0
+  );
 
-  // Fee base for host commission (3%) is Rent + Guest Service Charge
-  const hostSubtotal = rentFee + serviceFee;
+  // 4. Host Subtotal (Taxable Amount):
+  const hostSubtotal = Number(breakdown?.taxableAmount ?? (rentFee + serviceFee));
 
-  // Host service fee (commission) and its VAT
-  const hostFee = breakdown?.hostFee ?? Math.round(hostSubtotal * 0.03);
-  const hostVat = breakdown?.hostVat ?? Math.round(hostFee * 0.075);
+  // 5. Host Fee (3% Platform Commission):
+  const hostFee = Number(
+    breakdown?.hostFee ??
+    Math.round(hostSubtotal * 0.03)
+  );
+
+  // 6. VAT on Host Fee (7.5%):
+  const hostVat = Number(
+    breakdown?.hostVat ??
+    Math.round(hostFee * 0.075)
+  );
+
   const totalHostDeduction = hostFee + hostVat;
 
-  // Host earnings are Subtotal minus the platform commission and VAT
-  const hostEarnings =
-    breakdown?.hostEarnings ?? hostSubtotal - totalHostDeduction;
-  const guestTotal = breakdown?.guestTotal ?? totalPrice;
+  // 7. Base Host Earnings (Subtotal minus platform commission and VAT):
+  const baseHostEarnings = Number(
+    breakdown?.hostEarnings ??
+    (hostSubtotal - totalHostDeduction)
+  );
+
+  // 8. Extension Earnings (if any stay extensions occurred):
+  const extensionEarnings = (booking?.extensions || []).reduce((acc, ext) => {
+    return acc + Number(ext.pricingBreakdown?.hostEarnings || ext.pricingBreakdown?.hostTotal || ext.hostEarnings || ext.rentFee || 0);
+  }, 0);
+
+  const hostEarnings = baseHostEarnings + extensionEarnings;
+
+  // 9. Total Guest Paid:
+  const guestTotal = Number(
+    breakdown?.guestTotal ??
+    (booking?.totalAmount?.price ?? (hostSubtotal + securityDeposit))
+  );
 
   // App charge and VAT as defined in the pricing model for receipt generation
-  const appCharge = breakdown?.appCharge || breakdown?.guestFee || 0;
-  const vat = breakdown?.vat || breakdown?.guestVat || 0;
+  const appCharge = Number(breakdown?.appCharge || breakdown?.guestFee || 0);
+  const vat = Number(breakdown?.vat || breakdown?.guestVat || 0);
 
   const paymentMethod =
     booking?.paymentMethod || params.paymentMethod || "Card";
@@ -1118,6 +1160,13 @@ const HostBookingDetailsScreen = () => {
                 value={`-₦${hostVat.toLocaleString()}`}
                 valueStyle={{ color: "#EF4444" }}
               />
+              {extensionEarnings > 0 && (
+                <InfoRow
+                  label="Stay Extensions Net Payout:"
+                  value={`+₦${extensionEarnings.toLocaleString()}`}
+                  valueStyle={{ color: "#059669", fontWeight: "600" }}
+                />
+              )}
             </View>
 
             <View

@@ -40,24 +40,25 @@ const BackIcon = ({ size = 24, color = "black" }) => (
 );
 
 /**
- * Paystack Icon
+ * Paystack Official Icon
  */
 const PaystackIcon = ({ size = 24 }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Path
-      d="M3 5H21V7H3V5ZM3 9H21V11H3V9ZM3 13H21V15H3V13ZM3 17H15V19H3V17Z"
-      fill="#00C3F7"
-    />
+    <Rect x="2" y="3.5" width="20" height="2.8" rx="1.4" fill="#00C3F7" />
+    <Rect x="2" y="8.5" width="20" height="2.8" rx="1.4" fill="#00C3F7" />
+    <Rect x="2" y="13.5" width="20" height="2.8" rx="1.4" fill="#00C3F7" />
+    <Rect x="2" y="18.5" width="13" height="2.8" rx="1.4" fill="#00C3F7" />
   </Svg>
 );
 
 /**
- * Kora Icon
+ * Kora Official Icon
  */
 const KoraIcon = ({ size = 24 }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Rect width="24" height="24" rx="5.5" fill="#0A0E28" />
     <Path
-      d="M5 4H8.5V10.5L13.5 4H18L11.5 12L18.5 20H14L8.5 13.5V20H5V4Z"
+      d="M6.5 5h2.8v5.5l5.2-5.5h3.6l-6.2 6.4 6.6 7.6h-3.8l-5.4-6.4v6.4H6.5V5z"
       fill="#00D285"
     />
   </Svg>

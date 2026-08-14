@@ -103,29 +103,30 @@ const PropertyTypeChip = ({ label, selected, onPress }) => (
 );
 
 /**
- * Form Input Component
+ * Form Input Component - Now uses TextInput for editable fields
  */
-const FormInput = ({ value, onChangeText, placeholder, keyboardType, maxLength, editable = true, style }) => (
+const FormInput = ({ value, onChangeText, placeholder, editable = true, keyboardType = 'default', style }) => (
   <View style={[styles.inputContainer, style]}>
     <TextInput
-      style={styles.textInput}
+      style={[styles.textInput, !editable && styles.textInputDisabled]}
       value={value}
       onChangeText={onChangeText}
       placeholder={placeholder}
       placeholderTextColor="#656565"
-      keyboardType={keyboardType}
-      maxLength={maxLength}
       editable={editable}
+      keyboardType={keyboardType}
     />
   </View>
 );
 
 const PROPERTY_TYPES = [
-  'Apartment',
-  'House',
+  'Apartment / Flat',
+  'Serviced Apartment',
+  'Shortlet Apartment',
+  'Guest House',
   'Duplex',
-  'Penthouse',
-  'Studio',
+  'Hostel',
+  'Bungalow',
   'Co-living Space',
   'Mini Flat',
   'Shared Room',
@@ -192,18 +193,12 @@ const LandlordRequestForm = () => {
       const kycStatus = serverData?.kycStatus || profileData?.kycStatus;
       setKycCompleted(kycStatus === 'VERIFIED' || kycStatus === 'APPROVED');
 
-      // Mask NIN for display (show first 3 and last 4 digits)
-      const rawNin = serverData?.nin || profileData?.nin || '';
-      const maskedNin = rawNin.length >= 7 
-        ? `${rawNin.substring(0, 3)}${'*'.repeat(rawNin.length - 7)}${rawNin.substring(rawNin.length - 4)}`
-        : rawNin;
-
       setUserData({
         fullName: serverData?.fullName || authUser?.fullName || profileData?.name || '',
         email: serverData?.emailAddress || authUser?.email || profileData?.email || '',
         phone: serverData?.phoneNumber || profileData?.phone || '',
         location: serverData?.location || profileData?.location || '',
-        nin: maskedNin, // Masked NIN from KYC
+        nin: serverData?.nin || profileData?.nin || '', // Auto-append masked NIN from KYC
       });
 
       // Auto-fill gender from server profile data or local profile
@@ -375,75 +370,95 @@ const LandlordRequestForm = () => {
         hostRequestDate: new Date().toISOString(),
       });
 
-      // Refresh the host status context
-      await refreshHostStatus();
+      // Refresh the host status context to update the UI on the profile screen
+      if (typeof refreshHostStatus === 'function') {
+        await refreshHostStatus();
+      }
 
-      // Show success modal
+      // Important: Stop the submitting modal before showing success
+      setIsSubmitting(false);
+      
+      // Show pending modal and navigate to pending screen ONLY after success
       setShowPendingModal(true);
-      setIsSubmitting(false);
+      
+      // Navigate to pending screen after a short delay for the user to see the success state/modal
+      setTimeout(() => {
+        setShowPendingModal(false);
+        router.replace('/host-request-pending');
+      }, 2500);
+
     } catch (error) {
-      console.error('Error submitting landlord request:', error);
-      toastService.notify('Failed to submit host application. Please try again.', 'error');
-      setIsSubmitting(false);
+      console.error('Error submitting form:', error);
+      setIsSubmitting(false); // Ensure loading stops on unexpected error
+      
+      // Use toastService for better UI consistency
+      const errorMessage = error.message || 'Failed to submit request. Please try again.';
+      toastService.notify(errorMessage, 'error');
+      
+      // Falling back to Alert only for critical system failures
+      if (error.status === 500) {
+        Alert.alert('System Error', 'An unexpected server error occurred. Our team has been notified.');
+      }
     }
   };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
+          style={styles.closeButton}
+          onPress={() => {
+            if (router.canGoBack()) {
+              router.back();
+            } else {
+              router.replace('/profile');
+            }
+          }}
           activeOpacity={0.7}
         >
-          <BackIcon size={24} color="#000" />
+          <View style={styles.closeButtonCircle}>
+            <CloseIcon size={20} color="#000" />
+          </View>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Host Application</Text>
-        <View style={{ width: 24 }} />
+        <Text style={styles.headerTitle}>Landlord Request Form</Text>
+        <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView 
+      <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { alignItems: 'center' }]}
         showsVerticalScrollIndicator={false}
       >
         {/* Personal Information Section */}
         <View style={[styles.section, { width: containerWidth }]}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Personal Information</Text>
-            <Text style={styles.sectionSubtitle}>Please provide your personal details. All fields marked with * are required.</Text>
-          </View>
+          <Text style={styles.sectionTitle}>Personal Information</Text>
+          <Text style={styles.sectionSubtitle}>
+            Your profile details have been pre-filled. You can edit them if needed.
+          </Text>
 
           <View style={styles.formGroup}>
             <FormInput 
               value={userData.fullName} 
               onChangeText={(text) => setUserData(prev => ({ ...prev, fullName: text }))}
               placeholder="Full Name *" 
-              editable={false}
-              style={{ backgroundColor: '#f0f0f0' }}
             />
             <FormInput 
               value={userData.email} 
               onChangeText={(text) => setUserData(prev => ({ ...prev, email: text }))}
               placeholder="Email Address *" 
               keyboardType="email-address"
-              editable={false}
-              style={{ backgroundColor: '#f0f0f0' }}
             />
             <FormInput 
               value={userData.phone} 
               onChangeText={(text) => setUserData(prev => ({ ...prev, phone: text }))}
               placeholder="Phone Number *" 
               keyboardType="phone-pad"
-              editable={false}
-              style={{ backgroundColor: '#f0f0f0' }}
             />
             <FormInput 
               value={userData.location} 
               onChangeText={(text) => setUserData(prev => ({ ...prev, location: text }))}
               placeholder="Your Location *" 
-              editable={false}
-              style={{ backgroundColor: '#f0f0f0' }}
             />
             <FormInput 
               value={userData.nin} 
@@ -488,6 +503,18 @@ const LandlordRequestForm = () => {
                 </TouchableOpacity>
               </View>
             </View>
+
+            <View style={styles.inputContainer}>
+              <TextInput
+                style={styles.textInput}
+                value={bvn}
+                onChangeText={setBvn}
+                placeholder="BVN"
+                placeholderTextColor="#656565"
+                keyboardType="numeric"
+                maxLength={11}
+              />
+            </View>
           </View>
         </View>
 
@@ -523,16 +550,23 @@ const LandlordRequestForm = () => {
                     label={type}
                     selected={selectedPropertyTypes.includes(type)}
                     onPress={() => {
-                      if (selectedPropertyTypes.includes(type)) {
-                        setSelectedPropertyTypes(prev => prev.filter(t => t !== type));
-                      } else {
-                        setSelectedPropertyTypes(prev => [...prev, type]);
-                      }
+                      setSelectedPropertyTypes(prev => {
+                        if (prev.includes(type)) {
+                          // Remove if already selected
+                          const newTypes = prev.filter(t => t !== type);
+                          if (type === 'Other') {
+                            setCustomPropertyType('');
+                          }
+                          return newTypes;
+                        } else {
+                          // Add if not selected
+                          return [...prev, type];
+                        }
+                      });
                     }}
                   />
                 ))}
               </View>
-
               {/* Custom Property Type Input */}
               {selectedPropertyTypes.includes('Other') && (
                 <View style={[styles.inputContainer, styles.customPropertyInput]}>
@@ -817,31 +851,36 @@ const LandlordRequestForm = () => {
         <View style={styles.bottomSpacer} />
       </ScrollView>
 
-      {/* Pending Modal */}
+      {/* Submitting Modal */}
       <Modal
-        visible={showPendingModal}
-        transparent
+        visible={isSubmitting}
+        transparent={true}
         animationType="fade"
-        onRequestClose={() => setShowPendingModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalIconContainer}>
-              <Ionicons name="checkmark-circle" size={60} color="#010135" />
+          <View style={styles.submittingModalContent}>
+            <ActivityIndicator size="large" color="#010135" />
+            <Text style={styles.submittingText}>Submitting Application...</Text>
+            <Text style={styles.submittingSubText}>Please wait while we process your request.</Text>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Success/Pending Modal */}
+      <Modal
+        visible={showPendingModal}
+        transparent={true}
+        animationType="slide"
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.successModalContent}>
+            <View style={styles.successIconCircle}>
+              <Ionicons name="checkmark" size={40} color="#FFFFFF" />
             </View>
-            <Text style={styles.modalTitle}>Application Submitted!</Text>
-            <Text style={styles.modalMessage}>
-              Your host application has been submitted successfully. Our team will review your application and get back to you within 24-48 hours.
+            <Text style={styles.successTitle}>Application Submitted!</Text>
+            <Text style={styles.successMessage}>
+              Your request to become a host is being reviewed. We will notify you once it is approved.
             </Text>
-            <TouchableOpacity
-              style={styles.modalButton}
-              onPress={() => {
-                setShowPendingModal(false);
-                router.back();
-              }}
-            >
-              <Text style={styles.modalButtonText}>Done</Text>
-            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -860,78 +899,99 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
   },
-  backButton: {
+  closeButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  closeButtonCircle: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#F5F5F5',
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#111827',
+    fontWeight: '500',
+    
+    color: '#000000',
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingVertical: 20,
-    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 10,
   },
   section: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    padding: 16,
-    marginBottom: 20,
-  },
-  sectionHeader: {
-    marginBottom: 16,
+    marginBottom: 30,
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#111827',
-    marginBottom: 4,
+    fontSize: 14,
+    fontWeight: '700',
+    
+    color: '#000000',
+    marginBottom: 8,
   },
   sectionSubtitle: {
     fontSize: 14,
-    color: '#6B7280',
+    
+    color: '#656565',
+    marginBottom: 20,
     lineHeight: 20,
   },
   formGroup: {
-    gap: 16,
+    gap: 10,
   },
   inputContainer: {
-    height: 50,
-    borderRadius: 10,
+    height: 44,
+    backgroundColor: '#F6F6F6',
+    borderRadius: 25,
     borderWidth: 1,
-    borderColor: '#7c7c7c',
-    paddingHorizontal: 16,
+    borderColor: '#000000',
+    paddingHorizontal: 18,
+    justifyContent: 'center',
   },
   textInput: {
     fontSize: 14,
+    fontWeight: '500',
+    
     color: '#000000',
-    flex: 1,
+  },
+  textInputDisabled: {
+    color: '#656565',
+  },
+  inputText: {
+    fontSize: 14,
+    fontWeight: '500',
+    
+    color: '#000000',
+  },
+  inputTextDisabled: {
+    color: '#656565',
+  },
+  textInput: {
+    fontSize: 14,
+    fontWeight: '500',
+    
+    color: '#000000',
   },
   genderContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    paddingVertical: 10,
   },
   genderLabel: {
     fontSize: 14,
-    fontWeight: '500',
-    color: '#111827',
+    
+    color: '#656565',
+    marginBottom: 10,
   },
   genderOptions: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 20,
   },
   genderOption: {
@@ -940,11 +1000,11 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   radioOuter: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
     borderWidth: 2,
-    borderColor: '#7c7c7c',
+    borderColor: '#888888',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -959,10 +1019,12 @@ const styles = StyleSheet.create({
   },
   genderText: {
     fontSize: 14,
-    color: '#111827',
+    fontWeight: '500',
+    
+    color: '#000000',
   },
   propertyTypeContainer: {
-    gap: 12,
+    gap: 15,
   },
   propertyTypeHeader: {
     flexDirection: 'row',
@@ -972,86 +1034,75 @@ const styles = StyleSheet.create({
   fieldLabel: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#111827',
-    marginBottom: 8,
+    
+    color: '#000000',
   },
   fieldValue: {
-    fontSize: 12,
-    color: '#6B7280',
+    fontSize: 14,
+    fontWeight: '500',
+    
+    color: '#454545',
   },
   selectedTypesText: {
     fontSize: 12,
+    fontWeight: '400',
+    
     color: '#010135',
     marginTop: 4,
+    marginBottom: 8,
   },
   propertyTypeGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
   },
+  customPropertyInput: {
+    marginTop: 5,
+  },
   propertyChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#7c7c7c',
-    backgroundColor: '#FFFFFF',
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#888888',
   },
   propertyChipSelected: {
-    backgroundColor: '#010135',
     borderColor: '#010135',
+    backgroundColor: '#E5EFFF',
   },
   propertyChipText: {
     fontSize: 12,
-    color: '#111827',
+    fontWeight: '500',
+    
+    color: '#292929',
   },
   propertyChipTextSelected: {
-    color: '#FFFFFF',
-  },
-  customPropertyInput: {
-    marginTop: 8,
-  },
-  roleContainer: {
-    marginTop: 16,
-  },
-  roleOptions: {
-    flexDirection: 'row',
-    gap: 8,
-    flexWrap: 'wrap',
-  },
-  roleChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#7c7c7c',
-    backgroundColor: '#FFFFFF',
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 44,
-  },
-  roleChipSelected: {
-    backgroundColor: '#010135',
-    borderColor: '#010135',
-  },
-  roleChipText: {
-    fontSize: 12,
-    color: '#111827',
-    textAlign: 'center',
-  },
-  roleChipTextSelected: {
-    color: '#FFFFFF',
+    color: '#010135',
   },
   toggleRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 16,
+    justifyContent: 'space-between',
+    paddingVertical: 20,
+    paddingHorizontal: 16,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    // Premium shadow
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
   },
   toggleLabel: {
-    fontSize: 14,
+    fontSize: 15,
+    fontWeight: '600',
     color: '#111827',
+    flex: 1,
+    marginRight: 12,
   },
   descriptionContainer: {
     gap: 10,
@@ -1065,6 +1116,7 @@ const styles = StyleSheet.create({
   },
   descriptionInput: {
     fontSize: 14,
+    
     color: '#000000',
     flex: 1,
   },
@@ -1088,16 +1140,13 @@ const styles = StyleSheet.create({
   uploadText: {
     fontSize: 14,
     fontWeight: '500',
+    
     color: '#000000',
   },
   uploadHint: {
     fontSize: 10,
+    
     color: '#656565',
-  },
-  uploadLabel: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginTop: 4,
   },
   privacyStatement: {
     fontSize: 11,
@@ -1105,108 +1154,174 @@ const styles = StyleSheet.create({
     marginTop: 8,
     lineHeight: 14,
   },
+  uploadLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    
+    color: '#6371F1',
+  },
   imagePreviewScroll: {
-    marginTop: 12,
+    marginTop: 10,
   },
   imagePreviewContainer: {
-    width: 72,
-    height: 72,
-    borderRadius: 8,
-    overflow: 'hidden',
-    marginRight: 8,
+    marginRight: 10,
     position: 'relative',
   },
   imagePreview: {
-    width: '100%',
-    height: '100%',
+    width: 60,
+    height: 60,
+    borderRadius: 8,
   },
   removeImageButton: {
     position: 'absolute',
-    top: 4,
-    right: 4,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    borderRadius: 12,
+    top: -6,
+    right: -6,
     width: 20,
     height: 20,
+    borderRadius: 10,
+    backgroundColor: '#FF4444',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  submitSection: {
-    marginTop: 20,
+  idPreview: {
     width: '100%',
-    paddingHorizontal: 20,
+    height: '100%',
+    borderRadius: 8,
+  },
+  submitSection: {
+    gap: 20,
+    marginBottom: 20,
   },
   termsText: {
     fontSize: 12,
-    color: '#6B7280',
+    
+    color: '#000000',
     textAlign: 'center',
-    marginBottom: 16,
     lineHeight: 18,
   },
   termsBold: {
-    fontWeight: '600',
+    fontWeight: '700',
+    
   },
   submitButton: {
+    height: 50,
     backgroundColor: '#010135',
-    borderRadius: 8,
-    paddingVertical: 16,
+    borderRadius: 25,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   submitButtonDisabled: {
-    backgroundColor: '#A0A0A0',
+    opacity: 0.6,
   },
   submitButtonText: {
-    color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
+    
+    color: '#FFFFFF',
   },
   bottomSpacer: {
     height: 40,
   },
+  toggleSubLabel: {
+    fontSize: 12,
+    color: '#656565',
+    marginTop: 2,
+  },
+  authLetterPreviewContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  authLetterText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#010135',
+  },
+  roleContainer: {
+    marginTop: 15,
+    marginBottom: 10,
+  },
+  roleOptions: {
+    gap: 10,
+    marginTop: 12,
+  },
+  roleChip: {
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    borderRadius: 12,
+    backgroundColor: '#F6F6F6',
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+  },
+  roleChipSelected: {
+    backgroundColor: '#010135',
+    borderColor: '#010135',
+  },
+  roleChipText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#656565',
+  },
+  roleChipTextSelected: {
+    color: '#FFFFFF',
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 20,
-  },
-  modalContent: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 24,
-    width: '100%',
-    maxWidth: 320,
     alignItems: 'center',
   },
-  modalIconContainer: {
-    marginBottom: 16,
+  submittingModalContent: {
+    backgroundColor: '#FFFFFF',
+    padding: 30,
+    borderRadius: 20,
+    alignItems: 'center',
+    gap: 15,
+    width: '80%',
   },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#111827',
-    marginBottom: 8,
-    textAlign: 'center',
+  submittingText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#010135',
   },
-  modalMessage: {
+  submittingSubText: {
     fontSize: 14,
-    color: '#6B7280',
+    color: '#656565',
     textAlign: 'center',
-    marginBottom: 24,
-    lineHeight: 20,
   },
-  modalButton: {
-    backgroundColor: '#010135',
-    borderRadius: 8,
-    paddingVertical: 14,
-    paddingHorizontal: 32,
-    width: '100%',
+  successModalContent: {
+    backgroundColor: '#FFFFFF',
+    padding: 40,
+    borderRadius: 30,
+    alignItems: 'center',
+    width: '85%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    elevation: 10,
   },
-  modalButtonText: {
-    color: '#FFFFFF',
+  successIconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#4CAF50',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  successTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#010135',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  successMessage: {
     fontSize: 16,
-    fontWeight: '600',
+    color: '#656565',
     textAlign: 'center',
+    lineHeight: 24,
   },
 });
 

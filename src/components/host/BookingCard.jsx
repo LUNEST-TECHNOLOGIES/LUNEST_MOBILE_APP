@@ -263,7 +263,16 @@ const BookingCard = ({
             <Text style={styles.price}>
               ₦{booking.price?.toLocaleString() || "0"}
             </Text>
-            <Text style={styles.paidLabel}>Paid</Text>
+            {(() => {
+              const s = booking.status?.toUpperCase();
+              if (s === "CONFIRMED" || s === "COMPLETED" || s === "ONGOING") {
+                return <Text style={styles.paidLabel}>Paid</Text>;
+              }
+              if (s === "CANCELLED" || s === "CANCELED") {
+                return <Text style={[styles.paidLabel, { color: "#FD3131", backgroundColor: "rgba(253, 49, 49, 0.1)" }]}>Cancelled</Text>;
+              }
+              return <Text style={[styles.paidLabel, { color: "#FDAE31", backgroundColor: "rgba(253, 174, 49, 0.1)" }]}>Pending</Text>;
+            })()}
           </View>
         </View>
 

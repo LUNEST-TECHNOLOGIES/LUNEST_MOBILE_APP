@@ -11,6 +11,26 @@ import {
   Alert
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import Svg, { Path, Rect } from "react-native-svg";
+
+const PaystackLogo = ({ size = 18 }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M3 5H21V7H3V5ZM3 9H21V11H3V9ZM3 13H21V15H3V13ZM3 17H15V19H3V17Z"
+      fill="#00C3F7"
+    />
+  </Svg>
+);
+
+const KoraLogo = ({ size = 18 }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Rect width="24" height="24" rx="6" fill="#010135" />
+    <Path
+      d="M7 6H10V11L14 6H17.5L12.5 12L18 18H14.2L10 13V18H7V6Z"
+      fill="#00D285"
+    />
+  </Svg>
+);
 
 export const ExtendStayModal = ({
   visible,
@@ -247,8 +267,8 @@ export const ExtendStayModal = ({
             <Text style={styles.sectionLabel}>Payment Provider</Text>
             <View style={styles.providerRow}>
               {[
-                { id: "paystack", label: "Paystack" },
-                { id: "kora", label: "Kora" },
+                { id: "paystack", label: "Paystack", icon: <PaystackLogo size={18} /> },
+                { id: "kora", label: "Kora", icon: <KoraLogo size={18} /> },
               ].map((provider) => (
                 <TouchableOpacity
                   key={provider.id}
@@ -258,14 +278,17 @@ export const ExtendStayModal = ({
                   ]}
                   onPress={() => setPaymentProvider(provider.id)}
                 >
-                  <Text
-                    style={[
-                      styles.providerOptionText,
-                      paymentProvider === provider.id && styles.providerOptionTextSelected,
-                    ]}
-                  >
-                    {provider.label}
-                  </Text>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    {provider.icon}
+                    <Text
+                      style={[
+                        styles.providerOptionText,
+                        paymentProvider === provider.id && styles.providerOptionTextSelected,
+                      ]}
+                    >
+                      {provider.label}
+                    </Text>
+                  </View>
                 </TouchableOpacity>
               ))}
             </View>

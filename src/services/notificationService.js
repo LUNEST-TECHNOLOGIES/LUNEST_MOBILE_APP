@@ -245,7 +245,7 @@ class NotificationService {
    */
   async fetchAdminNotifications(data = {}) {
     try {
-      const response = await apiClient.post("/admin", data);
+      const response = await apiClient.post("/v1/admin", data);
       return response.data || { notifications: [], unreadCount: 0 };
     } catch (error) {
       // Re-throw 401 to let global handler redirect to login
@@ -262,7 +262,7 @@ class NotificationService {
    */
   async markAdminAsRead(notificationId) {
     try {
-      await apiClient.patch(`/admin/${notificationId}/read`);
+      await apiClient.patch(`/v1/admin/${notificationId}/read`);
       return true;
     } catch (error) {
       console.error("[NotificationService] markAdminAsRead error:", error);
@@ -275,7 +275,7 @@ class NotificationService {
    */
   async markAllAdminAsRead() {
     try {
-      await apiClient.patch("/admin/read-all");
+      await apiClient.patch("/v1/admin/read-all");
       return true;
     } catch (error) {
       console.error("[NotificationService] markAllAdminAsRead error:", error);

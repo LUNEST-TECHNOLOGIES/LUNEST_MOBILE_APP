@@ -154,101 +154,53 @@ const TransactionDetailScreen = () => {
 
   // Dynamic status message for all transaction types
   function getStatusMessage(type, status) {
-    const s = status?.toLowerCase();
+    const s = status?.toLowerCase() || "";
     const t = type?.toLowerCase() || "";
     const bs = transactionData.bookingStatus?.toLowerCase();
 
     // IF booking is cancelled, OVERRIDE the transaction status display
     if (bs === "cancelled" && transactionData.category !== "CANCELLATION_PENALTY") {
-        return "Booking Cancelled";
+      return "Booking Cancelled";
     }
 
-    if (t.includes("penalty") || transactionData.category === "CANCELLATION_PENALTY") {
-        if (s === "failed" || s === "cancelled") return "Penalty Failed";
-        if (s === "pending" || s === "reserved") return "Penalty Pending";
-        if (s === "confirmed" || s === "success" || s === "completed")
-          return "Penalty Applied";
-        return `Penalty Status: ${status}`;
-    }
-    
-    if (t.includes("booking") && (t.includes("payment") || t.includes("receipt"))) {
-        if (s === "failed" || s === "cancelled") return "Transaction Failed";
-        if (s === "pending" || s === "reserved") return "Transaction Pending";
-        if (s === "disputed") return "Transaction Disputed";
-        if (s === "confirmed" || s === "success" || s === "completed")
-          return "Transaction Successful";
-        return `Transaction Status: ${status}`;
+    if (s === "failed" || s === "cancelled") {
+      if (t.includes("penalty")) return "Penalty Failed";
+      if (t.includes("payout")) return "Payout Failed";
+      if (t.includes("funding")) return "Funding Failed";
+      if (t.includes("charge")) return "Charge Failed";
+      if (t.includes("vat")) return "VAT Deduction Failed";
+      return "Transaction Failed";
     }
 
-    switch (t) {
-      case "booking":
-        if (s === "failed" || s === "cancelled") return "Transaction Failed";
-        if (s === "pending" || s === "reserved") return "Transaction Pending";
-        if (s === "disputed") return "Transaction Disputed";
-        if (s === "confirmed" || s === "success" || s === "completed")
-          return "Transaction Successful";
-        return `Transaction Status: ${status}`;
-      case "payout":
-      case "host payout":
-        if (s === "failed" || s === "cancelled") return "Payout Failed";
-        if (s === "pending" || s === "reserved") return "Payout Pending";
-        if (s === "confirmed" || s === "success" || s === "completed")
-          return "Payout Successful";
-        return `Payout Status: ${status}`;
-      case "app charge":
-      case "appcharge":
-      case "app fee (deduction)":
-      case "host app fee (deduction)":
-        if (s === "failed" || s === "cancelled") return "Charge Failed";
-        if (s === "pending" || s === "reserved") return "Charge Pending";
-        if (s === "confirmed" || s === "success" || s === "completed")
-          return "Charge Successful";
-        return `Charge Status: ${status}`;
-      case "vat on app fee":
-      case "host vat fee deduction":
-        if (s === "failed" || s === "cancelled") return "VAT Deduction Failed";
-        if (s === "pending" || s === "reserved") return "VAT Deduction Pending";
-        if (s === "confirmed" || s === "success" || s === "completed")
-          return "VAT Deduction Successful";
-        return `VAT Status: ${status}`;
-      case "rent fee (rent + service charge)":
-      case "earnings from booking":
-        if (s === "failed" || s === "cancelled") return "Transaction Failed";
-        if (s === "pending" || s === "reserved") return "Transaction Pending";
-        if (s === "confirmed" || s === "success" || s === "completed")
-          return "Transaction Successful";
-        return `Transaction Status: ${status}`;
-      case "wallet funding":
-      case "funding":
-      case "walletfunding":
-        if (s === "failed" || s === "cancelled") return "Funding Failed";
-        if (s === "pending" || s === "reserved") return "Funding Pending";
-        if (s === "confirmed" || s === "success" || s === "completed")
-          return "Funding Successful";
-        return `Funding Status: ${status}`;
-      case "rent income":
-      case "rent earnings":
-        if (s === "failed" || s === "cancelled") return "Income Failed";
-        if (s === "pending" || s === "reserved") return "Income Pending";
-        if (s === "confirmed" || s === "success" || s === "completed")
-          return "Income Credited";
-        return `Income Status: ${status}`;
-      default:
-        if (t.includes("earnings from") || t.includes("rent income") || t.includes("rent earnings")) {
-            if (s === "failed" || s === "cancelled") return "Transaction Failed";
-            if (s === "pending" || s === "reserved") return "Transaction Pending";
-            if (s === "confirmed" || s === "success" || s === "completed")
-              return "Transaction Successful";
-            return `Transaction Status: ${status}`;
-        }
-        if (s === "on_hold" || s === "on hold" || s === "processing") return "In Escrow";
-        if (s === "disputed") return "Funds Disputed";
-        if (s === "failed" || s === "cancelled") return "Transaction Failed";
-        if (s === "pending" || s === "reserved") return "Transaction Pending";
-        if (s === "confirmed" || s === "success" || s === "completed")
-          return "Transaction Successful";
-        return `Transaction Status: ${status}`;
+    if (s === "pending" || s === "reserved") {
+      if (t.includes("penalty")) return "Penalty Pending";
+      if (t.includes("payout")) return "Payout Pending";
+      if (t.includes("funding")) return "Funding Pending";
+      if (t.includes("charge")) return "Charge Pending";
+      if (t.includes("vat")) return "VAT Deduction Pending";
+      return "Transaction Pending";
     }
+
+    if (s === "processing") {
+      return "Payment Processing";
+    }
+
+    if (s === "on_hold" || s === "on hold") {
+      return "In Escrow";
+    }
+
+    if (s === "disputed") {
+      return "Funds Disputed";
+    }
+
+    // Success/Completed states
+    if (t.includes("penalty") || transactionData.category === "CANCELLATION_PENALTY") return "Penalty Applied";
+    if (t.includes("payout") || t === "host payout") return "Payout Successful";
+    if (t.includes("charge") || t === "app charge") return "Charge Successful";
+    if (t.includes("vat")) return "VAT Deduction Successful";
+    if (t.includes("funding") || t === "wallet funding") return "Funding Successful";
+    if (t.includes("income") || t.includes("earnings")) return "Income Credited";
+    return "Transaction Successful";
   }
 
   function formatDateTime(date) {
@@ -276,33 +228,49 @@ const TransactionDetailScreen = () => {
   };
   
   const handleResolveStatus = async () => {
-    if (!transactionData.reference && !transactionData.transactionId) {
+    const ref = transactionData.reference || transactionData.transactionId;
+    if (!ref) {
       Alert.alert("Error", "No reference found to verify.");
       return;
     }
     
     setIsResolving(true);
     try {
-      // Import bookingService dynamically
-      const bookingService = require("../../services/bookingService").default;
-      const ref = transactionData.reference || transactionData.transactionId;
+      const isBooking = transactionData.category === "BOOKING" || transactionData.bookingId || transactionData.transactionType?.toLowerCase().includes("booking");
+      let result;
+
+      if (isBooking) {
+        const bookingService = require("../../services/bookingService").default;
+        console.log("[TransactionDetail] Resolving booking payment for:", ref);
+        result = await bookingService.verifyPayment(ref);
+      } else {
+        const paymentService = require("../../services/paymentService").default;
+        console.log("[TransactionDetail] Resolving wallet payment for:", ref);
+        result = await paymentService.verifyPayment(ref);
+      }
       
-      console.log("[TransactionDetail] Resolving status for:", ref);
-      const result = await bookingService.verifyPayment(ref);
-      
-      if (result.success) {
-        Alert.alert("Success", "Booking status has been updated and resolved!", [
-          { text: "OK", onPress: () => router.replace("/bookings") }
+      if (result && (result.success || result.status === "COMPLETED" || result.status === "success")) {
+        Alert.alert("Payment Verified", "Your transaction has been successfully verified!", [
+          { 
+            text: "OK", 
+            onPress: () => {
+              if (isBooking) {
+                router.replace("/bookings");
+              } else {
+                router.replace(Platform.OS === 'web' ? "/wallet" : "/(tabs)/wallet");
+              }
+            } 
+          }
         ]);
       } else {
         Alert.alert(
           "Verification Pending", 
-          result.message || "We couldn't verify the payment status yet. If you have been debited, please wait a few minutes and try again."
+          result?.message || "We couldn't verify the payment status yet. If you have completed the payment, please wait a moment and try again."
         );
       }
     } catch (err) {
       console.error("[TransactionDetail] Resolve error:", err);
-      Alert.alert("Error", "An error occurred while verifying status. Please try again later.");
+      Alert.alert("Verification Error", err.message || "An error occurred while verifying status. Please try again.");
     } finally {
       setIsResolving(false);
     }
@@ -508,7 +476,7 @@ const TransactionDetailScreen = () => {
               ${currentBreakdown.isGuestSide ? `
                 ${currentBreakdown.rent ? `<tr><td class="label">Property Rent</td><td class="value">₦${Number(currentBreakdown.rent).toLocaleString()}</td></tr>` : ''}
                 ${currentBreakdown.serviceCharge ? `<tr><td class="label">Service Charge</td><td class="value">₦${Number(currentBreakdown.serviceCharge).toLocaleString()}</td></tr>` : ''}
-                ${currentBreakdown.guestFee ? `<tr><td class="label">Lunest Service Fee</td><td class="value">₦${Number(currentBreakdown.guestFee).toLocaleString()}</td></tr>` : ''}
+                ${currentBreakdown.guestFee ? `<tr><td class="label">LUNEST Service Fee</td><td class="value">₦${Number(currentBreakdown.guestFee).toLocaleString()}</td></tr>` : ''}
                 ${(currentBreakdown.guestVat || currentBreakdown.vat) ? `<tr><td class="label">VAT on Fee</td><td class="value">₦${Number(currentBreakdown.guestVat || currentBreakdown.vat).toLocaleString()}</td></tr>` : ''}
                 ${currentBreakdown.cautionFee ? `<tr><td class="label">Caution Fee (Refundable)</td><td class="value">₦${Number(currentBreakdown.cautionFee).toLocaleString()}</td></tr>` : ''}
                 <tr class="amount-row">
@@ -542,9 +510,9 @@ const TransactionDetailScreen = () => {
           </table>
           
           <div class="footer">
-            <p>Thank you for choosing Lunest.</p>
-            <p>This is a system-generated receipt. For any inquiries, please contact Lunest Support.</p>
-            <p>&copy; ${new Date().getFullYear()} Lunest Technologies.</p>
+            <p>Thank you for choosing LUNEST.</p>
+            <p>This is a system-generated receipt. For any inquiries, please contact LUNEST Support.</p>
+            <p>&copy; ${new Date().getFullYear()} LUNEST Technologies.</p>
           </div>
         </body>
         </html>
@@ -696,19 +664,50 @@ const TransactionDetailScreen = () => {
                 })()}
               </View>
               <Text style={styles.successTitle}>
-                {transactionData.bookingStatus?.toLowerCase() === 'cancelled' && transactionData.category !== "CANCELLATION_PENALTY"
-                  ? 'Booking Cancelled' 
-                  : (transactionData.category === "BOOKING" ? "Stay Secured!" : 
-                     (transactionData.category === "CANCELLATION_PENALTY" ? "Penalty Applied" : "Transaction Successful"))}
+                {(() => {
+                  const s = transactionData.status?.toLowerCase() || "";
+                  const bs = transactionData.bookingStatus?.toLowerCase() || "";
+                  if (bs === 'cancelled' && transactionData.category !== "CANCELLATION_PENALTY") return 'Booking Cancelled';
+                  if (transactionData.category === "CANCELLATION_PENALTY") return s === 'failed' || s === 'cancelled' ? 'Penalty Failed' : 'Penalty Applied';
+                  if (s === 'failed' || s === 'cancelled') return 'Transaction Failed';
+                  if (s === 'pending' || s === 'reserved') return transactionData.category === "BOOKING" ? 'Booking Pending' : 'Payment Pending';
+                  if (s === 'processing') return 'Payment Processing';
+                  if (s === 'on_hold' || s === 'on hold') return 'Funds in Escrow';
+                  if (s === 'disputed') return 'Transaction Disputed';
+                  return transactionData.category === "BOOKING" ? "Stay Secured!" : "Transaction Successful";
+                })()}
               </Text>
               <Text style={styles.successSubtitle}>
-                {transactionData.bookingStatus?.toLowerCase() === 'cancelled' && transactionData.category !== "CANCELLATION_PENALTY"
-                  ? `Booking #${transactionData.transactionId} has been cancelled.`
-                  : (transactionData.category === "BOOKING" 
-                      ? `Your stay at ${transactionData.propertyName} is confirmed.` 
-                      : (transactionData.category === "CANCELLATION_PENALTY"
-                          ? `A cancellation penalty has been applied to booking ${bookingRef ? `#${bookingRef}` : ""}.`
-                          : (currentBreakdown && !currentBreakdown.isGuestSide ? "" : `Your ${transactionData.transactionType} has been processed.`)))}
+                {(() => {
+                  const s = transactionData.status?.toLowerCase() || "";
+                  const bs = transactionData.bookingStatus?.toLowerCase() || "";
+                  if (bs === 'cancelled' && transactionData.category !== "CANCELLATION_PENALTY") {
+                    return `Booking #${transactionData.transactionId} has been cancelled.`;
+                  }
+                  if (transactionData.category === "CANCELLATION_PENALTY") {
+                    return `A cancellation penalty has been applied to booking ${bookingRef ? `#${bookingRef}` : ""}.`;
+                  }
+                  if (s === 'failed' || s === 'cancelled') {
+                    return `Your ${transactionData.transactionType} could not be processed.`;
+                  }
+                  if (s === 'pending' || s === 'reserved') {
+                    return transactionData.category === "BOOKING"
+                      ? `Your booking at ${transactionData.propertyName} is awaiting payment confirmation.`
+                      : `Your ${transactionData.transactionType} is awaiting payment confirmation.`;
+                  }
+                  if (s === 'processing') {
+                    return `Your transaction is currently being processed.`;
+                  }
+                  if (s === 'on_hold' || s === 'on hold') {
+                    return `Funds are securely held in escrow until stay completion.`;
+                  }
+                  if (s === 'disputed') {
+                    return `This transaction is flagged for resolution.`;
+                  }
+                  return transactionData.category === "BOOKING" 
+                    ? `Your stay at ${transactionData.propertyName} is confirmed.` 
+                    : (currentBreakdown && !currentBreakdown.isGuestSide ? "" : `Your ${transactionData.transactionType} has been processed.`);
+                })()}
               </Text>
             </View>
               <Text style={[styles.successMessage, { color: getStatusColor(transactionData.bookingStatus?.toLowerCase() === 'cancelled' && transactionData.category !== "CANCELLATION_PENALTY" ? 'cancelled' : transactionData.status) }]}>
@@ -910,7 +909,7 @@ const TransactionDetailScreen = () => {
 
                       {currentBreakdown.guestFee > 0 && (
                         <View style={styles.breakdownRow}>
-                          <Text style={styles.breakdownLabel}>Lunest Service Fee</Text>
+                          <Text style={styles.breakdownLabel}>LUNEST Service Fee</Text>
                           <Text style={styles.breakdownValue}>₦{Number(currentBreakdown.guestFee).toLocaleString()}</Text>
                         </View>
                       )}
@@ -1019,9 +1018,8 @@ const TransactionDetailScreen = () => {
 
       {/* Footer Buttons */}
       <View style={styles.footer}>
-        {/* Resolve Button - Only for Pending Bookings */}
-        {transactionData.status.toUpperCase() === "PENDING" && 
-         transactionData.category === "BOOKING" && (
+        {/* Resolve / Verify Button - For Pending or Processing Transactions */}
+        {(["PENDING", "PROCESSING", "RESERVED"].includes(transactionData.status?.toUpperCase())) && (
           <Pressable
             style={[styles.resolveButton, isResolving && { opacity: 0.7 }]}
             onPress={handleResolveStatus}
@@ -1030,7 +1028,9 @@ const TransactionDetailScreen = () => {
             {isResolving ? (
               <ActivityIndicator size="small" color="#FFF" />
             ) : (
-              <Text style={styles.resolveButtonText}>Resolve Booking Status</Text>
+              <Text style={styles.resolveButtonText}>
+                {transactionData.category === "BOOKING" ? "Verify Booking Status" : "Verify Payment Status"}
+              </Text>
             )}
           </Pressable>
         )}

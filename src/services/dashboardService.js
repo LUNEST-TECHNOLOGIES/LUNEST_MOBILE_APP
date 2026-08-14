@@ -30,9 +30,9 @@ class DashboardService {
       }
 
       // Fetch all host-specific data in parallel for performance
-      // Now including the single optimized dashboard stats endpoint
+      // Now including the single optimized dashboard stats endpoint with /v1 prefix
       const [statsResult, listingsResult, bookingsResult, userProfileResult] = await Promise.allSettled([
-        apiClient.get("/notifications/host/dashboard-stats", { silent: true }),
+        apiClient.get("/v1/notifications/host/dashboard-stats", { silent: true }),
         listingService.fetchUserListings(), // Uses /my-listings - only host's listings
         bookingService.fetchHostBookings(), // Uses /my-bookings - only host's property bookings
         authService.fetchProfile(),
@@ -54,11 +54,16 @@ class DashboardService {
 
       const userProfile = userProfileResult.status === 'fulfilled' ? (userProfileResult.value?.data || userProfileResult.value || {}) : {};
 
+      // Helper to safely parse financial numbers
+      const parseAmount = (val) => {
+        if (val === null || val === undefined) return 0;
+        const num = Number(val);
+        return isNaN(num) ? 0 : num;
+      };
+
       // Use backend API stats as the authoritative source for earnings.
-      // DO NOT calculate from bookings array — pricingBreakdown.hostEarnings may already
-      // include extension earnings, causing double-counting if extensions are added again.
-      const rawStatsEarnings = typeof stats.totalEarnings === "number" ? stats.totalEarnings : 0;
-      const rawWalletBalance = typeof stats.walletBalance === "number" ? stats.walletBalance : 0;
+      const rawStatsEarnings = parseAmount(stats.totalEarnings);
+      const rawWalletBalance = parseAmount(stats.walletBalance);
 
       // Use the higher of API earnings vs wallet balance (wallet is the ground truth)
       const totalBusinessEarnings = Math.max(rawStatsEarnings, rawWalletBalance);

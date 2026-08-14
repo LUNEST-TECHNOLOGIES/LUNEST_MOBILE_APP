@@ -168,18 +168,18 @@ const HostEarningsScreen = () => {
       }
 
       // Fetch wallet, transactions, and host dashboard stats in parallel
-      const statsUrl = `${baseURL}/notifications/host/dashboard-stats`;
-      const walletUrl = `${baseURL}/wallets/me`;
-      const txnUrl = `${baseURL}/transactions?limit=100`;
+      const cleanBase = baseURL.replace(/\/$/, "");
+      const statsUrl = `${cleanBase}/v1/notifications/host/dashboard-stats`;
+      const walletUrl = `${cleanBase}/v1/wallet/balance`;
+      const txnUrl = `${cleanBase}/v1/transactions?limit=100`;
 
       const [walletRes, txnRes, statsRes] = await Promise.all([
         fetch(walletUrl, {
-          method: "POST",
+          method: "GET",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({}),
         }),
         fetch(txnUrl, {
           method: "GET",

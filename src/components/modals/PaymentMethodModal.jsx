@@ -18,35 +18,53 @@ import {
     Text,
     View
 } from "react-native";
+import Svg, { Path, Rect } from "react-native-svg";
 import * as WebBrowser from "expo-web-browser";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
+// Paystack Icon
+const PaystackLogo = ({ size = 22 }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M3 5H21V7H3V5ZM3 9H21V11H3V9ZM3 13H21V15H3V13ZM3 17H15V19H3V17Z"
+      fill="#00C3F7"
+    />
+  </Svg>
+);
+
+// Kora Icon
+const KoraLogo = ({ size = 22 }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Rect width="24" height="24" rx="6" fill="#010135" />
+    <Path
+      d="M7 6H10V11L14 6H17.5L12.5 12L18 18H14.2L10 13V18H7V6Z"
+      fill="#00D285"
+    />
+  </Svg>
+);
+
 // Payment method options
 const PAYMENT_METHODS = [
   {
-    id: "card",
-    name: "Card",
-    description: "Visa, Mastercard, Verve",
-    icon: "card-outline",
-  },
-  {
     id: "paystack",
     name: "Paystack",
-    description: "Pay with Paystack",
-    icon: "wallet-outline",
+    description: "Cards, Bank Transfer, USSD",
+    customIcon: <PaystackLogo size={22} />,
+    icon: "card-outline",
   },
   {
     id: "kora",
     name: "Kora",
     description: "Pay securely with Kora",
+    customIcon: <KoraLogo size={22} />,
     icon: "shield-checkmark-outline",
   },
   {
     id: "wallet",
-    name: "Wallet",
-    description: "Pay from your Lunest wallet",
+    name: "LUNEST Wallet",
+    description: "Pay from your LUNEST wallet balance",
     icon: "wallet",
   },
 ];
@@ -226,13 +244,17 @@ const PaymentMethodModal = ({
                             styles.optionIconSelected,
                         ]}
                       >
-                        <Ionicons
-                          name={method.icon}
-                          size={24}
-                          color={
-                            selectedMethod === method.id ? "#FFFFFF" : "#6B7280"
-                          }
-                        />
+                        {method.customIcon ? (
+                          method.customIcon
+                        ) : (
+                          <Ionicons
+                            name={method.icon}
+                            size={24}
+                            color={
+                              selectedMethod === method.id ? "#FFFFFF" : "#6B7280"
+                            }
+                          />
+                        )}
                       </View>
                       <View style={styles.optionTextContainer}>
                         <Text

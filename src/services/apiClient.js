@@ -389,9 +389,7 @@ class APIClient {
    * @returns {Promise<*>}
    */
   async patch(endpoint, data, options = {}) {
-    const cleanBase = this.baseURL.replace(/\/$/, "");
-    const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
-    const urlString = `${cleanBase}${cleanEndpoint}`;
+    const urlString = this.buildUrl(endpoint);
     
     const { headers: customHeaders, ...restOptions } = options || {};
     const headers = await this.buildHeaders(customHeaders);

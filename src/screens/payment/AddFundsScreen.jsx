@@ -51,6 +51,18 @@ const PaystackIcon = ({ size = 24 }) => (
   </Svg>
 );
 
+/**
+ * Kora Icon
+ */
+const KoraIcon = ({ size = 24 }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M5 4H8.5V10.5L13.5 4H18L11.5 12L18.5 20H14L8.5 13.5V20H5V4Z"
+      fill="#00D285"
+    />
+  </Svg>
+);
+
 const PRESET_AMOUNTS = [1000, 2000, 5000, 10000, 20000, 50000];
 
 // Necessary for auth session redirects on Web and some mobile platforms
@@ -477,7 +489,7 @@ const AddFundsScreen = () => {
             >
               <View style={styles.paymentOptionLeft}>
                 <View style={styles.paymentIconContainer}>
-                  <Text style={{ fontSize: 18, fontWeight: "800", color: "#010135" }}>K</Text>
+                  <KoraIcon size={28} />
                 </View>
                 <View style={styles.paymentOptionText}>
                   <Text style={styles.paymentOptionTitle}>Kora</Text>

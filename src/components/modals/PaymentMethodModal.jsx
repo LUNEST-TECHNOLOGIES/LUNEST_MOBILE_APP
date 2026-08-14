@@ -8,6 +8,7 @@ import { useCallback, useState, useRef, useEffect } from "react";
 import {
     Animated,
     Dimensions,
+    Image,
     Modal,
     PanResponder,
     Platform,
@@ -18,31 +19,27 @@ import {
     Text,
     View
 } from "react-native";
-import Svg, { Path, Rect } from "react-native-svg";
 import * as WebBrowser from "expo-web-browser";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
-// Paystack Official Icon
-const PaystackLogo = ({ size = 22 }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Rect x="2" y="3.5" width="20" height="2.8" rx="1.4" fill="#00C3F7" />
-    <Rect x="2" y="8.5" width="20" height="2.8" rx="1.4" fill="#00C3F7" />
-    <Rect x="2" y="13.5" width="20" height="2.8" rx="1.4" fill="#00C3F7" />
-    <Rect x="2" y="18.5" width="13" height="2.8" rx="1.4" fill="#00C3F7" />
-  </Svg>
+// Paystack Official Logo
+const PaystackLogo = ({ size = 26 }) => (
+  <Image
+    source={require("../../assets/images/paystack-logo.png")}
+    style={{ width: size, height: size }}
+    resizeMode="contain"
+  />
 );
 
-// Kora Official Icon
-const KoraLogo = ({ size = 22 }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Rect width="24" height="24" rx="5.5" fill="#0A0E28" />
-    <Path
-      d="M6.5 5h2.8v5.5l5.2-5.5h3.6l-6.2 6.4 6.6 7.6h-3.8l-5.4-6.4v6.4H6.5V5z"
-      fill="#00D285"
-    />
-  </Svg>
+// Kora Official Logo
+const KoraLogo = ({ size = 26 }) => (
+  <Image
+    source={require("../../assets/images/kora-logo.png")}
+    style={{ width: size, height: size }}
+    resizeMode="contain"
+  />
 );
 
 // Payment method options
@@ -51,14 +48,14 @@ const PAYMENT_METHODS = [
     id: "paystack",
     name: "Paystack",
     description: "Cards, Bank Transfer, USSD",
-    customIcon: <PaystackLogo size={22} />,
+    customIcon: <PaystackLogo size={26} />,
     icon: "card-outline",
   },
   {
     id: "kora",
     name: "Kora",
     description: "Pay securely with Kora",
-    customIcon: <KoraLogo size={22} />,
+    customIcon: <KoraLogo size={26} />,
     icon: "shield-checkmark-outline",
   },
   {

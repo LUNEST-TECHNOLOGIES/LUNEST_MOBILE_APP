@@ -112,6 +112,33 @@ const GuestInformationScreen = () => {
     router.back();
   };
 
+  const formatJoinedTime = (createdAt) => {
+    if (!createdAt) return "New";
+    const created = new Date(createdAt);
+    if (isNaN(created.getTime())) return "New";
+
+    const now = new Date();
+    const diffMs = now.getTime() - created.getTime();
+    if (diffMs <= 0) return "New";
+
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    if (diffDays < 7) {
+      return `${Math.max(1, diffDays)}d`;
+    }
+    if (diffDays < 30) {
+      const weeks = Math.floor(diffDays / 7);
+      return `${weeks}w`;
+    }
+
+    const diffMonths = (now.getFullYear() - created.getFullYear()) * 12 + (now.getMonth() - created.getMonth());
+    if (diffMonths < 12) {
+      return `${Math.max(1, diffMonths)} mo${diffMonths > 1 ? 's' : ''}`;
+    }
+
+    const yrs = Math.floor(diffMonths / 12);
+    return `${yrs} yr${yrs > 1 ? 's' : ''}`;
+  };
+
   const formatReviewerName = (reviewer) => {
     if (!reviewer) return "Host";
     const name = typeof reviewer === 'object' ? reviewer.fullName : reviewer;
@@ -173,8 +200,8 @@ const GuestInformationScreen = () => {
             <Text style={styles.statLabel}>Rating</Text>
           </View>
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>1 yr</Text>
-            <Text style={styles.statLabel}>on Lunest</Text>
+            <Text style={styles.statValue}>{formatJoinedTime(guestStats.joinedDate)}</Text>
+            <Text style={styles.statLabel}>on LUNEST</Text>
           </View>
         </View>
 

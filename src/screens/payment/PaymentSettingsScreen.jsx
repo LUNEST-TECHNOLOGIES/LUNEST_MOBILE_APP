@@ -4,11 +4,22 @@
 import { Ionicons } from "@expo/vector-icons";
 import { ChevronLeft } from "lucide-react-native";
 import { useRouter } from "expo-router";
+import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import Toast from "../../components/common/Toast";
 
 const PaymentSettingsScreen = () => {
   const router = useRouter();
+  const [toast, setToast] = useState({ visible: false, message: "", type: "info" });
+
+  const showToast = (message, type = "info") => {
+    setToast({ visible: true, message, type });
+  };
+
+  const hideToast = () => {
+    setToast({ visible: false, message: "", type: "info" });
+  };
 
   const menuItems = [
     {
@@ -17,7 +28,9 @@ const PaymentSettingsScreen = () => {
       title: "Payment Method",
       subtitle: "Add or manage your payment cards",
       badge: "Coming Soon",
-      onPress: () => {}, // No navigation
+      onPress: () => {
+        showToast("Saved payment cards management is coming soon!", "info");
+      },
     },
     {
       id: "your-payments",
@@ -37,6 +50,14 @@ const PaymentSettingsScreen = () => {
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
+      {/* Toast Notification */}
+      <Toast
+        visible={toast.visible}
+        message={toast.message}
+        type={toast.type}
+        onHide={hideToast}
+      />
+
       {/* Header */}
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} style={styles.backButton}>

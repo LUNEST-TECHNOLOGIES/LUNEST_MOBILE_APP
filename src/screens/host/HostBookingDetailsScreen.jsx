@@ -393,6 +393,15 @@ const HostBookingDetailsScreen = () => {
     const rawPrice = Number(booking?.totalAmount?.price ?? parseFloat(params.price) ?? 0);
     const secDep = Number(breakdown?.securityDeposit ?? breakdown?.cautionFee ?? booking?.listing?.securityDeposit ?? booking?.listing?.cautionFee ?? 0);
     const sc = Number(breakdown?.serviceCharge ?? booking?.listing?.serviceCharge ?? 0);
+    
+    // If rawPrice includes the 5% guest fee and 7.5% guest VAT (1.05375 markup factor),
+    // reverse calculate the exact host accommodation fee:
+    const netBaseAfterDeposit = Math.max(0, rawPrice - secDep);
+    const estimatedRent = Math.round((netBaseAfterDeposit / 1.05375) - sc);
+    if (estimatedRent > 0 && Math.abs(Math.round((estimatedRent + sc) * 1.05375 + secDep) - rawPrice) <= 1) {
+      return estimatedRent;
+    }
+
     const calcRent = rawPrice - secDep - sc;
     return calcRent > 0 ? calcRent : rawPrice;
   })();

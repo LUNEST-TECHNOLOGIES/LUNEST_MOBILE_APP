@@ -367,35 +367,49 @@ const HostBookingsScreen = () => {
               return initialNights + extensionNights;
             })(),
             price: (() => {
-              const listingPrice = Number(booking.listing?.price || 0);
+              const breakdown = booking.pricingBreakdown;
+              const listingPricePerNight = Number(booking.listing?.price || 0);
               const initialNights = calculateNights(booking.checkIn, booking.checkOut);
+
+              // 1. Initial Accommodation / Rent Fee:
+              const rentFee = (() => {
+                if (listingPricePerNight > 0 && initialNights > 0) {
+                  return listingPricePerNight * initialNights;
+                }
+                if (breakdown?.rentFee !== undefined && breakdown?.rentFee !== null && Number(breakdown.rentFee) > 0) {
+                  return Number(breakdown.rentFee);
+                }
+                const rawPrice = Number(booking.totalAmount?.price || booking.totalPrice || booking.price || 0);
+                const secDep = Number(breakdown?.securityDeposit || breakdown?.cautionFee || booking.listing?.securityDeposit || booking.listing?.cautionFee || 0);
+                const sc = Number(breakdown?.serviceCharge || booking.listing?.serviceCharge || 0);
+                const netBase = Math.max(0, rawPrice - secDep);
+                const estimatedRent = Math.round((netBase / 1.05375) - sc);
+                if (estimatedRent > 0) {
+                  return estimatedRent;
+                }
+                return rawPrice > 0 ? Math.round(rawPrice / 1.05375) : 0;
+              })();
+
+              // 2. Service charge
+              const serviceFee = Number(
+                breakdown?.serviceCharge ||
+                booking.listing?.serviceCharge ||
+                0
+              );
+
+              // 3. Subtotal & host deductions (3% fee + 7.5% VAT on fee)
+              const hostSubtotal = rentFee + serviceFee;
+              const hostFee = Math.round(hostSubtotal * 0.03);
+              const hostVat = Math.round(hostFee * 0.075);
+              const totalHostDeduction = hostFee + hostVat;
+              const baseHostEarnings = hostSubtotal - totalHostDeduction;
+
+              // 4. Extension earnings
               const extensionEarnings = (booking.extensions || []).reduce((acc, ext) => {
-                return acc + Number(ext.pricingBreakdown?.rentFee || ext.pricingBreakdown?.hostEarnings || ext.hostEarnings || ext.rentFee || 0);
+                return acc + Number(ext.pricingBreakdown?.hostEarnings || ext.pricingBreakdown?.hostTotal || ext.hostEarnings || ext.rentFee || 0);
               }, 0);
 
-              if (listingPrice > 0 && initialNights > 0) {
-                return (listingPrice * initialNights) + extensionEarnings;
-              }
-
-              const totalRent = Number(booking.pricingBreakdown?.rentFee || booking.pricingBreakdown?.rentAmount || booking.pricingBreakdown?.rent || 0);
-              if (totalRent > 0) {
-                return totalRent + extensionEarnings;
-              }
-
-              const hostBaseEarning = Number(booking.pricingBreakdown?.hostEarnings || booking.pricingBreakdown?.hostTotal || booking.hostEarnings || 0);
-              if (hostBaseEarning > 0) {
-                return hostBaseEarning + extensionEarnings;
-              }
-
-              const rawPrice = Number(booking.totalAmount?.price || booking.totalPrice || booking.price || 0);
-              const secDep = Number(booking.pricingBreakdown?.securityDeposit || booking.pricingBreakdown?.cautionFee || booking.listing?.securityDeposit || booking.listing?.cautionFee || 0);
-              const sc = Number(booking.pricingBreakdown?.serviceCharge || booking.listing?.serviceCharge || 0);
-              const netBase = Math.max(0, rawPrice - secDep);
-              const estimatedRent = Math.round((netBase / 1.05375) - sc);
-              if (estimatedRent > 0) {
-                return estimatedRent + extensionEarnings;
-              }
-              return rawPrice > 0 ? Math.round(rawPrice / 1.05375) : 0;
+              return baseHostEarnings + extensionEarnings;
             })(),
             status: booking.status?.toUpperCase() || "PENDING",
             // Preserve raw data for details screen

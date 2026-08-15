@@ -268,9 +268,21 @@ const SettingsItem = ({
         <View style={styles.textContainer}>
           <Text style={styles.title}>{title}</Text>
           {badge && (
-            <View style={[styles.badge, badge.type === 'warning' && styles.badgeWarning]}>
-              <Text style={[styles.badgeText, badge.type === 'warning' && styles.badgeTextWarning]}>
-                {badge.text}
+            <View
+              style={[
+                styles.badge,
+                (typeof badge === 'object' && badge.type === 'warning') && styles.badgeWarning,
+                ((typeof badge === 'string') || (typeof badge === 'object' && badge.type === 'info')) && styles.badgeInfo,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.badgeText,
+                  (typeof badge === 'object' && badge.type === 'warning') && styles.badgeTextWarning,
+                  ((typeof badge === 'string') || (typeof badge === 'object' && badge.type === 'info')) && styles.badgeTextInfo,
+                ]}
+              >
+                {typeof badge === 'string' ? badge : badge.text}
               </Text>
             </View>
           )}
@@ -316,7 +328,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '500',
-    
     color: '#000000',
     marginBottom: 15,
   },
@@ -353,7 +364,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 16,
     fontWeight: '500',
-    
     color: '#000000',
   },
   badge: {
@@ -365,14 +375,25 @@ const styles = StyleSheet.create({
   badgeWarning: {
     backgroundColor: 'rgba(253, 174, 49, 0.1)',
   },
+  badgeInfo: {
+    backgroundColor: '#EFF6FF',
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#DBEAFE',
+    paddingHorizontal: 8,
+    paddingVertical: 2.5,
+  },
   badgeText: {
     fontSize: 10,
     fontWeight: '700',
-    
     color: '#4CAF50',
   },
   badgeTextWarning: {
     color: '#FDAE31',
+  },
+  badgeTextInfo: {
+    color: '#1D4ED8',
+    letterSpacing: 0.3,
   },
 });
 

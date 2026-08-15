@@ -313,8 +313,8 @@ const ProfileScreen = ({ isHostMode: isHostModeProp = false }) => {
       id: "notification",
       icon: "notification",
       title: "Notification Settings",
+      badge: { text: "Coming Soon", type: "info" },
       onPress: () => {
-
         console.log("Notification Settings");
       },
     },
@@ -334,7 +334,6 @@ const ProfileScreen = ({ isHostMode: isHostModeProp = false }) => {
       icon: "referral",
       title: "Refer a Guest/Host",
       onPress: () => {
-
         router.push("/referrals");
       },
     },
@@ -343,7 +342,6 @@ const ProfileScreen = ({ isHostMode: isHostModeProp = false }) => {
       icon: "loyalty",
       title: "Loyalty Program",
       onPress: () => {
-
         router.push("/point-history");
       },
     },
@@ -355,8 +353,7 @@ const ProfileScreen = ({ isHostMode: isHostModeProp = false }) => {
       icon: "help",
       title: "Visit the Help Centre",
       onPress: () => {
-
-        console.log("Help Centre");
+        router.push("/support-chat");
       },
     },
     {
@@ -364,8 +361,7 @@ const ProfileScreen = ({ isHostMode: isHostModeProp = false }) => {
       icon: "report",
       title: "Report a Problem",
       onPress: () => {
-
-        console.log("Report a Problem");
+        router.push("/support-chat");
       },
     },
     {
@@ -373,7 +369,6 @@ const ProfileScreen = ({ isHostMode: isHostModeProp = false }) => {
       icon: "chat",
       title: "Chat Support",
       onPress: () => {
-
         router.push("/support-chat");
       },
     },

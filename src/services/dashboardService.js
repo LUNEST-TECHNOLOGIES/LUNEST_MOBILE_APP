@@ -40,7 +40,8 @@ class DashboardService {
 
       // Handle results gracefully with strict array type checks
       const statsRes = statsResult.status === 'fulfilled' ? statsResult.value : null;
-      const stats = (statsRes && statsRes.body) ? statsRes.body : (statsRes && statsRes.data) ? statsRes.data : (statsRes || {});
+      const statsData = (statsRes && statsRes.data) ? statsRes.data : (statsRes || {});
+      const stats = statsData.body || statsData;
 
       const rawListings = listingsResult.status === 'fulfilled' ? listingsResult.value : null;
       const listings = Array.isArray(rawListings)

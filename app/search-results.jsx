@@ -7,7 +7,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { FlashList } from "@shopify/flash-list";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
     ActivityIndicator,
     Dimensions,
@@ -47,8 +47,17 @@ const SearchResultsScreen = () => {
   const initialFilters = params?.filters ? JSON.parse(params.filters) : {};
 
   const [searchQuery, setSearchQuery] = useState(initialQuery);
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(initialQuery);
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [activeFilters, setActiveFilters] = useState(initialFilters);
+
+  // Debounce search query to reduce redundant API requests while typing
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 450);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
 
   // ── Infinite Listings (React Query) ──
   const {
@@ -60,9 +69,9 @@ const SearchResultsScreen = () => {
     isRefetching: refreshing,
     refetch: onRefresh,
   } = useInfiniteQuery({
-    queryKey: ["searchResults", searchQuery, activeFilters],
+    queryKey: ["searchResults", debouncedSearchQuery, activeFilters],
     queryFn: async ({ pageParam = 1 }) => {
-      console.log(`[SearchResults] Fetching page ${pageParam} with query: "${searchQuery}"`, activeFilters);
+      console.log(`[SearchResults] Fetching page ${pageParam} with query: "${debouncedSearchQuery}"`, activeFilters);
       
       const baseURL = await configService.getBaseURL();
 
@@ -70,7 +79,7 @@ const SearchResultsScreen = () => {
       // All filtering logic is now handled server-side for accuracy and performance
       // Works with both Meilisearch (typo-tolerant) and MongoDB (regex fallback)
       const payload = {
-        query: searchQuery,
+        query: debouncedSearchQuery,
         location: activeFilters.location,
         minPrice: activeFilters.minPrice,
         maxPrice: activeFilters.maxPrice,

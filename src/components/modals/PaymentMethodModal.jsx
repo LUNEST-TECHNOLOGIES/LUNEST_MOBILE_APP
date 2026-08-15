@@ -301,30 +301,31 @@ const PaymentMethodModal = ({
               </View>
             </View>
 
-            {/* Separator */}
-            <View style={styles.separatorContainer}>
-              <View style={styles.separatorLine} />
-              <Text style={styles.separatorText}>OR</Text>
-              <View style={styles.separatorLine} />
-            </View>
-
-            {/* Reserve and Pay Later */}
+            {/* Separator & Reserve and Pay Later */}
             {!hideReserveOption && (
-              <View style={styles.reserveContainer}>
-                <View style={styles.reserveInfo}>
-                  <Text style={styles.reserveTitle}>Reserve and Pay Later</Text>
-                  <Text style={styles.reserveSubtitle}>
-                    Secure this property now and complete payment within 1 hour.
-                  </Text>
+              <>
+                <View style={styles.separatorContainer}>
+                  <View style={styles.separatorLine} />
+                  <Text style={styles.separatorText}>OR</Text>
+                  <View style={styles.separatorLine} />
                 </View>
-                <Switch
-                  value={reserveAndPayLater}
-                  onValueChange={handleReserveToggle}
-                  trackColor={{ false: "#D1D1D6", true: "#010135" }}
-                  thumbColor="#FFFFFF"
-                  ios_backgroundColor="#D1D1D6"
-                />
-              </View>
+
+                <View style={styles.reserveContainer}>
+                  <View style={styles.reserveInfo}>
+                    <Text style={styles.reserveTitle}>Reserve and Pay Later</Text>
+                    <Text style={styles.reserveSubtitle}>
+                      Secure this property now and complete payment within 1 hour.
+                    </Text>
+                  </View>
+                  <Switch
+                    value={reserveAndPayLater}
+                    onValueChange={handleReserveToggle}
+                    trackColor={{ false: "#D1D1D6", true: "#010135" }}
+                    thumbColor="#FFFFFF"
+                    ios_backgroundColor="#D1D1D6"
+                  />
+                </View>
+              </>
             )}
           </ScrollView>
 

@@ -1652,6 +1652,7 @@ const BookingSummary = () => {
           loading={isProcessing}
           totalAmount={bookingSummary.pricing.total}
           bookingDetails={bookingSummary}
+          hideReserveOption={fromReservation}
         />
 
         {/* KYC Required Modal */}

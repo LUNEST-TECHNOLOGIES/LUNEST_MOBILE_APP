@@ -2,22 +2,10 @@
  * PaymentSettingsScreen - Manage payment methods, view payments, and coupons
  */
 import { Ionicons } from "@expo/vector-icons";
+import { ChevronLeft } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import Svg, { Path } from "react-native-svg";
-
-/**
- * Back Arrow Icon - Same style as personal information page
- */
-const BackIcon = ({ size = 24, color = "black" }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Path
-      d="M15.0003 20.67C14.8103 20.67 14.6203 20.6 14.4703 20.45L7.95027 13.93C6.89027 12.87 6.89027 11.13 7.95027 10.07L14.4703 3.55002C14.7603 3.26002 15.2403 3.26002 15.5303 3.55002C15.8203 3.84002 15.8203 4.32002 15.5303 4.61002L9.01027 11.13C8.53027 11.61 8.53027 12.39 9.01027 12.87L15.5303 19.39C15.8203 19.68 15.8203 20.16 15.5303 20.45C15.3803 20.59 15.1903 20.67 15.0003 20.67Z"
-      fill={color}
-    />
-  </Svg>
-);
 
 const PaymentSettingsScreen = () => {
   const router = useRouter();
@@ -28,6 +16,7 @@ const PaymentSettingsScreen = () => {
       icon: "card-outline",
       title: "Payment Method",
       subtitle: "Add or manage your payment cards",
+      badge: "Coming Soon",
       onPress: () => {}, // No navigation
     },
     {
@@ -51,7 +40,7 @@ const PaymentSettingsScreen = () => {
       {/* Header */}
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} style={styles.backButton}>
-          <BackIcon size={24} color="#000" />
+          <ChevronLeft size={24} color="#000" strokeWidth={2} />
         </Pressable>
         <Text style={styles.headerTitle}>Payment Settings</Text>
         <View style={styles.headerSpacer} />
@@ -73,7 +62,14 @@ const PaymentSettingsScreen = () => {
                 <Ionicons name={item.icon} size={22} color="#192DFF" />
               </View>
               <View style={styles.menuItemText}>
-                <Text style={styles.menuItemTitle}>{item.title}</Text>
+                <View style={styles.titleRow}>
+                  <Text style={styles.menuItemTitle}>{item.title}</Text>
+                  {item.badge && (
+                    <View style={styles.comingSoonBadge}>
+                      <Text style={styles.comingSoonText}>{item.badge}</Text>
+                    </View>
+                  )}
+                </View>
                 {item.subtitle && (
                   <Text style={styles.menuItemSubtitle}>{item.subtitle}</Text>
                 )}
@@ -143,10 +139,29 @@ const styles = StyleSheet.create({
   menuItemText: {
     flex: 1,
   },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
   menuItemTitle: {
     fontSize: 16,
     fontWeight: "500",
     color: "#000000",
+  },
+  comingSoonBadge: {
+    backgroundColor: "#EFF6FF",
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderWidth: 1,
+    borderColor: "#DBEAFE",
+  },
+  comingSoonText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#1D4ED8",
+    letterSpacing: 0.3,
   },
   menuItemSubtitle: {
     fontSize: 13,

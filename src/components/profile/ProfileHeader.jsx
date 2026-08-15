@@ -290,13 +290,25 @@ const ProfileHeader = ({
             {/* NIN / Identity Status */}
             {isNinProvided || isIdentityVerified ? (
               <View style={styles.verifiedItemRow}>
-                <Text style={styles.ninText}>
+                <Text style={styles.ninText} numberOfLines={1} ellipsizeMode="tail">
                   {nin ? `NIN: ${nin.slice(0, 4)}****${nin.slice(-3)}` : "Identity Document"}
                 </Text>
                 {isIdentityVerified ? (
-                  <Text style={styles.verifiedSmallText}>✓ Verified</Text>
+                  <View style={styles.smallVerifiedBadge}>
+                    <Svg width={11} height={11} viewBox="0 0 24 24" fill="none">
+                      <Path
+                        d="M12 2L14.09 4.26L17 3.52L17.74 6.43L20.65 7.17L19.91 10.08L22.17 12L19.91 13.92L20.65 16.83L17.74 17.57L17 20.48L14.09 19.74L12 22L9.91 19.74L7 20.48L6.26 17.57L3.35 16.83L4.09 13.92L1.83 12L4.09 10.08L3.35 7.17L6.26 6.43L7 3.52L9.91 4.26L12 2Z"
+                        fill="#10B981"
+                      />
+                      <Path
+                        d="M10 14.5L7.5 12L8.91 10.59L10 11.67L14.09 7.59L15.5 9L10 14.5Z"
+                        fill="white"
+                      />
+                    </Svg>
+                    <Text style={styles.verifiedSmallText}>Verified</Text>
+                  </View>
                 ) : (
-                  <Text style={styles.pendingSmallText}>Pending verification</Text>
+                  <Text style={styles.pendingSmallText}>Unverified</Text>
                 )}
               </View>
             ) : (
@@ -489,8 +501,8 @@ const styles = StyleSheet.create({
   ninText: {
     fontSize: 13,
     fontWeight: "500",
-
     color: "#292929",
+    flexShrink: 1,
   },
   phoneWarningContainer: {
     flexDirection: "row",

@@ -384,26 +384,25 @@ const HostBookingDetailsScreen = () => {
 
   // 1. Accommodation / Rent Fee for the booked nights:
   const rentFee = (() => {
+    if (listingPricePerNight > 0 && totalNights > 0) {
+      return listingPricePerNight * totalNights;
+    }
     if (breakdown?.rentFee !== undefined && breakdown?.rentFee !== null && Number(breakdown.rentFee) > 0) {
       return Number(breakdown.rentFee);
-    }
-    if (listingPricePerNight > 0) {
-      return listingPricePerNight * totalNights;
     }
     const rawPrice = Number(booking?.totalAmount?.price ?? parseFloat(params.price) ?? 0);
     const secDep = Number(breakdown?.securityDeposit ?? breakdown?.cautionFee ?? booking?.listing?.securityDeposit ?? booking?.listing?.cautionFee ?? 0);
     const sc = Number(breakdown?.serviceCharge ?? booking?.listing?.serviceCharge ?? 0);
     
-    // If rawPrice includes the 5% guest fee and 7.5% guest VAT (1.05375 markup factor),
-    // reverse calculate the exact host accommodation fee:
+    // Reverse calculate the exact host accommodation fee from guest gross total:
     const netBaseAfterDeposit = Math.max(0, rawPrice - secDep);
     const estimatedRent = Math.round((netBaseAfterDeposit / 1.05375) - sc);
-    if (estimatedRent > 0 && Math.abs(Math.round((estimatedRent + sc) * 1.05375 + secDep) - rawPrice) <= 1) {
+    if (estimatedRent > 0) {
       return estimatedRent;
     }
 
     const calcRent = rawPrice - secDep - sc;
-    return calcRent > 0 ? calcRent : rawPrice;
+    return calcRent > 0 ? calcRent : Math.round(rawPrice / 1.05375);
   })();
 
   // 2. Service Charge (Cleaning / Property Service):

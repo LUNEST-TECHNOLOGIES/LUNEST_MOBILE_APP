@@ -345,31 +345,35 @@ const HostBookingsScreen = () => {
             dates: formatDateRange(booking.checkIn, booking.checkOut),
             nights: calculateNights(booking.checkIn, booking.checkOut),
             price: (() => {
-              const totalRent = Number(booking.pricingBreakdown?.rentFee || booking.pricingBreakdown?.rentAmount || booking.pricingBreakdown?.rent || 0);
+              const listingPrice = Number(booking.listing?.price || 0);
+              const nightsCount = calculateNights(booking.checkIn, booking.checkOut);
               const extensionEarnings = (booking.extensions || []).reduce((acc, ext) => {
                 return acc + Number(ext.pricingBreakdown?.rentFee || ext.pricingBreakdown?.hostEarnings || ext.hostEarnings || ext.rentFee || 0);
               }, 0);
+
+              if (listingPrice > 0 && nightsCount > 0) {
+                return (listingPrice * nightsCount) + extensionEarnings;
+              }
+
+              const totalRent = Number(booking.pricingBreakdown?.rentFee || booking.pricingBreakdown?.rentAmount || booking.pricingBreakdown?.rent || 0);
               if (totalRent > 0) {
                 return totalRent + extensionEarnings;
               }
+
               const hostBaseEarning = Number(booking.pricingBreakdown?.hostEarnings || booking.pricingBreakdown?.hostTotal || booking.hostEarnings || 0);
               if (hostBaseEarning > 0) {
                 return hostBaseEarning + extensionEarnings;
               }
-              const listingPrice = Number(booking.listing?.price || 0);
-              const nightsCount = calculateNights(booking.checkIn, booking.checkOut);
-              if (listingPrice > 0) {
-                return (listingPrice * nightsCount) + extensionEarnings;
-              }
+
               const rawPrice = Number(booking.totalAmount?.price || booking.totalPrice || booking.price || 0);
-              const secDep = Number(booking.pricingBreakdown?.securityDeposit || booking.listing?.securityDeposit || 0);
+              const secDep = Number(booking.pricingBreakdown?.securityDeposit || booking.pricingBreakdown?.cautionFee || booking.listing?.securityDeposit || booking.listing?.cautionFee || 0);
               const sc = Number(booking.pricingBreakdown?.serviceCharge || booking.listing?.serviceCharge || 0);
               const netBase = Math.max(0, rawPrice - secDep);
               const estimatedRent = Math.round((netBase / 1.05375) - sc);
-              if (estimatedRent > 0 && Math.abs(Math.round((estimatedRent + sc) * 1.05375 + secDep) - rawPrice) <= 1) {
+              if (estimatedRent > 0) {
                 return estimatedRent + extensionEarnings;
               }
-              return rawPrice > 0 ? (rawPrice - secDep - sc + extensionEarnings) : 0;
+              return rawPrice > 0 ? Math.round(rawPrice / 1.05375) : 0;
             })(),
             status: booking.status?.toUpperCase() || "PENDING",
             // Preserve raw data for details screen

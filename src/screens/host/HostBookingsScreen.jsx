@@ -368,7 +368,7 @@ const HostBookingsScreen = () => {
             })(),
             price: (() => {
               const breakdown = booking.pricingBreakdown;
-              const listingPricePerNight = Number(booking.listing?.price || 0);
+              const listingPricePerNight = Number(booking.listing?.price || booking.listing?.propertyPrice?.price || 0);
               const initialNights = calculateNights(booking.checkIn, booking.checkOut);
 
               // 1. Initial Accommodation / Rent Fee:

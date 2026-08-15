@@ -390,7 +390,7 @@ const HostBookingDetailsScreen = () => {
 
   // Payment — use pricingBreakdown from API when available
   const breakdown = booking?.pricingBreakdown;
-  const listingPricePerNight = Number(booking?.listing?.price || 0);
+  const listingPricePerNight = Number(booking?.listing?.price || booking?.listing?.propertyPrice?.price || 0);
 
   // 1. Initial Accommodation / Rent Fee for the initial booked nights:
   const rentFee = (() => {

@@ -262,6 +262,12 @@ const TransactionDetailScreen = () => {
             } 
           }
         ]);
+      } else if (result?.status === "FAILED" || result?.body?.status === "FAILED" || result?.paymentStatus === "FAILED") {
+        setTransactionData(prev => ({ ...prev, status: "FAILED", paymentStatus: "FAILED" }));
+        Alert.alert(
+          "Payment Unconfirmed",
+          result?.message || "No completed charge was found on the payment gateway. This transaction has been marked as failed."
+        );
       } else {
         Alert.alert(
           "Verification Pending", 
@@ -270,7 +276,13 @@ const TransactionDetailScreen = () => {
       }
     } catch (err) {
       console.error("[TransactionDetail] Resolve error:", err);
-      Alert.alert("Verification Error", err.message || "An error occurred while verifying status. Please try again.");
+      const msg = err.message || "";
+      if (msg.toLowerCase().includes("not found") || msg.toLowerCase().includes("charge not found")) {
+        setTransactionData(prev => ({ ...prev, status: "FAILED", paymentStatus: "FAILED" }));
+        Alert.alert("Payment Unconfirmed", "No charge record was found on the payment gateway. This transaction has been marked as unconfirmed.");
+      } else {
+        Alert.alert("Verification Notice", msg || "An error occurred while verifying status. Please try again.");
+      }
     } finally {
       setIsResolving(false);
     }

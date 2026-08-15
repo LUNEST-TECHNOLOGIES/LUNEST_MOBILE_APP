@@ -474,31 +474,41 @@ const AddFundsScreen = () => {
               {paymentProvider === "kora" && <View style={styles.radioSelected} />}
             </TouchableOpacity>
 
-            {/* Paystack Option */}
+            {/* Paystack Option (Temporarily Disabled with Unavailable Badge) */}
             <TouchableOpacity
-              style={[styles.paymentOption, { marginTop: 12 }, paymentProvider === "paystack" && styles.paymentOptionSelected]}
-              onPress={() => setPaymentProvider("paystack")}
+              style={[
+                styles.paymentOption,
+                { marginTop: 12 },
+                styles.paymentOptionDisabled,
+              ]}
+              onPress={() => {
+                showToast("Paystack is temporarily unavailable. Please use Kora.", "info");
+              }}
               activeOpacity={0.8}
             >
               <View style={styles.paymentOptionLeft}>
-                <View style={styles.paymentIconContainer}>
+                <View style={[styles.paymentIconContainer, { opacity: 0.6 }]}>
                   <PaystackIcon size={28} />
                 </View>
                 <View style={styles.paymentOptionText}>
-                  <Text style={styles.paymentOptionTitle}>Paystack</Text>
-                  <Text style={styles.paymentOptionSubtitle}>
+                  <View style={styles.paymentOptionHeaderRow}>
+                    <Text style={[styles.paymentOptionTitle, { color: "#6B7280" }]}>Paystack</Text>
+                    <View style={styles.unavailableBadge}>
+                      <Text style={styles.unavailableBadgeText}>Unavailable</Text>
+                    </View>
+                  </View>
+                  <Text style={[styles.paymentOptionSubtitle, { color: "#9CA3AF" }]}>
                     Cards, Bank Transfer, USSD
                   </Text>
                 </View>
               </View>
-              {paymentProvider === "paystack" && <View style={styles.radioSelected} />}
             </TouchableOpacity>
           </View>
 
           {/* Security Note */}
           <View style={styles.securityNote}>
             <Text style={styles.securityNoteText}>
-              🔒 Your payment is securely processed by {paymentProvider === "kora" ? "Kora" : "Paystack"}. We do not store your card details.
+              🔒 Your payment is securely processed by Kora. We do not store your card details.
             </Text>
           </View>
         </ScrollView>
@@ -671,6 +681,30 @@ const styles = StyleSheet.create({
   },
   paymentOptionText: {
     flex: 1,
+  },
+  paymentOptionDisabled: {
+    opacity: 0.65,
+    backgroundColor: "#F9FAFB",
+    borderColor: "#E5E7EB",
+  },
+  paymentOptionHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  unavailableBadge: {
+    backgroundColor: "#FEE2E2",
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#FECACA",
+  },
+  unavailableBadgeText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#DC2626",
+    letterSpacing: 0.3,
   },
   paymentOptionTitle: {
     fontSize: 16,

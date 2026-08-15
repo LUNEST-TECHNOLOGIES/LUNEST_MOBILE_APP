@@ -57,6 +57,8 @@ const PAYMENT_METHODS = [
     description: "Cards, Bank Transfer, USSD",
     customIcon: <PaystackLogo size={26} />,
     icon: "card-outline",
+    disabled: true,
+    badge: "Unavailable",
   },
   {
     id: "wallet",
@@ -123,6 +125,10 @@ const PaymentMethodModal = ({
   }, [visible, panY]);
 
   const handleMethodSelect = (methodId) => {
+    const method = PAYMENT_METHODS.find((m) => m.id === methodId);
+    if (method?.disabled) {
+      return;
+    }
     // If reserve and pay later is selected, deselect it when selecting a payment method
     if (reserveAndPayLater) {
       setReserveAndPayLater(false);
@@ -228,10 +234,10 @@ const PaymentMethodModal = ({
                     style={[
                       styles.optionCard,
                       selectedMethod === method.id && styles.optionCardSelected,
-                      reserveAndPayLater && styles.optionCardDisabled,
+                      (reserveAndPayLater || method.disabled) && styles.optionCardDisabled,
                     ]}
                     onPress={() => handleMethodSelect(method.id)}
-                    disabled={reserveAndPayLater}
+                    disabled={reserveAndPayLater || method.disabled}
                   >
                     <View style={styles.optionContent}>
                       <View
@@ -239,6 +245,7 @@ const PaymentMethodModal = ({
                           styles.optionIconContainer,
                           selectedMethod === method.id &&
                             styles.optionIconSelected,
+                          method.disabled && styles.optionIconDisabled,
                         ]}
                       >
                         {method.customIcon ? (
@@ -254,16 +261,26 @@ const PaymentMethodModal = ({
                         )}
                       </View>
                       <View style={styles.optionTextContainer}>
-                        <Text
-                          style={[
-                            styles.optionName,
-                            selectedMethod === method.id &&
-                              styles.optionNameSelected,
-                          ]}
-                        >
-                          {method.name}
-                        </Text>
-                        <Text style={styles.optionDescription}>
+                        <View style={styles.optionHeaderRow}>
+                          <Text
+                            style={[
+                              styles.optionName,
+                              selectedMethod === method.id &&
+                                styles.optionNameSelected,
+                              method.disabled && styles.optionNameDisabled,
+                            ]}
+                          >
+                            {method.name}
+                          </Text>
+                          {method.badge && (
+                            <View style={styles.unavailableBadge}>
+                              <Text style={styles.unavailableBadgeText}>
+                                {method.badge}
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                        <Text style={[styles.optionDescription, method.disabled && styles.optionDescriptionDisabled]}>
                           {method.description}
                         </Text>
                       </View>
@@ -272,6 +289,7 @@ const PaymentMethodModal = ({
                       style={[
                         styles.radioOuter,
                         selectedMethod === method.id && styles.radioOuterSelected,
+                        method.disabled && styles.radioOuterDisabled,
                       ]}
                     >
                       {selectedMethod === method.id && (
@@ -483,8 +501,30 @@ const styles = StyleSheet.create({
   optionIconSelected: {
     backgroundColor: "#010135", // Solid primary color when selected
   },
+  optionIconDisabled: {
+    opacity: 0.6,
+  },
   optionTextContainer: {
     flex: 1,
+  },
+  optionHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  unavailableBadge: {
+    backgroundColor: "#FEE2E2",
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#FECACA",
+  },
+  unavailableBadgeText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#DC2626",
+    letterSpacing: 0.3,
   },
   optionName: {
     fontSize: 17,
@@ -494,10 +534,16 @@ const styles = StyleSheet.create({
   optionNameSelected: {
     color: "#010135",
   },
+  optionNameDisabled: {
+    color: "#6B7280",
+  },
   optionDescription: {
     fontSize: 13,
     color: "#6B7280",
     marginTop: 3,
+  },
+  optionDescriptionDisabled: {
+    color: "#9CA3AF",
   },
   radioOuter: {
     width: 22,
@@ -510,6 +556,10 @@ const styles = StyleSheet.create({
   },
   radioOuterSelected: {
     borderColor: "#010135",
+  },
+  radioOuterDisabled: {
+    borderColor: "#E5E7EB",
+    backgroundColor: "#F9FAFB",
   },
   radioInner: {
     width: 12,

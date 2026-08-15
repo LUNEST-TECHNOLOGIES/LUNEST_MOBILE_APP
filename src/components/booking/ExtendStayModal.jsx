@@ -265,15 +265,20 @@ export const ExtendStayModal = ({
             <View style={styles.providerRow}>
               {[
                 { id: "kora", label: "Kora", icon: <KoraLogo size={18} /> },
-                { id: "paystack", label: "Paystack", icon: <PaystackLogo size={18} /> },
+                { id: "paystack", label: "Paystack", icon: <PaystackLogo size={18} />, disabled: true, badge: "Unavailable" },
               ].map((provider) => (
                 <TouchableOpacity
                   key={provider.id}
                   style={[
                     styles.providerOption,
                     paymentProvider === provider.id && styles.providerOptionSelected,
+                    provider.disabled && styles.providerOptionDisabled,
                   ]}
-                  onPress={() => setPaymentProvider(provider.id)}
+                  onPress={() => {
+                    if (provider.disabled) return;
+                    setPaymentProvider(provider.id);
+                  }}
+                  disabled={provider.disabled}
                 >
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                     {provider.icon}
@@ -281,10 +286,16 @@ export const ExtendStayModal = ({
                       style={[
                         styles.providerOptionText,
                         paymentProvider === provider.id && styles.providerOptionTextSelected,
+                        provider.disabled && { color: "#9CA3AF" },
                       ]}
                     >
                       {provider.label}
                     </Text>
+                    {provider.badge && (
+                      <View style={styles.unavailableBadge}>
+                        <Text style={styles.unavailableBadgeText}>{provider.badge}</Text>
+                      </View>
+                    )}
                   </View>
                 </TouchableOpacity>
               ))}
@@ -382,6 +393,25 @@ const styles = StyleSheet.create({
   providerOptionSelected: {
     borderColor: "#010135",
     backgroundColor: "#EEF2FF",
+  },
+  providerOptionDisabled: {
+    opacity: 0.6,
+    backgroundColor: "#F9FAFB",
+    borderColor: "#E5E7EB",
+  },
+  unavailableBadge: {
+    backgroundColor: "#FEE2E2",
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: "#FECACA",
+  },
+  unavailableBadgeText: {
+    fontSize: 9,
+    fontWeight: "700",
+    color: "#DC2626",
+    letterSpacing: 0.3,
   },
   providerOptionText: {
     color: "#475569",

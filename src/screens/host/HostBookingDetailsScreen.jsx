@@ -339,8 +339,8 @@ const HostBookingDetailsScreen = () => {
       ? formatDate(params.checkOut)
       : "-";
 
-  // Nights
-  const nights = (() => {
+  // Nights & Extension Breakdown
+  const initialNights = (() => {
     if (booking?.checkIn && booking?.checkOut) {
       const diff = Math.abs(
         new Date(booking.checkOut) - new Date(booking.checkIn),
@@ -355,6 +355,17 @@ const HostBookingDetailsScreen = () => {
     }
     return parseInt(params.nights) || 1;
   })();
+
+  const extensionNights = (booking?.extensions || []).reduce((acc, ext) => {
+    return acc + (Number(ext.extraNights || ext.nights) || 0);
+  }, 0);
+
+  const totalNights = initialNights + extensionNights;
+  const nights = totalNights;
+
+  const nightsDisplayText = extensionNights > 0
+    ? `${initialNights} Night${initialNights > 1 ? "s" : ""} (+${extensionNights} Extended)`
+    : `${initialNights} Night${initialNights > 1 ? "s" : ""}`;
 
   // Guests
   const guestsDisplay = (() => {
@@ -380,12 +391,11 @@ const HostBookingDetailsScreen = () => {
   // Payment — use pricingBreakdown from API when available
   const breakdown = booking?.pricingBreakdown;
   const listingPricePerNight = Number(booking?.listing?.price || 0);
-  const totalNights = Math.max(1, Number(nights) || 1);
 
-  // 1. Accommodation / Rent Fee for the booked nights:
+  // 1. Initial Accommodation / Rent Fee for the initial booked nights:
   const rentFee = (() => {
-    if (listingPricePerNight > 0 && totalNights > 0) {
-      return listingPricePerNight * totalNights;
+    if (listingPricePerNight > 0 && initialNights > 0) {
+      return listingPricePerNight * initialNights;
     }
     if (breakdown?.rentFee !== undefined && breakdown?.rentFee !== null && Number(breakdown.rentFee) > 0) {
       const bRent = Number(breakdown.rentFee);
@@ -1111,7 +1121,7 @@ const HostBookingDetailsScreen = () => {
               <InfoRow label="Check-out:" value={checkOut} />
               <InfoRow
                 label="Total Nights:"
-                value={`${nights} Night${nights > 1 ? "s" : ""}`}
+                value={nightsDisplayText}
               />
               <InfoRow label="Guests:" value={guestsDisplay} />
               <InfoRow label="Booked On:" value={bookedOn} />

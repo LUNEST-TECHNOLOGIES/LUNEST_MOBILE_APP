@@ -342,17 +342,39 @@ const HostBookingsScreen = () => {
               booking.listing?.propertyTitle ||
               "Property",
             propertyImage: propertyImage,
-            dates: formatDateRange(booking.checkIn, booking.checkOut),
-            nights: calculateNights(booking.checkIn, booking.checkOut),
+            dates: (() => {
+              const latestCheckOut = (() => {
+                if (booking.extensions && booking.extensions.length > 0) {
+                  const dates = booking.extensions
+                    .map((e) => e.newCheckOut || e.checkOut)
+                    .filter(Boolean)
+                    .map((d) => new Date(d))
+                    .filter((d) => !isNaN(d.getTime()));
+                  if (dates.length > 0) {
+                    dates.sort((a, b) => b - a);
+                    return dates[0].toISOString();
+                  }
+                }
+                return booking.checkOut;
+              })();
+              return formatDateRange(booking.checkIn, latestCheckOut);
+            })(),
+            nights: (() => {
+              const initialNights = calculateNights(booking.checkIn, booking.checkOut);
+              const extensionNights = (booking.extensions || []).reduce((acc, ext) => {
+                return acc + (Number(ext.extraNights || ext.nights) || 0);
+              }, 0);
+              return initialNights + extensionNights;
+            })(),
             price: (() => {
               const listingPrice = Number(booking.listing?.price || 0);
-              const nightsCount = calculateNights(booking.checkIn, booking.checkOut);
+              const initialNights = calculateNights(booking.checkIn, booking.checkOut);
               const extensionEarnings = (booking.extensions || []).reduce((acc, ext) => {
                 return acc + Number(ext.pricingBreakdown?.rentFee || ext.pricingBreakdown?.hostEarnings || ext.hostEarnings || ext.rentFee || 0);
               }, 0);
 
-              if (listingPrice > 0 && nightsCount > 0) {
-                return (listingPrice * nightsCount) + extensionEarnings;
+              if (listingPrice > 0 && initialNights > 0) {
+                return (listingPrice * initialNights) + extensionEarnings;
               }
 
               const totalRent = Number(booking.pricingBreakdown?.rentFee || booking.pricingBreakdown?.rentAmount || booking.pricingBreakdown?.rent || 0);

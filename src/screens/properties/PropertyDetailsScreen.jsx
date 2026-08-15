@@ -781,6 +781,10 @@ const PropertyDetailsScreen = () => {
       address: listing.address || listing.propertyLocation?.fullAddress || "",
       propertyType: listing.propertyType || "Apartment",
       location: (() => {
+        const fullAddr = listing.propertyLocation?.fullAddress || listing.address || listing.location;
+        if (fullAddr && fullAddr.trim()) {
+          return fullAddr.trim();
+        }
         const city = listing.city || listing.propertyLocation?.city;
         const state = listing.state || listing.propertyLocation?.state;
         if (city && state) {
@@ -790,7 +794,7 @@ const PropertyDetailsScreen = () => {
         } else if (state) {
           return state;
         } else {
-          return listing.location || listing.propertyLocation?.fullAddress || "Nigeria";
+          return "Nigeria";
         }
       })(),
       images: propertyImages,

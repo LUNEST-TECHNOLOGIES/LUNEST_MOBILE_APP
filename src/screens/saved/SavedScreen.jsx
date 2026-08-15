@@ -145,25 +145,34 @@ const SavedScreen = () => {
   const getListingImage = (listing) => {
     if (!listing) return null;
 
-    if (listing.propertyImages && listing.propertyImages.length > 0) {
-      return convertImageUrl(listing.propertyImages[0]);
-    }
-    if (listing.images && listing.images.length > 0) {
-      return convertImageUrl(listing.images[0]);
+    // Check propertyImages first (can be array of strings or objects { url, ... })
+    const imgs = listing.propertyImages || listing.images || [];
+    if (Array.isArray(imgs) && imgs.length > 0) {
+      for (const img of imgs) {
+        if (!img) continue;
+        const uri = typeof img === "object" ? (img.url || img.uri || img.path) : img;
+        if (uri && typeof uri === "string") {
+          return convertImageUrl(uri);
+        }
+      }
     }
     if (listing.coverImage) {
-      return convertImageUrl(listing.coverImage);
+      const uri = typeof listing.coverImage === "object" ? (listing.coverImage.url || listing.coverImage.uri) : listing.coverImage;
+      if (uri && typeof uri === "string") {
+        return convertImageUrl(uri);
+      }
     }
     return null;
   };
 
   const formatPrice = (price) => {
-    if (!price) return "N/A";
+    const numPrice = Number(price);
+    if (isNaN(numPrice) || numPrice === 0) return "₦0";
     return new Intl.NumberFormat("en-NG", {
       style: "currency",
       currency: "NGN",
       minimumFractionDigits: 0,
-    }).format(price);
+    }).format(numPrice);
   };
 
   const renderEmptyState = () => {
@@ -187,15 +196,15 @@ const SavedScreen = () => {
     // If it's a recently viewed item, it IS the listing itself.
     const listing = item.listing || item;
     
-    if (!listing) {
-      console.warn("[SavedScreen] List item has no listing data:", item);
+    if (!listing || typeof listing !== "object" || !listing._id) {
+      console.warn("[SavedScreen] List item has no valid listing data:", item);
       return null;
     }
 
-    const itemId = item._id; // Use bookmark ID or listing ID
+    const itemId = item._id || listing._id;
     const isBookmark = !!item.listing;
 
-    const imageError = imageErrors[item._id] || false;
+    const imageError = imageErrors[itemId] || false;
     const imageUrl = !imageError ? getListingImage(listing) : null;
     const title =
       listing.propertyTitle ||
@@ -206,10 +215,25 @@ const SavedScreen = () => {
       listing.propertyLocation?.fullAddress ||
       listing.address ||
       listing.location ||
-      "Location not specified";
+      (listing.city ? `${listing.city}, ${listing.state || ""}`.trim() : "Location not specified");
+
+    const price =
+      listing.propertyPrice?.price ??
+      listing.price ??
+      listing.rent ??
+      0;
+
+    const pricingPeriod =
+      listing.propertyPrice?.frequency ||
+      listing.pricingPeriod ||
+      listing.rentFrequency ||
+      "night";
+
+    const bedrooms = listing.bedrooms ?? listing.bedroom ?? 0;
+    const bathrooms = listing.bathrooms ?? listing.bathroom ?? 0;
 
     const handleImageError = () => {
-      setImageErrors((prev) => ({ ...prev, [item._id]: true }));
+      setImageErrors((prev) => ({ ...prev, [itemId]: true }));
     };
 
     return (
@@ -259,23 +283,23 @@ const SavedScreen = () => {
             <View style={styles.featureItem}>
               <Ionicons name="bed" size={12} color="#6B7280" />
               <Text style={styles.listingFeatures}>
-                {listing.bedrooms || 0} Bedroom
+                {bedrooms} {bedrooms === 1 ? "Bedroom" : "Bedrooms"}
               </Text>
             </View>
             <View style={styles.featureItem}>
               <Ionicons name="water" size={12} color="#6B7280" />
               <Text style={styles.listingFeatures}>
-                {listing.bathrooms || 0} Bathroom
+                {bathrooms} {bathrooms === 1 ? "Bathroom" : "Bathrooms"}
               </Text>
             </View>
           </View>
           <View style={styles.priceRow}>
             <View>
               <Text style={styles.price}>
-                {formatPrice(listing.price || listing.rent)}
+                {formatPrice(price)}
               </Text>
               <Text style={styles.perYear}>
-                {listing.rentFrequency || "per Year"}
+                {pricingPeriod.startsWith("per") ? pricingPeriod : `per ${pricingPeriod}`}
               </Text>
             </View>
           </View>

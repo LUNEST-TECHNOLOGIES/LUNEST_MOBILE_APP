@@ -781,21 +781,29 @@ const PropertyDetailsScreen = () => {
       address: listing.address || listing.propertyLocation?.fullAddress || "",
       propertyType: listing.propertyType || "Apartment",
       location: (() => {
-        const fullAddr = listing.propertyLocation?.fullAddress || listing.address || listing.location;
-        if (fullAddr && fullAddr.trim()) {
-          return fullAddr.trim();
+        const city = (listing.city || listing.propertyLocation?.city || "").trim();
+        const state = (listing.state || listing.propertyLocation?.state || "").trim();
+        const country = (listing.country || listing.propertyLocation?.country || "Nigeria").trim();
+
+        const parts = [];
+        if (city) parts.push(city);
+        if (state && !parts.some((p) => p.toLowerCase() === state.toLowerCase())) parts.push(state);
+        if (country && !parts.some((p) => p.toLowerCase() === country.toLowerCase())) parts.push(country);
+
+        if (parts.length > 0) {
+          return parts.join(", ");
         }
-        const city = listing.city || listing.propertyLocation?.city;
-        const state = listing.state || listing.propertyLocation?.state;
-        if (city && state) {
-          return `${city}, ${state}`;
-        } else if (city) {
-          return city;
-        } else if (state) {
-          return state;
-        } else {
-          return "Nigeria";
+
+        const fullAddr = (listing.propertyLocation?.fullAddress || listing.address || listing.location || "").trim();
+        if (fullAddr) {
+          const addrParts = fullAddr.split(",").map((p) => p.trim()).filter(Boolean);
+          if (addrParts.length > 1) {
+            return addrParts.slice(1).join(", ");
+          }
+          return fullAddr;
         }
+
+        return "Nigeria";
       })(),
       images: propertyImages,
       available: listing.status === "ACTIVE" || listing.status === "AVAILABLE",
@@ -2382,7 +2390,7 @@ const PropertyDetailsScreen = () => {
             <View style={styles.mapModalDetailRow}>
               <Ionicons name="location" size={20} color="#010135" />
               <View style={styles.mapModalDetailText}>
-                <Text style={styles.mapModalDetailLabel}>Address</Text>
+                <Text style={styles.mapModalDetailLabel}>Location</Text>
                 <Text style={styles.mapModalDetailValue} numberOfLines={2}>
                   {propertyData.location}
                 </Text>

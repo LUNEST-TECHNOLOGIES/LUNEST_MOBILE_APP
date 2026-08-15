@@ -567,17 +567,27 @@ const FullDetailsScreen = () => {
     return periodMap[period?.toLowerCase()] || "per Night";
   };
 
-  // Build location string from listing data
+  // Build location string from listing data (City, State, Country)
   const getLocationString = () => {
     if (!listing) return "Location not available";
-    const city = listing.city || listing.propertyLocation?.city;
-    const state = listing.state || listing.propertyLocation?.state;
-    const fullAddress = listing.propertyLocation?.fullAddress;
+    const city = (listing.city || listing.propertyLocation?.city || "").trim();
+    const state = (listing.state || listing.propertyLocation?.state || "").trim();
+    const country = (listing.country || listing.propertyLocation?.country || "Nigeria").trim();
 
-    if (fullAddress) return fullAddress;
-    if (city && state) return `${city}, ${state}`;
-    if (city) return city;
-    return listing.address || "Location not available";
+    const parts = [];
+    if (city) parts.push(city);
+    if (state && !parts.some((p) => p.toLowerCase() === state.toLowerCase())) parts.push(state);
+    if (country && !parts.some((p) => p.toLowerCase() === country.toLowerCase())) parts.push(country);
+
+    if (parts.length > 0) return parts.join(", ");
+
+    const fullAddress = (listing.propertyLocation?.fullAddress || listing.address || "").trim();
+    if (fullAddress) {
+      const addrParts = fullAddress.split(",").map((p) => p.trim()).filter(Boolean);
+      if (addrParts.length > 1) return addrParts.slice(1).join(", ");
+      return fullAddress;
+    }
+    return "Nigeria";
   };
 
   // Build images array from listing data

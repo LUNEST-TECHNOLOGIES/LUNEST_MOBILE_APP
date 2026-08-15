@@ -48,15 +48,27 @@ const CameraIcon = ({ size = 32, color = "#010135" }) => (
   </Svg>
 );
 
+const maskIdNumber = (idStr) => {
+  if (!idStr) return "";
+  const cleaned = String(idStr).trim();
+  if (cleaned.length <= 4) return "****";
+  const startLen = Math.min(4, Math.floor(cleaned.length / 3));
+  const endLen = Math.min(3, Math.floor(cleaned.length / 3));
+  const start = cleaned.substring(0, startLen);
+  const end = cleaned.substring(cleaned.length - endLen);
+  return `${start}****${end}`;
+};
+
 const KYCVerificationScreen = () => {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const initialVerified = params?.verified === "true" || params?.isVerified === "true";
   const [isLoading, setIsLoading] = useState(false);
-  const [isVerified, setIsVerified] = useState(false);
+  const [isVerified, setIsVerified] = useState(initialVerified);
   const [consentChecked, setConsentChecked] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState("");
   const [verifiedName, setVerifiedName] = useState("");
-  const [verifiedId, setVerifiedId] = useState("");
+  const [verifiedId, setVerifiedId] = useState(initialVerified ? "ID Verified" : "");
   const [activeSessionId, setActiveSessionId] = useState(null);
   const [activeSessionUrl, setActiveSessionUrl] = useState("");
   const [isStatusChecking, setIsStatusChecking] = useState(false);
@@ -69,12 +81,12 @@ const KYCVerificationScreen = () => {
   const [userFullName, setUserFullName] = useState("");
   const [isFetchingNinName, setIsFetchingNinName] = useState(false);
   const [ninFetchedName, setNinFetchedName] = useState(null);
+  const [rejectionReason, setRejectionReason] = useState(null);
 
   // Soft check with Korapay/Database when user enters 11+ digit NIN
   useEffect(() => {
     const clean = ninInput.trim().toUpperCase();
     if (clean.length >= 11 && consentChecked) {
-      // 1. Check for dummy / repeating / sequential patterns locally
       const dummyNins = [
         "00000000000", "11111111111", "22222222222", "33333333333", "44444444444",
         "55555555555", "66666666666", "77777777777", "88888888888", "99999999999",
@@ -101,7 +113,6 @@ const KYCVerificationScreen = () => {
 
       const timer = setTimeout(async () => {
         try {
-          // Check if this NIN is already cached & verified on user profile first
           const currentUser = await getUserData();
           const userNin = (currentUser?.nin || currentUser?.kycData?.documentNumber || "").toString().trim().toUpperCase();
 
@@ -113,7 +124,6 @@ const KYCVerificationScreen = () => {
             return;
           }
 
-          // Trigger live Kora verification soft check
           const res = await kycService.koraVerifyNIN(clean);
           if (res?.verified || res?.kycStatus === "VERIFIED" || res?.status === "VERIFIED" || res?.success === true) {
             const fetchedName = res?.verifiedName || res?.fullName || res?.data?.full_name || res?.data?.verifiedName || currentUser?.fullName || userFullName;
@@ -153,69 +163,56 @@ const KYCVerificationScreen = () => {
   };
 
   const getErrorMessage = (error, fallbackMessage) => {
-    if (error?.message) {
-      return error.message;
-    }
-
-    if (typeof error === "string" && error.trim()) {
-      return error;
-    }
-
-    if (error?.response?.data?.message) {
-      return error.response.data.message;
-    }
-
-    if (error?.response?.data?.error) {
-      return error.response.data.error;
-    }
-
+    if (error?.message) return error.message;
+    if (typeof error === "string" && error.trim()) return error;
+    if (error?.response?.data?.message) return error.response.data.message;
+    if (error?.response?.data?.error) return error.response.data.error;
     return fallbackMessage;
   };
 
   useEffect(() => {
-    const init = async () => {
-      const loggedIn = await authService.isLoggedIn();
-      if (!loggedIn) {
-        console.warn("[KYC] User not logged in, redirecting to login");
-        router.replace("/login");
-        return;
-      }
+    let isMounted = true;
 
+    const init = async () => {
+      // 1. Instant local cache load (0ms UI display)
       try {
         const uData = await getUserData();
-        if (uData?.fullName) {
-          setUserFullName(uData.fullName);
+        if (uData && isMounted) {
+          if (uData.fullName) setUserFullName(uData.fullName);
+          const isUserVerified = uData.verified === true || uData.kycStatus === "VERIFIED" || uData.kycStatus === "APPROVED" || params?.verified === "true";
+          if (isUserVerified) {
+            setIsVerified(true);
+            setVerifiedName(uData.fullName || uData.name || "");
+            const rawNin = uData.nin || uData.kycData?.documentNumber || uData.idNumber || "";
+            setVerifiedId(maskIdNumber(rawNin) || "ID Verified");
+          } else if (uData.kycData?.rejectionReason) {
+            setRejectionReason(uData.kycData.rejectionReason);
+          }
         }
-        const p = await authService.fetchProfile();
-        if (p?.data?.fullName) {
-          setUserFullName(p.data.fullName);
-        }
-      } catch (e) { }
+      } catch (e) {}
 
-      // Always fetch fresh profile from server first to bust any stale local cache
-      try {
-        await authService.fetchProfile();
-        console.log("[KYC] Fresh profile synced from server on screen open");
-      } catch (e) {
-        console.warn("[KYC] Could not sync profile on init:", e?.message);
+      // 2. Auth check
+      const loggedIn = await authService.isLoggedIn();
+      if (!loggedIn) {
+        if (isMounted) router.replace("/login");
+        return;
       }
 
       const urlSessionId = params?.sessionId || params?.verificationSessionId;
       if (urlSessionId) {
-        console.log("[KYC] Found redirect sessionId in URL params:", urlSessionId);
         setActiveSessionId(urlSessionId);
         await finalizeSession(urlSessionId, "Identity verified successfully!");
       } else {
+        // Run background verification check silently
         checkVerificationStatus();
       }
     };
+
     init();
 
-
-    // Listen for app coming back to foreground (e.g. after completing Didit in system browser)
+    // Listen for app coming back to foreground
     const subscription = AppState.addEventListener("change", (nextAppState) => {
       if (nextAppState === "active") {
-        console.log("[KYC] App returned to active foreground state. Auto-syncing Didit verification status...");
         if (activeSessionId) {
           finalizeSession(activeSessionId, "Identity status updated.");
         } else {
@@ -225,57 +222,53 @@ const KYCVerificationScreen = () => {
     });
 
     return () => {
+      isMounted = false;
       subscription.remove();
     };
   }, [params?.sessionId, params?.verificationSessionId, activeSessionId]);
 
-  const maskIdNumber = (idStr) => {
-    if (!idStr) return "";
-    const cleaned = String(idStr).trim();
-    if (cleaned.length <= 4) return "****";
-    const startLen = Math.min(4, Math.floor(cleaned.length / 3));
-    const endLen = Math.min(3, Math.floor(cleaned.length / 3));
-    const start = cleaned.substring(0, startLen);
-    const end = cleaned.substring(cleaned.length - endLen);
-    return `${start}****${end}`;
-  };
-
   const checkVerificationStatus = async () => {
     try {
-      // Trigger real-time Didit decision sync with backend first
-      const syncRes = await kycService.syncDiditStatus();
-      const syncUser = syncRes?.user || syncRes?.data || syncRes;
-      if (syncUser?.verified === true || syncUser?.kycStatus === "VERIFIED" || syncUser?.kycStatus === "APPROVED") {
-        setIsVerified(true);
-        setRejectionReason(null);
-        setVerifiedName(syncUser.fullName || "");
-        const rawNin = syncUser.nin || syncUser.kycData?.documentNumber || syncUser.idNumber || "";
-        const masked = maskIdNumber(rawNin);
-        setVerifiedId(masked || "ID Verified");
-        return;
-      }
-
+      // Check server profile
       const profile = await authService.fetchProfile();
-      const userBody = profile.data || {};
+      const userBody = profile?.data || profile?.user || {};
       const isVerifiedStatus = userBody.kycStatus === "VERIFIED" || userBody.verified === true || userBody.kycStatus === "APPROVED";
 
       if (isVerifiedStatus) {
         setIsVerified(true);
         setRejectionReason(null);
         setVerifiedName(userBody.fullName || "");
-
-        // Mask the NIN/document number
         const rawNin = userBody.nin || userBody.kycData?.documentNumber || userBody.idNumber || "";
         const masked = maskIdNumber(rawNin);
         setVerifiedId(masked || "ID Verified");
-      } else if (userBody.kycData?.sessionId) {
-        setActiveSessionId(userBody.kycData.sessionId);
-        setActiveSessionUrl(userBody.kycData.sessionUrl || "");
-        setConsentChecked(true); // Pre-approve consent since they have a session
+        return;
       }
 
+      // If not yet verified on profile, sync Didit in background
+      if (!isVerified) {
+        const syncRes = await kycService.syncDiditStatus();
+        const syncUser = syncRes?.user || syncRes?.data || syncRes;
+        if (syncUser?.verified === true || syncUser?.kycStatus === "VERIFIED" || syncUser?.kycStatus === "APPROVED") {
+          setIsVerified(true);
+          setRejectionReason(null);
+          setVerifiedName(syncUser.fullName || "");
+          const rawNin = syncUser.nin || syncUser.kycData?.documentNumber || syncUser.idNumber || "";
+          const masked = maskIdNumber(rawNin);
+          setVerifiedId(masked || "ID Verified");
+          return;
+        }
+      }
+
+      if (userBody.kycData?.sessionId) {
+        setActiveSessionId(userBody.kycData.sessionId);
+        setActiveSessionUrl(userBody.kycData.sessionUrl || "");
+        setConsentChecked(true);
+      }
+      if (userBody.kycData?.rejectionReason) {
+        setRejectionReason(userBody.kycData.rejectionReason);
+      }
     } catch (error) {
-      console.error("Error checking verification status:", error);
+      console.warn("[KYC] Error checking verification status:", error?.message || error);
     }
   };
 

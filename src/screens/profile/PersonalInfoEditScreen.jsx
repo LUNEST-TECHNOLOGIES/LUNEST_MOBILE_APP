@@ -238,8 +238,14 @@ const PersonalInfoEditScreen = () => {
   }, []);
 
   const handlePwaInstall = () => {
-    if (typeof window !== "undefined" && typeof window.triggerPwaInstallPrompt === "function") {
-      window.triggerPwaInstallPrompt();
+    if (typeof window !== "undefined") {
+      if (typeof window.triggerPwaInstallPrompt === "function") {
+        window.triggerPwaInstallPrompt();
+      } else if (window.deferredPrompt && typeof window.deferredPrompt.prompt === "function") {
+        window.deferredPrompt.prompt();
+      } else {
+        showToast("To add to home screen, open your browser menu and select 'Add to Home screen' or 'Install App'", TOAST_TYPE.INFO);
+      }
     }
   };
 

@@ -1812,10 +1812,21 @@ const PropertyDetailsScreen = () => {
         ]}
       >
         <Pressable
-          style={[styles.backButton, !isHeaderFixed && styles.backCircle]}
+          style={[
+            styles.backCircle,
+            isHeaderFixed && {
+              backgroundColor: "rgba(255, 255, 255, 0.12)",
+              shadowOpacity: 0,
+              elevation: 0,
+            },
+          ]}
           onPress={handleGoBack}
         >
-          <ChevronLeft size={24} color={isHeaderFixed ? "#FFFFFF" : "#000"} strokeWidth={2} />
+          <ChevronLeft
+            size={24}
+            color={isHeaderFixed ? "#FFFFFF" : "#010135"}
+            strokeWidth={2}
+          />
         </Pressable>
 
         {isHeaderFixed && (
@@ -1824,11 +1835,18 @@ const PropertyDetailsScreen = () => {
 
         <TouchableOpacity
           onPress={handleToggleBookmark}
-          style={styles.headerIconButton}
+          style={[
+            styles.backCircle,
+            isHeaderFixed && {
+              backgroundColor: "rgba(255, 255, 255, 0.12)",
+              shadowOpacity: 0,
+              elevation: 0,
+            },
+          ]}
         >
           <Heart
             size={22}
-            color={isBookmarked ? "#FF5A5F" : "#FFFFFF"}
+            color={isBookmarked ? "#FF5A5F" : (isHeaderFixed ? "#FFFFFF" : "#010135")}
             fill={isBookmarked ? "#FF5A5F" : "transparent"}
             strokeWidth={1.5}
           />

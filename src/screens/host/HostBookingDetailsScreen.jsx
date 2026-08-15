@@ -9,23 +9,23 @@ import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    Image,
-    Linking,
-    Platform,
-    Pressable,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  Image,
+  Linking,
+  Platform,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import {
-    SafeAreaView,
-    useSafeAreaInsets,
+  SafeAreaView,
+  useSafeAreaInsets,
 } from "react-native-safe-area-context";
 import { captureRef } from "react-native-view-shot";
 import ArrowLeftIcon from "../../assets/icons/bookings/arrow-left.svg";
@@ -33,11 +33,11 @@ import DownloadIcon from "../../assets/icons/bookings/download.svg";
 import DownloadConfirmationModal from "../../components/common/DownloadConfirmationModal";
 import DownloadOptionsModal from "../../components/common/DownloadOptionsModal";
 import ToastNotification, {
-    TOAST_TYPE,
+  TOAST_TYPE,
 } from "../../components/common/ToastNotification";
 import ActionSuccessModal from "../../components/common/ActionSuccessModal";
 import BookingActionModal, {
-    BOOKING_ACTION,
+  BOOKING_ACTION,
 } from "../../components/modals/BookingActionModal";
 import CancelBookingModal from "../../components/modals/CancelBookingModal";
 import CautionDisputeModal from "../../components/modals/CautionDisputeModal";
@@ -388,13 +388,13 @@ const HostBookingDetailsScreen = () => {
       return listingPricePerNight * totalNights;
     }
     if (breakdown?.rentFee !== undefined && breakdown?.rentFee !== null && Number(breakdown.rentFee) > 0) {
-      return Number(breakdown.rentFee);
+      const bRent = Number(breakdown.rentFee);
+      return bRent;
     }
     const rawPrice = Number(booking?.totalAmount?.price ?? parseFloat(params.price) ?? 0);
     const secDep = Number(breakdown?.securityDeposit ?? breakdown?.cautionFee ?? booking?.listing?.securityDeposit ?? booking?.listing?.cautionFee ?? 0);
     const sc = Number(breakdown?.serviceCharge ?? booking?.listing?.serviceCharge ?? 0);
-    
-    // Reverse calculate the exact host accommodation fee from guest gross total:
+
     const netBaseAfterDeposit = Math.max(0, rawPrice - secDep);
     const estimatedRent = Math.round((netBaseAfterDeposit / 1.05375) - sc);
     if (estimatedRent > 0) {
@@ -422,27 +422,18 @@ const HostBookingDetailsScreen = () => {
   );
 
   // 4. Host Subtotal (Taxable Amount):
-  const hostSubtotal = Number(breakdown?.taxableAmount ?? (rentFee + serviceFee));
+  const hostSubtotal = rentFee + serviceFee;
 
   // 5. Host Fee (3% Platform Commission):
-  const hostFee = Number(
-    breakdown?.hostFee ??
-    Math.round(hostSubtotal * 0.03)
-  );
+  const hostFee = Math.round(hostSubtotal * 0.03);
 
   // 6. VAT on Host Fee (7.5%):
-  const hostVat = Number(
-    breakdown?.hostVat ??
-    Math.round(hostFee * 0.075)
-  );
+  const hostVat = Math.round(hostFee * 0.075);
 
   const totalHostDeduction = hostFee + hostVat;
 
   // 7. Base Host Earnings (Subtotal minus platform commission and VAT):
-  const baseHostEarnings = Number(
-    breakdown?.hostEarnings ??
-    (hostSubtotal - totalHostDeduction)
-  );
+  const baseHostEarnings = hostSubtotal - totalHostDeduction;
 
   // 8. Extension Earnings (if any stay extensions occurred):
   const extensionEarnings = (booking?.extensions || []).reduce((acc, ext) => {
@@ -478,10 +469,10 @@ const HostBookingDetailsScreen = () => {
     const raw =
       bookedBy?.phoneNumber || bookedBy?.phone || params.guestPhone || "";
     if (!raw || raw === "-") return "-";
-    
+
     // For confirmed and ongoing bookings, show the full number
     if (status === "CONFIRMED" || status === "ONGOING") return raw;
-    
+
     // Otherwise, mask it (per user request)
     return raw.length > 7
       ? `${raw.slice(0, 4)}••••••${raw.slice(-3)}`
@@ -595,7 +586,7 @@ const HostBookingDetailsScreen = () => {
         setShowCancelModal(false);
         // Update local status immediately for real-time feel
         setBooking(prev => ({ ...prev, status: "CANCELLED" }));
-        
+
         setSuccessModalConfig({
           title: "Booking Cancelled",
           message: "The reservation has been successfully cancelled. The guest has been notified."
@@ -748,80 +739,80 @@ const HostBookingDetailsScreen = () => {
 
   const handleDownloadImage = async () => {
     if (!viewRef.current) {
-        Alert.alert("Error", "Booking summary view is not ready.");
-        return;
+      Alert.alert("Error", "Booking summary view is not ready.");
+      return;
     }
-    
+
     try {
-        // 1. Show the downloading modal first
-        setDownloadModalState({
+      // 1. Show the downloading modal first
+      setDownloadModalState({
+        visible: true,
+        type: 'loading',
+        title: 'Saving Image...',
+        message: 'Preparing your booking summary image.'
+      });
+
+      // 2. Hide UI clutter (buttons/headers)
+      setIsCapturing(true);
+      setIsDownloading(true);
+
+      // 3. Brief delay to allow React to re-render without buttons
+      setTimeout(async () => {
+        try {
+          if (Platform.OS === 'web') {
+            const { toPng } = require('html-to-image');
+            const dataUrl = await toPng(viewRef.current, {
+              backgroundColor: "#FFFFFF",
+              cacheBust: true,
+              includeQueryParams: true,
+              pixelRatio: 2,
+            });
+            await saveRefAsImage(dataUrl, `Booking_Summary_${bookingRefCode}.png`);
+          } else {
+            const uri = await captureRef(viewRef, {
+              format: "png",
+              quality: 1,
+            });
+            await saveRefAsImage(uri, `Booking_Summary_${bookingRefCode}.png`);
+          }
+
+          setDownloadModalState({
             visible: true,
-            type: 'loading',
-            title: 'Saving Image...',
-            message: 'Preparing your booking summary image.'
-        });
+            type: 'success',
+            title: 'Image Saved',
+            message: 'The booking summary has been saved successfully.'
+          });
+        } catch (e) {
+          // If 'e' is an Event object, log it carefully to avoid [object Event]
+          console.error("[Download] Image capture error detail:", {
+            message: e?.message || e?.name || "Unknown Error",
+            type: e?.constructor?.name,
+            error: e
+          });
 
-        // 2. Hide UI clutter (buttons/headers)
-        setIsCapturing(true);
-        setIsDownloading(true);
-        
-        // 3. Brief delay to allow React to re-render without buttons
-        setTimeout(async () => {
-            try {
-                if (Platform.OS === 'web') {
-                    const { toPng } = require('html-to-image');
-                    const dataUrl = await toPng(viewRef.current, {
-                        backgroundColor: "#FFFFFF",
-                        cacheBust: true,
-                        includeQueryParams: true,
-                        pixelRatio: 2,
-                    });
-                    await saveRefAsImage(dataUrl, `Booking_Summary_${bookingRefCode}.png`);
-                } else {
-                    const uri = await captureRef(viewRef, {
-                        format: "png",
-                        quality: 1,
-                    });
-                    await saveRefAsImage(uri, `Booking_Summary_${bookingRefCode}.png`);
-                }
+          const isCORSError = e?.message?.includes('CORS') ||
+            (Platform.OS === 'web' && !e?.message && (e instanceof Event || e?.type === 'error'));
 
-                setDownloadModalState({
-                    visible: true,
-                    type: 'success',
-                    title: 'Image Saved',
-                    message: 'The booking summary has been saved successfully.'
-                });
-            } catch (e) {
-                // If 'e' is an Event object, log it carefully to avoid [object Event]
-                console.error("[Download] Image capture error detail:", {
-                    message: e?.message || e?.name || "Unknown Error",
-                    type: e?.constructor?.name,
-                    error: e
-                });
+          const diagnosticInfo = e?.message || (e instanceof Event ? `Browser Event: ${e.type}` : String(e));
 
-                const isCORSError = e?.message?.includes('CORS') || 
-                                   (Platform.OS === 'web' && !e?.message && (e instanceof Event || e?.type === 'error'));
-
-                const diagnosticInfo = e?.message || (e instanceof Event ? `Browser Event: ${e.type}` : String(e));
-
-                setDownloadModalState({
-                    visible: true,
-                    type: 'error',
-                    title: 'Capture Failed',
-                    message: isCORSError
-                        ? 'Image server security (CORS) prevented the capture. The image source needs Access-Control-Allow-Origin headers.'
-                        : `Capture error: ${diagnosticInfo}. Please try again.`
-                });
-            } finally {
-                setIsCapturing(false);
-                setIsDownloading(false);
-                setShowDownloadOptions(false);
-            }
-        }, 500); // Increased delay for UI stability
+          setDownloadModalState({
+            visible: true,
+            type: 'error',
+            title: 'Capture Failed',
+            message: isCORSError
+              ? 'Image server security (CORS) prevented the capture. The image source needs Access-Control-Allow-Origin headers.'
+              : `Capture error: ${diagnosticInfo}. Please try again.`
+          });
+        } finally {
+          setIsCapturing(false);
+          setIsDownloading(false);
+          setShowDownloadOptions(false);
+        }
+      }, 500); // Increased delay for UI stability
     } catch (outerError) {
-        console.error("[Download] Outer capture error:", outerError);
-        setIsDownloading(false);
-        setIsCapturing(false);
+      console.error("[Download] Outer capture error:", outerError);
+      setIsDownloading(false);
+      setIsCapturing(false);
     }
   };
 
@@ -1104,7 +1095,7 @@ const HostBookingDetailsScreen = () => {
                   <Text style={[styles.infoValue, { color: '#6371F1', fontWeight: 'bold' }]}>
                     {bookingRefCode}
                   </Text>
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     onPress={async () => {
                       await Clipboard.setStringAsync(bookingRefCode);
                       showToastMessage("Booking reference copied!", TOAST_TYPE.SUCCESS);
@@ -1213,66 +1204,66 @@ const HostBookingDetailsScreen = () => {
           <View style={{ height: 12 }} />
           <InfoRow label="Payment Method:" value={paymentMethod} />
 
-        {/* ── Guest Information Card ── */}
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Guest Information</Text>
-          <View style={styles.infoRows}>
-            <InfoRow label="Name:" value={guestName} />
-            <InfoRow label="Phone:" value={guestPhone} />
-            <InfoRow label="Email Address:" value={guestEmail} />
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>KYC Status:</Text>
-              <View style={styles.kycBadge}>
-                <Ionicons
-                  name="shield-checkmark"
-                  size={16}
-                  color={isVerified ? "#31EB3D" : "#bdbdbd"}
-                />
-                <Text
-                  style={[
-                    styles.kycText,
-                    { color: isVerified ? "#31EB3D" : "#bdbdbd" },
-                  ]}
-                >
-                  {isVerified ? "VERIFIED" : "UNVERIFIED"}
-                </Text>
+          {/* ── Guest Information Card ── */}
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Guest Information</Text>
+            <View style={styles.infoRows}>
+              <InfoRow label="Name:" value={guestName} />
+              <InfoRow label="Phone:" value={guestPhone} />
+              <InfoRow label="Email Address:" value={guestEmail} />
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>KYC Status:</Text>
+                <View style={styles.kycBadge}>
+                  <Ionicons
+                    name="shield-checkmark"
+                    size={16}
+                    color={isVerified ? "#31EB3D" : "#bdbdbd"}
+                  />
+                  <Text
+                    style={[
+                      styles.kycText,
+                      { color: isVerified ? "#31EB3D" : "#bdbdbd" },
+                    ]}
+                  >
+                    {isVerified ? "VERIFIED" : "UNVERIFIED"}
+                  </Text>
+                </View>
               </View>
             </View>
+            {!isCapturing && (
+              <Pressable
+                style={styles.viewProfileBtn}
+                onPress={() =>
+                  router.push({
+                    pathname: "/guest-information",
+                    params: {
+                      guestId: booking?.bookedBy?._id || params.bookedBy,
+                      guestName: guestName,
+                      guestAvatar: guestAvatar,
+                      isVerified: isVerified ? "true" : "false",
+                    },
+                  })
+                }
+              >
+                <Ionicons name="person-outline" size={16} color="#fff" />
+                <Text style={styles.viewProfileText}>View Profile</Text>
+              </Pressable>
+            )}
           </View>
-          {!isCapturing && (
-            <Pressable
-              style={styles.viewProfileBtn}
-              onPress={() =>
-                router.push({
-                  pathname: "/guest-information",
-                  params: {
-                    guestId: booking?.bookedBy?._id || params.bookedBy,
-                    guestName: guestName,
-                    guestAvatar: guestAvatar,
-                    isVerified: isVerified ? "true" : "false",
-                  },
-                })
-              }
-            >
-              <Ionicons name="person-outline" size={16} color="#fff" />
-              <Text style={styles.viewProfileText}>View Profile</Text>
-            </Pressable>
-          )}
-        </View>
 
-        {/* ── Additional Notes Card ── */}
-        {additionalNotes ? (
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Additional Notes</Text>
-            <Text style={styles.notesText} numberOfLines={3}>
-              {additionalNotes}
-            </Text>
-          </View>
-        ) : null}
+          {/* ── Additional Notes Card ── */}
+          {additionalNotes ? (
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>Additional Notes</Text>
+              <Text style={styles.notesText} numberOfLines={3}>
+                {additionalNotes}
+              </Text>
+            </View>
+          ) : null}
 
-        <View style={styles.footerBranding}>
+          <View style={styles.footerBranding}>
             <Text style={styles.footerBrandingText}>Generated by LUNEST • You are Booked in Style!</Text>
-        </View>
+          </View>
         </View>
 
         {/* ── Caution Fee Management (COMPLETED bookings only) ── */}
@@ -1326,15 +1317,15 @@ const HostBookingDetailsScreen = () => {
                   name={
                     booking.securityDepositResolution.status ===
                       "RELEASE_TO_GUEST" ||
-                    booking.securityDepositResolution.status ===
+                      booking.securityDepositResolution.status ===
                       "RELEASED_TO_GUEST" ||
-                    booking.securityDepositResolution.status ===
+                      booking.securityDepositResolution.status ===
                       "RELEASE_TO_HOST" ||
-                    booking.securityDepositResolution.status ===
+                      booking.securityDepositResolution.status ===
                       "RELEASED_TO_HOST" ||
-                    booking.securityDepositResolution.status ===
+                      booking.securityDepositResolution.status ===
                       "RELEASE_TO_LANDLORD" ||
-                    booking.securityDepositResolution.status ===
+                      booking.securityDepositResolution.status ===
                       "RELEASED_TO_LANDLORD"
                       ? "checkmark-circle"
                       : "alert-circle"
@@ -1343,15 +1334,15 @@ const HostBookingDetailsScreen = () => {
                   color={
                     booking.securityDepositResolution.status ===
                       "RELEASE_TO_GUEST" ||
-                    booking.securityDepositResolution.status ===
+                      booking.securityDepositResolution.status ===
                       "RELEASED_TO_GUEST" ||
-                    booking.securityDepositResolution.status ===
+                      booking.securityDepositResolution.status ===
                       "RELEASE_TO_HOST" ||
-                    booking.securityDepositResolution.status ===
+                      booking.securityDepositResolution.status ===
                       "RELEASED_TO_HOST" ||
-                    booking.securityDepositResolution.status ===
+                      booking.securityDepositResolution.status ===
                       "RELEASE_TO_LANDLORD" ||
-                    booking.securityDepositResolution.status ===
+                      booking.securityDepositResolution.status ===
                       "RELEASED_TO_LANDLORD"
                       ? "#22C55E"
                       : "#EF4444"
@@ -1367,16 +1358,16 @@ const HostBookingDetailsScreen = () => {
                 {(booking.securityDepositResolution.status ===
                   "RELEASE_TO_GUEST" ||
                   booking.securityDepositResolution.status ===
-                    "RELEASED_TO_GUEST") &&
+                  "RELEASED_TO_GUEST") &&
                   `The caution fee of ₦${securityDeposit.toLocaleString()} has been released to the guest.`}
                 {(booking.securityDepositResolution.status ===
                   "RELEASE_TO_HOST" ||
                   booking.securityDepositResolution.status ===
-                    "RELEASED_TO_HOST" ||
+                  "RELEASED_TO_HOST" ||
                   booking.securityDepositResolution.status ===
-                    "RELEASE_TO_LANDLORD" ||
+                  "RELEASE_TO_LANDLORD" ||
                   booking.securityDepositResolution.status ===
-                    "RELEASED_TO_LANDLORD") &&
+                  "RELEASED_TO_LANDLORD") &&
                   `The caution fee of ₦${securityDeposit.toLocaleString()} was credited to you due to reported damages or issues.`}
                 {(booking.securityDepositResolution.status === "DISPUTED" ||
                   booking.securityDepositResolution.status === "DISPUTE") &&
@@ -1499,18 +1490,18 @@ const HostBookingDetailsScreen = () => {
                   <Ionicons
                     name={
                       star <=
-                      (alreadyReviewed
-                        ? booking?.hostReview?.rating || reviewRating
-                        : reviewRating)
+                        (alreadyReviewed
+                          ? booking?.hostReview?.rating || reviewRating
+                          : reviewRating)
                         ? "star"
                         : "star-outline"
                     }
                     size={36}
                     color={
                       star <=
-                      (alreadyReviewed
-                        ? booking?.hostReview?.rating || reviewRating
-                        : reviewRating)
+                        (alreadyReviewed
+                          ? booking?.hostReview?.rating || reviewRating
+                          : reviewRating)
                         ? "#FFB800"
                         : "#D1D1D6"
                     }
@@ -1609,7 +1600,7 @@ const HostBookingDetailsScreen = () => {
       />
 
       {/* ── Cancel Booking Modal ── */}
-      <ActionSuccessModal 
+      <ActionSuccessModal
         visible={showSuccessModal}
         onClose={() => {
           setShowSuccessModal(false);
@@ -1682,7 +1673,7 @@ const HostBookingDetailsScreen = () => {
   );
 };
 
-  // Reusable info row ──
+// Reusable info row ──
 const InfoRow = ({ label, value, valueStyle = {} }) => (
   <View style={styles.infoRow}>
     <Text style={styles.infoLabel}>{label}</Text>

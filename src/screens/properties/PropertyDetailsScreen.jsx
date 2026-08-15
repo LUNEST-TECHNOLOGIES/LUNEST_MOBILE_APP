@@ -1576,91 +1576,90 @@ const PropertyDetailsScreen = () => {
                 zoomEnabled={true}
               />
             </View>
-          ) : (propertyData.latitude != null && propertyData.longitude != null) ? (
-              <Pressable
-                style={styles.mapContainer}
-                onPress={() => {
-                  openMapLocation(
-                    propertyData.latitude,
-                    propertyData.longitude,
-                    propertyData.title,
-                  );
+          ) : propertyData.latitude != null && propertyData.longitude != null ? (
+            <Pressable
+              style={styles.mapContainer}
+              onPress={() => {
+                openMapLocation(
+                  propertyData.latitude,
+                  propertyData.longitude,
+                  propertyData.title,
+                );
+              }}
+            >
+              <MapView
+                key={`map-${propertyData.latitude}-${propertyData.longitude}`}
+                style={styles.map}
+                provider={PROVIDER_GOOGLE}
+                initialRegion={{
+                  latitude: Number(propertyData.latitude),
+                  longitude: Number(propertyData.longitude),
+                  latitudeDelta: 0.015,
+                  longitudeDelta: 0.015,
                 }}
+                loadingEnabled={true}
+                loadingIndicatorColor="#010135"
+                scrollEnabled={true}
+                zoomEnabled={true}
+                pitchEnabled={false}
+                rotateEnabled={false}
+                cacheEnabled={true}
+                showsUserLocation={false}
+                showsMyLocationButton={false}
+                showsPointsOfInterest={false}
+                showsBuildings={false}
+                showsTraffic={false}
+                showsIndoors={false}
+                showsCompass={false}
+                showsScale={false}
+                showsIndoorLevelPicker={false}
               >
-                <MapView
-                  key={`map-${propertyData.latitude}-${propertyData.longitude}`}
-                  style={styles.map}
-                  provider={PROVIDER_GOOGLE}
-                  initialRegion={{
+                <Marker
+                  key={`marker-${propertyData.latitude}-${propertyData.longitude}`}
+                  coordinate={{
                     latitude: Number(propertyData.latitude),
                     longitude: Number(propertyData.longitude),
-                    latitudeDelta: 0.015,
-                    longitudeDelta: 0.015,
                   }}
-                  loadingEnabled={true}
-                  loadingIndicatorColor="#010135"
-                  scrollEnabled={true}
-                  zoomEnabled={true}
-                  pitchEnabled={false}
-                  rotateEnabled={false}
-                  cacheEnabled={true}
-                  showsUserLocation={false}
-                  showsMyLocationButton={false}
-                  showsPointsOfInterest={false}
-                  showsBuildings={false}
-                  showsTraffic={false}
-                  showsIndoors={false}
-                  showsCompass={false}
-                  showsScale={false}
-                  showsIndoorLevelPicker={false}
+                  title={propertyData.title}
+                  description={propertyData.location}
+                  pinColor="#010135"
+                  onPress={() => {
+                    // Handle pin click - open map with more details
+                    handleLocationPress();
+                  }}
+                />
+              </MapView>
+
+              {/* Interactive Map Overlay */}
+              <View style={styles.mapOverlay}>
+                <View style={styles.mapOverlayContent}>
+                  <Ionicons name="location" size={16} color="#010135" />
+                  <Text style={styles.mapOverlayText}>Tap to view in maps</Text>
+                </View>
+              </View>
+
+              {/* Zoom Controls */}
+              <View style={styles.zoomControls}>
+                <Pressable
+                  style={[styles.zoomButton, styles.zoomButtonTop]}
+                  onPress={() => {
+                    // Zoom in functionality would require map ref
+                    console.log('Zoom in pressed');
+                  }}
                 >
-                  <Marker
-                    key={`marker-${propertyData.latitude}-${propertyData.longitude}`}
-                    coordinate={{
-                      latitude: Number(propertyData.latitude),
-                      longitude: Number(propertyData.longitude),
-                    }}
-                    title={propertyData.title}
-                    description={propertyData.location}
-                    pinColor="#010135"
-                    onPress={() => {
-                      // Handle pin click - open map with more details
-                      handleLocationPress();
-                    }}
-                  />
-                </MapView>
-
-                {/* Interactive Map Overlay */}
-                <View style={styles.mapOverlay}>
-                  <View style={styles.mapOverlayContent}>
-                    <Ionicons name="location" size={16} color="#010135" />
-                    <Text style={styles.mapOverlayText}>Tap to view in maps</Text>
-                  </View>
-                </View>
-
-                {/* Zoom Controls */}
-                <View style={styles.zoomControls}>
-                  <Pressable
-                    style={[styles.zoomButton, styles.zoomButtonTop]}
-                    onPress={() => {
-                      // Zoom in functionality would require map ref
-                      console.log('Zoom in pressed');
-                    }}
-                  >
-                    <Ionicons name="add" size={16} color="#010135" />
-                  </Pressable>
-                  <Pressable
-                    style={[styles.zoomButton, styles.zoomButtonBottom]}
-                    onPress={() => {
-                      // Zoom out functionality would require map ref
-                      console.log('Zoom out pressed');
-                    }}
-                  >
-                    <Ionicons name="remove" size={16} color="#010135" />
-                  </Pressable>
-                </View>
-              </Pressable>
-            )
+                  <Ionicons name="add" size={16} color="#010135" />
+                </Pressable>
+                <Pressable
+                  style={[styles.zoomButton, styles.zoomButtonBottom]}
+                  onPress={() => {
+                    // Zoom out functionality would require map ref
+                    console.log('Zoom out pressed');
+                  }}
+                >
+                  <Ionicons name="remove" size={16} color="#010135" />
+                </Pressable>
+              </View>
+            </Pressable>
           ) : (
             <View style={styles.mapPlaceholder}>
               <View style={styles.mapPlaceholderContent}>

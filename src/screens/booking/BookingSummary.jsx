@@ -26,6 +26,7 @@ import KycRequiredModal from "../../components/modals/KycRequiredModal";
 import PaymentMethodModal from "../../components/modals/PaymentMethodModal";
 import authService from "../../services/authService";
 import bookingService from "../../services/bookingService";
+import configService from "../../services/configService";
 import paymentService from "../../services/paymentService";
 import profileService from "../../services/profileService";
 import { getUserData } from "../../services/userDataService";
@@ -57,9 +58,11 @@ const BookingSummary = () => {
   const [fetchedBooking, setFetchedBooking] = useState(null);
   const [isFetchingBooking, setIsFetchingBooking] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [baseURL, setBaseURL] = useState("");
 
   useEffect(() => {
     setMounted(true);
+    configService.getBaseURL().then(url => setBaseURL(url)).catch(() => {});
   }, []);
 
   // Toast notifications
@@ -95,13 +98,24 @@ const BookingSummary = () => {
     checkOutType: typeof params?.checkOutDate
   });
 
-  // Cover image URL from listing images - validate it's a valid URL
-  const coverImage =
-    params.coverImage &&
-    (params.coverImage.startsWith("http") ||
-      params.coverImage.startsWith("https"))
-      ? params.coverImage
-      : null;
+  // Cover image URL resolution with base URL normalization and fallback to fetched booking listings
+  const coverImage = (() => {
+    if (!params.coverImage) {
+      const fetchedImg = fetchedBooking?.listing?.propertyImages?.[0] || fetchedBooking?.listing?.images?.[0];
+      const fetchedImgUrl = fetchedImg ? (typeof fetchedImg === 'object' ? fetchedImg.url || fetchedImg.uri : fetchedImg) : null;
+      if (fetchedImgUrl) {
+        return fetchedImgUrl.startsWith("http") ? fetchedImgUrl : `${baseURL}${fetchedImgUrl}`;
+      }
+      return null;
+    }
+    if (params.coverImage.startsWith("http") || params.coverImage.startsWith("https")) {
+      return params.coverImage;
+    }
+    if (baseURL) {
+      return `${baseURL}${params.coverImage.startsWith("/") ? "" : "/"}${params.coverImage}`;
+    }
+    return null;
+  })();
 
   // Log for debugging
   console.log("[BookingSummary] Cover image URL:", params.coverImage);

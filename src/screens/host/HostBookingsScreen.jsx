@@ -548,7 +548,7 @@ const HostBookingsScreen = () => {
         case "completed":
           return booking.status === "COMPLETED";
         case "cancelled":
-          return booking.status === "CANCELED" || booking.status === "CANCELLED";
+          return booking.status === "CANCELED" || booking.status === "CANCELLED" || booking.status === "EXPIRED" || booking.status === "UNPAID";
         default:
           return true;
       }
@@ -560,7 +560,7 @@ const HostBookingsScreen = () => {
         if (s === "CONFIRMED") return 2;
         if (s === "RESERVED" || s === "PENDING") return 3;
         if (s === "COMPLETED") return 4;
-        if (s === "CANCELLED" || s === "CANCELED") return 5;
+        if (s === "CANCELLED" || s === "CANCELED" || s === "EXPIRED" || s === "UNPAID") return 5;
         return 6;
       };
 

@@ -260,18 +260,47 @@ const BookingCard = ({
             <Text style={styles.bookingId}>{booking.bookingId || "N/A"}</Text>
           </View>
           <View style={styles.priceContainer}>
-            <Text style={styles.price}>
-              ₦{booking.price?.toLocaleString() || "0"}
-            </Text>
             {(() => {
               const s = booking.status?.toUpperCase();
-              if (s === "CONFIRMED" || s === "COMPLETED" || s === "ONGOING") {
-                return <Text style={styles.paidLabel}>Paid</Text>;
+              if (s === "EXPIRED" || s === "UNPAID") {
+                return (
+                  <Text style={[styles.paidLabel, { color: "#6B7280", backgroundColor: "rgba(107, 114, 128, 0.12)", fontWeight: "600" }]}>
+                    Unpaid
+                  </Text>
+                );
               }
               if (s === "CANCELLED" || s === "CANCELED") {
-                return <Text style={[styles.paidLabel, { color: "#FD3131", backgroundColor: "rgba(253, 49, 49, 0.1)" }]}>Cancelled</Text>;
+                return (
+                  <>
+                    <Text style={styles.price}>
+                      ₦{booking.price?.toLocaleString() || "0"}
+                    </Text>
+                    <Text style={[styles.paidLabel, { color: "#FD3131", backgroundColor: "rgba(253, 49, 49, 0.1)" }]}>
+                      Cancelled
+                    </Text>
+                  </>
+                );
               }
-              return <Text style={[styles.paidLabel, { color: "#FDAE31", backgroundColor: "rgba(253, 174, 49, 0.1)" }]}>Pending</Text>;
+              if (s === "CONFIRMED" || s === "COMPLETED" || s === "ONGOING") {
+                return (
+                  <>
+                    <Text style={styles.price}>
+                      ₦{booking.price?.toLocaleString() || "0"}
+                    </Text>
+                    <Text style={styles.paidLabel}>Paid</Text>
+                  </>
+                );
+              }
+              return (
+                <>
+                  <Text style={styles.price}>
+                    ₦{booking.price?.toLocaleString() || "0"}
+                  </Text>
+                  <Text style={[styles.paidLabel, { color: "#FDAE31", backgroundColor: "rgba(253, 174, 49, 0.1)" }]}>
+                    Pending
+                  </Text>
+                </>
+              );
             })()}
           </View>
         </View>

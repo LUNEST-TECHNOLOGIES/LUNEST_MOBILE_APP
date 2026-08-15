@@ -1576,7 +1576,7 @@ const PropertyDetailsScreen = () => {
                 zoomEnabled={true}
               />
             </View>
-          ) : (propertyData.latitude != null && propertyData.longitude != null) ? (
+          ) : propertyData.latitude != null && propertyData.longitude != null ? (
             <Pressable
               style={styles.mapContainer}
               onPress={() => {
@@ -1660,26 +1660,25 @@ const PropertyDetailsScreen = () => {
                 </Pressable>
               </View>
             </Pressable>
-          )
           ) : (
-          <View style={styles.mapPlaceholder}>
-            <View style={styles.mapPlaceholderContent}>
-              <Ionicons name="location-outline" size={40} color="#010135" />
-              <Text style={styles.mapPlaceholderText}>
-                {(!propertyData.latitude && propertyData.location && !geocodedCoords?.failed)
-                  ? "Locating on map..."
-                  : "Map not available"}
-              </Text>
-              <Text style={styles.mapPlaceholderSubtext}>
-                {(!propertyData.latitude && propertyData.location && !geocodedCoords?.failed)
-                  ? "Getting precise coordinates for this location"
-                  : "Coordinates for this address could not be determined. Please contact host for exact location."}
-              </Text>
-              {(!propertyData.latitude && propertyData.location && !geocodedCoords?.failed) && (
-                <ActivityIndicator size="small" color="#010135" style={{ marginTop: 10 }} />
-              )}
+            <View style={styles.mapPlaceholder}>
+              <View style={styles.mapPlaceholderContent}>
+                <Ionicons name="location-outline" size={40} color="#010135" />
+                <Text style={styles.mapPlaceholderText}>
+                  {(!propertyData.latitude && propertyData.location && !geocodedCoords?.failed)
+                    ? "Locating on map..."
+                    : "Map not available"}
+                </Text>
+                <Text style={styles.mapPlaceholderSubtext}>
+                  {(!propertyData.latitude && propertyData.location && !geocodedCoords?.failed)
+                    ? "Getting precise coordinates for this location"
+                    : "Coordinates for this address could not be determined. Please contact host for exact location."}
+                </Text>
+                {(!propertyData.latitude && propertyData.location && !geocodedCoords?.failed) && (
+                  <ActivityIndicator size="small" color="#010135" style={{ marginTop: 10 }} />
+                )}
+              </View>
             </View>
-          </View>
           )}
         </View>
       </View>

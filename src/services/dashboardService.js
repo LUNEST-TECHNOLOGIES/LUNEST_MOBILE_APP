@@ -61,13 +61,11 @@ class DashboardService {
         return isNaN(num) ? 0 : num;
       };
 
-      // Use backend API stats as the authoritative source for earnings.
-      const rawStatsEarnings = parseAmount(stats.totalEarnings);
-      const rawWalletBalance = parseAmount(stats.walletBalance);
-
-      // Use the higher of API earnings vs wallet balance (wallet is the ground truth)
-      const totalBusinessEarnings = Math.max(rawStatsEarnings, rawWalletBalance);
-      const walletBalance = rawWalletBalance || rawStatsEarnings;
+      // Use backend API stats as the authoritative source for host earnings.
+      // Total earnings must ONLY include actual completed booking earnings (HOST_EARNING).
+      // Added funds belong exclusively to walletBalance (Available Balance).
+      const totalBusinessEarnings = rawStatsEarnings;
+      const walletBalance = rawWalletBalance;
       const totalListings = typeof stats.totalListings === "number" ? stats.totalListings : listings.length;
       const totalBookings = typeof stats.totalBookings === "number" ? stats.totalBookings : bookings.length;
 

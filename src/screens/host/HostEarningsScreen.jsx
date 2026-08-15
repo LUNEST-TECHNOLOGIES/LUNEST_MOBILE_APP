@@ -285,8 +285,8 @@ const HostEarningsScreen = () => {
             }
           });
 
-          const finalTotalEarnings = Math.max(totalEarnings, statsData.totalEarnings || 0, statsData.walletBalance || 0);
-          const finalPendingEarnings = Math.max(pendingEarnings, statsData.pendingBalance || 0);
+          const finalTotalEarnings = totalEarnings || statsData.totalEarnings || 0;
+          const finalPendingEarnings = pendingEarnings || statsData.pendingBalance || 0;
 
           setSummary({
             totalEarnings: finalTotalEarnings,

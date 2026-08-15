@@ -110,8 +110,8 @@ const DashboardStatsCards = ({
   bookingsPeriod = "30 days",
   earningsPeriod = "Last 30 Days",
 }) => {
-  const effectiveEarnings = Number(totalEarnings) || Number(walletBalance) || 0;
-  const effectiveWallet = Number(walletBalance) || Number(totalEarnings) || 0;
+  const effectiveEarnings = Number(totalEarnings) || 0;
+  const effectiveWallet = Number(walletBalance) || 0;
 
   // Safe string conversion for all dynamic text
   const safeEarningsValue = String(formatCurrency(effectiveEarnings));

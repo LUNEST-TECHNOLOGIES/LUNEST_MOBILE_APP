@@ -510,7 +510,7 @@ const ProfileScreen = ({ isHostMode: isHostModeProp = false }) => {
         onClose={() => setIsVerificationModalVisible(false)}
         onVerify={() => {
           setIsVerificationModalVisible(false);
-          router.push("/kyc-verification");
+          router.push({ pathname: "/kyc-verification", params: { verified: isVerified ? "true" : "false" } });
         }}
       />
 

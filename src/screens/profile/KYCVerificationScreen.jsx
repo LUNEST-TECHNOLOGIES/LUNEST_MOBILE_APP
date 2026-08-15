@@ -285,8 +285,6 @@ const KYCVerificationScreen = () => {
     }
   };
 
-  const [rejectionReason, setRejectionReason] = useState(null);
-
   /** Handle Kora NIN verification (instant — no browser redirect) */
   const handleKoraVerify = async () => {
     setNinError("");

@@ -937,7 +937,7 @@ const PersonalInfoEditScreen = () => {
           {(userData.kycStatus === 'PENDING' || userData.kycStatus === 'IN_REVIEW') && (
             <TouchableOpacity
               style={styles.inReviewCard}
-              onPress={() => router.push("/profile/kyc-verification")}
+              onPress={() => router.push({ pathname: "/profile/kyc-verification", params: { verified: userData.isVerified ? "true" : "false" } })}
               activeOpacity={0.85}
             >
               <View style={styles.inReviewCardHeader}>

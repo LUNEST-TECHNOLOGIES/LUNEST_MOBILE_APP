@@ -163,6 +163,7 @@ class PaymentService {
         account_number: accountNumber,
         account_name: accountName,
         origin,
+        provider: "kora",
       });
 
       if (response.success) {

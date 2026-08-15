@@ -9,10 +9,10 @@
 
 // Bedroom patterns
 const BEDROOM_PATTERNS = [
-  // Matches: "3 bedroom", "3 bedrooms", "3 bed", "3 beds", "3-bed", "3br", "3 bd"
-  /(\d+)\s*(?:bedroom|bedrooms|bed|beds|bed-room|bed-rooms|br|bd)s?/i,
+  // Matches: "3 bedroom", "3 bedrooms", "3 bed", "3 beds", "3-bed", "3br", "3 bd", "3 room", "3 rooms"
+  /(\d+)\s*(?:bedroom|bedrooms|bed|beds|bed-room|bed-rooms|br|bd|room|rooms)s?/i,
   // Matches: "three bedroom", "three bed" (word numbers)
-  /(?:one|two|three|four|five|six|seven|eight|nine|ten)\s*(?:bedroom|bed|br)s?/i,
+  /(?:one|two|three|four|five|six|seven|eight|nine|ten)\s*(?:bedroom|bed|br|room|rooms)s?/i,
 ];
 
 // Bathroom patterns

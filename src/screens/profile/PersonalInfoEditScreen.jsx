@@ -716,8 +716,8 @@ const PersonalInfoEditScreen = () => {
               <Text style={styles.comingSoonText}>COMING SOON</Text>
             </View>
           ) : showVerification ? (
-            <TouchableOpacity 
-              style={styles.verificationBadge} 
+            <TouchableOpacity
+              style={styles.verificationBadge}
               onPress={onAction}
               activeOpacity={0.85}
             >

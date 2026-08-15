@@ -1075,6 +1075,11 @@ const BookingSummary = () => {
             ["@lunest_pending_payment_ref", paymentResult.reference]
           ]);
 
+          if (Platform.OS === "web" && typeof window !== "undefined") {
+            window.location.href = paymentResult.authorization_url;
+            return;
+          }
+
           // Single unified browser open — same for iOS and Android
           let browserResult = { type: "dismissed" };
           try {

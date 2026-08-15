@@ -337,6 +337,11 @@ const AddFundsScreen = () => {
 
       setLoading({ active: true, message: "Opening payment page..." });
 
+      if (Platform.OS === "web" && typeof window !== "undefined") {
+        window.location.href = authUrl;
+        return;
+      }
+
       // Single unified path for iOS and Android:
       // openAuthSessionAsync opens an in-app browser (SFSafariViewController / Chrome Custom Tab)
       // It resolves when the browser closes or intercepts a redirect matching callbackUrl scheme.

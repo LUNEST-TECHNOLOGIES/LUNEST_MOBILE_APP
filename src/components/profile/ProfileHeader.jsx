@@ -234,23 +234,51 @@ const ProfileHeader = ({
               )}
             </View>
             <View style={styles.verifiedItemRow}>
-              <Text style={styles.email} numberOfLines={1}>
+              <Text style={styles.email} numberOfLines={1} ellipsizeMode="tail">
                 {email}
               </Text>
               {emailVerified && (
-                <Text style={styles.verifiedSmallText}>✓ Verified</Text>
+                <View style={styles.smallVerifiedBadge}>
+                  <Svg width={11} height={11} viewBox="0 0 24 24" fill="none">
+                    <Path
+                      d="M12 2L14.09 4.26L17 3.52L17.74 6.43L20.65 7.17L19.91 10.08L22.17 12L19.91 13.92L20.65 16.83L17.74 17.57L17 20.48L14.09 19.74L12 22L9.91 19.74L7 20.48L6.26 17.57L3.35 16.83L4.09 13.92L1.83 12L4.09 10.08L3.35 7.17L6.26 6.43L7 3.52L9.91 4.26L12 2Z"
+                      fill="#10B981"
+                    />
+                    <Path
+                      d="M10 14.5L7.5 12L8.91 10.59L10 11.67L14.09 7.59L15.5 9L10 14.5Z"
+                      fill="white"
+                    />
+                  </Svg>
+                  <Text style={styles.verifiedSmallText}>Verified</Text>
+                </View>
               )}
             </View>
 
             {/* Phone Status */}
             {isPhoneVerified ? (
               <View style={styles.verifiedItemRow}>
-                <Text style={styles.phone}>{phone}</Text>
-                <Text style={styles.verifiedSmallText}>✓ Verified</Text>
+                <Text style={styles.phone} numberOfLines={1} ellipsizeMode="tail">
+                  {phone}
+                </Text>
+                <View style={styles.smallVerifiedBadge}>
+                  <Svg width={11} height={11} viewBox="0 0 24 24" fill="none">
+                    <Path
+                      d="M12 2L14.09 4.26L17 3.52L17.74 6.43L20.65 7.17L19.91 10.08L22.17 12L19.91 13.92L20.65 16.83L17.74 17.57L17 20.48L14.09 19.74L12 22L9.91 19.74L7 20.48L6.26 17.57L3.35 16.83L4.09 13.92L1.83 12L4.09 10.08L3.35 7.17L6.26 6.43L7 3.52L9.91 4.26L12 2Z"
+                      fill="#10B981"
+                    />
+                    <Path
+                      d="M10 14.5L7.5 12L8.91 10.59L10 11.67L14.09 7.59L15.5 9L10 14.5Z"
+                      fill="white"
+                    />
+                  </Svg>
+                  <Text style={styles.verifiedSmallText}>Verified</Text>
+                </View>
               </View>
             ) : isPhoneProvided ? (
               <View style={styles.verifiedItemRow}>
-                <Text style={styles.phone}>{phone}</Text>
+                <Text style={styles.phone} numberOfLines={1} ellipsizeMode="tail">
+                  {phone}
+                </Text>
                 <Text style={styles.pendingSmallText}>Unverified</Text>
               </View>
             ) : (
@@ -415,32 +443,48 @@ const styles = StyleSheet.create({
     color: "#DC2626",
   },
   email: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "500",
-
     color: "#292929",
+    flexShrink: 1,
   },
   phone: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "500",
-
     color: "#292929",
+    flexShrink: 1,
   },
   verifiedItemRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 6,
+    flexWrap: "nowrap",
+  },
+  smallVerifiedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: "#ECFDF5",
+    paddingHorizontal: 5,
+    paddingVertical: 1.5,
+    borderRadius: 4,
+    flexShrink: 0,
   },
   verifiedSmallText: {
-    fontSize: 11,
-    fontWeight: "600",
-
-    color: "#4CAF50",
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#059669",
+    flexShrink: 0,
   },
   pendingSmallText: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: "#F59E0B",
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#D97706",
+    backgroundColor: "#FEF3C7",
+    paddingHorizontal: 5,
+    paddingVertical: 1.5,
+    borderRadius: 4,
+    flexShrink: 0,
   },
   ninText: {
     fontSize: 13,

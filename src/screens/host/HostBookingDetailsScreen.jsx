@@ -340,7 +340,7 @@ const HostBookingDetailsScreen = () => {
       : "-";
 
   // Nights & Extension Breakdown
-  const initialNights = (() => {
+  const totalStayNights = (() => {
     if (booking?.checkIn && booking?.checkOut) {
       const diff = Math.abs(
         new Date(booking.checkOut) - new Date(booking.checkIn),
@@ -360,12 +360,13 @@ const HostBookingDetailsScreen = () => {
     return acc + (Number(ext.extraNights || ext.nights) || 0);
   }, 0);
 
-  const totalNights = initialNights + extensionNights;
+  const initialNights = Math.max(1, totalStayNights - extensionNights);
+  const totalNights = totalStayNights;
   const nights = totalNights;
 
   const nightsDisplayText = extensionNights > 0
-    ? `${initialNights} Night${initialNights > 1 ? "s" : ""} (+${extensionNights} Extended)`
-    : `${initialNights} Night${initialNights > 1 ? "s" : ""}`;
+    ? `${totalNights} Nights (${initialNights} initial + ${extensionNights} extended)`
+    : `${totalNights} Night${totalNights > 1 ? "s" : ""}`;
 
   // Guests
   const guestsDisplay = (() => {

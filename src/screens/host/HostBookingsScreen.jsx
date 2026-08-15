@@ -360,35 +360,41 @@ const HostBookingsScreen = () => {
               return formatDateRange(booking.checkIn, latestCheckOut);
             })(),
             nights: (() => {
-              const initialNights = calculateNights(booking.checkIn, booking.checkOut);
-              const extensionNights = (booking.extensions || []).reduce((acc, ext) => {
-                return acc + (Number(ext.extraNights || ext.nights) || 0);
-              }, 0);
-              return initialNights + extensionNights;
+              const latestCheckOut = (() => {
+                if (booking.extensions && booking.extensions.length > 0) {
+                  const dates = booking.extensions
+                    .map((e) => e.newCheckOut || e.checkOut)
+                    .filter(Boolean)
+                    .map((d) => new Date(d))
+                    .filter((d) => !isNaN(d.getTime()));
+                  if (dates.length > 0) {
+                    dates.sort((a, b) => b - a);
+                    return dates[0].toISOString();
+                  }
+                }
+                return booking.checkOut;
+              })();
+              return calculateNights(booking.checkIn, latestCheckOut);
             })(),
             price: (() => {
               const breakdown = booking.pricingBreakdown;
+
+              // If backend pricingBreakdown already computed the hostEarnings, use it directly!
+              if (breakdown?.hostEarnings !== undefined && breakdown?.hostEarnings !== null && Number(breakdown.hostEarnings) > 0) {
+                return Number(breakdown.hostEarnings);
+              }
+
               const listingPricePerNight = Number(booking.listing?.price || booking.listing?.propertyPrice?.price || 0);
-              const initialNights = calculateNights(booking.checkIn, booking.checkOut);
+              const totalStayNights = calculateNights(booking.checkIn, booking.checkOut);
+              const extensionNights = (booking.extensions || []).reduce((acc, ext) => {
+                return acc + (Number(ext.extraNights || ext.nights) || 0);
+              }, 0);
+              const initialNights = Math.max(1, totalStayNights - extensionNights);
 
               // 1. Initial Accommodation / Rent Fee:
-              const rentFee = (() => {
-                if (listingPricePerNight > 0 && initialNights > 0) {
-                  return listingPricePerNight * initialNights;
-                }
-                if (breakdown?.rentFee !== undefined && breakdown?.rentFee !== null && Number(breakdown.rentFee) > 0) {
-                  return Number(breakdown.rentFee);
-                }
-                const rawPrice = Number(booking.totalAmount?.price || booking.totalPrice || booking.price || 0);
-                const secDep = Number(breakdown?.securityDeposit || breakdown?.cautionFee || booking.listing?.securityDeposit || booking.listing?.cautionFee || 0);
-                const sc = Number(breakdown?.serviceCharge || booking.listing?.serviceCharge || 0);
-                const netBase = Math.max(0, rawPrice - secDep);
-                const estimatedRent = Math.round((netBase / 1.05375) - sc);
-                if (estimatedRent > 0) {
-                  return estimatedRent;
-                }
-                return rawPrice > 0 ? Math.round(rawPrice / 1.05375) : 0;
-              })();
+              const rentFee = listingPricePerNight > 0
+                ? (listingPricePerNight * initialNights)
+                : Number(breakdown?.rentFee || 0);
 
               // 2. Service charge
               const serviceFee = Number(
@@ -527,25 +533,48 @@ const HostBookingsScreen = () => {
     fetchBookings(false);
   };
 
-  // Filter bookings based on selected tab
-  const filteredBookings = bookings.filter((booking) => {
-    switch (selectedFilter) {
-      case "all":
-        return true;
-      case "reserved":
-        return booking.status === "PENDING" || booking.status === "RESERVED";
-      case "confirmed":
-        return booking.status === "CONFIRMED";
-      case "ongoing":
-        return booking.status === "ONGOING";
-      case "completed":
-        return booking.status === "COMPLETED";
-      case "cancelled":
-        return booking.status === "CANCELED" || booking.status === "CANCELLED";
-      default:
-        return true;
-    }
-  });
+  // Filter bookings based on selected tab and ensure ONGOING bookings are sorted first
+  const filteredBookings = bookings
+    .filter((booking) => {
+      switch (selectedFilter) {
+        case "all":
+          return true;
+        case "reserved":
+          return booking.status === "PENDING" || booking.status === "RESERVED";
+        case "confirmed":
+          return booking.status === "CONFIRMED";
+        case "ongoing":
+          return booking.status === "ONGOING";
+        case "completed":
+          return booking.status === "COMPLETED";
+        case "cancelled":
+          return booking.status === "CANCELED" || booking.status === "CANCELLED";
+        default:
+          return true;
+      }
+    })
+    .sort((a, b) => {
+      const getPriority = (status) => {
+        const s = (status || "").toUpperCase();
+        if (s === "ONGOING") return 1;
+        if (s === "CONFIRMED") return 2;
+        if (s === "RESERVED" || s === "PENDING") return 3;
+        if (s === "COMPLETED") return 4;
+        if (s === "CANCELLED" || s === "CANCELED") return 5;
+        return 6;
+      };
+
+      const pA = getPriority(a.status);
+      const pB = getPriority(b.status);
+
+      if (pA !== pB) {
+        return pA - pB;
+      }
+
+      const dateA = new Date(a.createdAt || a.rawCreatedAt || a.rawCheckIn || 0).getTime();
+      const dateB = new Date(b.createdAt || b.rawCreatedAt || b.rawCheckIn || 0).getTime();
+      return dateB - dateA;
+    });
 
   const handleViewDetails = (booking) => {
     // Get unredacted guest info from the preserved bookedBy object

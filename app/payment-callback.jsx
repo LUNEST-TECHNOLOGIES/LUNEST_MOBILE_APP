@@ -76,8 +76,8 @@ export default function PaymentCallbackScreen() {
 
   // ── NAVIGATION HELPERS ─────────────────────────────────────────────────────
 
-  const DEFAULT_HOME = Platform.OS === "web" ? "/(tabs)" : "/(tabs)";
-  const DEFAULT_WALLET = Platform.OS === "web" ? "/(tabs)/wallet" : "/(tabs)/wallet";
+  const DEFAULT_HOME = "/(tabs)";
+  const DEFAULT_WALLET = "/profile";
 
   /** Navigate without adding to history stack (final destinations) */
   const goFinal = useCallback((pathname, navParams = {}) => {

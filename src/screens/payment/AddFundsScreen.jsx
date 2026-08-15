@@ -185,7 +185,7 @@ const AddFundsScreen = () => {
             router.back();
           } else {
             // Default fallback if no history
-            router.replace(Platform.OS === 'web' ? "/wallet" : "/(tabs)/wallet");
+            router.replace("/profile");
           }
         }, 2000);
       } else if (verifyResult.status === "PROCESSING" || verifyResult.status === "PENDING") {

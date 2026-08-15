@@ -257,7 +257,7 @@ const TransactionDetailScreen = () => {
               if (isBooking) {
                 router.replace("/bookings");
               } else {
-                router.replace(Platform.OS === 'web' ? "/wallet" : "/(tabs)/wallet");
+                router.replace("/profile");
               }
             } 
           }

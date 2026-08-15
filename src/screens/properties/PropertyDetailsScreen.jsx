@@ -1557,27 +1557,26 @@ const PropertyDetailsScreen = () => {
 
         {/* Map Preview */}
         <View style={styles.mapPreviewContainer}>
-          {propertyData.latitude != null && propertyData.longitude != null ? (
-            Platform.OS === 'web' ? (
-              <View style={styles.mapContainer}>
-                <MapView
-                  key={`map-${propertyData.latitude}-${propertyData.longitude}`}
-                  style={styles.map}
-                  provider={PROVIDER_GOOGLE}
-                  query={propertyData.location || propertyData.title}
-                  initialRegion={{
-                    latitude: Number(propertyData.latitude),
-                    longitude: Number(propertyData.longitude),
-                    latitudeDelta: 0.015,
-                    longitudeDelta: 0.015,
-                  }}
-                  loadingEnabled={true}
-                  loadingIndicatorColor="#010135"
-                  scrollEnabled={true}
-                  zoomEnabled={true}
-                />
-              </View>
-            ) : (
+          {Platform.OS === 'web' ? (
+            <View style={styles.mapContainer}>
+              <MapView
+                key={`map-${propertyData.latitude || 6.5244}-${propertyData.longitude || 3.3792}`}
+                style={styles.map}
+                provider={PROVIDER_GOOGLE}
+                query={propertyData.location || propertyData.address || propertyData.title || "Nigeria"}
+                initialRegion={{
+                  latitude: Number(propertyData.latitude || 6.5244),
+                  longitude: Number(propertyData.longitude || 3.3792),
+                  latitudeDelta: 0.015,
+                  longitudeDelta: 0.015,
+                }}
+                loadingEnabled={true}
+                loadingIndicatorColor="#010135"
+                scrollEnabled={true}
+                zoomEnabled={true}
+              />
+            </View>
+          ) : (propertyData.latitude != null && propertyData.longitude != null) ? (
               <Pressable
                 style={styles.mapContainer}
                 onPress={() => {

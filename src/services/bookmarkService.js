@@ -116,9 +116,15 @@ class BookmarkService {
         url += "?refresh=true";
       }
 
+      const token = await authService.getToken();
+      if (!token) {
+        const localBookmarks = await this.cleanupDuplicateBookmarks();
+        return { success: true, bookmarks: localBookmarks };
+      }
+
       const response = await fetch(url, {
         headers: {
-          Authorization: `Bearer ${this.authToken}`,
+          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
       });

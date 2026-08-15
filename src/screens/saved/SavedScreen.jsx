@@ -55,7 +55,51 @@ const SavedScreen = () => {
     queryFn: async ({ queryKey }) => {
       const [_key, options] = queryKey;
       const result = await bookmarkService.fetchBookmarks(options || {});
-      return result.success ? result.bookmarks : [];
+      const bms = result.success ? result.bookmarks : [];
+
+      // Hydrate any bookmarks where the listing is just a string (ID)
+      const unpopulatedListingIds = bms
+        .map((b) => b.listing)
+        .filter((l) => typeof l === "string");
+
+      if (unpopulatedListingIds.length > 0) {
+        try {
+          console.log("[SavedScreen] Hydrating bookmarks with string listing IDs:", unpopulatedListingIds);
+          const populatedListings = await Promise.all(
+            unpopulatedListingIds.map(async (id) => {
+              const res = await listingService.fetchListingById(id);
+              return res.success ? res.listing : null;
+            })
+          );
+
+          return bms
+            .map((b) => {
+              if (typeof b.listing === "string") {
+                const found = populatedListings.find(
+                  (l) => l && (l._id === b.listing || l.id === b.listing)
+                );
+                if (found) {
+                  b.listing = found;
+                }
+              }
+              return b;
+            })
+            .filter((b) => b.listing && typeof b.listing === "object");
+        } catch (err) {
+          console.error("[SavedScreen] Failed to hydrate bookmarks:", err);
+        }
+      }
+
+      // Ensure all listings have both id and _id defined for UI compatibility
+      return bms
+        .map((b) => {
+          if (b && b.listing && typeof b.listing === "object") {
+            if (!b.listing._id && b.listing.id) b.listing._id = b.listing.id;
+            if (!b.listing.id && b.listing._id) b.listing.id = b.listing._id;
+          }
+          return b;
+        })
+        .filter((b) => b && b.listing && typeof b.listing === "object" && b.listing._id);
     },
     staleTime: 0,
     refetchOnMount: true,
@@ -69,7 +113,42 @@ const SavedScreen = () => {
     queryKey: ["recently-viewed"],
     queryFn: async () => {
       const result = await listingService.fetchRecentlyViewed();
-      return result.success ? result.listings : [];
+      const listings = result.success ? result.listings : [];
+
+      // Hydrate any recently viewed items that are just string IDs
+      const unpopulatedIds = listings.filter((l) => typeof l === "string");
+      if (unpopulatedIds.length > 0) {
+        try {
+          console.log("[SavedScreen] Hydrating recently viewed string IDs:", unpopulatedIds);
+          const populated = await Promise.all(
+            unpopulatedIds.map(async (id) => {
+              const res = await listingService.fetchListingById(id);
+              return res.success ? res.listing : null;
+            })
+          );
+          return listings
+            .map((l) => {
+              if (typeof l === "string") {
+                return populated.find((p) => p && (p._id === l || p.id === l));
+              }
+              return l;
+            })
+            .filter((l) => l && typeof l === "object");
+        } catch (err) {
+          console.error("[SavedScreen] Failed to hydrate recently viewed:", err);
+        }
+      }
+
+      // Ensure all listings have both id and _id defined for UI compatibility
+      return listings
+        .map((l) => {
+          if (l && typeof l === "object") {
+            if (!l._id && l.id) l._id = l.id;
+            if (!l.id && l._id) l.id = l._id;
+          }
+          return l;
+        })
+        .filter((l) => l && typeof l === "object" && l._id);
     },
     enabled: activeTab === "recent",
   });

@@ -45,18 +45,18 @@ const KoraLogo = ({ size = 26 }) => (
 // Payment method options
 const PAYMENT_METHODS = [
   {
+    id: "kora",
+    name: "Kora",
+    description: "Cards, Bank Transfer, USSD (Fast & Secure)",
+    customIcon: <KoraLogo size={26} />,
+    icon: "shield-checkmark-outline",
+  },
+  {
     id: "paystack",
     name: "Paystack",
     description: "Cards, Bank Transfer, USSD",
     customIcon: <PaystackLogo size={26} />,
     icon: "card-outline",
-  },
-  {
-    id: "kora",
-    name: "Kora",
-    description: "Pay securely with Kora",
-    customIcon: <KoraLogo size={26} />,
-    icon: "shield-checkmark-outline",
   },
   {
     id: "wallet",
@@ -76,7 +76,7 @@ const PaymentMethodModal = ({
   hideReserveOption = false,
 }) => {
   const insets = useSafeAreaInsets();
-  const [selectedMethod, setSelectedMethod] = useState("paystack");
+  const [selectedMethod, setSelectedMethod] = useState("kora");
   const [reserveAndPayLater, setReserveAndPayLater] = useState(false);
   
   // Animation and Gestures for Swipe-to-Close
@@ -117,7 +117,7 @@ const PaymentMethodModal = ({
   useEffect(() => {
     if (visible) {
       panY.setValue(0);
-      setSelectedMethod("paystack");
+      setSelectedMethod("kora");
       setReserveAndPayLater(false);
     }
   }, [visible, panY]);

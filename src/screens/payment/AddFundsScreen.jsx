@@ -73,7 +73,7 @@ const AddFundsScreen = () => {
   const insets = useSafeAreaInsets();
 
   const [amount, setAmount] = useState("");
-  const [paymentProvider, setPaymentProvider] = useState("paystack");
+  const [paymentProvider, setPaymentProvider] = useState("kora");
   const [loading, setLoading] = useState({ active: false, message: "" });
   const queryClient = useQueryClient();
   const [toast, setToast] = useState({
@@ -461,9 +461,29 @@ const AddFundsScreen = () => {
           <View style={styles.paymentSection}>
             <Text style={styles.sectionTitle}>Payment Method</Text>
 
+            {/* Kora Option */}
+            <TouchableOpacity
+              style={[styles.paymentOption, paymentProvider === "kora" && styles.paymentOptionSelected]}
+              onPress={() => setPaymentProvider("kora")}
+              activeOpacity={0.8}
+            >
+              <View style={styles.paymentOptionLeft}>
+                <View style={styles.paymentIconContainer}>
+                  <KoraIcon size={28} />
+                </View>
+                <View style={styles.paymentOptionText}>
+                  <Text style={styles.paymentOptionTitle}>Kora</Text>
+                  <Text style={styles.paymentOptionSubtitle}>
+                    Cards, Bank Transfer, USSD (Fast & Secure)
+                  </Text>
+                </View>
+              </View>
+              {paymentProvider === "kora" && <View style={styles.radioSelected} />}
+            </TouchableOpacity>
+
             {/* Paystack Option */}
             <TouchableOpacity
-              style={[styles.paymentOption, paymentProvider === "paystack" && styles.paymentOptionSelected]}
+              style={[styles.paymentOption, { marginTop: 12 }, paymentProvider === "paystack" && styles.paymentOptionSelected]}
               onPress={() => setPaymentProvider("paystack")}
               activeOpacity={0.8}
             >
@@ -479,25 +499,6 @@ const AddFundsScreen = () => {
                 </View>
               </View>
               {paymentProvider === "paystack" && <View style={styles.radioSelected} />}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.paymentOption, { marginTop: 12 }, paymentProvider === "kora" && styles.paymentOptionSelected]}
-              onPress={() => setPaymentProvider("kora")}
-              activeOpacity={0.8}
-            >
-              <View style={styles.paymentOptionLeft}>
-                <View style={styles.paymentIconContainer}>
-                  <KoraIcon size={28} />
-                </View>
-                <View style={styles.paymentOptionText}>
-                  <Text style={styles.paymentOptionTitle}>Kora</Text>
-                  <Text style={styles.paymentOptionSubtitle}>
-                    Secure card and bank payment
-                  </Text>
-                </View>
-              </View>
-              {paymentProvider === "kora" && <View style={styles.radioSelected} />}
             </TouchableOpacity>
           </View>
 

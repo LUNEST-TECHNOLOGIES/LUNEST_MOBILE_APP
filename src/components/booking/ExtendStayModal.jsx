@@ -40,7 +40,7 @@ export const ExtendStayModal = ({
   const [unitType, setUnitType] = useState("DAILY"); // DAILY, WEEKLY, MONTHLY, YEARLY
   const [quote, setQuote] = useState(null);
   const [isCalculating, setIsCalculating] = useState(false);
-  const [paymentProvider, setPaymentProvider] = useState("paystack");
+  const [paymentProvider, setPaymentProvider] = useState("kora");
 
   // Helper to determine the property's base rental period
   const getPropertyBaseUnit = () => {
@@ -80,7 +80,7 @@ export const ExtendStayModal = ({
       const baseUnit = getPropertyBaseUnit();
       setUnitType(baseUnit);
       setDuration(1);
-      setPaymentProvider("paystack");
+      setPaymentProvider("kora");
       calculateQuote(1, baseUnit);
     }
   }, [visible, booking]);
@@ -264,8 +264,8 @@ export const ExtendStayModal = ({
             <Text style={styles.sectionLabel}>Payment Provider</Text>
             <View style={styles.providerRow}>
               {[
-                { id: "paystack", label: "Paystack", icon: <PaystackLogo size={18} /> },
                 { id: "kora", label: "Kora", icon: <KoraLogo size={18} /> },
+                { id: "paystack", label: "Paystack", icon: <PaystackLogo size={18} /> },
               ].map((provider) => (
                 <TouchableOpacity
                   key={provider.id}

@@ -156,9 +156,7 @@ const ProfileHeader = ({
   const loadProfileAvatar = async () => {
     try {
       const savedAvatarUri = await profileService.getAvatarUri();
-      if (savedAvatarUri) {
-        setAvatarUri(savedAvatarUri);
-      }
+      setAvatarUri(savedAvatarUri || null);
     } catch (error) {
       console.error("Error loading profile avatar:", error);
     }

@@ -111,8 +111,12 @@ class ProfileService {
    */
   async getAvatarUri() {
     try {
+      const userData = await getUserData();
+      if (userData && (userData.avatar === null || userData.avatar === undefined || userData.avatar === "")) {
+        return null;
+      }
       const profileData = await this.getProfileData();
-      return profileData?.avatarUri || null;
+      return profileData?.avatarUri || userData?.avatar || null;
     } catch (error) {
       console.error("Error getting avatar:", error);
       return null;

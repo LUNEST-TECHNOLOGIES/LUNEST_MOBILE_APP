@@ -460,13 +460,13 @@ const PropertyDetailsScreen = () => {
         const currentUser = await authService.fetchProfile();
         if (currentUser && currentUser.success && currentUser.data?._id) {
           const myBookingsRes = await bookingService.fetchGuestBookings();
-          if (myBookingsRes.success && myBookingsRes.bookings) {
-            const completedBooking = myBookingsRes.bookings.find(
+            const completedUnreviewedBooking = myBookingsRes.bookings.find(
               (b) =>
                 (b.listing?._id === listingId || b.listing === listingId) &&
-                b.status === "COMPLETED"
+                b.status === "COMPLETED" &&
+                (!b.guestReview || !b.guestReview.rating || Number(b.guestReview.rating) === 0)
             );
-            setUserHasBooked(!!completedBooking);
+            setUserHasBooked(!!completedUnreviewedBooking);
           }
         }
       } catch (error) {
@@ -2100,8 +2100,9 @@ const PropertyDetailsScreen = () => {
                           />
                         ))}
                       </View>
-                    </View>
-                    <Text style={styles.reviewText}>{review.feedback}</Text>
+                    <Text style={styles.reviewText}>
+                      {review.feedback && review.feedback.trim() ? review.feedback : `Rated ${review.rating} / 5 stars`}
+                    </Text>
 
                     {/* Review Images */}
                     {(() => {

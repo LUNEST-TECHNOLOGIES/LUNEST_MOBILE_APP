@@ -1084,7 +1084,7 @@ const FullDetailsScreen = () => {
                     </Text>
                   </View>
                   <Text style={styles.reviewText}>
-                    &quot;{review.feedback || review.guestReview?.feedback || review.text || "No feedback provided"}&quot;
+                    &quot;{review.feedback && review.feedback.trim() ? review.feedback : (review.guestReview?.feedback && review.guestReview.feedback.trim() ? review.guestReview.feedback : `Rated ${reviewRating || 5} / 5 stars`)}&quot;
                   </Text>
                   {allReviewImages.length > 0 && (
                     <ScrollView
@@ -1342,8 +1342,7 @@ const FullDetailsScreen = () => {
                           ...parseImages(review.images),
                           ...parseImages(review.guestReview?.images)
                         ];
-                        const reviewRating = review.rating || review.guestReview?.rating;
-                        const reviewFeedback = review.feedback || review.guestReview?.feedback || review.text || "No feedback provided";
+                        const reviewFeedback = (review.feedback && review.feedback.trim()) || (review.guestReview?.feedback && review.guestReview.feedback.trim()) || review.text || `Rated ${reviewRating || 5} / 5 stars`;
                         const reviewerName = review.reviewer?.fullName || review.bookedBy?.fullName || "Anonymous";
                         const reviewDateStr = formatReviewDate(review.reviewedAt || review.guestReview?.reviewedAt);
 

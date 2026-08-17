@@ -67,7 +67,7 @@ const CATEGORY_CONFIG = {
   },
   SECURITY_DEPOSIT: {
     icon: "lock-closed-outline",
-    label: "Caution Fee",
+    label: "Caution Fee (Escrow)",
     color: "#192DFF",
   },
   PLATFORM_FEE: { icon: "card-outline", label: "App fee (deduction)", color: "#B70808" },
@@ -110,8 +110,9 @@ const STATUS_BADGE = {
     text: "#2E7D32",
     label: "Completed",
   },
-  ON_HOLD: { bg: "rgba(25, 45, 255, 0.15)", text: "#192DFF", label: "On Hold" },
+  ON_HOLD: { bg: "rgba(25, 45, 255, 0.15)", text: "#192DFF", label: "Escrow (On Hold)" },
   PENDING: { bg: "rgba(253, 174, 49, 0.2)", text: "#EF6C00", label: "Pending" },
+  PROCESSING: { bg: "rgba(25, 45, 255, 0.15)", text: "#192DFF", label: "Processing" },
   FAILED: { bg: "rgba(241, 99, 99, 0.2)", text: "#FD3131", label: "Failed" },
 };
 
@@ -224,13 +225,17 @@ const HostEarningsScreen = () => {
         console.log("[HostEarnings] Transactions:", txnList);
 
         if (Array.isArray(txnList)) {
-          // Map to display format and filter internal breakdown lines to prevent duplicate history/earnings
+          // Map to display format and filter internal breakdown lines while ensuring HOST_EARNING and SECURITY_DEPOSIT (Escrow) are visible
           const mapped = txnList
             .filter((t) => t && typeof t === "object")
             .filter((txn) => {
-              // Hide internal sub-breakdowns (e.g. internal RENT, SERVICE_CHARGE, VAT, PLATFORM_FEE)
+              // Keep HOST_EARNING, SECURITY_DEPOSIT, WITHDRAWAL, REFUND, TOP_UP visible
+              const cat = txn.category || txn.displayType || txn.type;
+              if (["SECURITY_DEPOSIT", "HOST_EARNING", "WITHDRAWAL", "REFUND", "TOP_UP", "BOOKING"].includes(cat)) {
+                return true;
+              }
               if (txn.metadata?.internal === true) return false;
-              if (["RENT", "SERVICE_CHARGE", "VAT", "PLATFORM_FEE", "RENT_AND_SERVICE"].includes(txn.category || txn.type)) return false;
+              if (["RENT", "SERVICE_CHARGE", "VAT", "PLATFORM_FEE", "RENT_AND_SERVICE"].includes(cat)) return false;
               return true;
             })
             .map((txn) => ({

@@ -100,19 +100,16 @@ const BookingSummary = () => {
 
   // Cover image URL resolution with base URL normalization and fallback to fetched booking listings
   const coverImage = (() => {
-    if (!params.coverImage) {
-      const fetchedImg = fetchedBooking?.listing?.propertyImages?.[0] || fetchedBooking?.listing?.images?.[0];
-      const fetchedImgUrl = fetchedImg ? (typeof fetchedImg === 'object' ? fetchedImg.url || fetchedImg.uri : fetchedImg) : null;
-      if (fetchedImgUrl) {
-        return fetchedImgUrl.startsWith("http") ? fetchedImgUrl : `${baseURL}${fetchedImgUrl}`;
-      }
+    const rawCover = params.coverImage || fetchedBooking?.listing?.propertyImages?.[0] || fetchedBooking?.listing?.images?.[0];
+    const coverUrlStr = typeof rawCover === 'object' ? (rawCover?.url || rawCover?.uri || '') : (rawCover ? String(rawCover) : '');
+    if (!coverUrlStr || coverUrlStr === 'undefined' || coverUrlStr === 'null' || coverUrlStr === '[object Object]') {
       return null;
     }
-    if (params.coverImage.startsWith("http") || params.coverImage.startsWith("https")) {
-      return params.coverImage;
+    if (coverUrlStr.startsWith("http") || coverUrlStr.startsWith("https") || coverUrlStr.startsWith("blob:") || coverUrlStr.startsWith("data:")) {
+      return coverUrlStr;
     }
     if (baseURL) {
-      return `${baseURL}${params.coverImage.startsWith("/") ? "" : "/"}${params.coverImage}`;
+      return `${baseURL}${coverUrlStr.startsWith("/") ? "" : "/"}${coverUrlStr}`;
     }
     return null;
   })();

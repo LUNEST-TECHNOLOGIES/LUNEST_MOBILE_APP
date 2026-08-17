@@ -378,7 +378,9 @@ const SavedScreen = () => {
                 {formatPrice(price)}
               </Text>
               <Text style={styles.perYear}>
-                {pricingPeriod.startsWith("per") ? pricingPeriod : `per ${pricingPeriod}`}
+                {typeof pricingPeriod === "string" && pricingPeriod.startsWith("per")
+                  ? pricingPeriod
+                  : `per ${pricingPeriod || "night"}`}
               </Text>
             </View>
           </View>

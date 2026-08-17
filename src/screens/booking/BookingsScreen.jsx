@@ -118,8 +118,10 @@ const BookingsScreen = () => {
     if (!imageUrl) return null;
 
     // If URL is relative, prepend base URL
-    if (imageUrl && !imageUrl.startsWith("http")) {
-      return `${baseURL}${imageUrl}`;
+    if (imageUrl && typeof imageUrl === "string") {
+      if (!imageUrl.startsWith("http") && !imageUrl.startsWith("blob:") && !imageUrl.startsWith("data:")) {
+        return `${baseURL}${imageUrl.startsWith("/") ? "" : "/"}${imageUrl}`;
+      }
     }
 
     return imageUrl;

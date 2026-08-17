@@ -390,8 +390,10 @@ const HomeScreen = () => {
         // Limit to 5 listings for top picks
         const topPicks = listingsWithDistance.slice(0, 5).map((listing) => {
           const firstImg = (listing.propertyImages || listing.images || [])[0];
-          let imageUrl = firstImg ? (typeof firstImg === "object" ? firstImg.url || firstImg.uri : firstImg) : null;
-          if (imageUrl && !imageUrl.startsWith("http")) imageUrl = `${baseURL}${imageUrl}`;
+          let imageUrl = firstImg ? (typeof firstImg === "object" ? firstImg.url || firstImg.uri : String(firstImg)) : null;
+          if (imageUrl && typeof imageUrl === "string" && !imageUrl.startsWith("http") && !imageUrl.startsWith("blob:") && !imageUrl.startsWith("data:")) {
+            imageUrl = `${baseURL}${imageUrl.startsWith("/") ? "" : "/"}${imageUrl}`;
+          }
 
           return {
             id: listing._id || listing.id,

@@ -85,27 +85,21 @@ const GuestBottomNav = () => {
         return;
       }
 
-      const avatarStr = typeof profileAvatarUri === 'object' ? (profileAvatarUri?.uri || profileAvatarUri?.url || '') : String(profileAvatarUri || '');
-      if (!avatarStr) {
-        setResolvedAvatarUri(null);
-        return;
-      }
-      
       // If already a full URL or blob, use as-is
-      if (avatarStr.startsWith("http") || avatarStr.startsWith("blob:")) {
-        setResolvedAvatarUri(avatarStr);
+      if (profileAvatarUri.startsWith("http") || profileAvatarUri.startsWith("blob:")) {
+        setResolvedAvatarUri(profileAvatarUri);
         return;
       }
       
       // Resolve relative path with base URL
       try {
         const baseUrl = await configService.getBaseURL();
-        const resolved = resolveImageUrlSync(avatarStr, baseUrl);
-        console.log("[GuestBottomNav] Resolved avatar:", { original: avatarStr, resolved });
+        const resolved = resolveImageUrlSync(profileAvatarUri, baseUrl);
+        console.log("[GuestBottomNav] Resolved avatar:", { original: profileAvatarUri, resolved });
         setResolvedAvatarUri(resolved);
       } catch (error) {
         console.error("[GuestBottomNav] Error resolving avatar:", error);
-        setResolvedAvatarUri(avatarStr);
+        setResolvedAvatarUri(profileAvatarUri);
       }
     };
     

@@ -297,23 +297,29 @@ const BookingConfirmationScreen = () => {
   const hasRecalculated = calculatedDiscount !== rawCouponDiscount && rawCouponDiscount > 0;
 
   // Base values
-  const baseRentFee = pBreakdown?.rentFee || booking?.amount || 0;
-  const baseServiceCharge = pBreakdown?.serviceCharge || booking?.serviceCharge || 0;
-  const baseSecurityDeposit = pBreakdown?.securityDeposit || booking?.securityDeposit || 0;
+  const baseRentFee = Number(pBreakdown?.rentFee ?? booking?.rentFee ?? params.rentFee ?? booking?.amount ?? 0);
+  const baseServiceCharge = Number(pBreakdown?.serviceCharge ?? booking?.serviceCharge ?? booking?.listing?.serviceCharge ?? params.serviceCharge ?? 0);
+  const baseSecurityDeposit = Number(pBreakdown?.securityDeposit ?? pBreakdown?.cautionFee ?? booking?.securityDeposit ?? booking?.listing?.securityDeposit ?? booking?.listing?.cautionFee ?? params.securityDeposit ?? params.cautionFee ?? 0);
 
   // Recalculated values if needed
   // Calculate display values safely to prevent negative numbers
-  const taxableSubtotal = baseRentFee + baseServiceCharge;
+  const taxableSubtotal = Number((baseRentFee + baseServiceCharge).toFixed(2));
   const safeCouponDiscount = Math.min(couponDiscount, taxableSubtotal);
-  const displayDiscountedTaxable = taxableSubtotal - safeCouponDiscount;
-  const displayAfterCoupon = displayDiscountedTaxable + baseSecurityDeposit;
+  const displayDiscountedTaxable = Number((taxableSubtotal - safeCouponDiscount).toFixed(2));
+  const displayAfterCoupon = Number((displayDiscountedTaxable + baseSecurityDeposit).toFixed(2));
 
   const guestFeePercent = pBreakdown?.guestFeePercent || 5;
   const vatPercent = pBreakdown?.vatPercent || 7.5;
 
-  const displayGuestFee = hasRecalculated ? Math.round((displayAfterCoupon * guestFeePercent) / 100) : (pBreakdown?.guestFee || 0);
-  const displayGuestVat = hasRecalculated ? Math.round((displayGuestFee * vatPercent) / 100) : (pBreakdown?.guestVat || 0);
-  const displayTotal = hasRecalculated ? (displayAfterCoupon + displayGuestFee + displayGuestVat) : (pBreakdown?.guestTotal || 0);
+  const displayGuestFee = pBreakdown?.guestFee !== undefined && !hasRecalculated
+    ? Number(pBreakdown.guestFee)
+    : (displayAfterCoupon > 0 ? Number(Math.max(0.01, (displayAfterCoupon * guestFeePercent) / 100).toFixed(2)) : 0);
+  const displayGuestVat = pBreakdown?.guestVat !== undefined && !hasRecalculated
+    ? Number(pBreakdown.guestVat)
+    : (displayGuestFee > 0 ? Number(Math.max(0.01, (displayGuestFee * vatPercent) / 100).toFixed(2)) : 0);
+  const displayTotal = pBreakdown?.guestTotal !== undefined && !hasRecalculated
+    ? Number(pBreakdown.guestTotal)
+    : Number((displayAfterCoupon + displayGuestFee + displayGuestVat).toFixed(2));
 
   const subtotalBeforeDiscount = parseFloat(params.subtotalBeforeDiscount) || booking?.subtotalBeforeDiscount || pBreakdown?.subtotalBeforeCoupon || totalBaseBeforeDiscount || 0;
 
@@ -534,16 +540,16 @@ const BookingConfirmationScreen = () => {
   // ── Step 4: Pricing & Fees ──
   const rawTotal = booking?.totalAmount?.price ?? booking?.amount ?? (params.totalPaid ? parseFloat(params.totalPaid) : 0);
   const safeTotal = isNaN(rawTotal) ? 0 : rawTotal;
-  const rentFee = pBreakdown?.rentFee ?? Math.round(safeTotal * 0.7);
-  const serviceCharge = pBreakdown?.serviceCharge ?? Math.round(safeTotal * 0.05);
-  const securityDeposit = pBreakdown?.securityDeposit ?? Math.round(safeTotal * 0.025);
-  const appCharge = pBreakdown?.totalGuestFee ?? pBreakdown?.guestFee ?? 0;
-  const hostAppCharge = pBreakdown?.totalHostFee !== undefined ? pBreakdown.totalHostFee : Math.round(rentFee * 0.03);
+  const rentFee = Number(pBreakdown?.rentFee ?? booking?.rentFee ?? params.rentFee ?? (safeTotal > 0 ? safeTotal : 0));
+  const serviceCharge = Number(pBreakdown?.serviceCharge ?? booking?.serviceCharge ?? booking?.listing?.serviceCharge ?? params.serviceCharge ?? 0);
+  const securityDeposit = Number(pBreakdown?.securityDeposit ?? pBreakdown?.cautionFee ?? booking?.securityDeposit ?? booking?.listing?.securityDeposit ?? booking?.listing?.cautionFee ?? params.securityDeposit ?? params.cautionFee ?? 0);
+  const appCharge = Number(pBreakdown?.totalGuestFee ?? pBreakdown?.guestFee ?? params.guestFee ?? displayGuestFee);
+  const hostAppCharge = Number(pBreakdown?.totalHostFee ?? pBreakdown?.hostFee ?? (rentFee > 0 ? Number(Math.max(0.01, rentFee * 0.03).toFixed(2)) : 0));
 
   // Use pricing breakdown guestTotal which already has coupon applied, or calculate
-  const calculatedSubtotal = (pBreakdown?.rentFee || 0) + (pBreakdown?.serviceCharge || 0) + (pBreakdown?.securityDeposit || 0);
-  const finalSubtotal = pBreakdown?.discountedSubtotal || (calculatedSubtotal - couponDiscount) || calculatedSubtotal;
-  const guestTotal = pBreakdown?.guestTotal ?? (finalSubtotal + appCharge) ?? safeTotal;
+  const calculatedSubtotal = Number((rentFee + serviceCharge + securityDeposit).toFixed(2));
+  const finalSubtotal = Number((pBreakdown?.discountedSubtotal ?? (calculatedSubtotal - couponDiscount) ?? calculatedSubtotal).toFixed(2));
+  const guestTotal = Number(pBreakdown?.guestTotal ?? (finalSubtotal + appCharge) ?? safeTotal);
 
   const totalAmount = booking?.totalAmount?.price !== undefined
     ? `₦${Number(booking.totalAmount.price).toLocaleString()}`

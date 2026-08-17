@@ -435,16 +435,20 @@ const HostBookingDetailsScreen = () => {
   // 4. Host Subtotal (Taxable Amount):
   const hostSubtotal = rentFee + serviceFee;
 
-  // 5. Host Fee (3% Platform Commission):
-  const hostFee = Math.round(hostSubtotal * 0.03);
+  // 5. Host Fee (3% Platform Commission) - always deducted even on ₦1 rent:
+  const hostFee = breakdown?.hostFee !== undefined && Number(breakdown.hostFee) > 0
+    ? Number(breakdown.hostFee)
+    : (hostSubtotal > 0 ? Number(Math.max(0.01, hostSubtotal * 0.03).toFixed(2)) : 0);
 
-  // 6. VAT on Host Fee (7.5%):
-  const hostVat = Math.round(hostFee * 0.075);
+  // 6. VAT on Host Fee (7.5%) - always deducted even on small fee:
+  const hostVat = breakdown?.hostVat !== undefined && Number(breakdown.hostVat) > 0
+    ? Number(breakdown.hostVat)
+    : (hostFee > 0 ? Number(Math.max(0.01, hostFee * 0.075).toFixed(2)) : 0);
 
-  const totalHostDeduction = hostFee + hostVat;
+  const totalHostDeduction = Number((hostFee + hostVat).toFixed(2));
 
   // 7. Base Host Earnings (Subtotal minus platform commission and VAT):
-  const baseHostEarnings = hostSubtotal - totalHostDeduction;
+  const baseHostEarnings = Number(Math.max(0, hostSubtotal - totalHostDeduction).toFixed(2));
 
   // 8. Extension Earnings (if any stay extensions occurred):
   const extensionEarnings = (booking?.extensions || []).reduce((acc, ext) => {

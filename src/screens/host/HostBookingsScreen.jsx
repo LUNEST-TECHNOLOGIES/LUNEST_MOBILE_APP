@@ -405,10 +405,14 @@ const HostBookingsScreen = () => {
 
               // 3. Subtotal & host deductions (3% fee + 7.5% VAT on fee)
               const hostSubtotal = rentFee + serviceFee;
-              const hostFee = Math.round(hostSubtotal * 0.03);
-              const hostVat = Math.round(hostFee * 0.075);
-              const totalHostDeduction = hostFee + hostVat;
-              const baseHostEarnings = hostSubtotal - totalHostDeduction;
+              const hostFee = breakdown?.hostFee !== undefined && Number(breakdown.hostFee) > 0
+                ? Number(breakdown.hostFee)
+                : (hostSubtotal > 0 ? Number(Math.max(0.01, hostSubtotal * 0.03).toFixed(2)) : 0);
+              const hostVat = breakdown?.hostVat !== undefined && Number(breakdown.hostVat) > 0
+                ? Number(breakdown.hostVat)
+                : (hostFee > 0 ? Number(Math.max(0.01, hostFee * 0.075).toFixed(2)) : 0);
+              const totalHostDeduction = Number((hostFee + hostVat).toFixed(2));
+              const baseHostEarnings = Number(Math.max(0, hostSubtotal - totalHostDeduction).toFixed(2));
 
               // 4. Extension earnings
               const extensionEarnings = (booking.extensions || []).reduce((acc, ext) => {

@@ -123,10 +123,10 @@ const SelectBookingDetailsScreen = () => {
     const guestSubtotal = baseAmount + effectiveServiceCharge + effectiveDeposit;
 
     // Guest Fee is 5% of full guest base
-    const guestFee = +(guestSubtotal * 0.05).toFixed(2);
+    const guestFee = guestSubtotal > 0 ? +(Math.max(0.01, guestSubtotal * 0.05)).toFixed(2) : 0;
 
     // VAT is 7.5% of the Guest Fee
-    const vat = +(guestFee * 0.075).toFixed(2);
+    const vat = guestFee > 0 ? +(Math.max(0.01, guestFee * 0.075)).toFixed(2) : 0;
 
     // Total App Charge = guestFee + vat
     const appCharge = +(guestFee + vat).toFixed(2);

@@ -68,8 +68,10 @@ class DashboardService {
 
       const totalBusinessEarnings = rawStatsEarnings;
       const walletBalance = rawWalletBalance;
-      const totalListings = typeof stats.totalListings === "number" ? stats.totalListings : listings.length;
-      const totalBookings = typeof stats.totalBookings === "number" ? stats.totalBookings : bookings.length;
+      const validBookings = (Array.isArray(bookings) ? bookings : []).filter(
+        (b) => !["EXPIRED", "FAILED", "CANCELLED", "PENDING_PAYMENT"].includes((b.status || "").toUpperCase()) && (b.paymentStatus || "").toUpperCase() !== "FAILED"
+      );
+      const totalBookings = typeof stats.totalBookings === "number" ? stats.totalBookings : validBookings.length;
 
       // Filter bookings for UI displays
       const confirmedBookings = bookings.filter((b) => {

@@ -79,7 +79,7 @@ const HostBottomNav = () => {
 
     // Subscribe to profile changes
     const unsubscribe = profileService.addListener((profileData) => {
-      if (profileData?.avatarUri) {
+      if (profileData?.avatarUri !== undefined) {
         setProfileAvatarUri(profileData.avatarUri);
       }
     });

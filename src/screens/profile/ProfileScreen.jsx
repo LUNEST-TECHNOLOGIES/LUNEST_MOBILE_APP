@@ -84,6 +84,12 @@ const ProfileScreen = ({ isHostMode: isHostModeProp = false }) => {
     },
   });
 
+  useFocusEffect(
+    useCallback(() => {
+      refetchProfile();
+    }, [refetchProfile])
+  );
+
   const { 
     data: walletInfo, 
     isLoading: loadingWallet, 

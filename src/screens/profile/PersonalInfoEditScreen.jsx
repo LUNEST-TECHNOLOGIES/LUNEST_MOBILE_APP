@@ -325,6 +325,19 @@ const PersonalInfoEditScreen = () => {
         }).catch(err => console.warn('[PersonalInfoEdit] Error syncing profile storage:', err));
       }
 
+      const serverAvatar = serverProfileResult?.data?.avatar;
+      let resolvedServerAvatar = null;
+      if (serverAvatar) {
+        resolvedServerAvatar = serverAvatar.startsWith("/")
+          ? `${authService.baseURL.replace(/\/$/, "")}${serverAvatar}`
+          : serverAvatar;
+      }
+      
+      // Authoritatively sync avatar with profileService so ProfileHeader and BottomNav match
+      if (serverProfileResult?.data) {
+        profileService.updateAvatar(resolvedServerAvatar).catch(err => console.warn('[PersonalInfoEdit] Error syncing avatar:', err));
+      }
+
       if (savedProfile) {
         setUserData((prev) => ({
           ...prev,
@@ -335,20 +348,7 @@ const PersonalInfoEditScreen = () => {
           nin: serverNin || (authData && authData.nin) || savedProfile.nin || prev.nin,
           docTypeAbbrev: serverDocTypeAbbrev || prev.docTypeAbbrev || "NIN",
           phone: serverPhone || (authData && authData.phoneNumber) || savedProfile.phone || prev.phone,
-          avatarUri: (() => {
-            const serverAvatar = serverProfileResult?.data?.avatar;
-            if (serverAvatar) {
-              if (serverAvatar.startsWith("/")) {
-                return `${authService.baseURL.replace(/\/$/, "")}${serverAvatar}`;
-              }
-              return serverAvatar;
-            }
-            const savedAvatar = savedProfile.avatarUri;
-            if (savedAvatar && (savedAvatar.startsWith("blob:") || savedAvatar.startsWith("data:"))) {
-              return prev.avatarUri;
-            }
-            return savedAvatar || prev.avatarUri;
-          })(),
+          avatarUri: resolvedServerAvatar !== null ? resolvedServerAvatar : (savedProfile.avatarUri || prev.avatarUri),
           isVerified: isServerVerified,
           kycStatus: resolvedKycStatus,
           kycRejectionReason: resolvedRejectionReason,
@@ -458,6 +458,8 @@ const PersonalInfoEditScreen = () => {
           // If we got a real URL from server, use it. Otherwise, if we must fallback, 
           // we'll use the tempUri but mark it as something we need to refresh.
           const finalAvatarUri = serverAvatarUri || tempUri;
+
+          await profileService.updateAvatar(finalAvatarUri);
 
           setUserData((prev) => ({
             ...prev,

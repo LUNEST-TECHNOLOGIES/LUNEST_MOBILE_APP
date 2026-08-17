@@ -414,6 +414,7 @@ const BookingSummary = () => {
   // The Security Deposit is a refundable escrow amount and should NOT be discounted.
   const GUEST_FEE_PERCENT = 5;
   const VAT_PERCENT = 7.5;
+  const round2 = (num) => Math.round((Number(num) + Number.EPSILON) * 100) / 100;
 
   // Calculate coupon discount on HOST SUBTOTAL (excluding caution fee)
   let couponDiscountAmount = 0;
@@ -422,17 +423,16 @@ const BookingSummary = () => {
   }
   
   // Discounted subtotal (Rent + SC) and original caution fee
-  const discountedHostSubtotal = Math.max(0, hostSubtotal - couponDiscountAmount);
-  const discountedGuestBase = discountedHostSubtotal + securityDeposit;
+  const discountedHostSubtotal = round2(Math.max(0, hostSubtotal - couponDiscountAmount));
+  const discountedGuestBase = round2(discountedHostSubtotal + securityDeposit);
   
   // App fee and VAT calculated on DISCOUNTED guest base (Net Rent/SC + Full Caution)
-  const round2 = (num) => Math.round((Number(num) + Number.EPSILON) * 100) / 100;
-  const guestFeeBase = round2((discountedGuestBase * GUEST_FEE_PERCENT) / 100) || 0;
-  const guestVat = round2((guestFeeBase * VAT_PERCENT) / 100) || 0;
+  const guestFeeBase = discountedGuestBase > 0 ? round2((discountedGuestBase * GUEST_FEE_PERCENT) / 100) : 0;
+  const guestVat = guestFeeBase > 0 ? round2((guestFeeBase * VAT_PERCENT) / 100) : 0;
   const appCharge = round2(guestFeeBase + guestVat);
 
   // Final total = discounted subtotal + caution fee + app fee + VAT
-  const calculatedTotal = round2((discountedGuestBase || 0) + appCharge);
+  const calculatedTotal = round2(discountedGuestBase + guestFeeBase + guestVat);
   const total = isNaN(calculatedTotal) ? 0 : calculatedTotal;
   
   // Subtotal before coupon (for display)
@@ -442,33 +442,18 @@ const BookingSummary = () => {
   const discountedSubtotal = discountedGuestBase;
 
   // PREFER FETCHED BOOKING PRICING IF AVAILABLE
-  const displayPricing = fetchedBooking?.pricingBreakdown || {
-    rentalSubtotal,
-    serviceCharge,
-    securityDeposit,
-    hostTotal,
-    appCharge,
-    subtotalBeforeDiscount: hostTotal,
-    couponDiscount,
-    total,
-    guestTotal: total,
-    rentalPrice,
-    rentFee: rentalSubtotal, // Added for fallback support
-    numberOfUnits: periodUnits,
-    pricingPeriod,
-    periodLabel
-  };
+  const pb = fetchedBooking?.pricingBreakdown;
 
-  // Helper to get the correct guest total (prioritize server field name)
-  const finalGuestTotal = displayPricing.guestTotal || 
-                          displayPricing.total || 
-                          (fetchedBooking?.totalAmount?.price) || 
-                          (typeof displayPricing.totalAmount === 'object' ? displayPricing.totalAmount.price : displayPricing.totalAmount) || 
-                          total;
-  // Helper to get the correct host total (Rent + Service + Caution)
-  const finalHostTotal = displayPricing.hostTotal || 
-                        ((displayPricing.taxableAmount || (rentalSubtotal + serviceCharge)) + 
-                         (displayPricing.securityDeposit || securityDeposit));
+  const finalRentSubtotal = pb?.rentalSubtotal ?? (pb?.taxableAmount ? round2(pb.taxableAmount - (pb.serviceCharge || 0)) : rentalSubtotal);
+  const finalServiceCharge = pb?.serviceCharge ?? serviceCharge;
+  const finalSecurityDeposit = pb?.securityDeposit ?? pb?.cautionFee ?? securityDeposit;
+  const finalCouponDiscount = pb?.couponDiscount ?? couponDiscountAmount;
+  const finalDiscountedSubtotal = pb?.discountedSubtotal ?? discountedGuestBase;
+  const finalGuestFee = pb?.guestFee ?? guestFeeBase;
+  const finalGuestVat = pb?.guestVat ?? guestVat;
+  const finalAppCharge = round2(finalGuestFee + finalGuestVat);
+  const finalTotal = pb?.guestTotal ?? pb?.total ?? (fetchedBooking?.totalAmount?.price) ?? total;
+
   const handleApplyCoupon = async () => {
     // Toggle: if already applied, remove coupon
     if (couponApplied) {
@@ -586,96 +571,31 @@ const BookingSummary = () => {
       },
     },
     pricing: {
-      // Rental breakdown using displayPricing helper with improved fallbacks
-      rentalPrice: displayPricing.rentalPrice || displayPricing.rentFee || rentalPrice,
-      rentalSubtotal: displayPricing.rentalSubtotal || displayPricing.rentFee || rentalSubtotal,
-      numberOfUnits: displayPricing.numberOfUnits || periodUnits,
-      pricingPeriod: displayPricing.pricingPeriod || pricingPeriod,
-      periodLabel: displayPricing.periodLabel || periodLabel,
-      rentalSubtotal: displayPricing.rentalSubtotal || rentalSubtotal,
-
-      // Additional charges
-      serviceCharge: displayPricing.serviceCharge || serviceCharge,
+      rentalPrice,
+      rentalSubtotal: finalRentSubtotal,
+      numberOfUnits: periodUnits,
+      pricingPeriod,
+      periodLabel,
+      serviceCharge: finalServiceCharge,
       serviceChargeLabel: "Service Charge",
-      securityDeposit: displayPricing.securityDeposit || securityDeposit,
-
-      // Totals
-      hostTotal: finalHostTotal,
-      appCharge: displayPricing.appCharge || appCharge,
-      total: finalGuestTotal,
-      amount: finalGuestTotal,
+      securityDeposit: finalSecurityDeposit,
+      hostTotal: round2(finalRentSubtotal + finalServiceCharge + finalSecurityDeposit),
+      subtotalBeforeDiscount: round2(finalRentSubtotal + finalServiceCharge + finalSecurityDeposit),
+      couponDiscount: finalCouponDiscount,
+      discount: finalCouponDiscount,
+      couponCode: couponCode.trim(),
+      discountedSubtotal: finalDiscountedSubtotal,
+      guestFee: finalGuestFee,
+      guestVat: finalGuestVat,
+      appCharge: finalAppCharge,
+      total: finalTotal,
+      amount: finalTotal,
       totalAmount: {
-        price: finalGuestTotal,
+        price: finalTotal,
         currency: "NGN",
       },
-      discount: displayPricing.couponDiscount || couponDiscount,
-      couponCode: couponCode.trim(),
-      total: displayPricing.total,
     },
   };
-
-  // If client passed a calculated breakdown, prefer it for display and totals
-  try {
-    const passedBreakdownRaw = params?.priceBreakdown;
-    const passedBreakdown =
-      typeof passedBreakdownRaw === "string" && passedBreakdownRaw.length > 0
-        ? JSON.parse(passedBreakdownRaw)
-        : passedBreakdownRaw;
-
-    if (passedBreakdown && typeof passedBreakdown === "object") {
-      bookingSummary.pricing.rentalSubtotal =
-        passedBreakdown.rentalSubtotal ?? 
-        passedBreakdown.rentFee ?? 
-        passedBreakdown.baseAmount ?? 
-        bookingSummary.pricing.rentalSubtotal;
-      bookingSummary.pricing.numberOfUnits =
-        passedBreakdown.numberOfUnits ?? passedBreakdown.units ?? bookingSummary.pricing.numberOfUnits;
-      bookingSummary.pricing.periodUnits =
-        passedBreakdown.periodUnits ?? bookingSummary.pricing.periodUnits;
-      bookingSummary.pricing.periodLabel =
-        passedBreakdown.periodLabel ?? bookingSummary.pricing.periodLabel;
-      // Use the passed service fee or host serviceCharge
-      bookingSummary.pricing.serviceCharge = 
-        passedBreakdown.serviceCharge ?? passedBreakdown.serviceFee ?? bookingSummary.pricing.serviceCharge;
-      bookingSummary.pricing.securityDeposit =
-        passedBreakdown.securityDeposit ?? passedBreakdown.deposit ?? bookingSummary.pricing.securityDeposit;
-
-      const hostSubtotalNew =
-        bookingSummary.pricing.rentalSubtotal +
-        (bookingSummary.pricing.serviceCharge || 0);
-
-      bookingSummary.pricing.hostTotal =
-        hostSubtotalNew + bookingSummary.pricing.securityDeposit;
-
-      // Restrict coupon calculation to only the rent/service subtotal
-      let couponDiscountAmountNew = 0;
-      if (couponApplied && bookingSummary.pricing.discount > 0) {
-        couponDiscountAmountNew = Math.min(bookingSummary.pricing.discount, hostSubtotalNew);
-      }
-      
-      const discountedHostSubtotalNew = Math.max(0, hostSubtotalNew - couponDiscountAmountNew);
-      const discountedGuestBaseNew = discountedHostSubtotalNew + bookingSummary.pricing.securityDeposit;
-
-      // Apply app fees mapped only to the discounted base
-      const guestFeeBaseNew = Math.round(
-        (discountedGuestBaseNew * GUEST_FEE_PERCENT) / 100,
-      );
-      const guestVatNew = Math.round((guestFeeBaseNew * VAT_PERCENT) / 100);
-      
-      bookingSummary.pricing.appCharge = guestFeeBaseNew + guestVatNew;
-      bookingSummary.pricing.subtotal =
-        bookingSummary.pricing.hostTotal + bookingSummary.pricing.appCharge;
-
-      // Arithmetic amount to pay
-      bookingSummary.pricing.total = Math.max(
-        0,
-        discountedGuestBaseNew + bookingSummary.pricing.appCharge
-      );
-    }
-  } catch (e) {
-    // ignore parse errors
-    console.warn("[BookingSummary] Failed to parse passed priceBreakdown", e);
-  }
 
   const handleGoBack = () => {
     if (router.canGoBack()) {
@@ -1447,7 +1367,7 @@ const BookingSummary = () => {
               </View>
 
               {/* Coupon Discount Row */}
-              {couponDiscount > 0 && (
+              {bookingSummary.pricing.couponDiscount > 0 && (
                 <>
                   <View style={styles.priceRow}>
                     <Text style={[styles.priceLabel, { color: "#27AE60" }]}>
@@ -1455,7 +1375,7 @@ const BookingSummary = () => {
                     </Text>
                     <Text style={[styles.priceAmount, { color: "#27AE60" }]}>
                       -₦
-                      {couponDiscount.toLocaleString("en-NG", {
+                      {Number(bookingSummary.pricing.couponDiscount).toLocaleString("en-NG", {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
                       })}
@@ -1469,7 +1389,7 @@ const BookingSummary = () => {
                     </Text>
                     <Text style={[styles.priceAmount, { color: "#666" }]}>
                       ₦
-                      {discountedSubtotal.toLocaleString("en-NG", {
+                      {Number(bookingSummary.pricing.discountedSubtotal).toLocaleString("en-NG", {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
                       })}
@@ -1485,12 +1405,12 @@ const BookingSummary = () => {
                     App Charge ({GUEST_FEE_PERCENT}%)
                   </Text>
                   <Text style={styles.priceSublabel}>
-                    {couponDiscount > 0 ? "Calculated on discounted amount. Note: caution fee is NOT discounted." : ""}
+                    {bookingSummary.pricing.couponDiscount > 0 ? "Calculated on discounted amount. Note: caution fee is NOT discounted." : ""}
                   </Text>
                 </View>
                 <Text style={styles.priceAmount}>
                   ₦
-                  {guestFeeBase.toLocaleString("en-NG", {
+                  {Number(bookingSummary.pricing.guestFee).toLocaleString("en-NG", {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2,
                   })}
@@ -1506,7 +1426,7 @@ const BookingSummary = () => {
                 </View>
                 <Text style={styles.priceAmount}>
                   ₦
-                  {guestVat.toLocaleString("en-NG", {
+                  {Number(bookingSummary.pricing.guestVat).toLocaleString("en-NG", {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2,
                   })}
@@ -1514,7 +1434,7 @@ const BookingSummary = () => {
               </View>
 
               {/* Free Booking Info Alert */}
-              {couponDiscount > 0 &&
+              {bookingSummary.pricing.couponDiscount > 0 &&
                 bookingSummary.pricing.total === 0 && (
                   <View
                     style={{
@@ -1551,7 +1471,7 @@ const BookingSummary = () => {
               {/* Total */}
               <View style={styles.totalRow}>
                 <Text style={styles.totalLabel}>
-                  {couponDiscount > 0 ? "Amount to Pay:" : "Total:"}
+                  {bookingSummary.pricing.couponDiscount > 0 ? "Amount to Pay:" : "Total:"}
                 </Text>
                 <Text style={styles.totalAmount}>
                   ₦

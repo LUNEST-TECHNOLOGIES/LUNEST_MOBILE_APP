@@ -47,34 +47,48 @@ class BookingService {
    * @param {number} amount - The taxable amount (Rent + Service Charge)
    * @param {number} deposit - Caution fee / security deposit
    * @param {number} serviceCharge - Service charge
+  /**
+   * Calculate pricing breakdown locally using exact platform formula
+   * @param {number} amount - The taxable amount (Rent + Service Charge)
+   * @param {number} deposit - Caution fee / security deposit
+   * @param {number} serviceCharge - Service charge
+   * @param {number} couponDiscount - Coupon discount applied (applies to taxable amount)
    * @returns {Object}
    */
-  calculatePricing(amount, deposit = 0, serviceCharge = 0) {
+  calculatePricing(amount, deposit = 0, serviceCharge = 0, couponDiscount = 0) {
     const GUEST_FEE_PERCENT = 5.0;
     const HOST_FEE_PERCENT = 3.0;
     const VAT_PERCENT = 7.5;
 
-    const safeTaxable = Math.max(0, Number(amount) || 0);
-    const safeDeposit = Math.max(0, Number(deposit) || 0);
-    const safeServiceCharge = Math.max(0, Number(serviceCharge) || 0);
-    const safeRent = Math.max(0, safeTaxable - safeServiceCharge);
+    const round2 = (num) => Math.round((Number(num) + Number.EPSILON) * 100) / 100;
 
-    const guestBase = safeTaxable + safeDeposit;
-    let guestFee = guestBase > 0 ? Number(((guestBase * GUEST_FEE_PERCENT) / 100).toFixed(2)) : 0;
+    const safeTaxable = Math.max(0, round2(amount));
+    const safeDeposit = Math.max(0, round2(deposit));
+    const safeServiceCharge = Math.max(0, round2(serviceCharge));
+    const safeRent = Math.max(0, round2(safeTaxable - safeServiceCharge));
+    const safeDiscount = Math.min(safeTaxable, Math.max(0, round2(couponDiscount)));
+
+    const discountedTaxable = round2(safeTaxable - safeDiscount);
+    const subtotal = round2(safeTaxable + safeDeposit);
+    const discountedSubtotal = round2(discountedTaxable + safeDeposit);
+
+    const guestBase = discountedSubtotal;
+    let guestFee = guestBase > 0 ? round2((guestBase * GUEST_FEE_PERCENT) / 100) : 0;
     if (guestBase > 0 && guestFee === 0) guestFee = 0.01;
 
-    let guestVat = guestFee > 0 ? Number(((guestFee * VAT_PERCENT) / 100).toFixed(2)) : 0;
+    let guestVat = guestFee > 0 ? round2((guestFee * VAT_PERCENT) / 100) : 0;
     if (guestFee > 0 && guestVat === 0) guestVat = 0.01;
 
-    const guestTotal = Number((guestBase + guestFee + guestVat).toFixed(2));
+    const appCharge = round2(guestFee + guestVat);
+    const guestTotal = round2(guestBase + guestFee + guestVat);
 
-    let hostFee = safeTaxable > 0 ? Number(((safeTaxable * HOST_FEE_PERCENT) / 100).toFixed(2)) : 0;
+    let hostFee = safeTaxable > 0 ? round2((safeTaxable * HOST_FEE_PERCENT) / 100) : 0;
     if (safeTaxable > 0 && hostFee === 0) hostFee = 0.01;
 
-    let hostVat = hostFee > 0 ? Number(((hostFee * VAT_PERCENT) / 100).toFixed(2)) : 0;
+    let hostVat = hostFee > 0 ? round2((hostFee * VAT_PERCENT) / 100) : 0;
     if (hostFee > 0 && hostVat === 0) hostVat = 0.01;
 
-    const hostEarnings = Number(Math.max(0, safeTaxable - hostFee - hostVat).toFixed(2));
+    const hostEarnings = round2(Math.max(0, safeTaxable - hostFee - hostVat));
 
     return {
       rentFee: safeRent,
@@ -82,10 +96,14 @@ class BookingService {
       securityDeposit: safeDeposit,
       cautionFee: safeDeposit,
       taxableAmount: safeTaxable,
-      subtotal: safeTaxable + safeDeposit,
+      couponDiscount: safeDiscount,
+      subtotal,
+      discountedSubtotal,
       guestFee,
       guestVat,
+      appCharge,
       guestTotal,
+      total: guestTotal,
       hostFee,
       hostVat,
       hostEarnings,

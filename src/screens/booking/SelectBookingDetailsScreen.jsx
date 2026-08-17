@@ -112,27 +112,29 @@ const SelectBookingDetailsScreen = () => {
       }
     }
 
-    const baseAmount = priceNum * durationCount;
-    
-    // For yearly rentals, service charge and caution fee scale with duration (e.g. 2 years = double fees)
-    const isYearly = period === "year";
-    const effectiveServiceCharge = isYearly ? (serviceChargeNum * durationCount) : serviceChargeNum;
-    const effectiveDeposit = depositNum; // Caution Fee does NOT scale with duration
+    const round2 = (num) => Math.round((Number(num) + Number.EPSILON) * 100) / 100;
 
-    // Guest Subtotal = Rent + Scaled Service Charge + Scaled Security Deposit
-    const guestSubtotal = baseAmount + effectiveServiceCharge + effectiveDeposit;
+    const baseAmount = round2(priceNum * durationCount);
+    
+    // For yearly rentals, service charge scales with duration
+    const isYearly = period === "year";
+    const effectiveServiceCharge = round2(isYearly ? (serviceChargeNum * durationCount) : serviceChargeNum);
+    const effectiveDeposit = round2(depositNum); // Caution Fee does NOT scale with duration
+
+    // Guest Subtotal = Rent + Scaled Service Charge + Security Deposit
+    const guestSubtotal = round2(baseAmount + effectiveServiceCharge + effectiveDeposit);
 
     // Guest Fee is 5% of full guest base
-    const guestFee = guestSubtotal > 0 ? +(Math.max(0.01, guestSubtotal * 0.05)).toFixed(2) : 0;
+    const guestFee = guestSubtotal > 0 ? round2((guestSubtotal * 5) / 100) : 0;
 
     // VAT is 7.5% of the Guest Fee
-    const vat = guestFee > 0 ? +(Math.max(0.01, guestFee * 0.075)).toFixed(2) : 0;
+    const vat = guestFee > 0 ? round2((guestFee * 7.5) / 100) : 0;
 
     // Total App Charge = guestFee + vat
-    const appCharge = +(guestFee + vat).toFixed(2);
+    const appCharge = round2(guestFee + vat);
 
     // Final Total = guestSubtotal + appCharge
-    const total = +(guestSubtotal + appCharge).toFixed(2);
+    const total = round2(guestSubtotal + appCharge);
 
     return {
       durationCount,
@@ -149,7 +151,10 @@ const SelectBookingDetailsScreen = () => {
   const breakdown = calculateBreakdown();
 
   const formatCurrency = (v) => {
-    return `₦${Number(v).toLocaleString()}`;
+    return `₦${Number(v || 0).toLocaleString("en-NG", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
   };
 
   // Dynamic booking types based on pricing period
@@ -560,7 +565,7 @@ const SelectBookingDetailsScreen = () => {
 
                 {/* VAT (7.5% of App Charge) */}
                 <View style={styles.breakdownRow}>
-                  <Text style={styles.breakdownLabel}>VAT (7.5%)</Text>
+                  <Text style={styles.breakdownLabel}>VAT (7.5% of App Charge)</Text>
                   <Text style={styles.breakdownValue}>
                     {formatCurrency(breakdown.vat)}
                   </Text>

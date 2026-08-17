@@ -38,10 +38,9 @@ class DashboardService {
         authService.fetchProfile(),
       ]);
 
-      // Handle results gracefully with strict array type checks
-      const statsRes = statsResult.status === 'fulfilled' ? statsResult.value : null;
-      const statsData = (statsRes && statsRes.data) ? statsRes.data : (statsRes || {});
-      const stats = statsData.body || statsData;
+      // Handle results gracefully with strict unpacking and multi-layer fallbacks
+      const rawStats = statsResult.status === 'fulfilled' ? statsResult.value : null;
+      const stats = rawStats?.body || rawStats?.data?.body || rawStats?.data || rawStats || {};
 
       const rawListings = listingsResult.status === 'fulfilled' ? listingsResult.value : null;
       const listings = Array.isArray(rawListings)
@@ -53,7 +52,7 @@ class DashboardService {
         ? rawBookings
         : (Array.isArray(rawBookings?.bookings) ? rawBookings.bookings : (Array.isArray(rawBookings?.data) ? rawBookings.data : []));
 
-      const userProfile = userProfileResult.status === 'fulfilled' ? (userProfileResult.value?.data || userProfileResult.value || {}) : {};
+      const userProfile = userProfileResult.status === 'fulfilled' ? (userProfileResult.value?.data || userProfileResult.value?.body || userProfileResult.value || {}) : {};
 
       // Helper to safely parse financial numbers
       const parseAmount = (val) => {
@@ -62,18 +61,7 @@ class DashboardService {
         return isNaN(num) ? 0 : num;
       };
 
-      // Use backend API stats as the authoritative source for host earnings and wallet balance.
-      const rawStatsEarnings = parseAmount(stats.totalEarnings);
-      const rawWalletBalance = parseAmount(stats.walletBalance ?? userProfile?.walletBalance ?? userProfile?.wallet?.availableBalance ?? (statsRes?.body?.walletBalance));
-
-      const totalBusinessEarnings = rawStatsEarnings;
-      const walletBalance = rawWalletBalance;
-      const validBookings = (Array.isArray(bookings) ? bookings : []).filter(
-        (b) => !["EXPIRED", "FAILED", "CANCELLED", "PENDING_PAYMENT"].includes((b.status || "").toUpperCase()) && (b.paymentStatus || "").toUpperCase() !== "FAILED"
-      );
-      const totalBookings = typeof stats.totalBookings === "number" ? stats.totalBookings : validBookings.length;
-
-      // Filter bookings for UI displays
+      // Filter bookings for UI displays and fallbacks
       const confirmedBookings = bookings.filter((b) => {
         const status = b.status ? b.status.toUpperCase() : "";
         return ["CONFIRMED", "ONGOING"].includes(status);
@@ -83,6 +71,48 @@ class DashboardService {
         const status = b.status ? b.status.toUpperCase() : "";
         return status === "COMPLETED";
       });
+
+      const validBookings = (Array.isArray(bookings) ? bookings : []).filter(
+        (b) => !["EXPIRED", "FAILED", "CANCELLED", "PENDING_PAYMENT"].includes((b.status || "").toUpperCase()) && (b.paymentStatus || "").toUpperCase() !== "FAILED"
+      );
+
+      // Financial Multi-Layer Fallback Calculations
+      const computedCompletedEarnings = completedBookings.reduce((sum, b) => {
+        const pricing = b.pricingBreakdown || {};
+        return sum + (Number(pricing.hostEarnings) || (Number(pricing.rentFee || 0) + Number(pricing.serviceCharge || 0) - Number(pricing.hostFee || 0) - Number(pricing.hostVat || 0)) || 0);
+      }, 0);
+
+      const computedOnHoldEarnings = confirmedBookings.reduce((sum, b) => {
+        if (b.hostEarningsReleased) return sum;
+        const pricing = b.pricingBreakdown || {};
+        return sum + (Number(pricing.hostEarnings) || 0);
+      }, 0);
+
+      const computedOnHoldCaution = confirmedBookings.reduce((sum, b) => {
+        const pricing = b.pricingBreakdown || {};
+        return sum + (Number(pricing.securityDeposit || pricing.cautionFee || 0));
+      }, 0);
+
+      const totalBusinessEarnings = stats.totalEarnings !== undefined && stats.totalEarnings !== null
+        ? parseAmount(stats.totalEarnings)
+        : parseAmount(computedCompletedEarnings);
+
+      const walletBalance = parseAmount(
+        stats.walletBalance ?? 
+        userProfile?.walletBalance ?? 
+        userProfile?.wallet?.availableBalance ?? 
+        userProfile?.balance ?? 
+        0
+      );
+
+      const onHoldEarnings = parseAmount(stats.onHoldEarnings) || parseAmount(computedOnHoldEarnings);
+      const onHoldCaution = parseAmount(stats.onHoldCaution) || parseAmount(computedOnHoldCaution);
+      const pendingBalance = stats.pendingBalance !== undefined && stats.pendingBalance !== null && Number(stats.pendingBalance) > 0
+        ? parseAmount(stats.pendingBalance)
+        : parseAmount(onHoldEarnings + onHoldCaution);
+
+      const totalBookings = typeof stats.totalBookings === "number" ? stats.totalBookings : validBookings.length;
+      const totalListings = typeof stats.totalListings === "number" ? stats.totalListings : listings.length;
 
       const upcomingBookings = confirmedBookings.filter((b) => {
         const checkIn = new Date(b.checkIn);

@@ -342,7 +342,6 @@ const PropertyDetailsScreen = () => {
       throw new Error(result?.message || "Failed to load listing");
     },
     enabled: !!listingId,
-    staleTime: 0, // Always fetch fresh data
   });
 
   // Simplified error state
@@ -460,6 +459,7 @@ const PropertyDetailsScreen = () => {
         const currentUser = await authService.fetchProfile();
         if (currentUser && currentUser.success && currentUser.data?._id) {
           const myBookingsRes = await bookingService.fetchGuestBookings();
+          if (myBookingsRes && myBookingsRes.success && myBookingsRes.bookings) {
             const completedUnreviewedBooking = myBookingsRes.bookings.find(
               (b) =>
                 (b.listing?._id === listingId || b.listing === listingId) &&
@@ -2100,6 +2100,7 @@ const PropertyDetailsScreen = () => {
                           />
                         ))}
                       </View>
+                    </View>
                     <Text style={styles.reviewText}>
                       {review.feedback && review.feedback.trim() ? review.feedback : `Rated ${review.rating} / 5 stars`}
                     </Text>

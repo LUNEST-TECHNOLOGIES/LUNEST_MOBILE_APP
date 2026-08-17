@@ -13,6 +13,8 @@ import {
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 
+import bookingService from "../../services/bookingService";
+
 const PaystackLogo = ({ size = 20 }) => (
   <Image
     source={require("../../assets/images/paystack-logo.png")}
@@ -91,14 +93,36 @@ export const ExtendStayModal = ({
     }
   }, [duration, unitType]);
 
-  const calculateQuote = (dur, unit) => {
+  const calculateQuote = async (dur, unit) => {
     if (!booking) return;
     setIsCalculating(true);
 
     try {
+      if (booking._id) {
+        const res = await bookingService.getExtensionQuote(booking._id, dur, unit);
+        if (res?.success && res?.data) {
+          const d = res.data;
+          const pb = d.pricingBreakdown || {};
+          setQuote({
+            dur,
+            unit,
+            extraNights: d.extraNights || dur,
+            currentCheckOut: new Date(d.currentCheckOut || booking.checkOut),
+            newCheckOut: new Date(d.newCheckOut),
+            rentFee: pb.rentFee || 0,
+            guestFee: pb.guestFee || 0,
+            guestVat: pb.guestVat || 0,
+            guestTotal: pb.guestTotal || 0,
+            hostEarnings: pb.hostEarnings || 0,
+          });
+          return;
+        }
+      }
+
+      // Exact fallback matching centralized PricingService formula
       const origNights = Math.max(1, Math.round((new Date(booking.checkOut).getTime() - new Date(booking.checkIn).getTime()) / (1000 * 60 * 60 * 24)));
       const totalOrigRent = booking.pricingBreakdown?.rentFee || booking.totalAmount?.price || 0;
-      const nightlyRate = Math.round((totalOrigRent / origNights) * 100) / 100;
+      const nightlyRate = totalOrigRent / origNights;
 
       let extraNights = dur;
       const currentCheckOut = new Date(booking.checkOut);
@@ -118,10 +142,10 @@ export const ExtendStayModal = ({
         newCheckOut.setDate(newCheckOut.getDate() + extraNights);
       }
 
-      const rentFee = Math.round(nightlyRate * extraNights * 100) / 100;
-      const guestFee = Math.round(rentFee * 0.02 * 100) / 100;   // 2% Discounted LUNEST Fee
-      const guestVat = Math.round(guestFee * 0.075 * 100) / 100; // 7.5% VAT on Guest Fee
-      const guestTotal = Math.round((rentFee + guestFee + guestVat) * 100) / 100;
+      const rentFee = Number((nightlyRate * extraNights).toFixed(2));
+      const guestFee = rentFee > 0 ? Number(Math.max(0.01, rentFee * 0.02).toFixed(2)) : 0;
+      const guestVat = guestFee > 0 ? Number(Math.max(0.01, guestFee * 0.075).toFixed(2)) : 0;
+      const guestTotal = Number((rentFee + guestFee + guestVat).toFixed(2));
 
       setQuote({
         dur,

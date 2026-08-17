@@ -16,28 +16,78 @@ class BookingService {
   }
 
   /**
-   * Calculate pricing breakdown (Host Total + Fees)
-   * Use this on the booking screen to show price details instantly
-   * @param {number} amount - The base amount (host total)
-   * @returns {Object|null} Breakdown of fees and totals
+   * Fetch authoritative booking quote from centralized backend PricingService
+   * @param {Object} quoteParams - { listingId, checkIn, checkOut, pricingPeriod, couponDiscount }
+   * @returns {Promise<Object>}
    */
-  calculatePricing(amount) {
-    const GUEST_FEE_PERCENT = 5;
-    const HOST_FEE_PERCENT = 3;
+  async getBookingQuote(quoteParams) {
+    try {
+      const response = await apiClient.post("/bookings/quote", quoteParams);
+      if (response.data?.status || response.data?.success) {
+        return {
+          success: true,
+          data: response.data.data,
+        };
+      }
+      return {
+        success: false,
+        message: response.data?.message || "Failed to calculate quote",
+      };
+    } catch (error) {
+      console.error("❌ [BookingService.getBookingQuote] Error:", error);
+      return {
+        success: false,
+        message: NetworkErrorHandler.getErrorMessage(error),
+      };
+    }
+  }
 
-    const price = parseFloat(amount);
-    if (isNaN(price)) return null;
+  /**
+   * Calculate pricing breakdown locally using exact platform formula
+   * @param {number} amount - The taxable amount (Rent + Service Charge)
+   * @param {number} deposit - Caution fee / security deposit
+   * @param {number} serviceCharge - Service charge
+   * @returns {Object}
+   */
+  calculatePricing(amount, deposit = 0, serviceCharge = 0) {
+    const GUEST_FEE_PERCENT = 5.0;
+    const HOST_FEE_PERCENT = 3.0;
+    const VAT_PERCENT = 7.5;
 
-    const guestFee = (price * GUEST_FEE_PERCENT) / 100;
-    const guestTotal = price + guestFee;
-    const hostFee = (price * HOST_FEE_PERCENT) / 100;
-    const hostEarnings = price - hostFee;
+    const safeTaxable = Math.max(0, Number(amount) || 0);
+    const safeDeposit = Math.max(0, Number(deposit) || 0);
+    const safeServiceCharge = Math.max(0, Number(serviceCharge) || 0);
+    const safeRent = Math.max(0, safeTaxable - safeServiceCharge);
+
+    const guestBase = safeTaxable + safeDeposit;
+    let guestFee = guestBase > 0 ? Number(((guestBase * GUEST_FEE_PERCENT) / 100).toFixed(2)) : 0;
+    if (guestBase > 0 && guestFee === 0) guestFee = 0.01;
+
+    let guestVat = guestFee > 0 ? Number(((guestFee * VAT_PERCENT) / 100).toFixed(2)) : 0;
+    if (guestFee > 0 && guestVat === 0) guestVat = 0.01;
+
+    const guestTotal = Number((guestBase + guestFee + guestVat).toFixed(2));
+
+    let hostFee = safeTaxable > 0 ? Number(((safeTaxable * HOST_FEE_PERCENT) / 100).toFixed(2)) : 0;
+    if (safeTaxable > 0 && hostFee === 0) hostFee = 0.01;
+
+    let hostVat = hostFee > 0 ? Number(((hostFee * VAT_PERCENT) / 100).toFixed(2)) : 0;
+    if (hostFee > 0 && hostVat === 0) hostVat = 0.01;
+
+    const hostEarnings = Number(Math.max(0, safeTaxable - hostFee - hostVat).toFixed(2));
 
     return {
-      price,
+      rentFee: safeRent,
+      serviceCharge: safeServiceCharge,
+      securityDeposit: safeDeposit,
+      cautionFee: safeDeposit,
+      taxableAmount: safeTaxable,
+      subtotal: safeTaxable + safeDeposit,
       guestFee,
+      guestVat,
       guestTotal,
       hostFee,
+      hostVat,
       hostEarnings,
     };
   }
@@ -1106,17 +1156,18 @@ class BookingService {
     }
   }
   /**
-   * Get stay extension quote (2% Discounted Fee)
+   * Get stay extension quote from centralized PricingService (2% Discounted Fee)
    */
   async getExtensionQuote(bookingId, duration, unitType = "DAILY") {
     try {
-      const response = await apiClient.post(`/v1/bookings/${bookingId}/extension/quote`, {
+      const response = await apiClient.post(`/bookings/${bookingId}/extension/quote`, {
         duration,
         unitType
       });
+      const data = response.data?.data || response.data?.body || response.data;
       return {
         success: true,
-        data: (response && response.body) || (response && response.data)
+        data
       };
     } catch (error) {
       console.error("❌ [BookingService] getExtensionQuote error:", error);

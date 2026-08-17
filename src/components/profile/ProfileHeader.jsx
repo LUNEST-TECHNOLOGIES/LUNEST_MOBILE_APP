@@ -148,8 +148,10 @@ const ProfileHeader = ({
 
   // Update avatar when external prop changes
   useEffect(() => {
-    if (externalAvatarUri !== undefined) {
+    if (externalAvatarUri) {
       setAvatarUri(externalAvatarUri);
+    } else {
+      loadProfileAvatar();
     }
   }, [externalAvatarUri]);
 

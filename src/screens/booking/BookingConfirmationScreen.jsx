@@ -859,13 +859,24 @@ const BookingConfirmationScreen = () => {
     try {
       const result = await bookingService.checkInBooking(bookingId);
       if (result.success) {
-        showToastMessage(result.message, TOAST_TYPE.SUCCESS);
+        // Immediate local state update for instant UI feedback
+        const updatedBookingData = result.data?.body || result.data || result.booking;
+        setBooking((prev) => ({
+          ...prev,
+          ...(updatedBookingData && typeof updatedBookingData === 'object' ? updatedBookingData : {}),
+          guestCheckedIn: true,
+          status: prev?.status === "CONFIRMED" ? "ONGOING" : prev?.status,
+        }));
+        
         setShowCheckInModal(false);
-        // Refresh booking data
-        const fresh = await bookingService.fetchBookingById(bookingId);
-        if (fresh?.success) setBooking(fresh.booking);
+        showToastMessage(result.message || "Check-in confirmed successfully!", TOAST_TYPE.SUCCESS);
+
+        // Fetch fresh copy in the background (non-blocking)
+        bookingService.fetchBookingById(bookingId).then((fresh) => {
+          if (fresh?.success && fresh.booking) setBooking(fresh.booking);
+        }).catch(() => {});
       } else {
-        showToastMessage(result.message, TOAST_TYPE.ERROR);
+        showToastMessage(result.message || "Failed to confirm check-in", TOAST_TYPE.ERROR);
       }
     } catch (error) {
       showToastMessage("Something went wrong", TOAST_TYPE.ERROR);

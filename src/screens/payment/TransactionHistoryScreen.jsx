@@ -125,7 +125,7 @@ const TRANSACTION_CONFIG = {
   },
   SECURITY_DEPOSIT: {
     icon: "lock-closed-outline",
-    label: "Caution Fee",
+    label: "Caution Fee (Escrow)",
     color: "#EF6C00",
     flow: "outflow",
     description: "Refundable caution fee",
@@ -267,7 +267,7 @@ const STATUS_CONFIG = {
   ON_HOLD: {
     bg: "rgba(25, 45, 255, 0.2)",
     text: "#192DFF",
-    label: "On Hold",
+    label: "Escrow (On Hold)",
   },
   // AUDIT FIX: PROCESSING was missing — host earnings in 2-hour escrow window showed no badge
   PROCESSING: {

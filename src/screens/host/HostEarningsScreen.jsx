@@ -224,9 +224,15 @@ const HostEarningsScreen = () => {
         console.log("[HostEarnings] Transactions:", txnList);
 
         if (Array.isArray(txnList)) {
-          // Map to display format and filter client-side as a fail-safe
+          // Map to display format and filter internal breakdown lines to prevent duplicate history/earnings
           const mapped = txnList
             .filter((t) => t && typeof t === "object")
+            .filter((txn) => {
+              // Hide internal sub-breakdowns (e.g. internal RENT, SERVICE_CHARGE, VAT, PLATFORM_FEE)
+              if (txn.metadata?.internal === true) return false;
+              if (["RENT", "SERVICE_CHARGE", "VAT", "PLATFORM_FEE", "RENT_AND_SERVICE"].includes(txn.category || txn.type)) return false;
+              return true;
+            })
             .map((txn) => ({
               ...txn,
               displayType: txn.category || txn.type,
@@ -248,7 +254,7 @@ const HostEarningsScreen = () => {
 
           setTransactions(mapped);
 
-          // Calculate earnings summary
+          // Calculate earnings summary strictly from authoritative HOST_EARNING summaries
           let totalEarnings = 0;
           let pendingEarnings = 0;
           let paidOut = 0;
@@ -257,25 +263,13 @@ const HostEarningsScreen = () => {
             const status = (txn.status || "").toUpperCase();
             if (status === "FAILED" || status === "CANCELLED" || status === "REJECTED") return;
 
-            // Sum all earning-related categories, accounting for credits and debits
-            const isFinancialValue = [
-              "HOST_EARNING",
-              "RENT",
-              "SERVICE_CHARGE",
-              "SECURITY_DEPOSIT",
-              "CANCELLATION_PENALTY"
-            ].includes(txn.displayType) || txn.type === "CREDIT" || txn.type === "DEBIT";
+            // Only HOST_EARNING and explicit host payouts count towards host business earnings
+            const isEarningCategory = txn.displayType === "HOST_EARNING" || txn.category === "HOST_EARNING";
 
-            if (isFinancialValue) {
-              // Exclude non-earning categories like withdrawals, funding, and platform costs
-              if (["WITHDRAWAL", "TOP_UP", "REFUND", "VAT", "PLATFORM_FEE"].includes(txn.displayType)) return;
-
+            if (isEarningCategory) {
               const val = txn.type === "DEBIT" ? -txn.amount : txn.amount;
 
-              if (txn.status === "ON_HOLD" || txn.status === "PENDING") {
-                // SECURITY_DEPOSIT (Caution Fee) is held in escrow and is NOT an earning yet
-                if (txn.displayType === "SECURITY_DEPOSIT") return;
-                
+              if (txn.status === "ON_HOLD" || txn.status === "PENDING" || txn.status === "PROCESSING") {
                 pendingEarnings += val;
                 totalEarnings += val;
               } else if (txn.status === "COMPLETED") {
@@ -285,8 +279,8 @@ const HostEarningsScreen = () => {
             }
           });
 
-          const finalTotalEarnings = totalEarnings || statsData.totalEarnings || 0;
-          const finalPendingEarnings = pendingEarnings || statsData.pendingBalance || 0;
+          const finalTotalEarnings = totalEarnings > 0 ? totalEarnings : (statsData.totalEarnings || 0);
+          const finalPendingEarnings = pendingEarnings > 0 ? pendingEarnings : (statsData.pendingBalance || 0);
 
           setSummary({
             totalEarnings: finalTotalEarnings,

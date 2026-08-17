@@ -429,12 +429,13 @@ const BookingSummary = () => {
   const discountedGuestBase = discountedHostSubtotal + securityDeposit;
   
   // App fee and VAT calculated on DISCOUNTED guest base (Net Rent/SC + Full Caution)
-  const guestFeeBase = Math.round((discountedGuestBase * GUEST_FEE_PERCENT) / 100) || 0;
-  const guestVat = Math.round((guestFeeBase * VAT_PERCENT) / 100) || 0;
-  const appCharge = guestFeeBase + guestVat;
+  const round2 = (num) => Math.round((Number(num) + Number.EPSILON) * 100) / 100;
+  const guestFeeBase = round2((discountedGuestBase * GUEST_FEE_PERCENT) / 100) || 0;
+  const guestVat = round2((guestFeeBase * VAT_PERCENT) / 100) || 0;
+  const appCharge = round2(guestFeeBase + guestVat);
 
   // Final total = discounted subtotal + caution fee + app fee + VAT
-  const calculatedTotal = (discountedGuestBase || 0) + appCharge;
+  const calculatedTotal = round2((discountedGuestBase || 0) + appCharge);
   const total = isNaN(calculatedTotal) ? 0 : calculatedTotal;
   
   // Subtotal before coupon (for display)

@@ -196,9 +196,12 @@ const PayWithWalletScreen = () => {
     setIsProcessing(true);
 
     try {
-      // Get current user (use fresh profile data to ensure wallet info is up to date)
-      const profileResult = await authService.fetchProfile();
-      const currentUser = profileResult?.success ? profileResult.data : null;
+      // Get current user (try cached user data first for instant response)
+      let currentUser = await authService.getUserData();
+      if (!currentUser?._id && !currentUser?.id) {
+        const profileResult = await authService.fetchProfile();
+        currentUser = profileResult?.success ? profileResult.data : null;
+      }
 
       let result;
       let refCode;
@@ -223,7 +226,13 @@ const PayWithWalletScreen = () => {
         if (result.success) {
           refCode = result.booking?.referenceCode || generateRefCode();
 
-          // Navigate to booking confirmation
+          // Refresh wallet and profile queries in background
+          queryClient.invalidateQueries({ queryKey: ["walletInfo"] }).catch(() => {});
+          queryClient.invalidateQueries({ queryKey: ["userProfile"] }).catch(() => {});
+          authService.fetchProfile().catch(() => {});
+          fetchWalletBalance().catch(() => {});
+
+          // Navigate immediately to booking confirmation
           router.replace({
             pathname: "/booking-confirmation",
             params: {
@@ -238,16 +247,6 @@ const PayWithWalletScreen = () => {
               bookingId: bookingId,
             },
           });
-
-          // Refresh global wallet balance queries across the app
-          await queryClient.invalidateQueries({ queryKey: ["walletInfo"] });
-          await queryClient.invalidateQueries({ queryKey: ["userProfile"] });
-
-          // Refresh user profile to get updated wallet balance
-          await authService.fetchProfile();
-          
-          // Refresh local wallet balance
-          await fetchWalletBalance();
         } else {
           console.error("❌ [PayWithWalletScreen] updateBookingStatus failure:", result);
           Alert.alert(
@@ -286,7 +285,13 @@ const PayWithWalletScreen = () => {
           // Generate reference code
           refCode = result.booking?.referenceCode || generateRefCode();
 
-          // Navigate to booking confirmation
+          // Refresh wallet and profile queries in background
+          queryClient.invalidateQueries({ queryKey: ["walletInfo"] }).catch(() => {});
+          queryClient.invalidateQueries({ queryKey: ["userProfile"] }).catch(() => {});
+          authService.fetchProfile().catch(() => {});
+          fetchWalletBalance().catch(() => {});
+
+          // Navigate immediately to booking confirmation
           router.replace({
             pathname: "/booking-confirmation",
             params: {
@@ -301,16 +306,6 @@ const PayWithWalletScreen = () => {
               bookingId: result.booking?._id || result.booking?.id,
             },
           });
-
-          // Refresh global wallet balance queries across the app
-          await queryClient.invalidateQueries({ queryKey: ["walletInfo"] });
-          await queryClient.invalidateQueries({ queryKey: ["userProfile"] });
-
-          // Refresh user profile to get updated wallet balance
-          await authService.fetchProfile();
-          
-          // Refresh local wallet balance
-          await fetchWalletBalance();
         } else {
           Alert.alert(
             "Payment Failed",

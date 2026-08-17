@@ -2442,62 +2442,48 @@ const BookingConfirmationScreen = () => {
               </>
             ) : statusLower === "confirmed" ? (
               <>
-                {(isGuest || isHostView) && !booking?.guestCheckedIn && statusLower === "confirmed" ? (
-                  isCheckInArrival ? (
-                    <Pressable
-                      style={[styles.primaryButton, styles.buttonFlex, { backgroundColor: '#22C55E' }]}
-                      onPress={handleCheckIn}
-                      disabled={isCheckingIn}
-                    >
-                      {isCheckingIn ? (
-                        <ActivityIndicator color="#fff" size="small" />
-                      ) : (
-                        <Text style={styles.primaryButtonText}>Confirm Check-in</Text>
-                      )}
-                    </Pressable>
-                  ) : (
-                    <Pressable
-                      style={[styles.primaryButton, styles.buttonFlex]}
-                      onPress={handleShare}
-                    >
-                      <Text style={styles.primaryButtonText}>Share Booking</Text>
-                    </Pressable>
-                  )
+                {(isGuest || isHostView) && !booking?.guestCheckedIn && isCheckInArrival ? (
+                  <Pressable
+                    style={[styles.primaryButton, styles.buttonFlex, { backgroundColor: '#22C55E' }]}
+                    onPress={handleCheckIn}
+                    disabled={isCheckingIn}
+                  >
+                    {isCheckingIn ? (
+                      <ActivityIndicator color="#fff" size="small" />
+                    ) : (
+                      <Text style={styles.primaryButtonText} numberOfLines={1} adjustsFontSizeToFit>Confirm Check-in</Text>
+                    )}
+                  </Pressable>
                 ) : (
                   <Pressable
                     style={[styles.primaryButton, styles.buttonFlex]}
                     onPress={handleShare}
                   >
-                    <Text style={styles.primaryButtonText}>Share</Text>
+                    <Text style={styles.primaryButtonText} numberOfLines={1} adjustsFontSizeToFit>Share Booking</Text>
                   </Pressable>
                 )}
-                {/* Cancellation Button - Only if window hasn't passed and listing allows refunds */}
-                {!cancellationWindowPassed && !isCheckInToday && (booking?.listing?.acceptRefund !== false) && (
+
+                {/* Secondary Action: Cancel Stay OR Report Issue OR Go Home */}
+                {!cancellationWindowPassed && !isCheckInToday && (booking?.listing?.acceptRefund !== false) ? (
                   <Pressable
                     style={[styles.outlineDangerButton, styles.buttonFlex]}
                     onPress={() => setShowCancelModal(true)}
                   >
-                    <Text style={styles.outlineDangerButtonText}>Cancel Stay</Text>
+                    <Text style={styles.outlineDangerButtonText} numberOfLines={1} adjustsFontSizeToFit>Cancel Stay</Text>
                   </Pressable>
-                )}
-
-                {/* Share Booking Button as replacement for Cancel when non-refundable */}
-                {(booking?.listing?.acceptRefund === false) && (isCheckInToday || isCheckInArrival) && (
-                  <Pressable
-                    style={[styles.outlineButton, styles.buttonFlex, { marginLeft: 10 }]}
-                    onPress={handleShare}
-                  >
-                    <Text style={styles.outlineButtonText}>Share Booking</Text>
-                  </Pressable>
-                )}
-
-                {/* Report Issue Button - Only after cancellation window has passed or on check-in day */}
-                {(cancellationWindowPassed || isCheckInToday) && statusLower !== "disputed" && (
+                ) : (cancellationWindowPassed || isCheckInToday) && statusLower !== "disputed" ? (
                   <Pressable
                     style={[styles.outlineDangerButton, styles.buttonFlex]}
                     onPress={() => setShowDisputeModal(true)}
                   >
-                    <Text style={styles.outlineDangerButtonText}>Report Issue</Text>
+                    <Text style={styles.outlineDangerButtonText} numberOfLines={1} adjustsFontSizeToFit>Report Issue</Text>
+                  </Pressable>
+                ) : (
+                  <Pressable
+                    style={[styles.outlineButton, styles.buttonFlex]}
+                    onPress={handleGoHome}
+                  >
+                    <Text style={styles.outlineButtonText} numberOfLines={1} adjustsFontSizeToFit>Go Home</Text>
                   </Pressable>
                 )}
               </>
@@ -2507,13 +2493,13 @@ const BookingConfirmationScreen = () => {
                   style={[styles.primaryButton, styles.buttonFlex, { backgroundColor: "#010135" }]}
                   onPress={() => setShowExtendStayModal(true)}
                 >
-                  <Text style={styles.primaryButtonText}>Extend Stay</Text>
+                  <Text style={styles.primaryButtonText} numberOfLines={1} adjustsFontSizeToFit>Extend Stay</Text>
                 </Pressable>
                 <Pressable
-                  style={[styles.outlineButton, styles.buttonFlex, { marginLeft: 8 }]}
+                  style={[styles.outlineButton, styles.buttonFlex]}
                   onPress={() => setShowCheckoutModal(true)}
                 >
-                  <Text style={styles.outlineButtonText}>Check-out</Text>
+                  <Text style={styles.outlineButtonText} numberOfLines={1} adjustsFontSizeToFit>Check-out</Text>
                 </Pressable>
               </>
             ) : (
@@ -2522,13 +2508,13 @@ const BookingConfirmationScreen = () => {
                   style={[styles.primaryButton, styles.buttonFlex]}
                   onPress={handleShare}
                 >
-                  <Text style={styles.primaryButtonText}>Share</Text>
+                  <Text style={styles.primaryButtonText} numberOfLines={1} adjustsFontSizeToFit>Share</Text>
                 </Pressable>
                 <Pressable
-                  style={[styles.outlineButton, styles.buttonFlex, { marginLeft: 10 }]}
+                  style={[styles.outlineButton, styles.buttonFlex]}
                   onPress={handleGoHome}
                 >
-                  <Text style={styles.outlineButtonText}>Go Home</Text>
+                  <Text style={styles.outlineButtonText} numberOfLines={1} adjustsFontSizeToFit>Go Home</Text>
                 </Pressable>
               </>
             )}
@@ -3038,17 +3024,17 @@ const styles = StyleSheet.create({
   },
 
   // Buttons
-  // Buttons
   buttonRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 15,
+    gap: 10,
     justifyContent: "space-between",
   },
   buttonFlex: {
     flex: 1,
-    height: 50,
-    borderRadius: 25,
+    height: 46,
+    paddingHorizontal: 8,
+    borderRadius: 23,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -3057,9 +3043,10 @@ const styles = StyleSheet.create({
   },
   primaryButtonText: {
     color: "#fff",
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "700",
-    fontFamily: "Aeonik TRIAL", // As requested
+    fontFamily: "Aeonik TRIAL",
+    textAlign: "center",
   },
   outlineButton: {
     borderWidth: 1,
@@ -3068,9 +3055,10 @@ const styles = StyleSheet.create({
   },
   outlineButtonText: {
     color: "#010135",
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "700",
     fontFamily: "Aeonik TRIAL",
+    textAlign: "center",
   },
   outlineDangerButton: {
     borderWidth: 1,
@@ -3079,9 +3067,10 @@ const styles = StyleSheet.create({
   },
   outlineDangerButtonText: {
     color: "#b70808",
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "700",
     fontFamily: "Aeonik TRIAL",
+    textAlign: "center",
   },
 
   // Premium Review card styles

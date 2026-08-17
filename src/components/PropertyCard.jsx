@@ -128,8 +128,6 @@ const PropertyCard = ({
             priority="high"
             transition={200}
             cachePolicy="memory-disk"
-            placeholder={require("../assets/images/no-image.png")}
-
             onError={() => setImageError(true)}
           />
         ) : (

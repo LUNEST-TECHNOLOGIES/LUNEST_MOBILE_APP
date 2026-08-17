@@ -199,7 +199,7 @@ const PropertyDetails = () => {
     if ((draftData || Object.keys(params).length > 0) && !isInitialized.current) {
       const data = draftData || {};
       setPropertyTitle(data.propertyTitle || params.propertyTitle || "");
-      setRentalPurpose(data.rentalPurpose || data.purpose || params.rentalPurpose || params.purpose || null);
+      setRentalPurpose(data.rentalPurpose || data.purposeOfRent || data.purpose || params.rentalPurpose || params.purposeOfRent || params.purpose || null);
       setFurnishing(data.furnishing || params.furnishing || null);
       setBedrooms(Number(data.bedrooms || params.bedrooms || 0));
       setBathrooms(Number(data.bathrooms || params.bathrooms || 0));
@@ -229,9 +229,11 @@ const PropertyDetails = () => {
 
   // Auto-save function
   const updatePropertyDetails = (updates) => {
+    const currentPurpose = updates.rentalPurpose !== undefined ? updates.rentalPurpose : (rentalPurpose || null);
     const finalUpdates = {
       propertyTitle: updates.propertyTitle !== undefined ? updates.propertyTitle : propertyTitle,
-      rentalPurpose: updates.rentalPurpose !== undefined ? updates.rentalPurpose : rentalPurpose,
+      rentalPurpose: currentPurpose,
+      purposeOfRent: currentPurpose,
       furnishing:
         updates.furnishing !== undefined ? updates.furnishing : furnishing,
       bedrooms: updates.bedrooms !== undefined ? updates.bedrooms : bedrooms,
@@ -288,13 +290,15 @@ const PropertyDetails = () => {
       await saveDraftData({
         propertyTitle,
         rentalPurpose,
+        purposeOfRent: rentalPurpose,
+        purpose: rentalPurpose,
         furnishing: furnishing || "",
         bedrooms,
         bathrooms,
         sittingRooms,
         lounges,
         workspaces,
-        roomSizes: roomSizes.split(",").map(s => s.trim()).filter(s => s),
+        roomSizes: typeof roomSizes === 'string' ? roomSizes.split(",").map(s => s.trim()).filter(s => s) : (roomSizes || []),
         totalSquareFootage,
         usageType,
         guestCapacity,
@@ -327,13 +331,15 @@ const PropertyDetails = () => {
     await saveDraftData({
       propertyTitle,
       rentalPurpose,
+      purposeOfRent: rentalPurpose,
+      purpose: rentalPurpose,
       furnishing: furnishing || "",
       bedrooms,
       bathrooms,
       sittingRooms,
       lounges,
       workspaces,
-      roomSizes: roomSizes.split(",").map(s => s.trim()).filter(s => s),
+      roomSizes: typeof roomSizes === 'string' ? roomSizes.split(",").map(s => s.trim()).filter(s => s) : (roomSizes || []),
       totalSquareFootage,
       usageType,
       guestCapacity,
@@ -398,13 +404,15 @@ const PropertyDetails = () => {
     await saveDraftData({
       propertyTitle,
       rentalPurpose,
+      purposeOfRent: rentalPurpose,
+      purpose: rentalPurpose,
       furnishing: furnishing || "",
       bedrooms,
       bathrooms,
       sittingRooms,
       lounges,
       workspaces,
-      roomSizes: roomSizes.split(",").map(s => s.trim()).filter(s => s),
+      roomSizes: typeof roomSizes === 'string' ? roomSizes.split(",").map(s => s.trim()).filter(s => s) : (roomSizes || []),
       totalSquareFootage,
       usageType,
       guestCapacity,

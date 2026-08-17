@@ -71,6 +71,7 @@ const STATUS_CONFIG = {
     bgColor: "rgba(0, 0, 0, 0.6)",
   },
   DRAFT: { label: "DRAFT", color: "#6371F1", bgColor: "rgba(0, 0, 0, 0.6)" },
+  UNLISTED: { label: "UNLISTED", color: "#94A3B8", bgColor: "rgba(0, 0, 0, 0.6)" },
   EXPIRED: {
     label: "EXPIRED",
     color: "#FFFFFF",
@@ -158,10 +159,11 @@ const convertAmenitiesToIds = (amenities) => {
  * Status Badge Component
  */
 const StatusBadge = ({ status }) => {
-  const config = STATUS_CONFIG[status] || STATUS_CONFIG.DRAFT;
+  const upperStatus = status ? status.toUpperCase() : "DRAFT";
+  const config = STATUS_CONFIG[upperStatus] || STATUS_CONFIG[status] || STATUS_CONFIG.UNLISTED;
   // Normalize status for icon display (AVAILABLE/ACTIVE → LIVE)
   const normalizedStatus =
-    status === "AVAILABLE" || status === "ACTIVE" ? "LIVE" : status;
+    upperStatus === "AVAILABLE" || upperStatus === "ACTIVE" ? "LIVE" : upperStatus;
 
   return (
     <View style={styles.statusBadge}>
@@ -171,6 +173,7 @@ const StatusBadge = ({ status }) => {
         )}
         {normalizedStatus === "PENDING" && <ClockIcon width={14} height={14} color={config.color} />}
         {normalizedStatus === "DRAFT" && <EditIcon width={14} height={14} color={config.color} />}
+        {normalizedStatus === "UNLISTED" && <InfoIcon width={14} height={14} color={config.color} />}
         {normalizedStatus === "EXPIRED" && (
           <RefreshIcon width={14} height={14} color={config.color} />
         )}
@@ -205,13 +208,15 @@ const ListingCard = ({
 }) => {
   const router = useRouter();
   // Normalize status - AVAILABLE/ACTIVE are treated as LIVE
+  const upperStatus = listing.status ? listing.status.toUpperCase() : "DRAFT";
   const normalizedStatus =
-    listing.status === "AVAILABLE" || listing.status === "ACTIVE"
+    upperStatus === "AVAILABLE" || upperStatus === "ACTIVE"
       ? "LIVE"
-      : listing.status;
+      : upperStatus;
   const isLive = normalizedStatus === "LIVE";
   const isPending = normalizedStatus === "PENDING";
   const isDraft = normalizedStatus === "DRAFT";
+  const isUnlisted = normalizedStatus === "UNLISTED";
   const isExpired = normalizedStatus === "EXPIRED";
   const isPaused =
     normalizedStatus === "PAUSED" || normalizedStatus === "SUSPENDED";
@@ -1335,10 +1340,27 @@ const HostListingsScreen = () => {
         state: fullListing.state || "",
         country: fullListing.country || "Nigeria",
         postalCode: fullListing.postalCode || "",
+        latitude: fullListing.latitude || (locationData.coordinates && locationData.coordinates[0]) || 0,
+        longitude: fullListing.longitude || (locationData.coordinates && locationData.coordinates[1]) || 0,
+        propertyLocation: fullListing.propertyLocation || {
+          coordinates: [
+            fullListing.latitude || (locationData.coordinates && locationData.coordinates[0]) || 0,
+            fullListing.longitude || (locationData.coordinates && locationData.coordinates[1]) || 0
+          ],
+          fullAddress: fullListing.address || locationData.fullAddress || ""
+        },
         // Details
         description: fullListing.description || "",
         propertyHighlight: fullListing.description || "", // Alias for property-details screen
         propertyDescription: fullListing.description || "", // Additional alias
+        rentalPurpose: fullListing.rentalPurpose || fullListing.purposeOfRent || fullListing.purpose || "",
+        purposeOfRent: fullListing.purposeOfRent || fullListing.rentalPurpose || fullListing.purpose || "",
+        sittingRooms: fullListing.sittingRooms || 0,
+        lounges: fullListing.lounges || 0,
+        workspaces: fullListing.workspaces || 0,
+        roomSizes: Array.isArray(fullListing.roomSizes) ? fullListing.roomSizes : (typeof fullListing.roomSizes === 'string' ? fullListing.roomSizes.split(',').map(s => s.trim()).filter(Boolean) : []),
+        totalSquareFootage: fullListing.totalSquareFootage || "",
+        usageType: fullListing.usageType || "",
         bedrooms: fullListing.bedrooms || 0,
         bathrooms: fullListing.bathrooms || 0,
         guests: fullListing.guests || 1,
@@ -1350,9 +1372,11 @@ const HostListingsScreen = () => {
         price: fullListing.price || priceData.price || 0,
         pricingPeriod:
           fullListing.pricingPeriod || priceData.frequency || "night",
-        securityDeposit: fullListing.securityDeposit || priceData.securityDeposit || 0,
+        securityDeposit: fullListing.cautionFee || fullListing.securityDeposit || priceData.cautionFee || priceData.securityDeposit || 0,
+        cautionFee: fullListing.cautionFee || fullListing.securityDeposit || priceData.cautionFee || priceData.securityDeposit || 0,
         serviceCharge: fullListing.serviceCharge || priceData.serviceCharge || 0,
         cleaningFee: fullListing.cleaningFee || priceData.cleaningFee || 0,
+        acceptRefund: fullListing.acceptRefund !== undefined ? fullListing.acceptRefund : true,
         // Photos
         photos: photosList,
         // Amenities and features - convert labels to IDs for the amenities screen
@@ -1361,8 +1385,8 @@ const HostListingsScreen = () => {
         features: fullListing.features || [],
         regulations: fullListing.regulations || [],
         houseRules: fullListing.houseRules || "",
-        landmarks: fullListing.landmarks || [],
-        nearbyLandmarks: fullListing.landmarks || [],
+        landmarks: Array.isArray(fullListing.landmarks) ? fullListing.landmarks : (typeof fullListing.landmarks === 'string' ? JSON.parse(fullListing.landmarks || '[]') : []),
+        nearbyLandmarks: Array.isArray(fullListing.landmarks) ? fullListing.landmarks : (typeof fullListing.landmarks === 'string' ? JSON.parse(fullListing.landmarks || '[]') : []),
         // Property features
         furnishing: fullListing.furnishing || "",
         titleType: fullListing.titleType || "",

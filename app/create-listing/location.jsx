@@ -182,8 +182,12 @@ const Location = () => {
 
   // Auto-save function
   const updateLocation = (updates) => {
+    const currentLat = updates.latitude !== undefined ? updates.latitude : (propertyCoords?.lat || (draftData && draftData.latitude) || 0);
+    const currentLon = updates.longitude !== undefined ? updates.longitude : (propertyCoords?.lon || (draftData && draftData.longitude) || 0);
+    const finalAddress = updates.address !== undefined ? updates.address : address;
+
     const finalUpdates = {
-      address: updates.address !== undefined ? updates.address : address,
+      address: finalAddress,
       city: updates.city !== undefined ? updates.city : city,
       state: updates.state !== undefined ? updates.state : state,
       country: updates.country !== undefined ? updates.country : country,
@@ -193,6 +197,12 @@ const Location = () => {
         updates.landmarks !== undefined
           ? JSON.stringify(updates.landmarks.filter((l) => l.trim()))
           : JSON.stringify(landmarks.filter((l) => l.trim())),
+      latitude: currentLat,
+      longitude: currentLon,
+      propertyLocation: {
+        coordinates: [currentLat, currentLon],
+        fullAddress: finalAddress,
+      },
       currentStep: 4,
     };
 
@@ -202,6 +212,9 @@ const Location = () => {
     if (updates.country !== undefined) setCountry(updates.country);
     if (updates.postalCode !== undefined) setPostalCode(updates.postalCode);
     if (updates.landmarks !== undefined) setLandmarks(updates.landmarks);
+    if (updates.latitude !== undefined && updates.longitude !== undefined) {
+      setPropertyCoords({ lat: updates.latitude, lon: updates.longitude });
+    }
 
     debouncedSaveDraft(finalUpdates);
   };
@@ -417,7 +430,10 @@ const Location = () => {
         (draftData && draftData.draftId) ||
         draftId ||
         draftListingService.generateDraftId();
-      // include coords when saving
+      
+      const lat = propertyCoords?.lat || (draftData && draftData.latitude) || 0;
+      const lon = propertyCoords?.lon || (draftData && draftData.longitude) || 0;
+
       const savePayload = {
         address,
         city,
@@ -425,13 +441,15 @@ const Location = () => {
         country,
         postalCode,
         landmarks: JSON.stringify(landmarks),
+        latitude: lat,
+        longitude: lon,
+        propertyLocation: {
+          coordinates: [lat, lon],
+          fullAddress: address,
+        },
         currentStep: 4,
         draftId: finalDraftId,
       };
-      if (propertyCoords) {
-        savePayload.latitude = propertyCoords.lat;
-        savePayload.longitude = propertyCoords.lon;
-      }
 
       await saveDraftData(savePayload);
 
@@ -457,6 +475,9 @@ const Location = () => {
       draftId ||
       draftListingService.generateDraftId();
 
+    const lat = propertyCoords?.lat || (draftData && draftData.latitude) || 0;
+    const lon = propertyCoords?.lon || (draftData && draftData.longitude) || 0;
+
     const savePayload = {
       address,
       city,
@@ -464,13 +485,15 @@ const Location = () => {
       country,
       postalCode,
       landmarks: JSON.stringify(landmarks),
+      latitude: lat,
+      longitude: lon,
+      propertyLocation: {
+        coordinates: [lat, lon],
+        fullAddress: address,
+      },
       currentStep: 4,
       draftId: finalDraftId,
     };
-    if (propertyCoords) {
-      savePayload.latitude = propertyCoords.lat;
-      savePayload.longitude = propertyCoords.lon;
-    }
 
     // OPTIMIZATION: Trigger save in background and navigate immediately
     await saveDraftData(savePayload, { background: true });
@@ -487,6 +510,10 @@ const Location = () => {
         (draftData && draftData.draftId) ||
         draftId ||
         draftListingService.generateDraftId();
+
+      const lat = propertyCoords?.lat || (draftData && draftData.latitude) || 0;
+      const lon = propertyCoords?.lon || (draftData && draftData.longitude) || 0;
+
       const savePayload = {
         address,
         city,
@@ -494,13 +521,15 @@ const Location = () => {
         country,
         postalCode,
         landmarks: JSON.stringify(landmarks),
+        latitude: lat,
+        longitude: lon,
+        propertyLocation: {
+          coordinates: [lat, lon],
+          fullAddress: address,
+        },
         currentStep: 4,
         draftId: finalDraftId,
       };
-      if (propertyCoords) {
-        savePayload.latitude = propertyCoords.lat;
-        savePayload.longitude = propertyCoords.lon;
-      }
 
       // OPTIMIZATION: Trigger save in background and navigate immediately
       saveDraftData(savePayload, { background: true });

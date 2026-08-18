@@ -1109,7 +1109,6 @@ const BookingSummary = () => {
           showToast(result.message || "Failed to process booking. Please try again.", TOAST_TYPE.ERROR);
         }
       }
-      }
     } catch (error) {
       console.error("[BookingSummary] Error processing payment:", error);
       showToast(error?.message || "An error occurred. Please try again.", TOAST_TYPE.ERROR);

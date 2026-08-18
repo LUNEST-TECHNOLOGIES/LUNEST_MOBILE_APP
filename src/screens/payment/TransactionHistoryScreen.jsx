@@ -1039,13 +1039,18 @@ const TransactionHistoryScreen = () => {
       const baseLabel = isEscrow ? "Caution Fee (Escrow)" : (isOutflow ? "Caution Fee (Hold)" : "Caution Fee Refund");
       const resolutionStatus = item.metadata?.reconciliation?.cautionFeeStatus || item.metadata?.cautionFeeStatus;
       const isDisclosure = item.metadata?.isDisclosure;
-      
-      const recipientName = item.metadata?.reconciliation?.recipientName || 
-                           item.metadata?.recipientName || 
-                           (resolutionStatus === 'RELEASED_TO_GUEST' ? 'Guest' : resolutionStatus === 'RELEASED_TO_HOST' ? 'Host' : '');
+      const recipientRole = resolutionStatus === 'RELEASED_TO_GUEST' ? 'Guest' : resolutionStatus === 'RELEASED_TO_HOST' ? 'Host' : '';
+      const rawName = item.metadata?.reconciliation?.recipientName || item.metadata?.recipientName || '';
 
       if (resolutionStatus === 'RELEASED_TO_GUEST' || resolutionStatus === 'RELEASED_TO_HOST') {
-        displayLabel = isDisclosure ? `Released to ${recipientName}` : `Credited to ${recipientName}`;
+        const actionPrefix = isDisclosure ? 'Released to' : 'Credited to';
+        const formattedTarget = rawName && rawName.toLowerCase() !== recipientRole.toLowerCase()
+          ? `${rawName} (${recipientRole})`
+          : `(${recipientRole})`;
+
+        displayLabel = bookingRef 
+          ? `Caution Fee ${actionPrefix} ${formattedTarget} (#${bookingRef})`
+          : `Caution Fee ${actionPrefix} ${formattedTarget}`;
       } else {
         displayLabel = bookingRef ? `${baseLabel} (#${bookingRef})` : baseLabel;
       }

@@ -1,5 +1,6 @@
 import { differenceInDays, format, parse } from "date-fns";
 import * as Linking from "expo-linking";
+import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
@@ -962,7 +963,7 @@ const BookingSummary = () => {
 
           const selectedProvider = paymentData.paymentMethod === "kora" ? "kora" : "paystack";
           const paymentResult = await paymentService.initializePayment({
-            amount: finalGuestTotal,
+            amount: displayTotal,
             email,
             provider: selectedProvider,
             metadata: {

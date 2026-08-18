@@ -918,9 +918,9 @@ const BookingSummary = () => {
           showToast(result.message || "Failed to create reservation. Please try again.", TOAST_TYPE.ERROR);
         }
       } else if (
-        paymentData.paymentMethod === "paystack" ||
+        (paymentData.paymentMethod === "paystack" ||
         paymentData.paymentMethod === "card" ||
-        paymentData.paymentMethod === "kora"
+        paymentData.paymentMethod === "kora") && displayTotal > 0
       ) {
         try {
           setIsInitializingPayment(true);
@@ -1040,17 +1040,27 @@ const BookingSummary = () => {
           });
 
         } catch (paystackError) {
-          console.error("[BookingSummary] Paystack error:", paystackError);
+          console.error("[BookingSummary] Payment initialization error:", paystackError);
           showToast(paystackError.message || "Failed to process payment", TOAST_TYPE.ERROR);
         } finally {
           setIsInitializingPayment(false);
         }
       } else {
+        // Zero remaining balance (covered 100% by coupon or paid via wallet)
+        const isCouponCovered = displayTotal <= 0 && couponApplied;
         bookingData.status = "CONFIRMED";
+        if (isCouponCovered) {
+          bookingData.paymentMethod = "COUPON";
+          bookingData.totalAmount = { price: 0, currency: "NGN" };
+          if (bookingData.priceBreakdown) {
+            bookingData.priceBreakdown.paymentMethodUsed = "COUPON";
+            bookingData.priceBreakdown.amountPaidViaPayment = 0;
+          }
+        }
         const existingBookingIdFromParams = params?.bookingId || params?.existingBookingId;
         const result = existingBookingIdFromParams
           ? await bookingService.updateBookingStatus(existingBookingIdFromParams, "CONFIRMED", {
-              paymentMethod: "WALLET",
+              paymentMethod: isCouponCovered ? "COUPON" : "WALLET",
               pricingBreakdown: bookingData.priceBreakdown,
               couponCode: bookingData.couponCode,
               couponDiscount: bookingData.couponDiscount
@@ -1059,7 +1069,7 @@ const BookingSummary = () => {
 
         if (result.success) {
           setIsSuccess(true);
-          setSuccessMessage("Booking Confirmed!");
+          setSuccessMessage(isCouponCovered ? "Booking Confirmed via Coupon!" : "Booking Confirmed!");
 
           if (couponApplied && couponCode.trim()) {
             const referralService = (await import("../../services/referralService")).default;
@@ -1084,12 +1094,11 @@ const BookingSummary = () => {
               bookingType: bookingSummary.property.bookingType,
               checkIn: bookingSummary.property.checkIn,
               checkOut: bookingSummary.property.checkOut,
-              paymentMethod: "Wallet",
-              total: `₦${total.toLocaleString()}`,
+              paymentMethod: isCouponCovered ? "Coupon" : "Wallet",
+              total: isCouponCovered ? "₦0 (Covered by Coupon)" : `₦${total.toLocaleString()}`,
               refCode: result.booking?.referenceCode || generateRefCode(),
               bookingId: result.booking?._id,
               listingId: params?.listingId,
-              isPending: "true",
               couponApplied: couponApplied ? "true" : "false",
               couponCode: couponCode || "",
               couponDiscount: couponDiscount.toString(),
@@ -1097,8 +1106,9 @@ const BookingSummary = () => {
             },
           });
         } else {
-          showToast(result.message || "Failed to process payment. Please try again.", TOAST_TYPE.ERROR);
+          showToast(result.message || "Failed to process booking. Please try again.", TOAST_TYPE.ERROR);
         }
+      }
       }
     } catch (error) {
       console.error("[BookingSummary] Error processing payment:", error);

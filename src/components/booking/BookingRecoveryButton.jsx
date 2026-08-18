@@ -127,7 +127,7 @@ const BookingRecoveryButton = ({
               ]}
               numberOfLines={1}
             >
-              Paid? Verify with Paystack
+              Paid? Verify Payment
             </Text>
             <Ionicons 
               name="chevron-forward" 
@@ -179,7 +179,7 @@ const BookingRecoveryButton = ({
                 </View>
                 <Text style={styles.modalTitle}>Not Yet Confirmed</Text>
                 <Text style={styles.modalSubtext}>
-                  We couldn't confirm your payment just yet. If you just paid, it might take a moment to reflect.
+                  We couldn&apos;t confirm your payment just yet. If you just paid, it might take a moment to reflect.
                 </Text>
                 <Pressable 
                   style={styles.closeButton}

@@ -626,7 +626,7 @@ const BookingConfirmationScreen = () => {
           visible: true,
           type: 'loading',
           title: 'Verifying Payment',
-          message: 'Please wait while we confirm your payment status with Paystack...'
+          message: 'Please wait while we confirm your payment status with the payment gateway...'
         });
 
         try {
@@ -800,7 +800,7 @@ const BookingConfirmationScreen = () => {
         }
         return "This booking has been cancelled. Contact support for any questions.";
       case "pending_payment":
-        return "We are verifying your payment with Paystack. Please stay on this screen. Your booking will be confirmed automatically once verified.";
+        return "We are verifying your payment with the payment gateway. Please stay on this screen. Your booking will be confirmed automatically once verified.";
       case "disputed":
         return "An issue has been reported. This booking is currently under review by our team and funds are held in escrow.";
       default:

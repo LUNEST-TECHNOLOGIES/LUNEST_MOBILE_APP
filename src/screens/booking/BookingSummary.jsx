@@ -978,8 +978,11 @@ const BookingSummary = () => {
             },
           });
 
-          if (!paymentResult.authorization_url) {
-            showToast("Failed to initialize payment. Please try again.", TOAST_TYPE.ERROR);
+          const authUrl = paymentResult?.authorization_url || paymentResult?.data?.authorization_url || paymentResult?.checkout_url || paymentResult?.url;
+          const paymentRef = paymentResult?.reference || paymentResult?.data?.reference || paymentResult?.ref;
+
+          if (!authUrl) {
+            showToast(paymentResult?.message || "Failed to initialize payment. Please try again.", TOAST_TYPE.ERROR);
             setIsInitializingPayment(false);
             return;
           }
@@ -997,27 +1000,24 @@ const BookingSummary = () => {
           };
 
           if (Platform.OS === "web") {
-            localStorage.setItem("lunest_payment_context", JSON.stringify(paymentContext));
-            window.location.href = paymentResult.authorization_url;
+            if (typeof window !== "undefined") {
+              localStorage.setItem("lunest_payment_context", JSON.stringify(paymentContext));
+              window.location.href = authUrl;
+            }
             return;
           }
 
           // Save context + pending ref for AppState resume recovery
           await AsyncStorage.multiSet([
             ["lunest_payment_context", JSON.stringify(paymentContext)],
-            ["@lunest_pending_payment_ref", paymentResult.reference]
+            ["@lunest_pending_payment_ref", paymentRef || ""]
           ]);
-
-          if (Platform.OS === "web" && typeof window !== "undefined") {
-            window.location.href = paymentResult.authorization_url;
-            return;
-          }
 
           // Single unified browser open — same for iOS and Android
           let browserResult = { type: "dismissed" };
           try {
             browserResult = await WebBrowser.openAuthSessionAsync(
-              paymentResult.authorization_url,
+              authUrl,
               Linking.createURL("payment-callback"),
             );
           } catch (browserErr) {

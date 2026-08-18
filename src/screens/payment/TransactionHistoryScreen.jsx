@@ -264,10 +264,20 @@ const STATUS_CONFIG = {
     text: "#FD3131",
     label: "Failed",
   },
+  DISPUTED: {
+    bg: "rgba(220, 38, 38, 0.15)",
+    text: "#DC2626",
+    label: "Disputed",
+  },
   ON_HOLD: {
     bg: "rgba(25, 45, 255, 0.2)",
     text: "#192DFF",
-    label: "Escrow (On Hold)",
+    label: "In Escrow",
+  },
+  HELD: {
+    bg: "rgba(25, 45, 255, 0.2)",
+    text: "#192DFF",
+    label: "In Escrow",
   },
   // AUDIT FIX: PROCESSING was missing — host earnings in 2-hour escrow window showed no badge
   PROCESSING: {
@@ -1102,11 +1112,13 @@ const TransactionHistoryScreen = () => {
             style={[styles.statusBadge, { backgroundColor: statusConfig.bg }]}
           >
             <Text style={[styles.statusText, { color: statusConfig.text }]}>
-              {item.type === "HOST_EARNING" && item.status === "CANCELLED" 
-                ? "Reversed" 
-                : ((item.type === "HOST_EARNING" || item.type === "SECURITY_DEPOSIT") && (item.status === "ON_HOLD" || item.status === "PROCESSING"))
-                  ? "In Escrow"
-                  : statusConfig.label}
+              {item.status === "DISPUTED"
+                ? "Disputed"
+                : item.type === "HOST_EARNING" && item.status === "CANCELLED" 
+                  ? "Reversed" 
+                  : ((item.type === "HOST_EARNING" || item.type === "SECURITY_DEPOSIT") && (item.status === "ON_HOLD" || item.status === "PROCESSING"))
+                    ? "In Escrow"
+                    : statusConfig.label}
             </Text>
           </View>
           <Text

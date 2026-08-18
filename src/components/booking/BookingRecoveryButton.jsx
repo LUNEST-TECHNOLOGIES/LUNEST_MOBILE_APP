@@ -68,11 +68,6 @@ const BookingRecoveryButton = ({
       // Call the backend recovery route
       const response = await apiClient.get(`/v1/payment/recover-booking/${bookingId}`);
 
-      console.log('[BookingRecovery] Response:', response);
-
-      // Add a slight delay for better UX (so the modal doesn't flash)
-      await new Promise(resolve => setTimeout(resolve, 2500));
-
       // Check for success wrapping from CallBack.body (response.success && response.body?.success)
       const isSuccess = response.success && (
         response.body?.success === true || 
@@ -83,11 +78,11 @@ const BookingRecoveryButton = ({
       if (isSuccess) {
         setVerificationStatus('success');
         
-        // Wait a bit before closing and notifying
+        // Brief moment for user to see checkmark before transition
         setTimeout(() => {
           setModalVisible(false);
           if (onRecovered) onRecovered();
-        }, 3000);
+        }, 1200);
       } else {
         setVerificationStatus('not_found');
       }

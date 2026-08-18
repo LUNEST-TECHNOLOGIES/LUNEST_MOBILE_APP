@@ -630,9 +630,6 @@ const BookingConfirmationScreen = () => {
         });
 
         try {
-          // Add a small delay to allow webhook processing if possible
-          await new Promise(resolve => setTimeout(resolve, 1500));
-
           const result = await paymentService.recoverBooking(bookingId);
 
           if (result.success && result.booking?.status === 'CONFIRMED') {
@@ -648,7 +645,7 @@ const BookingConfirmationScreen = () => {
               setDownloadModalState(prev => ({ ...prev, visible: false }));
               // Clear the isPending param to prevent re-triggering on refresh
               router.setParams({ isPending: null });
-            }, 3000);
+            }, 1200);
           } else {
             // If still pending, just close the modal and let the user use the manual button if they wish
             // but show a hint that it might still be processing

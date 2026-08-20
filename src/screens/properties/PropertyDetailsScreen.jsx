@@ -1209,6 +1209,30 @@ const PropertyDetailsScreen = () => {
         return;
       }
 
+      // 4. Temporary Whitelist: Restrict booking pending host onboarding
+      const ALLOWED_BOOKING_EMAILS = [
+        "tayoakinnayajo@gmail.com",
+        "tayoakinnayajo@gmail",
+        "tayobabafemi@gmail.com",
+        "techwithtayo@gmail.com",
+        "rhodaalabi7@gmail.com",
+        "adeboye.daniel17@gmail.com",
+      ];
+      const normalizedEmail = String(userEmail).trim().toLowerCase();
+      const isAllowed = ALLOWED_BOOKING_EMAILS.some((allowed) => {
+        const target = allowed.trim().toLowerCase();
+        return normalizedEmail === target || normalizedEmail.startsWith(target);
+      });
+
+      if (!isAllowed) {
+        Alert.alert(
+          "Bookings Opening Soon",
+          "Instant bookings are temporarily disabled while we onboard verified hosts. Please stay tuned!",
+          [{ text: "OK" }]
+        );
+        return;
+      }
+
       // Get the cover image URL (first property image)
       const coverImageUrl = propertyImages?.[0]?.uri || "";
 

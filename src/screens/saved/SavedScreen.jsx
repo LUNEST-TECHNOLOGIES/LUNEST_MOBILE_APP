@@ -65,31 +65,61 @@ const SavedScreen = () => {
       if (unpopulatedListingIds.length > 0) {
         try {
           console.log("[SavedScreen] Hydrating bookmarks with string listing IDs:", unpopulatedListingIds);
-          const populatedListings = await Promise.all(
+          const populatedListings = await Promise.allSettled(
             unpopulatedListingIds.map(async (id) => {
-              const res = await listingService.fetchListingById(id);
-              return res.success ? res.listing : null;
+              try {
+                const res = await listingService.fetchListingById(id);
+                // If listing no longer exists (deleted/inactive), return null
+                return res.success && res.listing ? res.listing : null;
+              } catch (e) {
+                // Property was deleted or doesn't exist — silently skip
+                console.log(`[SavedScreen] Listing ${id} no longer exists, removing from saved`);
+                return null;
+              }
             })
           );
+
+          const validListings = populatedListings
+            .filter((r) => r.status === 'fulfilled' && r.value)
+            .map((r) => r.value);
+
+          // Auto-remove bookmarks pointing to deleted properties
+          const deletedIds = unpopulatedListingIds.filter(
+            (id) => !validListings.find((l) => l._id === id || l.id === id)
+          );
+          if (deletedIds.length > 0) {
+            console.log("[SavedScreen] Cleaning up bookmarks for deleted listings:", deletedIds);
+            // Remove stale bookmarks in the background (non-blocking)
+            deletedIds.forEach((deletedId) => {
+              const staleBookmark = bms.find((b) => b.listing === deletedId);
+              if (staleBookmark?._id) {
+                bookmarkService.deleteBookmark(staleBookmark._id).catch(() => {});
+              }
+            });
+          }
 
           return bms
             .map((b) => {
               if (typeof b.listing === "string") {
-                const found = populatedListings.find(
+                const found = validListings.find(
                   (l) => l && (l._id === b.listing || l.id === b.listing)
                 );
                 if (found) {
                   b.listing = found;
+                } else {
+                  // Listing doesn't exist anymore — mark for removal
+                  return null;
                 }
               }
               return b;
             })
-            .filter((b) => b.listing && typeof b.listing === "object");
+            .filter((b) => b && b.listing && typeof b.listing === "object");
         } catch (err) {
           console.error("[SavedScreen] Failed to hydrate bookmarks:", err);
         }
       }
 
+      // Filter out bookmarks where listing was deleted (populated but empty/null)
       // Ensure all listings have both id and _id defined for UI compatibility
       return bms
         .map((b) => {
@@ -99,7 +129,8 @@ const SavedScreen = () => {
           }
           return b;
         })
-        .filter((b) => b && b.listing && typeof b.listing === "object" && b.listing._id);
+        .filter((b) => b && b.listing && typeof b.listing === "object" && b.listing._id
+          && b.listing.propertyTitle !== undefined); // Extra check: listing must have a title
     },
     staleTime: 0,
     refetchOnMount: true,
@@ -361,14 +392,15 @@ const SavedScreen = () => {
           <View style={styles.featuresRow}>
             <View style={styles.featureItem}>
               <Ionicons name="bed" size={12} color="#6B7280" />
-              <Text style={styles.listingFeatures}>
-                {bedrooms} {bedrooms === 1 ? "Bedroom" : "Bedrooms"}
+              <Text style={styles.listingFeatures} numberOfLines={1}>
+                {bedrooms} {bedrooms === 1 ? "Bed" : "Beds"}
               </Text>
             </View>
+            <View style={styles.featureDot} />
             <View style={styles.featureItem}>
               <Ionicons name="water" size={12} color="#6B7280" />
-              <Text style={styles.listingFeatures}>
-                {bathrooms} {bathrooms === 1 ? "Bathroom" : "Bathrooms"}
+              <Text style={styles.listingFeatures} numberOfLines={1}>
+                {bathrooms} {bathrooms === 1 ? "Bath" : "Baths"}
               </Text>
             </View>
           </View>
@@ -661,13 +693,21 @@ const styles = StyleSheet.create({
   featuresRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 6,
     marginTop: 2,
+    flexWrap: "nowrap",
   },
   featureItem: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: 3,
+    flexShrink: 1,
+  },
+  featureDot: {
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: "#9CA3AF",
   },
   titleRowSmall: {
     flexDirection: "row",

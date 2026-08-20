@@ -276,10 +276,29 @@ export default function PaymentCallbackScreen() {
       // Map incoming status to a simple flag — we always verify regardless
       const incomingStatus = (params.status || "").toLowerCase();
       if (["failed", "cancelled", "error"].includes(incomingStatus)) {
+        // Still verify with backend so transaction + booking get updated to FAILED
+        console.log(`[PaymentCallback] Incoming status is "${incomingStatus}" — verifying with backend to confirm failure`);
+        setMessage("Confirming payment status...");
+        try {
+          const result = await paymentService.verifyPayment(ref);
+          console.log("[PaymentCallback] Verification result for failed payment:", result?.status);
+          
+          if (result.status === "COMPLETED" || result.status === "success") {
+            // Payment actually succeeded despite the incoming status (race condition)
+            verifyPayment(ref);
+            return;
+          }
+        } catch (verifyErr) {
+          console.log("[PaymentCallback] Verification confirmed failure:", verifyErr?.message);
+        }
+
+        // Payment truly failed — show the error
+        setPaymentRef(ref);
         setStatus("error");
-        setMessage("Payment was not completed.");
+        setMessage("Payment was not completed. Please try again.");
         return;
       }
+
 
       verifyPayment(ref);
     };

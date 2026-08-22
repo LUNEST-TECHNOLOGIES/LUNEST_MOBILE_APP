@@ -28,9 +28,11 @@ import PaymentMethodModal from "../../components/modals/PaymentMethodModal";
 import authService from "../../services/authService";
 import bookingService from "../../services/bookingService";
 import configService from "../../services/configService";
+import listingService from "../../services/listingService";
 import paymentService from "../../services/paymentService";
 import profileService from "../../services/profileService";
 import { getUserData } from "../../services/userDataService";
+import * as ImageUtils from "../../utils/imageUtils";
 
 // Default property image fallback
 const DEFAULT_PROPERTY_IMAGE = require("../../assets/images/prop_image.png");
@@ -57,7 +59,9 @@ const BookingSummary = () => {
   const [isSuccess, setIsSuccess] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
   const [fetchedBooking, setFetchedBooking] = useState(null);
+  const [fetchedListing, setFetchedListing] = useState(null);
   const [isFetchingBooking, setIsFetchingBooking] = useState(false);
+  const [imageError, setImageError] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [baseURL, setBaseURL] = useState("");
 
@@ -101,16 +105,27 @@ const BookingSummary = () => {
 
   // Cover image URL resolution with base URL normalization and fallback to fetched booking listings
   const coverImage = (() => {
-    const rawCover = params.coverImage || fetchedBooking?.listing?.propertyImages?.[0] || fetchedBooking?.listing?.images?.[0];
-    const coverUrlStr = typeof rawCover === 'object' ? (rawCover?.url || rawCover?.uri || '') : (rawCover ? String(rawCover) : '');
-    if (!coverUrlStr || coverUrlStr === 'undefined' || coverUrlStr === 'null' || coverUrlStr === '[object Object]') {
+    const rawCover = params.coverImage || 
+      fetchedBooking?.listing?.propertyImages?.[0] || 
+      fetchedBooking?.listing?.images?.[0] || 
+      fetchedListing?.propertyImages?.[0] || 
+      fetchedListing?.images?.[0];
+
+    if (!rawCover || rawCover === "null" || rawCover === "undefined" || typeof rawCover === "number") {
       return null;
     }
-    if (coverUrlStr.startsWith("http") || coverUrlStr.startsWith("https") || coverUrlStr.startsWith("blob:") || coverUrlStr.startsWith("data:")) {
+
+    const resolved = ImageUtils.resolveImageUrlSync(rawCover, baseURL);
+    if (resolved && (resolved.startsWith("http") || resolved.startsWith("blob:") || resolved.startsWith("data:"))) {
+      return resolved;
+    }
+
+    const coverUrlStr = typeof rawCover === 'object' && (rawCover?.url || rawCover?.uri) ? (rawCover.url || rawCover.uri) : String(rawCover);
+    if (coverUrlStr.startsWith("http") || coverUrlStr.startsWith("blob:") || coverUrlStr.startsWith("data:")) {
       return coverUrlStr;
     }
-    if (baseURL) {
-      return `${baseURL}${coverUrlStr.startsWith("/") ? "" : "/"}${coverUrlStr}`;
+    if (baseURL && coverUrlStr && !coverUrlStr.includes('[object')) {
+      return `${baseURL.replace(/\/$/, "")}/${coverUrlStr.replace(/^\//, "")}`;
     }
     return null;
   })();
@@ -220,6 +235,17 @@ const BookingSummary = () => {
   useEffect(() => {
     authService.getUserData().then(data => setUserData(data)).catch(() => {});
     
+    // Fetch listing details if listingId is provided (for fresh bookings)
+    if (listingId) {
+      listingService.fetchListingById(listingId)
+        .then(res => {
+          if (res?.success && res?.listing) {
+            setFetchedListing(res.listing);
+          }
+        })
+        .catch(err => console.warn("[BookingSummary] Fetch listing error:", err));
+    }
+
     // Fetch existing booking if bookingId is provided
     if (existingBookingId) {
       // Ensure we have a string ID if it's somehow an object
@@ -246,7 +272,7 @@ const BookingSummary = () => {
         .catch(err => console.error("[BookingSummary] Fetch booking error:", err))
         .finally(() => setIsFetchingBooking(false));
     }
-  }, [existingBookingId]);
+  }, [existingBookingId, listingId]);
 
   // Format date for display (e.g., "15 Jun, 2025")
   const formatDisplayDate = (dateStr) => {
@@ -395,12 +421,29 @@ const BookingSummary = () => {
       periodLabel = "night";
   }
 
+  const parsedPriceBreakdown = (() => {
+    try {
+      if (params.priceBreakdown) {
+        return typeof params.priceBreakdown === 'string' ? JSON.parse(params.priceBreakdown) : params.priceBreakdown;
+      }
+    } catch (e) {}
+    return null;
+  })();
+
   // Service charge (set by host) - comes from listing, NOT a percentage
-  const rawServiceCharge = parseFloat(params?.serviceCharge);
+  const rawServiceCharge = parseFloat(
+    params?.serviceCharge !== undefined && params?.serviceCharge !== null && params?.serviceCharge !== ''
+      ? params.serviceCharge
+      : (parsedPriceBreakdown?.serviceCharge ?? fetchedListing?.serviceCharge ?? fetchedListing?.cleaningFee ?? 0)
+  );
   const serviceCharge = isNaN(rawServiceCharge) ? 0 : rawServiceCharge;
   
   // Caution Fee (set by host, refundable) - comes from listing
-  const rawSecurityDeposit = parseFloat(params?.securityDeposit);
+  const rawSecurityDeposit = parseFloat(
+    params?.securityDeposit !== undefined && params?.securityDeposit !== null && params?.securityDeposit !== ''
+      ? params.securityDeposit
+      : (parsedPriceBreakdown?.deposit ?? fetchedListing?.cautionFee ?? fetchedListing?.securityDeposit ?? 0)
+  );
   const securityDeposit = isNaN(rawSecurityDeposit) ? 0 : rawSecurityDeposit;
   
   // Logic: If rentalPrice looks like a full total (e.g. from legacy BookingsScreen), 
@@ -1179,12 +1222,16 @@ const BookingSummary = () => {
               {/* Property Cover Image */}
               <Image
                 source={
-                  bookingSummary.property.coverImage
+                  !imageError && bookingSummary.property.coverImage
                     ? { uri: bookingSummary.property.coverImage }
                     : DEFAULT_PROPERTY_IMAGE
                 }
                 style={styles.propertyImage}
                 resizeMode="cover"
+                onError={() => {
+                  console.warn("[BookingSummary] Cover image failed to load, falling back to default asset");
+                  setImageError(true);
+                }}
               />
 
               {/* Property Details */}

@@ -69,6 +69,36 @@ const SelectBookingDetailsScreen = () => {
   const pricingPeriod = params.pricingPeriod || "night";
   const hostId = params.hostId || "";
 
+  const [listingData, setListingData] = React.useState(null);
+
+  // Fetch listing data as a safety net if any key parameter is missing
+  React.useEffect(() => {
+    if (listingId) {
+      import("../../services/listingService").then(({ default: listingService }) => {
+        listingService.fetchListingById(listingId).then(res => {
+          if (res?.success && res?.listing) {
+            setListingData(res.listing);
+          }
+        }).catch(err => console.warn("[SelectBookingDetails] Error fetching listing:", err));
+      });
+    }
+  }, [listingId]);
+
+  const activePrice = Number(propertyPrice || listingData?.propertyPrice?.price || listingData?.price || 0);
+  const activeSecurityDeposit = Number(
+    propertySecurityDeposit !== undefined && propertySecurityDeposit !== null && propertySecurityDeposit !== ''
+      ? propertySecurityDeposit
+      : (listingData?.cautionFee ?? listingData?.securityDeposit ?? 0)
+  );
+  const activeServiceCharge = Number(
+    propertyServiceCharge !== undefined && propertyServiceCharge !== null && propertyServiceCharge !== ''
+      ? propertyServiceCharge
+      : (listingData?.serviceCharge ?? listingData?.cleaningFee ?? 0)
+  );
+  const rawCover = propertyCoverImage || listingData?.propertyImages?.[0] || listingData?.images?.[0];
+  const activeCoverImage = typeof rawCover === 'string' ? rawCover : (rawCover?.url || rawCover?.uri || '');
+  const activeHostId = hostId || listingData?.host?._id || listingData?.host?.id || listingData?.hostInfo?._id || "";
+
   const [pets, setPets] = React.useState(null);
   const [showBookingTypeDropdown, setShowBookingTypeDropdown] =
     React.useState(false);
@@ -93,9 +123,9 @@ const SelectBookingDetailsScreen = () => {
 
   // Price breakdown state derived from selections
   const calculateBreakdown = () => {
-    const priceNum = Number(propertyPrice) || 0;
-    const depositNum = Number(propertySecurityDeposit) || 0;
-    const serviceChargeNum = Number(propertyServiceCharge) || 0;
+    const priceNum = activePrice || 0;
+    const depositNum = activeSecurityDeposit || 0;
+    const serviceChargeNum = activeServiceCharge || 0;
     let durationCount = 1;
     const period = pricingPeriod.toLowerCase();
 
@@ -239,12 +269,12 @@ const SelectBookingDetailsScreen = () => {
         params: {
           listingId: listingId,
           propertyName: propertyName,
-          price: propertyPrice,
-          securityDeposit: propertySecurityDeposit,
-          serviceCharge: propertyServiceCharge,
+          price: activePrice,
+          securityDeposit: activeSecurityDeposit,
+          serviceCharge: activeServiceCharge,
           priceBreakdown: JSON.stringify(breakdown),
           location: propertyLocation,
-          coverImage: propertyCoverImage,
+          coverImage: activeCoverImage,
           adults: adults,
           children: children,
           pets: pets,
@@ -253,7 +283,7 @@ const SelectBookingDetailsScreen = () => {
           checkOutDate: checkOutDate ? formatDate(checkOutDate) : null,
           notes: notes,
           pricingPeriod: pricingPeriod,
-          hostId: hostId,
+          hostId: activeHostId,
         },
       });
     }

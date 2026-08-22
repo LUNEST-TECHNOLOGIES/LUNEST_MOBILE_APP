@@ -1234,7 +1234,8 @@ const PropertyDetailsScreen = () => {
       }
 
       // Get the cover image URL (first property image)
-      const coverImageUrl = propertyImages?.[0]?.uri || "";
+      const rawCover = listing?.propertyImages?.[0] || propertyImages?.[0]?.uri || propertyImages?.[0];
+      const coverImageUrl = typeof rawCover === 'string' ? rawCover : (rawCover?.url || rawCover?.uri || "");
 
       // Pass listing data to booking screen
       router.push({
@@ -1243,21 +1244,22 @@ const PropertyDetailsScreen = () => {
           listingId: propertyData.id,
           propertyName: propertyData.title,
           price: listing.propertyPrice?.price || listing.price || 0,
-          pricingPeriod: listing.pricingPeriod || "night",
+          pricingPeriod: listing.pricingPeriod || listing.propertyPrice?.frequency || "night",
           regulations: JSON.stringify(propertyData.regulations),
           maxGuests: listing.guests || 10,
           bedrooms: listing.bedrooms || 0,
           bathrooms: listing.bathrooms || 0,
           location: propertyData.location,
           coverImage: coverImageUrl,
-          securityDeposit: listing.securityDeposit || 0,
+          securityDeposit: listing.cautionFee !== undefined && listing.cautionFee !== null ? listing.cautionFee : (listing.securityDeposit || 0),
           serviceCharge:
             listing.serviceCharge !== undefined &&
               listing.serviceCharge !== null
               ? listing.serviceCharge
-              : listing.cleaningFee || 0,
+              : (listing.cleaningFee || 0),
           petsFriendly: listing.petsFriendly !== false ? "true" : "false",
           childrenAllowed: listing.childrenAllowed !== false ? "true" : "false",
+          hostId: listing.host?._id || listing.host?.id || listing.hostInfo?._id || "",
         },
       });
     } catch (e) {

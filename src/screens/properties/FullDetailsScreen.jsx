@@ -484,12 +484,13 @@ const FullDetailsScreen = () => {
 
   // Get cover image from listing
   const getCoverImage = () => {
-    if (listing?.images && listing.images.length > 0) {
-      const firstImage = listing.images[0];
+    const rawImages = listing?.propertyImages || listing?.images || listing?.photos || [];
+    if (rawImages.length > 0) {
+      const firstImage = rawImages[0];
       if (typeof firstImage === "string") {
         return firstImage;
-      } else if (firstImage?.url) {
-        return firstImage.url;
+      } else if (firstImage?.url || firstImage?.uri) {
+        return firstImage.url || firstImage.uri;
       }
     }
     return null;
@@ -518,12 +519,14 @@ const FullDetailsScreen = () => {
       if (!isKycVerified) {
         try {
           const freshProfile = await authService.fetchProfile();
-          const freshUser = freshProfile?.data || freshProfile?.body || freshProfile || {};
-          if (freshUser && (freshUser.verified === true || freshUser.kycStatus === "VERIFIED" || freshUser.kycStatus === "APPROVED")) {
-            isKycVerified = true;
+          if (freshProfile?.success && freshProfile?.user) {
+            isKycVerified =
+              freshProfile.user.verified === true ||
+              freshProfile.user.kycStatus === "VERIFIED" ||
+              freshProfile.user.kycStatus === "APPROVED";
           }
-        } catch (err) {
-          console.warn("[FullDetailsScreen] Live profile check error:", err);
+        } catch (e) {
+          console.warn("[FullDetailsScreen] Live KYC check error:", e);
         }
       }
 
@@ -532,15 +535,17 @@ const FullDetailsScreen = () => {
         return;
       }
 
-      // Temporary Whitelist: Restrict booking pending host onboarding
-      const userEmail = profileData?.email || profileData?.emailAddress || currentUser?.email || currentUser?.emailAddress;
+      // Pre-booking validation
+      const userEmail =
+        currentUser?.emailAddress ||
+        currentUser?.email ||
+        profileData?.emailAddress ||
+        profileData?.email ||
+        "";
+
       const ALLOWED_BOOKING_EMAILS = [
-        "tayoakinnayajo@gmail.com",
-        "tayoakinnayajo@gmail",
-        "tayobabafemi@gmail.com",
-        "techwithtayo@gmail.com",
-        "rhodaalabi7@gmail.com",
-        "adeboye.daniel17@gmail.com",
+        "akinnayajoakintayo@gmail.com",
+        "akintayoakinnayajo@gmail.com",
       ];
       const normalizedEmail = String(userEmail || "").trim().toLowerCase();
       const isAllowed = ALLOWED_BOOKING_EMAILS.some((allowed) => {
@@ -564,12 +569,15 @@ const FullDetailsScreen = () => {
       pathname: "/select-booking-details",
       params: {
         listingId: listingId,
-        propertyName: listing?.propertyName || "Property",
-        price: listing?.price || 0,
-        securityDeposit: listing?.securityDeposit || 0,
+        propertyName: listing?.propertyName || listing?.propertyTitle || "Property",
+        price: listing?.price || listing?.propertyPrice?.price || 0,
+        pricingPeriod: listing?.pricingPeriod || listing?.propertyPrice?.frequency || "night",
+        securityDeposit: listing?.cautionFee !== undefined && listing?.cautionFee !== null ? listing.cautionFee : (listing?.securityDeposit || 0),
+        serviceCharge: listing?.serviceCharge !== undefined && listing?.serviceCharge !== null ? listing.serviceCharge : (listing?.cleaningFee || 0),
         location:
-          listing?.location?.address || listing?.location?.city || "Nigeria",
+          listing?.location?.address || listing?.location?.city || listing?.address || "Nigeria",
         coverImage: getCoverImage(),
+        hostId: listing?.host?._id || listing?.host?.id || listing?.hostInfo?._id || "",
       },
     });
   };

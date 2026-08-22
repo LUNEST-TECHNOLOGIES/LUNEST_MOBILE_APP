@@ -254,6 +254,11 @@ const SelectBookingDetailsScreen = () => {
       console.warn("[SelectBookingDetails] Profile check failed:", e);
     }
 
+    if (!checkInDate || !checkOutDate) {
+      showToast("Please select your check-in and check-out dates to proceed", TOAST_TYPE.INFO);
+      return;
+    }
+
     if (isBookingAvailable()) {
       const validation = validateBookingPeriod();
       if (!validation.valid) {
@@ -683,12 +688,12 @@ const SelectBookingDetailsScreen = () => {
           ]}
         >
           <Pressable
-            style={[
+            style={({ pressed }) => [
               styles.buttonStyle2,
               !isBookingAvailable() && styles.buttonDisabled,
+              pressed && { opacity: 0.9, transform: [{ scale: 0.99 }] },
             ]}
             onPress={handleContinueBooking}
-            disabled={!isBookingAvailable()}
           >
             <Text
               style={[

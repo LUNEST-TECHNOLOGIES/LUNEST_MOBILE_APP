@@ -51,6 +51,7 @@ import ImageViewerModal from "../../components/modals/ImageViewerModal";
 import KycRequiredModal from "../../components/modals/KycRequiredModal";
 import ReviewFeedbackModal from "../../components/modals/ReviewFeedbackModal";
 import VerifiedInfoOverlay from "../../components/modals/VerifiedInfoOverlay";
+import BookingDisabledModal from "../../components/modals/BookingDisabledModal";
 import PropertyDetailsSkeleton from "../../components/skeletons/PropertyDetailsSkeleton";
 import SkeletonPlaceholder from "../../components/skeletons/SkeletonPlaceholder";
 import ToastNotification, { TOAST_TYPE } from "../../components/common/ToastNotification";
@@ -275,6 +276,13 @@ const PropertyDetailsScreen = () => {
   const [viewerImages, setViewerImages] = useState([]); // Added viewerImages
   const [baseURL, setBaseURL] = useState("");
   const [imageErrors, setImageErrors] = useState({});
+  const [showBookingDisabledModal, setShowBookingDisabledModal] = useState(false);
+  const [disabledModalConfig, setDisabledModalConfig] = useState({
+    title: "Instant Bookings Opening Soon",
+    subtitle: "Early Access Preview",
+    message: "Instant bookings on LUNEST are temporarily reserved for early beta testers while we onboard verified hosts and complete on-site property certifications.",
+    buttonText: "Got it, Explore Stays",
+  });
   const queryClient = useQueryClient();
 
   // Toast Notification state
@@ -1152,6 +1160,30 @@ const PropertyDetailsScreen = () => {
   };
 
   const handleBooking = async () => {
+    // Check if property is booked
+    if (propertyData.isBooked) {
+      setDisabledModalConfig({
+        title: "Property Currently Booked",
+        subtitle: "Currently Occupied",
+        message: "This accommodation is currently booked and occupied for the selected dates. Please check back later or explore other available verified stays on LUNEST.",
+        buttonText: "Browse Other Stays",
+      });
+      setShowBookingDisabledModal(true);
+      return;
+    }
+
+    // Check if property is paused or unavailable
+    if (propertyData.isPaused || propertyData.isUnavailable) {
+      setDisabledModalConfig({
+        title: "Property Temporarily Unavailable",
+        subtitle: "Listing Maintenance",
+        message: "This property is temporarily unavailable while the host updates listing details. Please browse other active accommodations on LUNEST.",
+        buttonText: "Explore Other Stays",
+      });
+      setShowBookingDisabledModal(true);
+      return;
+    }
+
     try {
       // 1. Fetch user profile from storage & authService
       let currentUser = (await getUserData()) || (await authService.getUserData()) || {};
@@ -1211,6 +1243,8 @@ const PropertyDetailsScreen = () => {
 
       // 4. Temporary Whitelist: Restrict booking pending host onboarding
       const ALLOWED_BOOKING_EMAILS = [
+        "akinnayajoakintayo@gmail.com",
+        "akintayoakinnayajo@gmail.com",
         "tayoakinnayajo@gmail.com",
         "tayoakinnayajo@gmail",
         "tayobabafemi@gmail.com",
@@ -1225,11 +1259,13 @@ const PropertyDetailsScreen = () => {
       });
 
       if (!isAllowed) {
-        Alert.alert(
-          "Bookings Opening Soon",
-          "Instant bookings are temporarily disabled while we onboard verified hosts. Please stay tuned!",
-          [{ text: "OK" }]
-        );
+        setDisabledModalConfig({
+          title: "Instant Bookings Opening Soon",
+          subtitle: "Early Access Preview",
+          message: "Instant bookings on LUNEST are temporarily restricted to early preview testers while we onboard verified hosts and complete on-site quality certifications.",
+          buttonText: "Got it, Explore Stays",
+        });
+        setShowBookingDisabledModal(true);
         return;
       }
 
@@ -2207,12 +2243,12 @@ const PropertyDetailsScreen = () => {
       {/* Fixed Book Button */}
       <View style={[styles.bookButtonContainer, { paddingBottom: Math.max(insets.bottom, 20) }]}>
         <Pressable
-          style={[
+          style={({ pressed }) => [
             styles.bookButton,
             (propertyData.isBooked || propertyData.isPaused || propertyData.isUnavailable) &&
             styles.bookButtonDisabled,
+            pressed && { opacity: 0.9, transform: [{ scale: 0.99 }] },
           ]}
-          disabled={propertyData.isBooked || propertyData.isPaused || propertyData.isUnavailable}
           onPress={handleBooking}
         >
           <Text
@@ -2234,6 +2270,16 @@ const PropertyDetailsScreen = () => {
       <KycRequiredModal
         visible={showKycModal}
         onClose={() => setShowKycModal(false)}
+      />
+
+      {/* Booking Disabled / Info Modal */}
+      <BookingDisabledModal
+        visible={showBookingDisabledModal}
+        onClose={() => setShowBookingDisabledModal(false)}
+        title={disabledModalConfig.title}
+        subtitle={disabledModalConfig.subtitle}
+        message={disabledModalConfig.message}
+        buttonText={disabledModalConfig.buttonText}
       />
 
       {/* Phone Number Required Modal */}

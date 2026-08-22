@@ -453,22 +453,32 @@ const TransactionHistoryScreen = () => {
           return;
         }
 
-        // Filter out invalid transactions
-        const validTxns = txnList.filter(
-          (txn) => txn && typeof txn === "object",
-        );
-        console.log(
-          "[TransactionHistory] Valid transactions:",
-          validTxns.length,
-        );
+        // Filter out internal and disclosure transactions
+        const nonInternalTxns = validTxns.filter((txn) => {
+          const meta = txn.metadata || {};
+          if (meta.internal === true || meta.isDisclosure === true) return false;
+          return true;
+        });
 
-        // Remove duplicates based on unique identifiers
-        const uniqueTxns = validTxns.filter((txn, index, self) => {
-          // Create unique key based on multiple fields to identify duplicates
-          // AUDIT: Include category in uniqueKey to prevent different split items (Rent/Service) from being deduplicated
-          const uniqueKey = `${txn.type}_${txn.category || ''}_${txn.amount}_${txn.timestamp || txn.createdAt}_${txn.bookingRef || txn.metadata?.bookingRef || ''}`;
+        // Remove duplicates based on unique reference or ID or composite key
+        const uniqueTxns = nonInternalTxns.filter((txn, index, self) => {
+          // 1. If unique database _id is present, check by _id
+          const txnId = txn._id || txn.id;
+          if (txnId) {
+            const firstIdxById = self.findIndex((t) => (t._id || t.id) === txnId);
+            if (firstIdxById !== index) return false;
+          }
+
+          // 2. If reference is present, check by reference
+          if (txn.reference) {
+            const firstIdxByRef = self.findIndex((t) => t.reference && t.reference === txn.reference);
+            if (firstIdxByRef !== index) return false;
+          }
+
+          // 3. Fallback composite key
+          const uniqueKey = `${txn.type}_${txn.category || ''}_${txn.amount}_${txn.timestamp || txn.createdAt}_${txn.bookingRef || txn.bookingId || txn.metadata?.bookingRef || ''}`;
           return index === self.findIndex((t) => 
-            `${t.type}_${t.category || ''}_${t.amount}_${t.timestamp || t.createdAt}_${t.bookingRef || t.metadata?.bookingRef || ''}` === uniqueKey
+            `${t.type}_${t.category || ''}_${t.amount}_${t.timestamp || t.createdAt}_${t.bookingRef || t.bookingId || t.metadata?.bookingRef || ''}` === uniqueKey
           );
         });
         

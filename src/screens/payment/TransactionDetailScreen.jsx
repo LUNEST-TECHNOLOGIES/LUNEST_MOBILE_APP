@@ -1119,16 +1119,21 @@ const TransactionDetailScreen = () => {
 
                         {/* Resolution Status Note */}
                         {currentBreakdown.resolution && (
-                          <Text style={{ fontSize: 11, color: '#888', marginTop: 8, fontStyle: 'italic' }}>
+                          <Text style={{ fontSize: 11, color: '#666', marginTop: 8, fontStyle: 'italic' }}>
                             {currentBreakdown.resolution === 'RELEASED_TO_GUEST' 
-                              ? 'No damages reported — deposit refunded after fees.' 
+                              ? 'No damages reported — deposit refunded to wallet.' 
                               : currentBreakdown.resolution === 'CLAIMED_BY_HOST' 
                                 ? 'Full deposit claimed by host for damages.'
-                                : currentBreakdown.resolution === 'SPLIT'
-                                  ? 'Partial claim approved — remaining balance refunded after fees.'
+                                : (currentBreakdown.resolution === 'SPLIT' || currentBreakdown.resolution === 'PARTIAL_SPLIT')
+                                  ? 'Partial claim approved — remaining balance refunded to wallet.'
                                   : ''}
                           </Text>
                         )}
+
+                        {/* Accounting Note */}
+                        <Text style={{ fontSize: 10, color: '#777', marginTop: 6, fontStyle: 'italic', lineHeight: 14 }}>
+                          * Note: The platform App Fee (5%) and VAT (7.5%) charged during booking covered platform transaction processing. Caution fee release allocates the deposit principal held in escrow.
+                        </Text>
                       </>
                     )
                   ) : currentBreakdown.isGuestSide ? (

@@ -7,11 +7,11 @@
 export const DEMO_TERMS = {
   termsOfService: {
     title: "Terms of Service",
-    lastUpdated: "March 25, 2026",
+    lastUpdated: "August 22, 2026",
     sections: [
       {
         title: "1. Acceptance of Terms",
-        content: "By creating a listing on Lunest, you agree to be bound by these Terms of Service. If you do not agree to these terms, please do not use our service."
+        content: "By creating an account, publishing a listing, or booking accommodation on LUNEST, you agree to be bound by these Terms of Service. If you do not agree to these terms, please do not use our services."
       },
       {
         title: "2. Listing Requirements",
@@ -22,12 +22,12 @@ export const DEMO_TERMS = {
         content: "Listings that contain illegal activities, discriminatory content, or violate local laws are strictly prohibited. We reserve the right to remove any listing that violates these guidelines."
       },
       {
-        title: "4. Payment Processing",
-        content: "All payments processed through Lunest are subject to our payment terms. Processing fees may apply and will be clearly disclosed before confirmation."
+        title: "4. Payment Processing & Caution Escrow",
+        content: "All payments and caution fee escrow holdings processed through LUNEST are subject to our payment terms. Platform processing fees and applicable taxes apply and are clearly itemized before checkout confirmation."
       },
       {
-        title: "5. User Responsibilities",
-        content: "You are responsible for maintaining the security of your account, responding to booking inquiries in a timely manner, and providing a safe and clean environment for guests."
+        title: "5. User Responsibilities & Account Security",
+        content: "You are solely responsible for maintaining the confidentiality and physical security of your account, device passcodes, and any credentials or passwords saved in web browsers or device keychains. All actions executed through your authenticated account are deemed authorized by you."
       }
     ]
   },

@@ -1080,7 +1080,9 @@ const TransactionHistoryScreen = () => {
               reference: item.reference || "",
               metadata: JSON.stringify(item.metadata || {}),
               bookingStatus: item.metadata?.bookingStatus || item.metadata?.status || "",
-              category: item.type || item.category || ""
+              category: item.type || item.category || "",
+              fee: item.fee || "",
+              netAmount: item.netAmount || ""
             },
           });
         }}

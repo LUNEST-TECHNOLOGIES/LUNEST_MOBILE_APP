@@ -454,7 +454,7 @@ const TransactionHistoryScreen = () => {
         }
 
         // Filter out internal and disclosure transactions
-        const nonInternalTxns = validTxns.filter((txn) => {
+        const nonInternalTxns = txnList.filter((txn) => {
           const meta = txn.metadata || {};
           if (meta.internal === true || meta.isDisclosure === true) return false;
           return true;

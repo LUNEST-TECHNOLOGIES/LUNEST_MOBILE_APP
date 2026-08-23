@@ -999,12 +999,12 @@ const PropertyDetailsScreen = () => {
     geocodedCoords,
   ]);
 
-  // Track last viewed listing for Home Explore screen re-ordering (placed before conditional returns)
+  // Track last viewed listing for Home Explore screen re-ordering and Recently Viewed
   useEffect(() => {
-    if (propertyData && propertyData.id) {
-      listingService.setLastViewedListing(propertyData);
+    if (listing || propertyData?.id) {
+      listingService.setLastViewedListing(listing || propertyData);
     }
-  }, [propertyData?.id]);
+  }, [listing, propertyData?.id]);
 
   // Progressive loading: handles first-load vs refresh transitions
   // Added skeletonDelay and ensure we don't show error while loading

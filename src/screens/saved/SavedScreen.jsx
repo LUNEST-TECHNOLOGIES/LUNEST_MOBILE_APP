@@ -129,8 +129,8 @@ const SavedScreen = () => {
           }
           return b;
         })
-        .filter((b) => b && b.listing && typeof b.listing === "object" && b.listing._id
-          && b.listing.propertyTitle !== undefined); // Extra check: listing must have a title
+        .filter((b) => b && b.listing && typeof b.listing === "object" && (b.listing._id || b.listing.id)
+          && (b.listing.propertyTitle || b.listing.propertyName || b.listing.title || b.listing._id));
     },
     staleTime: 0,
     refetchOnMount: true,
@@ -179,7 +179,7 @@ const SavedScreen = () => {
           }
           return l;
         })
-        .filter((l) => l && typeof l === "object" && l._id);
+        .filter((l) => l && typeof l === "object" && (l._id || l.id));
     },
     enabled: activeTab === "recent",
   });
@@ -224,15 +224,21 @@ const SavedScreen = () => {
 
   const handleRefresh = async () => {
     try {
-      const result = await bookmarkService.fetchBookmarks({ refresh: true });
-      if (result.success) {
-        queryClient.setQueryData(["bookmarks"], result.bookmarks);
+      if (activeTab === "saved") {
+        const result = await bookmarkService.fetchBookmarks({ refresh: true });
+        if (result.success) {
+          queryClient.setQueryData(["bookmarks"], result.bookmarks);
+        }
+        refetch();
+      } else {
+        const result = await listingService.fetchRecentlyViewed();
+        if (result.success) {
+          queryClient.setQueryData(["recently-viewed"], result.listings);
+        }
+        refetchRecent();
       }
     } catch (error) {
       console.error("[SavedScreen] Refresh error:", error);
-    } finally {
-      // refetch will still trigger the background loading state for UI feedback
-      refetch();
     }
   };
 
@@ -275,14 +281,35 @@ const SavedScreen = () => {
     return null;
   };
 
-  const formatPrice = (price) => {
-    const numPrice = Number(price);
-    if (isNaN(numPrice) || numPrice === 0) return "₦0";
-    return new Intl.NumberFormat("en-NG", {
-      style: "currency",
-      currency: "NGN",
-      minimumFractionDigits: 0,
-    }).format(numPrice);
+  const parseNumericPrice = (rawPrice) => {
+    if (rawPrice === null || rawPrice === undefined) return 0;
+    if (typeof rawPrice === "number") return isNaN(rawPrice) ? 0 : rawPrice;
+    if (typeof rawPrice === "object") {
+      if (rawPrice.price !== undefined) return parseNumericPrice(rawPrice.price);
+      if (rawPrice.amount !== undefined) return parseNumericPrice(rawPrice.amount);
+      if (rawPrice.value !== undefined) return parseNumericPrice(rawPrice.value);
+    }
+    const cleanStr = String(rawPrice).replace(/[^0-9.]/g, "");
+    const parsed = parseFloat(cleanStr);
+    return isNaN(parsed) ? 0 : parsed;
+  };
+
+  const formatPrice = (rawPrice) => {
+    const num = parseNumericPrice(rawPrice);
+    if (!num || num <= 0) return "₦0";
+    return `₦${num.toLocaleString("en-NG", { maximumFractionDigits: 2 })}`;
+  };
+
+  const formatPricingPeriod = (rawPeriod) => {
+    if (!rawPeriod || typeof rawPeriod !== "string") return "per night";
+    const clean = rawPeriod.trim().toLowerCase();
+    if (clean.startsWith("per ")) return clean;
+    if (clean === "night" || clean === "daily" || clean === "day") return "per night";
+    if (clean === "week" || clean === "weekly") return "per week";
+    if (clean === "month" || clean === "monthly") return "per month";
+    if (clean === "year" || clean === "annually" || clean === "yearly") return "per year";
+    if (clean === "hour" || clean === "hourly") return "per hour";
+    return `per ${clean}`;
   };
 
   const renderEmptyState = () => {
@@ -306,12 +333,13 @@ const SavedScreen = () => {
     // If it's a recently viewed item, it IS the listing itself.
     const listing = item.listing || item;
     
-    if (!listing || typeof listing !== "object" || !listing._id) {
+    if (!listing || typeof listing !== "object" || (!listing._id && !listing.id)) {
       console.warn("[SavedScreen] List item has no valid listing data:", item);
       return null;
     }
 
-    const itemId = item._id || listing._id;
+    const itemId = item._id || listing._id || listing.id;
+    const targetListingId = listing._id || listing.id || item.listingId || itemId;
     const isBookmark = !!item.listing;
 
     const imageError = imageErrors[itemId] || false;
@@ -327,17 +355,22 @@ const SavedScreen = () => {
       listing.location ||
       (listing.city ? `${listing.city}, ${listing.state || ""}`.trim() : "Location not specified");
 
-    const price =
+    const rawPrice =
+      (typeof listing.propertyPrice === "number" ? listing.propertyPrice : null) ??
       listing.propertyPrice?.price ??
+      listing.propertyPrice?.amount ??
       listing.price ??
       listing.rent ??
+      listing.amount ??
       0;
 
-    const pricingPeriod =
+    const rawPeriod =
       listing.propertyPrice?.frequency ||
       listing.pricingPeriod ||
       listing.rentFrequency ||
+      listing.frequency ||
       "night";
+    const pricingPeriod = formatPricingPeriod(rawPeriod);
 
     const bedrooms = listing.bedrooms ?? listing.bedroom ?? 0;
     const bathrooms = listing.bathrooms ?? listing.bathroom ?? 0;
@@ -350,7 +383,7 @@ const SavedScreen = () => {
       <View 
         style={styles.savedCard}
       >
-        <Pressable onPress={() => handleViewDetails(listing._id)}>
+        <Pressable onPress={() => handleViewDetails(targetListingId)}>
           <View style={styles.imageContainer}>
             {imageUrl && !imageError ? (
               <Image
@@ -407,18 +440,16 @@ const SavedScreen = () => {
           <View style={styles.priceRow}>
             <View>
               <Text style={styles.price}>
-                {formatPrice(price)}
+                {formatPrice(rawPrice)}
               </Text>
               <Text style={styles.perYear}>
-                {typeof pricingPeriod === "string" && pricingPeriod.startsWith("per")
-                  ? pricingPeriod
-                  : `per ${pricingPeriod || "night"}`}
+                {pricingPeriod}
               </Text>
             </View>
           </View>
           <Pressable
             style={styles.viewDetailsButton}
-            onPress={() => handleViewDetails(listing._id)}
+            onPress={() => handleViewDetails(targetListingId)}
           >
             <Text style={styles.viewDetailsText}>View details</Text>
           </Pressable>
@@ -427,19 +458,7 @@ const SavedScreen = () => {
     );
   };
 
-  if (loading) {
-    return (
-      <SafeAreaView style={styles.container} edges={["top"]}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Saved</Text>
-        </View>
-        <View style={{ padding: 20 }}>
-          <ListingSkeleton />
-          <ListingSkeleton />
-        </View>
-      </SafeAreaView>
-    );
-  }
+  const isDataLoading = activeTab === "saved" ? loading : recentLoading;
 
   // Determine active tab label for branding
   const getTabLabelStyle = (tabId) => [
@@ -480,15 +499,24 @@ const SavedScreen = () => {
         </Pressable>
       </View>
 
-      <FlatList
-        data={activeTab === "saved" ? bookmarks : recentListings}
-        renderItem={renderListItem}
-        keyExtractor={(item) => item._id}
-        numColumns={2}
-        contentContainerStyle={styles.listContent}
-        columnWrapperStyle={styles.columnWrapper}
-        ListEmptyComponent={renderEmptyState}
-      />
+      {isDataLoading && (activeTab === "saved" ? bookmarks.length === 0 : recentListings.length === 0) ? (
+        <View style={{ padding: 20 }}>
+          <ListingSkeleton />
+          <ListingSkeleton />
+        </View>
+      ) : (
+        <FlatList
+          data={activeTab === "saved" ? bookmarks : recentListings}
+          renderItem={renderListItem}
+          keyExtractor={(item, index) => item._id || item.id || item.listing?._id || item.listing?.id || String(index)}
+          numColumns={2}
+          contentContainerStyle={styles.listContent}
+          columnWrapperStyle={styles.columnWrapper}
+          ListEmptyComponent={renderEmptyState}
+          refreshing={activeTab === "saved" ? refreshing : false}
+          onRefresh={handleRefresh}
+        />
+      )}
 
       {/* Toast Notification */}
       <ToastNotification

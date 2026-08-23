@@ -10,6 +10,7 @@ import authService from "./authService";
 import configService from "./configService";
 import logService from "./logService";
 import NetworkErrorHandler from "./networkErrorHandler";
+import storageService from "./storageService";
 // Listing Status Constants from API Backend
 export const LISTING_STATUSES = {
   PENDING: "PENDING",
@@ -250,6 +251,60 @@ class ListingService {
       this._lastViewedListingId = String(id);
       this._lastViewedListingData = listing;
       console.log("[ListingService] Set last viewed listing:", this._lastViewedListingId);
+      // Asynchronously cache to persistent storage for offline/instant access
+      this.recordRecentlyViewed(listing).catch(() => {});
+    }
+  }
+
+  /**
+   * Record a recently viewed listing to local storage
+   * @param {Object} listing 
+   */
+  async recordRecentlyViewed(listing) {
+    if (!listing) return;
+    const id = listing._id || listing.id || listing.listingId;
+    if (!id) return;
+
+    try {
+      const STORAGE_KEY = "lunest_recently_viewed_listings";
+      const existing = (await storageService.getItem(STORAGE_KEY)) || [];
+      const filtered = Array.isArray(existing)
+        ? existing.filter((item) => {
+            const itemId = item?._id || item?.id;
+            return itemId && String(itemId) !== String(id);
+          })
+        : [];
+
+      const rawPrice =
+        (typeof listing.propertyPrice === "number" ? listing.propertyPrice : null) ??
+        listing.propertyPrice?.price ??
+        listing.price ??
+        listing.rent ??
+        0;
+
+      const recentEntry = {
+        _id: String(id),
+        id: String(id),
+        propertyTitle: listing.propertyTitle || listing.propertyName || listing.title || "Accommodation",
+        propertyName: listing.propertyName || listing.propertyTitle || listing.title || "Accommodation",
+        propertyPrice: listing.propertyPrice || { price: rawPrice, frequency: listing.pricingPeriod || "per night" },
+        price: rawPrice,
+        pricingPeriod: listing.pricingPeriod || listing.propertyPrice?.frequency || "night",
+        propertyImages: listing.propertyImages || listing.images || (listing.coverImage ? [listing.coverImage] : []),
+        coverImage: listing.coverImage || listing.propertyImages?.[0] || null,
+        propertyLocation: listing.propertyLocation || { fullAddress: listing.address || listing.location || "" },
+        address: listing.address || listing.location || listing.propertyLocation?.fullAddress || "",
+        bedrooms: listing.bedrooms ?? listing.bedroom ?? 0,
+        bathrooms: listing.bathrooms ?? listing.bathroom ?? 0,
+        status: listing.status || "AVAILABLE",
+        viewedAt: new Date().toISOString(),
+      };
+
+      const updated = [recentEntry, ...filtered].slice(0, 20);
+      await storageService.setItem(STORAGE_KEY, updated);
+      console.log("[ListingService] Successfully cached recently viewed listing:", id);
+    } catch (e) {
+      console.warn("[ListingService] Failed to cache recently viewed listing locally:", e?.message);
     }
   }
 
@@ -267,24 +322,43 @@ class ListingService {
    */
   async fetchRecentlyViewed() {
     console.log("[ListingService] Fetching recently viewed listings...");
+    const STORAGE_KEY = "lunest_recently_viewed_listings";
+    let localRecent = [];
+    try {
+      localRecent = (await storageService.getItem(STORAGE_KEY)) || [];
+      if (!Array.isArray(localRecent)) localRecent = [];
+    } catch (e) {
+      localRecent = [];
+    }
+
     try {
       const response = await axiosInstance.get("/v1/listings/recently-viewed");
-      
-      const listings = response.data?.body || response.data?.data || response.data || [];
+      const serverListings = response.data?.body || response.data?.data || response.data || [];
+      const serverArray = Array.isArray(serverListings) ? serverListings : [];
+
+      // Merge server listings with local cache (server listings prioritized, local fills gaps)
+      const merged = [...serverArray];
+      const seenIds = new Set(serverArray.map((l) => String(l._id || l.id)));
+
+      for (const localItem of localRecent) {
+        const localId = String(localItem._id || localItem.id);
+        if (localId && !seenIds.has(localId)) {
+          merged.push(localItem);
+          seenIds.add(localId);
+        }
+      }
 
       return {
         success: true,
-        listings: Array.isArray(listings) ? listings : [],
-        count: Array.isArray(listings) ? listings.length : 0
+        listings: merged,
+        count: merged.length,
       };
     } catch (error) {
-      console.error("[ListingService] Error fetching recently viewed listings:", error);
-      const categorized = NetworkErrorHandler.categorizeError(error);
+      console.warn("[ListingService] Backend error fetching recently viewed, using local storage cache:", error?.message);
       return {
-        success: false,
-        listings: [],
-        message: categorized.userMessage || "Failed to fetch recently viewed listings",
-        error: categorized.type
+        success: true,
+        listings: localRecent,
+        count: localRecent.length,
       };
     }
   }

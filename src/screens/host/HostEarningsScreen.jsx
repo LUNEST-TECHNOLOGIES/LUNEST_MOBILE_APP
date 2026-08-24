@@ -377,6 +377,12 @@ const HostEarningsScreen = () => {
               dateTime: formatDate(item.timestamp),
               description: item.description,
               method: item.channel || "SYSTEM",
+              reference: item.reference || "",
+              metadata: JSON.stringify(item.metadata || {}),
+              bookingStatus: item.metadata?.bookingStatus || item.metadata?.status || "",
+              category: item.type || item.category || item.displayType || "",
+              fee: item.fee || "",
+              netAmount: item.netAmount || "",
             },
           })
         }

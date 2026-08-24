@@ -96,9 +96,29 @@ const TransactionDetailScreen = () => {
     if (isTopUp || rawCategory === "TOP_UP" || rawCategory === "ADDED_FUNDS") {
       return null;
     }
-    if (!params.metadata) return null;
+
+    const rawDesc = (params.description || "").toUpperCase();
+    const isSecurityDeposit = 
+      rawCategory === 'SECURITY_DEPOSIT' || 
+      rawCategory === 'SECURITY_DEPOSIT_REFUND' ||
+      rawCategory === 'SECURITY_FEE' ||
+      rawCategory === 'CAUTION_FEE' ||
+      transactionData.category === 'SECURITY_DEPOSIT' || 
+      transactionData.transactionType?.toLowerCase().includes('caution') ||
+      transactionData.transactionType?.toLowerCase().includes('security deposit') ||
+      rawDesc.includes('CAUTION') ||
+      rawDesc.includes('SECURITY DEPOSIT');
+
+    let metadata = {};
+    if (params.metadata) {
+      try {
+        metadata = typeof params.metadata === 'string' ? JSON.parse(params.metadata) : (params.metadata || {});
+      } catch (e) {
+        metadata = {};
+      }
+    }
+
     try {
-      const metadata = typeof params.metadata === 'string' ? JSON.parse(params.metadata) : (params.metadata || {});
       let breakdown = metadata.breakdown;
       
       // Support pricingBreakdown from BookingRepo summary transactions
@@ -139,80 +159,103 @@ const TransactionDetailScreen = () => {
         };
       }
 
-      // SECURITY_DEPOSIT escrow breakdown (from EscrowService resolution)
-      const escrow = metadata.escrowBreakdown;
-      const isSecurityDeposit = rawCategory === 'SECURITY_DEPOSIT' || 
-        rawCategory === 'SECURITY_DEPOSIT_REFUND' ||
-        transactionData.category === 'SECURITY_DEPOSIT' || 
-        transactionData.transactionType?.toLowerCase().includes('caution fee');
-      
-      if (isSecurityDeposit && escrow) {
-        const isHostClaim = escrow.resolution === 'RELEASED_TO_HOST' || 
-                            escrow.resolution === 'CLAIMED_BY_HOST' ||
-                            metadata.hostSide === true || 
-                            metadata.type === 'HOST';
+      // SECURITY_DEPOSIT escrow breakdown (from EscrowService resolution / reconciliation / params)
+      if (isSecurityDeposit) {
+        const escrow = metadata.escrowBreakdown || 
+                       metadata.reconciliation?.escrowBreakdown || 
+                       metadata.securityDepositResolution || 
+                       metadata.cautionFeeResolution;
+
+        const depositAmount = parseFloat(params.amount?.replace(/[₦,\s]/g, '')) || 0;
+        const rawFee = parseFloat(params.fee) || 0;
+        const rawNetAmount = parseFloat(params.netAmount) || 0;
+
+        const resCode = (
+          escrow?.resolution || 
+          metadata.cautionFeeStatus || 
+          metadata.reconciliation?.cautionFeeStatus || 
+          metadata.securityDepositStatus || 
+          metadata.resolution || 
+          ""
+        ).toUpperCase();
+
+        const isHostClaim = 
+          resCode === 'RELEASED_TO_HOST' || 
+          resCode === 'CLAIMED_BY_HOST' || 
+          metadata.hostSide === true || 
+          metadata.type === 'HOST' || 
+          rawDesc.includes('CLAIMED BY HOST') ||
+          rawDesc.includes('RELEASED TO HOST') ||
+          rawType.includes('CLAIMED BY HOST') || 
+          rawType.includes('RELEASED TO HOST') ||
+          rawType.includes('CREDITED TO HOST');
 
         if (isHostClaim) {
-          const approvedClaim = escrow.damageClaim || escrow.originalDeposit || 0;
-          const hostFee = escrow.escrowFee || 0;
-          const hostVat = escrow.escrowVat || 0;
-          const netPayout = escrow.netRefund || Number((approvedClaim - hostFee - hostVat).toFixed(2));
+          const originalDeposit = escrow?.originalDeposit || metadata.cautionFee || metadata.securityDeposit || depositAmount || 0;
+          const approvedClaim = escrow?.damageClaim || escrow?.approvedClaim || metadata.damageClaim || metadata.claimAmount || (rawNetAmount > 0 && rawFee > 0 ? (rawNetAmount + rawFee) : depositAmount);
+          const hostFee = escrow?.hostFee ?? escrow?.escrowFee ?? (rawFee > 0 ? Number((rawFee / 1.075).toFixed(2)) : Number((approvedClaim * 0.03).toFixed(2)));
+          const hostVat = escrow?.hostVat ?? escrow?.escrowVat ?? (rawFee > 0 ? Number((rawFee - hostFee).toFixed(2)) : Number((hostFee * 0.075).toFixed(2)));
+          const totalDeductions = escrow?.totalDeductions ?? Number((hostFee + hostVat).toFixed(2));
+          const netPayout = escrow?.netPayout ?? escrow?.netRefund ?? (rawNetAmount > 0 ? rawNetAmount : Number(Math.max(0, approvedClaim - totalDeductions).toFixed(2)));
 
           return {
             isSecurityDeposit: true,
             isHostClaim: true,
             isGuestSide: false,
-            originalDeposit: escrow.originalDeposit || 0,
+            originalDeposit,
             approvedClaim,
             hostFee,
             hostVat,
-            totalDeductions: Number((hostFee + hostVat).toFixed(2)),
+            totalDeductions,
             netPayout,
-            resolution: escrow.resolution || 'RELEASED_TO_HOST',
+            resolution: resCode || 'CLAIMED_BY_HOST',
           };
         }
+
+        // Guest Side Security Deposit / Refund
+        let originalDeposit = escrow?.originalDeposit || metadata.cautionFee || metadata.securityDeposit || 0;
+        if (!originalDeposit) {
+          if (rawNetAmount > 0 && rawFee > 0) {
+            originalDeposit = rawNetAmount + rawFee;
+          } else {
+            originalDeposit = depositAmount;
+          }
+        }
+
+        const damageClaim = escrow?.damageClaim || metadata.damageClaim || metadata.claimAmount || (resCode === 'CLAIMED_BY_HOST' ? originalDeposit : 0);
+        const remainingDeposit = escrow?.remainingDeposit ?? Number(Math.max(0, originalDeposit - damageClaim).toFixed(2));
+
+        let escrowFee = 0;
+        let escrowVat = 0;
+        if (escrow?.escrowFee !== undefined) {
+          escrowFee = escrow.escrowFee;
+          escrowVat = escrow.escrowVat ?? Number((escrowFee * 0.075).toFixed(2));
+        } else if (remainingDeposit > 0) {
+          if (rawFee > 0) {
+            escrowFee = Number((rawFee / 1.075).toFixed(2));
+            escrowVat = Number((rawFee - escrowFee).toFixed(2));
+          } else {
+            escrowFee = Number((remainingDeposit * 0.05).toFixed(2));
+            escrowVat = Number((escrowFee * 0.075).toFixed(2));
+          }
+        }
+
+        const totalDeductions = escrow?.totalDeductions ?? Number((damageClaim + escrowFee + escrowVat).toFixed(2));
+        const netRefund = escrow?.netRefund ?? (rawNetAmount > 0 ? rawNetAmount : (damageClaim >= originalDeposit ? 0 : Number(Math.max(0, remainingDeposit - escrowFee - escrowVat).toFixed(2))));
 
         return {
           isSecurityDeposit: true,
           isHostClaim: false,
           isGuestSide: true,
-          originalDeposit: escrow.originalDeposit || 0,
-          escrowFee: escrow.escrowFee || 0,
-          escrowVat: escrow.escrowVat || 0,
-          totalDeductions: escrow.totalDeductions || Number(((escrow.escrowFee || 0) + (escrow.escrowVat || 0)).toFixed(2)),
-          damageClaim: escrow.damageClaim || 0,
-          remainingDeposit: escrow.remainingDeposit ?? (escrow.originalDeposit - (escrow.damageClaim || 0)),
-          netRefund: escrow.netRefund || 0,
-          resolution: escrow.resolution || 'RELEASED_TO_GUEST',
+          originalDeposit,
+          damageClaim,
+          remainingDeposit,
+          escrowFee,
+          escrowVat,
+          totalDeductions,
+          netRefund,
+          resolution: resCode || (damageClaim > 0 ? (damageClaim >= originalDeposit ? 'CLAIMED_BY_HOST' : 'SPLIT') : 'RELEASED_TO_GUEST'),
         };
-      }
-
-      // For SECURITY_DEPOSIT transactions without escrowBreakdown (pre-resolution / legacy),
-      // compute the breakdown from the transaction amount (5% fee + 7.5% VAT on fee)
-      if (isSecurityDeposit && !breakdown) {
-        const depositAmount = parseFloat(params.amount?.replace(/[₦,]/g, '')) || 0;
-        const fee = parseFloat(params.fee) || 0;
-        const netAmount = parseFloat(params.netAmount) || 0;
-        
-        if (fee > 0 || netAmount > 0) {
-          // Transaction has fee/netAmount fields from resolution
-          const computedOriginal = netAmount + fee;
-          const computedEscrowFee = Number((computedOriginal * 0.05).toFixed(2));
-          const computedEscrowVat = Number((computedEscrowFee * 0.075).toFixed(2));
-          return {
-            isSecurityDeposit: true,
-            isHostClaim: false,
-            isGuestSide: true,
-            originalDeposit: computedOriginal || depositAmount,
-            escrowFee: computedEscrowFee,
-            escrowVat: computedEscrowVat,
-            totalDeductions: Number((computedEscrowFee + computedEscrowVat).toFixed(2)),
-            damageClaim: 0,
-            remainingDeposit: computedOriginal || depositAmount,
-            netRefund: netAmount || depositAmount,
-            resolution: '',
-          };
-        }
       }
 
       if (!breakdown) return null;
@@ -265,6 +308,7 @@ const TransactionDetailScreen = () => {
       if (t.includes("funding")) return "Funding Failed";
       if (t.includes("charge")) return "Charge Failed";
       if (t.includes("vat")) return "VAT Deduction Failed";
+      if (t.includes("caution")) return "Caution Fee Failed";
       return "Transaction Failed";
     }
 
@@ -274,14 +318,17 @@ const TransactionDetailScreen = () => {
       if (t.includes("funding")) return "Funding Pending";
       if (t.includes("charge")) return "Charge Pending";
       if (t.includes("vat")) return "VAT Deduction Pending";
+      if (t.includes("caution")) return "Caution Fee Pending";
       return "Transaction Pending";
     }
 
     if (s === "processing") {
+      if (t.includes("caution")) return "Caution Fee In Escrow";
       return "Payment Processing";
     }
 
     if (s === "on_hold" || s === "on hold") {
+      if (t.includes("caution")) return "Caution Fee In Escrow";
       return "In Escrow";
     }
 
@@ -295,6 +342,10 @@ const TransactionDetailScreen = () => {
     if (t.includes("charge") || t === "app charge") return "Charge Successful";
     if (t.includes("vat")) return "VAT Deduction Successful";
     if (t.includes("funding") || t === "wallet funding") return "Funding Successful";
+    if (t.includes("caution fee refund") || t.includes("caution refunded") || t.includes("refunded to guest")) return "Caution Fee Refunded";
+    if (t.includes("caution fee claimed") || t.includes("claimed by host") || t.includes("released to host")) return "Caution Fee Claimed";
+    if (t.includes("caution fee credited") || t.includes("credited to guest")) return "Caution Fee Credited";
+    if (t.includes("caution")) return "Caution Fee Processed";
     if (t.includes("income") || t.includes("earnings")) return "Income Credited";
     return "Transaction Successful";
   }
@@ -577,24 +628,27 @@ const TransactionDetailScreen = () => {
               currentBreakdown ? `
               <tr>
                 <td colspan="2" style="background-color: #f8f9ff; font-weight: 700; font-size: 11px; color: #010135; padding: 12px 15px; text-transform: uppercase; border-top: 2px solid #eee;">
-                  ${currentBreakdown.isSecurityDeposit ? "Caution Fee Breakdown" : currentBreakdown.isGuestSide ? "Payment Breakdown" : "Earnings Breakdown"}
+                  ${currentBreakdown.isSecurityDeposit ? (currentBreakdown.isHostClaim ? "Caution Fee Claim Breakdown" : "Caution Fee Refund Breakdown") : currentBreakdown.isGuestSide ? "Payment Breakdown" : "Earnings Breakdown"}
                 </td>
               </tr>
               ${currentBreakdown.isSecurityDeposit ? (
                 currentBreakdown.isHostClaim ? `
+                  ${currentBreakdown.originalDeposit > 0 && currentBreakdown.originalDeposit !== currentBreakdown.approvedClaim ? `<tr><td class="label">Caution Fee in Escrow</td><td class="value">₦${Number(currentBreakdown.originalDeposit).toLocaleString()}</td></tr>` : ''}
                   <tr><td class="label">Approved Damage Claim</td><td class="value">₦${Number(currentBreakdown.approvedClaim || 0).toLocaleString()}</td></tr>
-                  ${currentBreakdown.hostFee > 0 ? `<tr><td class="label">LUNEST Processing Fee</td><td class="value" style="color: #B70808">-₦${Number(currentBreakdown.hostFee).toLocaleString()}</td></tr>` : ''}
-                  ${currentBreakdown.hostVat > 0 ? `<tr><td class="label">VAT on Fee</td><td class="value" style="color: #B70808">-₦${Number(currentBreakdown.hostVat).toLocaleString()}</td></tr>` : ''}
+                  ${currentBreakdown.hostFee > 0 ? `<tr><td class="label">LUNEST Processing Fee (3%)</td><td class="value" style="color: #B70808">-₦${Number(currentBreakdown.hostFee).toLocaleString()}</td></tr>` : ''}
+                  ${currentBreakdown.hostVat > 0 ? `<tr><td class="label">VAT on Fee (7.5%)</td><td class="value" style="color: #B70808">-₦${Number(currentBreakdown.hostVat).toLocaleString()}</td></tr>` : ''}
+                  ${currentBreakdown.totalDeductions > 0 ? `<tr><td class="label">Total Deductions</td><td class="value" style="color: #B70808">-₦${Number(currentBreakdown.totalDeductions).toLocaleString()}</td></tr>` : ''}
                   <tr class="amount-row">
                     <td class="label" style="font-size: 14px; color: #010135;">Net Credited to Wallet</td>
                     <td class="value amount" style="color: #2E7D32">₦${Number(currentBreakdown.netPayout || 0).toLocaleString()}</td>
                   </tr>
                 ` : `
                   <tr><td class="label">Caution Fee Deposited</td><td class="value">₦${Number(currentBreakdown.originalDeposit || 0).toLocaleString()}</td></tr>
-                  ${currentBreakdown.damageClaim > 0 ? `<tr><td class="label">Damage Claim (Host)</td><td class="value" style="color: #B70808">-₦${Number(currentBreakdown.damageClaim).toLocaleString()}</td></tr>` : ''}
-                  ${currentBreakdown.damageClaim > 0 && currentBreakdown.remainingDeposit > 0 && currentBreakdown.remainingDeposit !== currentBreakdown.originalDeposit ? `<tr><td class="label" style="color: #666">Remaining Deposit</td><td class="value" style="color: #666">₦${Number(currentBreakdown.remainingDeposit).toLocaleString()}</td></tr>` : ''}
+                  ${currentBreakdown.damageClaim > 0 ? `<tr><td class="label">Damage Claim Deducted (Host)</td><td class="value" style="color: #B70808">-₦${Number(currentBreakdown.damageClaim).toLocaleString()}</td></tr>` : ''}
+                  ${currentBreakdown.damageClaim > 0 && currentBreakdown.remainingDeposit > 0 && currentBreakdown.remainingDeposit !== currentBreakdown.originalDeposit ? `<tr><td class="label" style="color: #666">Remaining Caution Deposit</td><td class="value" style="color: #666">₦${Number(currentBreakdown.remainingDeposit).toLocaleString()}</td></tr>` : ''}
                   ${currentBreakdown.escrowFee > 0 ? `<tr><td class="label">LUNEST App Fee (5%)</td><td class="value" style="color: #B70808">-₦${Number(currentBreakdown.escrowFee).toLocaleString()}</td></tr>` : ''}
                   ${currentBreakdown.escrowVat > 0 ? `<tr><td class="label">VAT on App Fee (7.5%)</td><td class="value" style="color: #B70808">-₦${Number(currentBreakdown.escrowVat).toLocaleString()}</td></tr>` : ''}
+                  ${currentBreakdown.totalDeductions > 0 ? `<tr><td class="label">Total Deductions</td><td class="value" style="color: #B70808">-₦${Number(currentBreakdown.totalDeductions).toLocaleString()}</td></tr>` : ''}
                   <tr class="amount-row">
                     <td class="label" style="font-size: 14px; color: #010135;">${currentBreakdown.damageClaim > 0 && currentBreakdown.netRefund === 0 ? 'Refund Amount' : 'Net Refund to Wallet'}</td>
                     <td class="value amount" style="color: ${currentBreakdown.netRefund > 0 ? '#2E7D32' : '#B70808'}">₦${Number(currentBreakdown.netRefund || 0).toLocaleString()}</td>
@@ -1010,14 +1064,11 @@ const TransactionDetailScreen = () => {
                 <Text style={styles.detailValue}>
                   {transactionData.dateTime}
                 </Text>
-              </View>
-
-              {/* Breakdown Section */}
-              {currentBreakdown && (
+                 {currentBreakdown && (
                 <View style={styles.breakdownBox}>
                   <Text style={styles.breakdownTitle}>
                     {currentBreakdown.isSecurityDeposit 
-                      ? (currentBreakdown.isHostClaim ? "Caution Fee Claim Breakdown" : "Caution Fee Breakdown")
+                      ? (currentBreakdown.isHostClaim ? "Caution Fee Claim Breakdown" : "Caution Fee Refund Breakdown")
                       : currentBreakdown.isGuestSide 
                         ? "Payment Breakdown" 
                         : "Earnings Breakdown"}
@@ -1026,6 +1077,14 @@ const TransactionDetailScreen = () => {
                   {currentBreakdown.isSecurityDeposit ? (
                     currentBreakdown.isHostClaim ? (
                       <>
+                        {/* Original Deposit in Escrow */}
+                        {currentBreakdown.originalDeposit > 0 && currentBreakdown.originalDeposit !== currentBreakdown.approvedClaim && (
+                          <View style={styles.breakdownRow}>
+                            <Text style={styles.breakdownLabel}>Caution Fee in Escrow</Text>
+                            <Text style={styles.breakdownValue}>₦{Number(currentBreakdown.originalDeposit).toLocaleString()}</Text>
+                          </View>
+                        )}
+
                         {/* Approved Damage Claim */}
                         <View style={styles.breakdownRow}>
                           <Text style={styles.breakdownLabel}>Approved Damage Claim</Text>
@@ -1035,7 +1094,7 @@ const TransactionDetailScreen = () => {
                         {/* Processing Fee */}
                         {currentBreakdown.hostFee > 0 && (
                           <View style={styles.breakdownRow}>
-                            <Text style={styles.breakdownLabel}>LUNEST Processing Fee</Text>
+                            <Text style={styles.breakdownLabel}>LUNEST Processing Fee (3%)</Text>
                             <Text style={[styles.breakdownValue, { color: '#B70808' }]}>-₦{Number(currentBreakdown.hostFee).toLocaleString()}</Text>
                           </View>
                         )}
@@ -1043,8 +1102,16 @@ const TransactionDetailScreen = () => {
                         {/* VAT on Fee */}
                         {currentBreakdown.hostVat > 0 && (
                           <View style={styles.breakdownRow}>
-                            <Text style={styles.breakdownLabel}>VAT on Fee</Text>
+                            <Text style={styles.breakdownLabel}>VAT on Fee (7.5%)</Text>
                             <Text style={[styles.breakdownValue, { color: '#B70808' }]}>-₦{Number(currentBreakdown.hostVat).toLocaleString()}</Text>
+                          </View>
+                        )}
+
+                        {/* Total Deductions */}
+                        {currentBreakdown.totalDeductions > 0 && (
+                          <View style={styles.breakdownRow}>
+                            <Text style={[styles.breakdownLabel, { color: '#777' }]}>Total Deductions</Text>
+                            <Text style={[styles.breakdownValue, { color: '#B70808' }]}>-₦{Number(currentBreakdown.totalDeductions).toLocaleString()}</Text>
                           </View>
                         )}
 
@@ -1058,10 +1125,13 @@ const TransactionDetailScreen = () => {
                           </Text>
                         </View>
 
-                        {/* Note */}
-                        <Text style={{ fontSize: 11, color: '#888', marginTop: 8, fontStyle: 'italic' }}>
-                          Damage claim approved and credited to host wallet.
-                        </Text>
+                        {/* Resolution Note */}
+                        <View style={styles.resolutionBadge}>
+                          <Ionicons name="checkmark-circle" size={16} color="#2E7D32" style={{ marginRight: 6 }} />
+                          <Text style={styles.resolutionBadgeText}>
+                            Damage claim approved and payout credited to host wallet.
+                          </Text>
+                        </View>
                       </>
                     ) : (
                       <>
@@ -1074,7 +1144,7 @@ const TransactionDetailScreen = () => {
                         {/* Damage Claim - only show if > 0 */}
                         {currentBreakdown.damageClaim > 0 && (
                           <View style={styles.breakdownRow}>
-                            <Text style={styles.breakdownLabel}>Damage Claim (Host)</Text>
+                            <Text style={styles.breakdownLabel}>Damage Claim Deducted (Host)</Text>
                             <Text style={[styles.breakdownValue, { color: '#B70808' }]}>-₦{Number(currentBreakdown.damageClaim).toLocaleString()}</Text>
                           </View>
                         )}
@@ -1082,8 +1152,8 @@ const TransactionDetailScreen = () => {
                         {/* Remaining after claim (only for SPLIT) */}
                         {currentBreakdown.damageClaim > 0 && currentBreakdown.remainingDeposit > 0 && currentBreakdown.remainingDeposit !== currentBreakdown.originalDeposit && (
                           <View style={styles.breakdownRow}>
-                            <Text style={[styles.breakdownLabel, { color: '#666' }]}>Remaining Deposit</Text>
-                            <Text style={[styles.breakdownValue, { color: '#666' }]}>₦{Number(currentBreakdown.remainingDeposit).toLocaleString()}</Text>
+                            <Text style={[styles.breakdownLabel, { color: '#555' }]}>Remaining Caution Deposit</Text>
+                            <Text style={[styles.breakdownValue, { color: '#555' }]}>₦{Number(currentBreakdown.remainingDeposit).toLocaleString()}</Text>
                           </View>
                         )}
 
@@ -1103,6 +1173,14 @@ const TransactionDetailScreen = () => {
                           </View>
                         )}
 
+                        {/* Total Deductions */}
+                        {currentBreakdown.totalDeductions > 0 && (
+                          <View style={styles.breakdownRow}>
+                            <Text style={[styles.breakdownLabel, { color: '#777' }]}>Total Deductions</Text>
+                            <Text style={[styles.breakdownValue, { color: '#B70808' }]}>-₦{Number(currentBreakdown.totalDeductions).toLocaleString()}</Text>
+                          </View>
+                        )}
+
                         <View style={styles.breakdownDivider} />
 
                         {/* Net Refund */}
@@ -1119,19 +1197,33 @@ const TransactionDetailScreen = () => {
 
                         {/* Resolution Status Note */}
                         {currentBreakdown.resolution && (
-                          <Text style={{ fontSize: 11, color: '#666', marginTop: 8, fontStyle: 'italic' }}>
-                            {currentBreakdown.resolution === 'RELEASED_TO_GUEST' 
-                              ? 'No damages reported — deposit refunded to wallet.' 
-                              : currentBreakdown.resolution === 'CLAIMED_BY_HOST' 
-                                ? 'Full deposit claimed by host for damages.'
-                                : (currentBreakdown.resolution === 'SPLIT' || currentBreakdown.resolution === 'PARTIAL_SPLIT')
-                                  ? 'Partial claim approved — remaining balance refunded to wallet.'
-                                  : ''}
-                          </Text>
+                          <View style={[
+                            styles.resolutionBadge,
+                            currentBreakdown.netRefund === 0 && { backgroundColor: 'rgba(239, 68, 68, 0.08)', borderColor: 'rgba(239, 68, 68, 0.2)' }
+                          ]}>
+                            <Ionicons 
+                              name={currentBreakdown.netRefund > 0 ? "checkmark-circle" : "alert-circle"} 
+                              size={16} 
+                              color={currentBreakdown.netRefund > 0 ? "#2E7D32" : "#B70808"} 
+                              style={{ marginRight: 6 }} 
+                            />
+                            <Text style={[
+                              styles.resolutionBadgeText,
+                              currentBreakdown.netRefund === 0 && { color: "#B70808" }
+                            ]}>
+                              {currentBreakdown.resolution === 'RELEASED_TO_GUEST' || currentBreakdown.resolution === 'REFUNDED_TO_GUEST'
+                                ? 'No damages reported — caution fee refunded to wallet.' 
+                                : currentBreakdown.resolution === 'CLAIMED_BY_HOST' 
+                                  ? 'Full deposit claimed by host for verified damages.'
+                                  : (currentBreakdown.resolution === 'SPLIT' || currentBreakdown.resolution === 'PARTIAL_SPLIT')
+                                    ? `Partial claim of ₦${Number(currentBreakdown.damageClaim || 0).toLocaleString()} approved — remaining balance refunded to wallet.`
+                                    : 'Caution fee processed.'}
+                            </Text>
+                          </View>
                         )}
 
                         {/* Accounting Note */}
-                        <Text style={{ fontSize: 10, color: '#777', marginTop: 6, fontStyle: 'italic', lineHeight: 14 }}>
+                        <Text style={styles.escrowAccountingNote}>
                           * Note: The platform App Fee (5%) and VAT (7.5%) charged during booking covered platform transaction processing. Caution fee release allocates the deposit principal held in escrow.
                         </Text>
                       </>
@@ -1527,6 +1619,31 @@ const styles = StyleSheet.create({
     color: '#666',
     marginTop: 8,
     textAlign: 'center',
+    lineHeight: 14,
+  },
+  resolutionBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(46, 125, 50, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(46, 125, 50, 0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginTop: 10,
+  },
+  resolutionBadgeText: {
+    fontSize: 12,
+    color: '#2E7D32',
+    fontWeight: '600',
+    flex: 1,
+    lineHeight: 16,
+  },
+  escrowAccountingNote: {
+    fontSize: 10,
+    color: '#777',
+    marginTop: 8,
+    fontStyle: 'italic',
     lineHeight: 14,
   },
   footer: {

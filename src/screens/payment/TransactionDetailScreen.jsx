@@ -92,7 +92,7 @@ const TransactionDetailScreen = () => {
 
   // REUSABLE BREAKDOWN CALCULATION
   const getBreakdown = () => {
-    // No breakdown card needed for wallet funding / top-up transactions
+    // 1. No breakdown card needed for wallet funding / top-up transactions
     if (isTopUp || rawCategory === "TOP_UP" || rawCategory === "ADDED_FUNDS") {
       return null;
     }
@@ -103,11 +103,15 @@ const TransactionDetailScreen = () => {
       rawCategory === 'SECURITY_DEPOSIT_REFUND' ||
       rawCategory === 'SECURITY_FEE' ||
       rawCategory === 'CAUTION_FEE' ||
-      transactionData.category === 'SECURITY_DEPOSIT' || 
-      transactionData.transactionType?.toLowerCase().includes('caution') ||
-      transactionData.transactionType?.toLowerCase().includes('security deposit') ||
+      rawCategory.includes('CAUTION') ||
+      rawCategory.includes('SECURITY') ||
+      rawType.includes('CAUTION') ||
+      rawType.includes('SECURITY DEPOSIT') ||
       rawDesc.includes('CAUTION') ||
-      rawDesc.includes('SECURITY DEPOSIT');
+      rawDesc.includes('SECURITY DEPOSIT') ||
+      transactionData.category === 'SECURITY_DEPOSIT' ||
+      transactionData.transactionType?.toLowerCase().includes('caution') ||
+      transactionData.transactionType?.toLowerCase().includes('security deposit');
 
     let metadata = {};
     if (params.metadata) {
@@ -118,6 +122,145 @@ const TransactionDetailScreen = () => {
       }
     }
 
+    // 2. CAUTION FEE / SECURITY DEPOSIT TRANSACTIONS (Always dedicated Caution Fee breakdown)
+    if (isSecurityDeposit) {
+      try {
+        const escrow = metadata.escrowBreakdown || 
+                       metadata.reconciliation?.escrowBreakdown || 
+                       metadata.securityDepositResolution || 
+                       metadata.cautionFeeResolution;
+
+        const depositAmount = parseFloat(params.amount?.replace(/[₦,\s]/g, '')) || 0;
+        const rawFee = parseFloat(params.fee) || 0;
+        const rawNetAmount = parseFloat(params.netAmount) || 0;
+
+        const resCode = (
+          escrow?.resolution || 
+          metadata.cautionFeeStatus || 
+          metadata.reconciliation?.cautionFeeStatus || 
+          metadata.securityDepositStatus || 
+          metadata.resolution || 
+          ""
+        ).toUpperCase();
+
+        const isEscrowHold = 
+          transactionData.status?.toUpperCase() === 'ON_HOLD' || 
+          transactionData.status?.toUpperCase() === 'HELD' || 
+          transactionData.status?.toUpperCase() === 'PROCESSING' ||
+          resCode === 'HELD' ||
+          resCode === 'ON_HOLD' ||
+          rawDesc.includes('(HELD)') ||
+          rawDesc.includes('(ESCROW)') ||
+          rawType.includes('(ESCROW)') ||
+          rawType.includes('(HELD)');
+
+        const isHostClaim = 
+          resCode === 'RELEASED_TO_HOST' || 
+          resCode === 'CLAIMED_BY_HOST' || 
+          rawDesc.includes('CLAIMED BY HOST') ||
+          rawDesc.includes('RELEASED TO HOST') ||
+          rawType.includes('CLAIMED BY HOST') || 
+          rawType.includes('RELEASED TO HOST') ||
+          rawType.includes('CREDITED TO HOST') ||
+          (metadata.hostSide === true && (escrow?.damageClaim > 0 || escrow?.approvedClaim > 0 || metadata.damageClaim > 0));
+
+        if (isHostClaim) {
+          const originalDeposit = escrow?.originalDeposit || metadata.cautionFee || metadata.securityDeposit || depositAmount || 0;
+          const approvedClaim = escrow?.damageClaim || escrow?.approvedClaim || metadata.damageClaim || metadata.claimAmount || (rawNetAmount > 0 && rawFee > 0 ? (rawNetAmount + rawFee) : depositAmount);
+          const hostFee = escrow?.hostFee ?? escrow?.escrowFee ?? (rawFee > 0 ? Number((rawFee / 1.075).toFixed(2)) : Number((approvedClaim * 0.03).toFixed(2)));
+          const hostVat = escrow?.hostVat ?? escrow?.escrowVat ?? (rawFee > 0 ? Number((rawFee - hostFee).toFixed(2)) : Number((hostFee * 0.075).toFixed(2)));
+          const totalDeductions = escrow?.totalDeductions ?? Number((hostFee + hostVat).toFixed(2));
+          const netPayout = escrow?.netPayout ?? escrow?.netRefund ?? (rawNetAmount > 0 ? rawNetAmount : Number(Math.max(0, approvedClaim - totalDeductions).toFixed(2)));
+
+          return {
+            isSecurityDeposit: true,
+            isHostClaim: true,
+            isGuestSide: false,
+            isEscrowHold: false,
+            originalDeposit,
+            approvedClaim,
+            hostFee,
+            hostVat,
+            totalDeductions,
+            netPayout,
+            resolution: resCode || 'CLAIMED_BY_HOST',
+          };
+        }
+
+        // Guest Side Caution Fee / Refund / Escrow
+        let originalDeposit = escrow?.originalDeposit || metadata.cautionFee || metadata.securityDeposit || 0;
+        if (!originalDeposit) {
+          if (rawNetAmount > 0 && rawFee > 0) {
+            originalDeposit = rawNetAmount + rawFee;
+          } else {
+            originalDeposit = depositAmount;
+          }
+        }
+
+        const damageClaim = escrow?.damageClaim || metadata.damageClaim || metadata.claimAmount || (resCode === 'CLAIMED_BY_HOST' ? originalDeposit : 0);
+        const remainingDeposit = escrow?.remainingDeposit ?? Number(Math.max(0, originalDeposit - damageClaim).toFixed(2));
+
+        let escrowFee = 0;
+        let escrowVat = 0;
+        if (escrow?.escrowFee !== undefined) {
+          escrowFee = escrow.escrowFee;
+          escrowVat = escrow.escrowVat ?? Number((escrowFee * 0.075).toFixed(2));
+        } else if (remainingDeposit > 0 && !isEscrowHold) {
+          if (rawFee > 0) {
+            escrowFee = Number((rawFee / 1.075).toFixed(2));
+            escrowVat = Number((rawFee - escrowFee).toFixed(2));
+          } else {
+            escrowFee = Number((remainingDeposit * 0.05).toFixed(2));
+            escrowVat = Number((escrowFee * 0.075).toFixed(2));
+          }
+        }
+
+        const totalDeductions = escrow?.totalDeductions ?? Number((damageClaim + escrowFee + escrowVat).toFixed(2));
+        const netRefund = escrow?.netRefund ?? (rawNetAmount > 0 ? rawNetAmount : (damageClaim >= originalDeposit ? 0 : Number(Math.max(0, remainingDeposit - escrowFee - escrowVat).toFixed(2))));
+
+        return {
+          isSecurityDeposit: true,
+          isHostClaim: false,
+          isGuestSide: true,
+          isEscrowHold,
+          originalDeposit,
+          damageClaim,
+          remainingDeposit,
+          escrowFee,
+          escrowVat,
+          totalDeductions,
+          netRefund,
+          resolution: resCode || (damageClaim > 0 ? (damageClaim >= originalDeposit ? 'CLAIMED_BY_HOST' : 'SPLIT') : (isEscrowHold ? 'HELD_IN_ESCROW' : 'RELEASED_TO_GUEST')),
+        };
+      } catch (e) {
+        return null;
+      }
+    }
+
+    // 3. For other standalone sub-items (like single App Fee or single VAT), do not show whole booking breakdown
+    const isStandaloneSubItem = 
+      rawCategory === 'PLATFORM_FEE' || 
+      rawCategory === 'VAT' || 
+      rawCategory === 'APP_CHARGE' ||
+      rawCategory === 'RENT' || 
+      rawCategory === 'SERVICE_CHARGE';
+
+    const isSummaryTransaction = 
+      rawCategory === 'BOOKING' || 
+      rawCategory === 'BOOKING_PAYMENT' || 
+      rawCategory === 'HOST_EARNING' || 
+      rawCategory === 'EARNING' ||
+      rawCategory === 'COUPON_PAYMENT' ||
+      rawCategory === 'PAYMENT' ||
+      transactionData.transactionType?.toLowerCase().includes('booking payment') ||
+      transactionData.transactionType?.toLowerCase().includes('host earning') ||
+      transactionData.transactionType?.toLowerCase().includes('net earning');
+
+    if (!isSummaryTransaction && isStandaloneSubItem) {
+      return null;
+    }
+
+    // 4. COMPOSITE BOOKING / EARNINGS BREAKDOWN (Only for summary transactions)
     try {
       let breakdown = metadata.breakdown;
       
@@ -159,105 +302,6 @@ const TransactionDetailScreen = () => {
         };
       }
 
-      // SECURITY_DEPOSIT escrow breakdown (from EscrowService resolution / reconciliation / params)
-      if (isSecurityDeposit) {
-        const escrow = metadata.escrowBreakdown || 
-                       metadata.reconciliation?.escrowBreakdown || 
-                       metadata.securityDepositResolution || 
-                       metadata.cautionFeeResolution;
-
-        const depositAmount = parseFloat(params.amount?.replace(/[₦,\s]/g, '')) || 0;
-        const rawFee = parseFloat(params.fee) || 0;
-        const rawNetAmount = parseFloat(params.netAmount) || 0;
-
-        const resCode = (
-          escrow?.resolution || 
-          metadata.cautionFeeStatus || 
-          metadata.reconciliation?.cautionFeeStatus || 
-          metadata.securityDepositStatus || 
-          metadata.resolution || 
-          ""
-        ).toUpperCase();
-
-        const isHostClaim = 
-          resCode === 'RELEASED_TO_HOST' || 
-          resCode === 'CLAIMED_BY_HOST' || 
-          metadata.hostSide === true || 
-          metadata.type === 'HOST' || 
-          rawDesc.includes('CLAIMED BY HOST') ||
-          rawDesc.includes('RELEASED TO HOST') ||
-          rawType.includes('CLAIMED BY HOST') || 
-          rawType.includes('RELEASED TO HOST') ||
-          rawType.includes('CREDITED TO HOST');
-
-        if (isHostClaim) {
-          const originalDeposit = escrow?.originalDeposit || metadata.cautionFee || metadata.securityDeposit || depositAmount || 0;
-          const approvedClaim = escrow?.damageClaim || escrow?.approvedClaim || metadata.damageClaim || metadata.claimAmount || (rawNetAmount > 0 && rawFee > 0 ? (rawNetAmount + rawFee) : depositAmount);
-          const hostFee = escrow?.hostFee ?? escrow?.escrowFee ?? (rawFee > 0 ? Number((rawFee / 1.075).toFixed(2)) : Number((approvedClaim * 0.03).toFixed(2)));
-          const hostVat = escrow?.hostVat ?? escrow?.escrowVat ?? (rawFee > 0 ? Number((rawFee - hostFee).toFixed(2)) : Number((hostFee * 0.075).toFixed(2)));
-          const totalDeductions = escrow?.totalDeductions ?? Number((hostFee + hostVat).toFixed(2));
-          const netPayout = escrow?.netPayout ?? escrow?.netRefund ?? (rawNetAmount > 0 ? rawNetAmount : Number(Math.max(0, approvedClaim - totalDeductions).toFixed(2)));
-
-          return {
-            isSecurityDeposit: true,
-            isHostClaim: true,
-            isGuestSide: false,
-            originalDeposit,
-            approvedClaim,
-            hostFee,
-            hostVat,
-            totalDeductions,
-            netPayout,
-            resolution: resCode || 'CLAIMED_BY_HOST',
-          };
-        }
-
-        // Guest Side Security Deposit / Refund
-        let originalDeposit = escrow?.originalDeposit || metadata.cautionFee || metadata.securityDeposit || 0;
-        if (!originalDeposit) {
-          if (rawNetAmount > 0 && rawFee > 0) {
-            originalDeposit = rawNetAmount + rawFee;
-          } else {
-            originalDeposit = depositAmount;
-          }
-        }
-
-        const damageClaim = escrow?.damageClaim || metadata.damageClaim || metadata.claimAmount || (resCode === 'CLAIMED_BY_HOST' ? originalDeposit : 0);
-        const remainingDeposit = escrow?.remainingDeposit ?? Number(Math.max(0, originalDeposit - damageClaim).toFixed(2));
-
-        let escrowFee = 0;
-        let escrowVat = 0;
-        if (escrow?.escrowFee !== undefined) {
-          escrowFee = escrow.escrowFee;
-          escrowVat = escrow.escrowVat ?? Number((escrowFee * 0.075).toFixed(2));
-        } else if (remainingDeposit > 0) {
-          if (rawFee > 0) {
-            escrowFee = Number((rawFee / 1.075).toFixed(2));
-            escrowVat = Number((rawFee - escrowFee).toFixed(2));
-          } else {
-            escrowFee = Number((remainingDeposit * 0.05).toFixed(2));
-            escrowVat = Number((escrowFee * 0.075).toFixed(2));
-          }
-        }
-
-        const totalDeductions = escrow?.totalDeductions ?? Number((damageClaim + escrowFee + escrowVat).toFixed(2));
-        const netRefund = escrow?.netRefund ?? (rawNetAmount > 0 ? rawNetAmount : (damageClaim >= originalDeposit ? 0 : Number(Math.max(0, remainingDeposit - escrowFee - escrowVat).toFixed(2))));
-
-        return {
-          isSecurityDeposit: true,
-          isHostClaim: false,
-          isGuestSide: true,
-          originalDeposit,
-          damageClaim,
-          remainingDeposit,
-          escrowFee,
-          escrowVat,
-          totalDeductions,
-          netRefund,
-          resolution: resCode || (damageClaim > 0 ? (damageClaim >= originalDeposit ? 'CLAIMED_BY_HOST' : 'SPLIT') : 'RELEASED_TO_GUEST'),
-        };
-      }
-
       if (!breakdown) return null;
 
       // Normalize breakdown keys for consistency with multiple fallbacks
@@ -268,8 +312,8 @@ const TransactionDetailScreen = () => {
         guestVat: breakdown.guestVat ?? breakdown.vat ?? metadata.guestVat ?? metadata.vat ?? 0,
         hostFee: breakdown.hostFee ?? breakdown.appFee ?? metadata.hostFee ?? metadata.appFee ?? 0,
         hostVat: breakdown.hostVat ?? breakdown.vat ?? metadata.hostVat ?? metadata.vat ?? 0,
-        appFee: breakdown.hostFee ?? breakdown.appFee ?? metadata.hostFee ?? metadata.appFee ?? 0, // Alias for template compatibility
-        vat: breakdown.hostVat ?? breakdown.vat ?? metadata.hostVat ?? metadata.vat ?? 0, // Alias for template compatibility
+        appFee: breakdown.hostFee ?? breakdown.appFee ?? metadata.hostFee ?? metadata.appFee ?? 0,
+        vat: breakdown.hostVat ?? breakdown.vat ?? metadata.hostVat ?? metadata.vat ?? 0,
         cautionFee: breakdown.cautionFee ?? breakdown.securityDeposit ?? breakdown.caution ?? metadata.cautionFee ?? metadata.securityDeposit ?? 0,
         netEarning: breakdown.netEarning ?? breakdown.net ?? breakdown.hostEarnings ?? metadata.hostEarnings ?? metadata.netEarning ?? metadata.net ?? 0,
         total: breakdown.total ?? breakdown.amount ?? metadata.total ?? metadata.amount ?? 0,
@@ -283,7 +327,7 @@ const TransactionDetailScreen = () => {
         transactionData.transactionType?.toLowerCase().includes("coupon")
       );
 
-      return { ...normalizedBreakdown, isGuestSide };
+      return { ...normalizedBreakdown, isGuestSide, isSecurityDeposit: false };
     } catch (e) {
       return null;
     }

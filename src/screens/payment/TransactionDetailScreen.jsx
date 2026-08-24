@@ -1108,7 +1108,10 @@ const TransactionDetailScreen = () => {
                 <Text style={styles.detailValue}>
                   {transactionData.dateTime}
                 </Text>
-                 {currentBreakdown && (
+              </View>
+
+              {/* Breakdown Section */}
+              {currentBreakdown && (
                 <View style={styles.breakdownBox}>
                   <Text style={styles.breakdownTitle}>
                     {currentBreakdown.isSecurityDeposit 

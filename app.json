@@ -81,7 +81,9 @@
         }
       ],
       "expo-audio",
-      "expo-video"
+      "expo-video",
+      "expo-asset",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,

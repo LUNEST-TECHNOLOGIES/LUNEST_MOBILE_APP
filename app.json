@@ -84,7 +84,8 @@
       "expo-video",
       "expo-asset",
       "expo-web-browser",
-      "@didit-protocol/sdk-react-native"
+      "@didit-protocol/sdk-react-native",
+      "./plugins/withManifestReplace.js"
     ],
     "experiments": {
       "typedRoutes": true,

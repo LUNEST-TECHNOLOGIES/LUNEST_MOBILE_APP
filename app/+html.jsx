@@ -2,7 +2,7 @@ import { ScrollViewStyleReset } from 'expo-router/html';
 
 /**
  * Custom Root HTML Template for Expo Router Web Export
- * Injects iOS & Android PWA Meta Tags, App Icons, Web Manifest, and Service Worker Registration.
+ * Injects iOS & Android PWA Meta Tags, App Icons, Web Manifest, and Service Worker Registration with Instant Auto-Update.
  */
 export default function Root({ children }) {
   return (
@@ -37,7 +37,7 @@ export default function Root({ children }) {
         {/* Disable body scrolling reset for React Native Web compatibility */}
         <ScrollViewStyleReset />
 
-        {/* Register PWA Service Worker script inline */}
+        {/* Register PWA Service Worker with Instant Auto-Update */}
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -45,9 +45,48 @@ export default function Root({ children }) {
                 window.addEventListener('load', function() {
                   navigator.serviceWorker.register('/sw.js').then(function(registration) {
                     console.log('✅ [LUNEST PWA] ServiceWorker registered with scope:', registration.scope);
+                    
+                    // Trigger immediate check for updates
                     registration.update();
-                  }, function(err) {
+
+                    // Periodic check every 2 minutes
+                    setInterval(function() {
+                      registration.update();
+                    }, 120 * 1000);
+
+                    // Listen for newly installing worker
+                    registration.addEventListener('updatefound', function() {
+                      var newWorker = registration.installing;
+                      if (newWorker) {
+                        newWorker.addEventListener('statechange', function() {
+                          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                            console.log('🔄 [LUNEST PWA] New update detected. Applying immediately...');
+                            newWorker.postMessage({ type: 'SKIP_WAITING' });
+                          }
+                        });
+                      }
+                    });
+                  }).catch(function(err) {
                     console.log('⚠️ [LUNEST PWA] ServiceWorker registration failed:', err);
+                  });
+
+                  // Reload once when the new service worker takes control
+                  var refreshing = false;
+                  navigator.serviceWorker.addEventListener('controllerchange', function() {
+                    if (!refreshing) {
+                      refreshing = true;
+                      console.log('🚀 [LUNEST PWA] Service worker updated. Reloading for latest version...');
+                      window.location.reload();
+                    }
+                  });
+
+                  // Check for updates when user returns to app
+                  document.addEventListener('visibilitychange', function() {
+                    if (document.visibilityState === 'visible') {
+                      navigator.serviceWorker.getRegistration().then(function(reg) {
+                        if (reg) reg.update();
+                      });
+                    }
                   });
                 });
               }

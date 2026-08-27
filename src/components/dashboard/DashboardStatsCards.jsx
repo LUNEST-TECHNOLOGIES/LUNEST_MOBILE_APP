@@ -75,7 +75,7 @@ const RatingIcon = ({ size = 38 }) => (
 );
 
 
-// Format currency with 2 decimal places
+// Format currency with standard 2 decimal places and commas
 const formatCurrency = (amount) => {
   const num = typeof amount === "number" ? amount : parseFloat(amount || 0);
   const validNum = isNaN(num) ? 0 : num;
@@ -83,13 +83,29 @@ const formatCurrency = (amount) => {
   return `₦${formatted.replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
 };
 
+// Format compact currency with K (Thousands) and M (Millions)
+const formatCompactCurrency = (amount) => {
+  const num = typeof amount === "number" ? amount : parseFloat(amount || 0);
+  const validNum = isNaN(num) ? 0 : num;
+  if (validNum === 0) return "₦0";
+  if (validNum >= 1000000) {
+    const m = (validNum / 1000000).toFixed(2).replace(/\.?0+$/, "");
+    return `₦${m}M`;
+  }
+  if (validNum >= 1000) {
+    const k = (validNum / 1000).toFixed(1).replace(/\.?0+$/, "");
+    return `₦${k}K`;
+  }
+  return `₦${validNum.toLocaleString()}`;
+};
+
 // Format number with suffix
 const formatNumber = (num) => {
   if (num >= 1000000) {
-    return (num / 1000000).toFixed(2) + "M";
+    return (num / 1000000).toFixed(2).replace(/\.?0+$/, "") + "M";
   }
   if (num >= 1000) {
-    return num.toLocaleString();
+    return (num / 1000).toFixed(1).replace(/\.?0+$/, "") + "K";
   }
   return num.toString();
 };

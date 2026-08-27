@@ -96,6 +96,7 @@ const PROPERTY_CATEGORIES = [
   // Premium / Other
   { id: 'luxury', label: 'Luxury Listing', icon: Diamond, color: '#FAF0FF' },
   { id: 'purchase', label: 'Full Purchase', icon: Coins, color: '#F0FBF0' },
+  { id: 'others', label: 'Others', icon: LayoutGrid, color: '#F3F4F6' },
 ];
 
 

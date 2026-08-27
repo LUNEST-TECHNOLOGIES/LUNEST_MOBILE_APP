@@ -345,11 +345,20 @@ class MediaUploadService {
    */
   async processVideoUpload(task) {
     const { id, draftId, localUri } = task;
+    let tickerInterval = null;
 
     try {
       task.status = "compressing";
-      task.progress = 20;
+      task.progress = 15;
       this.notify(draftId);
+
+      // Start a smooth background progress ticker that keeps the progress bar moving
+      tickerInterval = setInterval(() => {
+        if (task.progress < 94) {
+          task.progress = Math.min(task.progress + 1, 94);
+          this.notify(draftId);
+        }
+      }, 180);
 
       // Video compression with safe fallback
       let compressedUri = localUri;
@@ -357,7 +366,7 @@ class MediaUploadService {
         const compressionResult = await imageCompressionService.compressVideo(
           localUri,
           (p) => {
-            task.progress = Math.round(20 + p * 30); // 20% to 50%
+            task.progress = Math.max(task.progress, Math.round(15 + p * 30));
             this.notify(draftId);
           },
           50
@@ -369,7 +378,7 @@ class MediaUploadService {
       }
 
       task.status = "uploading";
-      task.progress = 55;
+      task.progress = Math.max(task.progress, 45);
       this.notify(draftId);
 
       // Perform upload with retry logic
@@ -378,7 +387,7 @@ class MediaUploadService {
         const fastRes = await listingService.uploadVideoFast(
           compressedUri,
           (pct) => {
-            task.progress = Math.round(55 + pct * 0.4); // 55% to 95%
+            task.progress = Math.max(task.progress, Math.round(45 + pct * 0.5));
             this.notify(draftId);
           }
         );
@@ -388,7 +397,7 @@ class MediaUploadService {
         }
 
         // Fallback to multipart
-        console.warn("⚠️ [MediaUploadService] Fast video upload failed, trying multipart fallback...");
+        console.warn("⚠️ [MediaUploadService] Fast video upload notice, trying multipart fallback...");
         const uploadVidRes = await listingService.uploadVideos([compressedUri]);
         if (uploadVidRes.success && uploadVidRes.videos?.length > 0) {
           const uploadedVid = uploadVidRes.videos[0];
@@ -403,6 +412,8 @@ class MediaUploadService {
         throw new Error(fastRes.message || "Video upload failed");
       }, task);
 
+      if (tickerInterval) clearInterval(tickerInterval);
+
       task.status = "completed";
       task.progress = 100;
       task.serverUrl = serverUrl;
@@ -413,6 +424,7 @@ class MediaUploadService {
       await this.syncDraftWithUploadedMedia(draftId);
       this.notify(draftId);
     } catch (err) {
+      if (tickerInterval) clearInterval(tickerInterval);
       console.warn(`⚠️ [MediaUploadService] Video ${id} upload paused/failed:`, err.message);
       task.status = this.isOnline ? "failed" : "retrying";
       task.error = err.message;

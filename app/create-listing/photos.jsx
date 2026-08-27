@@ -546,20 +546,23 @@ const Photos = () => {
                           <View style={styles.videoProgressRow}>
                             <Text style={styles.videoProgressText}>
                               {isRetrying
-                                ? "Network glitch - reconnecting..."
+                                ? "Reconnecting..."
                                 : isFailed
-                                ? "Upload failed. Tap to retry."
+                                ? "Upload paused. Tap to retry."
                                 : task.status === "compressing"
-                                ? "Optimizing video..."
-                                : `Uploading to cloud (${progress}%)`}
+                                ? "Preparing video tour..."
+                                : `Uploading video tour (${progress}%)...`}
                             </Text>
                             <View style={styles.videoProgressBarBg}>
                               <View style={[styles.videoProgressBarFill, { width: `${progress}%` }]} />
                             </View>
+                            <Text style={{ fontSize: 10, color: "#64748B", marginTop: 2 }}>
+                              Upload runs in background • You can tap Next to continue
+                            </Text>
                           </View>
                         )}
                         {task && task.status === "completed" && (
-                          <Text style={styles.videoCompleteText}>Uploaded to LUNEST Cloud</Text>
+                          <Text style={styles.videoCompleteText}>Video tour ready</Text>
                         )}
                       </View>
                     </View>
@@ -606,7 +609,7 @@ const Photos = () => {
           <Text
             style={[styles.nextButtonText, photos.length < 3 && styles.nextButtonTextDisabled]}
           >
-            {isAnyPhotoUploading || isAnyVideoUploading ? "Uploading in Background..." : "Next"}
+            Next
           </Text>
         </Pressable>
       </View>

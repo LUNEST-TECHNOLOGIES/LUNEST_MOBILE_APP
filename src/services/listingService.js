@@ -1042,8 +1042,33 @@ class ListingService {
       const { uploadUrl, publicUrl, s3Key } = urlBody || {};
 
       if (!uploadUrl) throw new Error("No presigned URL returned from server");
+      if (onProgress) onProgress(15);
 
-      // STEP 2: Prepare video blob
+      // STEP 2: On Native, stream directly to S3 via FileSystem.uploadAsync without loading into JS memory
+      if (Platform.OS !== "web" && LegacyFileSystem && LegacyFileSystem.uploadAsync) {
+        try {
+          console.log("[ListingService] Streaming video to S3 via native FileSystem.uploadAsync...");
+          if (onProgress) onProgress(35);
+
+          const uploadRes = await LegacyFileSystem.uploadAsync(uploadUrl, videoUri, {
+            httpMethod: "PUT",
+            headers: {
+              "Content-Type": mimeType,
+            },
+            uploadType: LegacyFileSystem.FileSystemUploadType.BINARY_CONTENT,
+          });
+
+          if (uploadRes && uploadRes.status >= 200 && uploadRes.status < 300) {
+            if (onProgress) onProgress(100);
+            console.log("✅ [ListingService] Native video streamed directly to S3:", publicUrl);
+            return { success: true, url: String(publicUrl), s3Key };
+          }
+        } catch (nativeFsErr) {
+          console.warn("[ListingService] Native uploadAsync fallback to XHR:", nativeFsErr?.message);
+        }
+      }
+
+      // STEP 3: Web or XHR fallback
       let videoBlob;
       if (Platform.OS === "web") {
         if (isDataUrl) {
@@ -1057,12 +1082,10 @@ class ListingService {
           videoBlob = await resp.blob();
         }
       } else {
-        // Native: fetch the file as blob
         const resp = await fetch(videoUri);
         videoBlob = await resp.blob();
       }
 
-      // STEP 3: PUT directly to S3 with progress tracking via XHR
       const s3Url = await new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         xhr.open("PUT", uploadUrl, true);
@@ -1071,7 +1094,8 @@ class ListingService {
         if (xhr.upload && onProgress) {
           xhr.upload.onprogress = (e) => {
             if (e.lengthComputable) {
-              onProgress(Math.round((e.loaded / e.total) * 100));
+              const pct = Math.round((e.loaded / e.total) * 100);
+              onProgress(Math.max(20, pct));
             }
           };
         }
@@ -1091,7 +1115,7 @@ class ListingService {
       console.log("✅ [ListingService] Video fast-uploaded to S3:", s3Url);
       return { success: true, url: String(s3Url), s3Key };
     } catch (error) {
-      console.warn("[ListingService] Fast video upload failed, will fall back:", error.message);
+      console.warn("[ListingService] Fast video upload notice, will fall back:", error.message);
       return { success: false, message: error.message };
     }
   }

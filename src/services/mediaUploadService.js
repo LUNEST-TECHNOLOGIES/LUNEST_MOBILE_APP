@@ -287,8 +287,20 @@ class MediaUploadService {
       task.progress = 50;
       this.notify(draftId);
 
-      // Perform upload with retry logic
+      // Perform upload with retry logic - high-speed direct presigned S3 path first
       const serverUrl = await this.uploadWithRetry(async () => {
+        // Fast direct S3 PUT
+        const fastRes = await listingService.uploadImageFast(finalUri, (pct) => {
+          task.progress = Math.round(50 + pct * 0.45); // 50% to 95%
+          this.notify(draftId);
+        });
+
+        if (fastRes.success && fastRes.url) {
+          return fastRes.url;
+        }
+
+        // Fallback to backend multipart
+        console.warn("⚠️ [MediaUploadService] Direct S3 image upload notice, trying multipart fallback...");
         task.progress = Math.min(task.progress + 15, 90);
         this.notify(draftId);
 
@@ -307,7 +319,7 @@ class MediaUploadService {
             return url;
           }
         }
-        throw new Error(uploadImgRes.message || "Upload did not return a valid URL");
+        throw new Error(uploadImgRes.message || fastRes.message || "Upload did not return a valid URL");
       }, task);
 
       // Successfully completed

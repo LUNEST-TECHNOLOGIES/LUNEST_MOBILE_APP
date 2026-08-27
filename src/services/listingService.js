@@ -877,6 +877,114 @@ class ListingService {
 
   /**
   /**
+   * Upload an image directly to S3 using a presigned PUT URL (fastest direct method)
+   * Flow: get presigned URL from backend (fileCategory: "images") -> PUT directly to S3 -> confirm
+   * @param {string} imageUri - Local URI or blob URL of the image
+   * @param {function} onProgress - Progress callback (0-100)
+   * @returns {Promise<{success, url}>}
+   */
+  async uploadImageFast(imageUri, onProgress = null) {
+    console.log("[ListingService] Fast image upload via direct presigned S3 URL...");
+
+    try {
+      const token = await authService.getToken();
+      if (!token) return { success: false, message: "Authentication required" };
+
+      const isDataUrl = imageUri && imageUri.startsWith("data:");
+      let mimeType = "image/jpeg";
+      let ext = "jpg";
+
+      if (isDataUrl) {
+        const match = imageUri.match(/data:([^;]+);/);
+        if (match) {
+          mimeType = match[1];
+          ext = mimeType.split("/")[1] || "jpg";
+        }
+      } else if (imageUri) {
+        const uriLower = imageUri.toLowerCase();
+        if (uriLower.includes(".png")) { mimeType = "image/png"; ext = "png"; }
+        else if (uriLower.includes(".webp")) { mimeType = "image/webp"; ext = "webp"; }
+        else if (uriLower.includes(".heic")) { mimeType = "image/heic"; ext = "heic"; }
+      }
+
+      // STEP 1: Request presigned upload URL from backend
+      const cleanBase = (await configService.getBaseURL()).replace(/\/$/, "");
+      const presignedEndpoint = cleanBase.endsWith("/v1")
+        ? `${cleanBase}/listings/presigned-upload-url`
+        : `${cleanBase}/v1/listings/presigned-upload-url`;
+
+      const urlRes = await fetch(presignedEndpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + token,
+        },
+        body: JSON.stringify({ contentType: mimeType, fileCategory: "images", fileName: `image.${ext}` }),
+      });
+
+      if (!urlRes.ok) {
+        const err = await urlRes.json().catch(() => ({}));
+        throw new Error(err.message || "Failed to get upload URL");
+      }
+
+      const { body: urlBody } = await urlRes.json();
+      const { uploadUrl, publicUrl, s3Key } = urlBody || {};
+
+      if (!uploadUrl) throw new Error("No presigned URL returned from server");
+
+      // STEP 2: Prepare image blob
+      let imageBlob;
+      if (Platform.OS === "web") {
+        if (isDataUrl) {
+          const parts = imageUri.split(",");
+          const byteCharacters = atob(parts[1]);
+          const byteArr = new Uint8Array(byteCharacters.length);
+          for (let i = 0; i < byteCharacters.length; i++) byteArr[i] = byteCharacters.charCodeAt(i);
+          imageBlob = new Blob([byteArr], { type: mimeType });
+        } else {
+          const resp = await fetch(imageUri);
+          imageBlob = await resp.blob();
+        }
+      } else {
+        const resp = await fetch(imageUri);
+        imageBlob = await resp.blob();
+      }
+
+      // STEP 3: PUT directly to S3 with progress tracking via XHR
+      const s3Url = await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("PUT", uploadUrl, true);
+        xhr.setRequestHeader("Content-Type", mimeType);
+
+        if (xhr.upload && onProgress) {
+          xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) {
+              onProgress(Math.round((e.loaded / e.total) * 100));
+            }
+          };
+        }
+
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            if (onProgress) onProgress(100);
+            resolve(publicUrl);
+          } else {
+            reject(new Error(`S3 PUT failed with status ${xhr.status}`));
+          }
+        };
+        xhr.onerror = () => reject(new Error("S3 PUT network error"));
+        xhr.send(imageBlob);
+      });
+
+      console.log("✅ [ListingService] Image fast-uploaded to S3:", s3Url);
+      return { success: true, url: String(s3Url), s3Key };
+    } catch (error) {
+      console.warn("[ListingService] Fast image upload notice, will use fallback:", error.message);
+      return { success: false, message: error.message };
+    }
+  }
+
+  /**
    * Upload a video directly to S3 using a presigned PUT URL (fastest method)
    * Flow: get presigned URL from backend → PUT directly to S3 → confirm
    * @param {string} videoUri - Local URI or blob URL of the video

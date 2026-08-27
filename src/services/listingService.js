@@ -1030,7 +1030,7 @@ class ListingService {
           "Content-Type": "application/json",
           Authorization: "Bearer " + token,
         },
-        body: JSON.stringify({ contentType: mimeType, fileCategory: "videos" }),
+        body: JSON.stringify({ contentType: mimeType, fileCategory: "videos", fileName: `video.${ext}` }),
       });
 
       if (!urlRes.ok) {

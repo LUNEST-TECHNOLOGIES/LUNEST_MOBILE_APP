@@ -247,8 +247,9 @@ const EmptyState = ({ onViewListings }) => (
  */
 const HostBookingsScreen = () => {
   const { width } = useWindowDimensions();
+  const isTablet = width >= 768;
   const router = useRouter();
-  const containerWidth = Math.min(width - 40, 500);
+  const containerWidth = isTablet ? Math.min(width - 48, 650) : Math.min(width - 40, 500);
 
   const [selectedFilter, setSelectedFilter] = useState("all");
 
@@ -756,7 +757,7 @@ const HostBookingsScreen = () => {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, isTablet && styles.containerTablet]}>
         <Text style={styles.headerTitle}>My Bookings</Text>
         <TouchableOpacity
           style={styles.tipsButton}
@@ -879,6 +880,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#FFFFFF",
+  },
+  containerTablet: {
+    maxWidth: 650,
+    width: "100%",
+    alignSelf: "center",
   },
   header: {
     flexDirection: "row",

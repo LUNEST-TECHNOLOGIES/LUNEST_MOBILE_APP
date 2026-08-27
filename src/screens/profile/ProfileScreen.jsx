@@ -44,6 +44,7 @@ import bookingService from "../../services/bookingService";
  */
 const ProfileScreen = ({ isHostMode: isHostModeProp = false }) => {
   const { width } = useWindowDimensions();
+  const isTablet = width >= 768;
   const router = useRouter();
   const {
     currentMode,
@@ -516,13 +517,13 @@ const ProfileScreen = ({ isHostMode: isHostModeProp = false }) => {
       />
 
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, isTablet && styles.containerTablet]}>
         <Text style={styles.headerTitle}>Profile</Text>
       </View>
 
       {/* Fixed Top Section - Profile & Wallet */}
       <View style={styles.topSection}>
-        <View style={styles.topContent}>
+        <View style={[styles.topContent, isTablet && styles.containerTablet]}>
           <ProfileHeader
             isLoading={loadingProfile}
             name={profileData?.fullName || profileData?.name || ""}
@@ -547,15 +548,13 @@ const ProfileScreen = ({ isHostMode: isHostModeProp = false }) => {
             onCopyAccount={handleCopyAccount}
           />
           <View style={styles.spacer} />
-          
-          
         </View>
       </View>
 
       {/* Scrollable Content - Settings */}
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, isTablet && { alignItems: "center" }]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={isRefreshingState} onRefresh={onRefresh} />
@@ -563,7 +562,7 @@ const ProfileScreen = ({ isHostMode: isHostModeProp = false }) => {
       >
         {/* Mode Switch Card - Show switch option if user is a Host (which implies they are either already in host mode or can switch to it) */}
         {isHost && (
-          <View style={styles.sectionContainer}>
+          <View style={[styles.sectionContainer, isTablet && styles.containerTablet]}>
             <ModeSwitchCard
               isHostMode={isInHostMode}
               onSwitch={handleModeSwitch}
@@ -578,7 +577,7 @@ const ProfileScreen = ({ isHostMode: isHostModeProp = false }) => {
         {!isHost &&
           hostApplicationStatus !== HOST_APPLICATION_STATUS.NONE &&
           hostApplicationStatus !== HOST_APPLICATION_STATUS.APPROVED && (
-            <View style={styles.sectionContainer}>
+            <View style={[styles.sectionContainer, isTablet && styles.containerTablet]}>
               <SwitchToHostButton
                 status={hostApplicationStatus}
                 onPress={() => {
@@ -600,28 +599,28 @@ const ProfileScreen = ({ isHostMode: isHostModeProp = false }) => {
 
         {/* Become a Host Card - Only show if user is NOT a Host and hasn't applied */}
         {(!isHost && hostApplicationStatus === HOST_APPLICATION_STATUS.NONE) && (
-            <View style={styles.sectionContainer}>
+            <View style={[styles.sectionContainer, isTablet && styles.containerTablet]}>
               <BecomeHostCard onStartHosting={handleStartHosting} />
             </View>
         )}
 
         {/* Settings Section */}
-        <View style={styles.sectionContainer}>
+        <View style={[styles.sectionContainer, isTablet && styles.containerTablet]}>
           <SettingsSection title="Settings" items={settingsItems} />
         </View>
 
         {/* Referral & Rewards Section */}
-        <View style={styles.sectionContainer}>
+        <View style={[styles.sectionContainer, isTablet && styles.containerTablet]}>
           <SettingsSection title="Referral & Rewards" items={referralItems} />
         </View>
 
         {/* Support Section */}
-        <View style={styles.sectionContainer}>
+        <View style={[styles.sectionContainer, isTablet && styles.containerTablet]}>
           <SettingsSection title="Support" items={supportItems} />
         </View>
 
         {/* Others Section */}
-        <View style={styles.sectionContainer}>
+        <View style={[styles.sectionContainer, isTablet && styles.containerTablet]}>
           <SettingsSection title="Others" items={otherItems} />
         </View>
 
@@ -645,6 +644,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#FFFFFF",
+  },
+  containerTablet: {
+    width: "100%",
+    maxWidth: 600,
+    alignSelf: "center",
   },
   header: {
     paddingHorizontal: 20,

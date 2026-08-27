@@ -3,6 +3,7 @@ import { format } from "date-fns";
 import { Asset } from "expo-asset"; // New Import
 import * as Clipboard from "expo-clipboard";
 import * as FileSystem from "expo-file-system";
+import { Image as ExpoImage } from "expo-image";
 import * as Print from "expo-print";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Sharing from "expo-sharing";
@@ -24,6 +25,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View
 } from "react-native";
 import { TouchableOpacity } from "react-native-gesture-handler";
@@ -66,6 +68,9 @@ const logoImage = require("../../assets/images/LUNEST PNG 1 1.png"); // New Impo
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 const BookingConfirmationScreen = () => {
+  const { width: screenWidth } = useWindowDimensions();
+  const isTablet = screenWidth >= 768;
+  const heroBannerHeight = isTablet ? 200 : Math.min(screenWidth * 0.45, 200);
   const params = useLocalSearchParams();
   const router = useRouter();
   const bookingId = params.bookingId || params.id;
@@ -1522,7 +1527,7 @@ const BookingConfirmationScreen = () => {
   return (
     <SafeAreaView style={styles.screen} edges={["top", "bottom"]}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, isTablet && styles.containerTablet]}>
         <Pressable
           style={styles.backButton}
           onPress={handleGoBack}
@@ -1542,14 +1547,14 @@ const BookingConfirmationScreen = () => {
 
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, isTablet && { alignItems: "center" }]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
         {/* Main Card */}
-        <View ref={viewRef} collapsable={false} style={styles.card}>
+        <View ref={viewRef} collapsable={false} style={[styles.card, isTablet && styles.containerTablet]}>
           <Image
             source={logoImage}
             style={{
@@ -1600,12 +1605,15 @@ const BookingConfirmationScreen = () => {
           )}
 
           {/* Hero Banner */}
-          <ImageBackground
-            source={bannerImage}
-            style={styles.heroBanner}
-            imageStyle={styles.heroBannerImage}
-            resizeMode="cover"
-          >
+          <View style={[styles.heroBanner, { height: heroBannerHeight }]}>
+            <ExpoImage
+              source={bannerImage}
+              style={[StyleSheet.absoluteFillObject, styles.heroBannerImage]}
+              contentFit="cover"
+              priority="high"
+              cachePolicy="memory-disk"
+              transition={200}
+            />
             <View style={styles.heroContent}>
               <View style={styles.statusIconCircle}>{getStatusIcon()}</View>
               <Text style={styles.heroText}>{getHeroText()}</Text>
@@ -1613,7 +1621,7 @@ const BookingConfirmationScreen = () => {
                 <Text style={styles.heroSubtext}>{getHeroSubtext()}</Text>
               )}
             </View>
-          </ImageBackground>
+          </View>
 
           {/* Payment Recovery Button - Only for PENDING_PAYMENT status (stuck payments) */}
           {statusLower === "pending_payment" && (booking?._id || booking?.id) && (
@@ -2397,141 +2405,143 @@ const BookingConfirmationScreen = () => {
 
       {/* Fixed Bottom Section - Hide when capturing */}
       {!isCapturing && (
-        <View style={styles.bottomSection}>
-          {/* Refund Policy Notice - Hide for completed/cancelled if desired, keeping for all for now */}
-          {statusLower !== "cancelled" &&
-            statusLower !== "expired" &&
-            statusLower !== "completed" && (
-              <Pressable
-                style={styles.policyNotice}
-                onPress={() => WebBrowser.openBrowserAsync("https://www.lunest.app/terms-of-use")}
-              >
-                <Ionicons name="information-circle" size={18} color="#fd3131" />
-                <Text style={styles.policyText}>
-                  <Text style={styles.policyRedText}>
-                    {"This booking is non-refundable. "}
+        <View style={[styles.bottomSection, isTablet && { alignItems: "center" }]}>
+          <View style={[isTablet && styles.containerTablet, { width: "100%", gap: 16 }]}>
+            {/* Refund Policy Notice - Hide for completed/cancelled if desired, keeping for all for now */}
+            {statusLower !== "cancelled" &&
+              statusLower !== "expired" &&
+              statusLower !== "completed" && (
+                <Pressable
+                  style={styles.policyNotice}
+                  onPress={() => WebBrowser.openBrowserAsync("https://www.lunest.app/terms-of-use")}
+                >
+                  <Ionicons name="information-circle" size={18} color="#fd3131" />
+                  <Text style={styles.policyText}>
+                    <Text style={styles.policyRedText}>
+                      {"This booking is non-refundable. "}
+                    </Text>
+                    <Text style={styles.policyLinkText}>View Policy</Text>
                   </Text>
-                  <Text style={styles.policyLinkText}>View Policy</Text>
-                </Text>
-              </Pressable>
-            )}
+                </Pressable>
+              )}
 
-          {/* Action Buttons */}
-          <View style={styles.buttonRow}>
-            {statusLower === "reserved" ? (
-              <>
-                <Pressable
-                  style={[styles.primaryButton, styles.buttonFlex]}
-                  onPress={handleContinueToPayment}
-                >
-                  <Text style={styles.primaryButtonText}>
-                    Continue to Payment
-                  </Text>
-                </Pressable>
-                <Pressable
-                  style={[styles.outlineDangerButton, styles.buttonFlex]}
-                  onPress={() => setShowCancelModal(true)}
-                >
-                  <Text style={styles.outlineDangerButtonText}>
-                    Cancel Reservation
-                  </Text>
-                </Pressable>
-              </>
-            ) : statusLower === "failed" ? (
-              <>
-                <Pressable
-                  style={[styles.primaryButton, styles.buttonFlex]}
-                  onPress={handleContinueToPayment}
-                >
-                  <Text style={styles.primaryButtonText}>
-                    Retry Payment
-                  </Text>
-                </Pressable>
-                <Pressable
-                  style={[styles.outlineButton, styles.buttonFlex, { marginLeft: 10 }]}
-                  onPress={handleGoHome}
-                >
-                  <Text style={styles.outlineButtonText}>Go Home</Text>
-                </Pressable>
-              </>
-            ) : statusLower === "confirmed" ? (
-              <>
-                {(isGuest || isHostView) && !booking?.guestCheckedIn && isCheckInArrival ? (
-                  <Pressable
-                    style={[styles.primaryButton, styles.buttonFlex, { backgroundColor: '#22C55E' }]}
-                    onPress={handleCheckIn}
-                    disabled={isCheckingIn}
-                  >
-                    {isCheckingIn ? (
-                      <ActivityIndicator color="#fff" size="small" />
-                    ) : (
-                      <Text style={styles.primaryButtonText} numberOfLines={1} adjustsFontSizeToFit>Confirm Check-in</Text>
-                    )}
-                  </Pressable>
-                ) : (
+            {/* Action Buttons */}
+            <View style={styles.buttonRow}>
+              {statusLower === "reserved" ? (
+                <>
                   <Pressable
                     style={[styles.primaryButton, styles.buttonFlex]}
-                    onPress={handleShare}
+                    onPress={handleContinueToPayment}
                   >
-                    <Text style={styles.primaryButtonText} numberOfLines={1} adjustsFontSizeToFit>Share Booking</Text>
+                    <Text style={styles.primaryButtonText}>
+                      Continue to Payment
+                    </Text>
                   </Pressable>
-                )}
-
-                {/* Secondary Action: Cancel Stay OR Report Issue OR Go Home */}
-                {!cancellationWindowPassed && !isCheckInToday && (booking?.listing?.acceptRefund !== false) ? (
                   <Pressable
                     style={[styles.outlineDangerButton, styles.buttonFlex]}
                     onPress={() => setShowCancelModal(true)}
                   >
-                    <Text style={styles.outlineDangerButtonText} numberOfLines={1} adjustsFontSizeToFit>Cancel Stay</Text>
+                    <Text style={styles.outlineDangerButtonText}>
+                      Cancel Reservation
+                    </Text>
                   </Pressable>
-                ) : (cancellationWindowPassed || isCheckInToday) && statusLower !== "disputed" ? (
+                </>
+              ) : statusLower === "failed" ? (
+                <>
                   <Pressable
-                    style={[styles.outlineDangerButton, styles.buttonFlex]}
-                    onPress={() => setShowDisputeModal(true)}
+                    style={[styles.primaryButton, styles.buttonFlex]}
+                    onPress={handleContinueToPayment}
                   >
-                    <Text style={styles.outlineDangerButtonText} numberOfLines={1} adjustsFontSizeToFit>Report Issue</Text>
+                    <Text style={styles.primaryButtonText}>
+                      Retry Payment
+                    </Text>
                   </Pressable>
-                ) : (
+                  <Pressable
+                    style={[styles.outlineButton, styles.buttonFlex, { marginLeft: 10 }]}
+                    onPress={handleGoHome}
+                  >
+                    <Text style={styles.outlineButtonText}>Go Home</Text>
+                  </Pressable>
+                </>
+              ) : statusLower === "confirmed" ? (
+                <>
+                  {(isGuest || isHostView) && !booking?.guestCheckedIn && isCheckInArrival ? (
+                    <Pressable
+                      style={[styles.primaryButton, styles.buttonFlex, { backgroundColor: '#22C55E' }]}
+                      onPress={handleCheckIn}
+                      disabled={isCheckingIn}
+                    >
+                      {isCheckingIn ? (
+                        <ActivityIndicator color="#fff" size="small" />
+                      ) : (
+                        <Text style={styles.primaryButtonText} numberOfLines={1} adjustsFontSizeToFit>Confirm Check-in</Text>
+                      )}
+                    </Pressable>
+                  ) : (
+                    <Pressable
+                      style={[styles.primaryButton, styles.buttonFlex]}
+                      onPress={handleShare}
+                    >
+                      <Text style={styles.primaryButtonText} numberOfLines={1} adjustsFontSizeToFit>Share Booking</Text>
+                    </Pressable>
+                  )}
+
+                  {/* Secondary Action: Cancel Stay OR Report Issue OR Go Home */}
+                  {!cancellationWindowPassed && !isCheckInToday && (booking?.listing?.acceptRefund !== false) ? (
+                    <Pressable
+                      style={[styles.outlineDangerButton, styles.buttonFlex]}
+                      onPress={() => setShowCancelModal(true)}
+                    >
+                      <Text style={styles.outlineDangerButtonText} numberOfLines={1} adjustsFontSizeToFit>Cancel Stay</Text>
+                    </Pressable>
+                  ) : (cancellationWindowPassed || isCheckInToday) && statusLower !== "disputed" ? (
+                    <Pressable
+                      style={[styles.outlineDangerButton, styles.buttonFlex]}
+                      onPress={() => setShowDisputeModal(true)}
+                    >
+                      <Text style={styles.outlineDangerButtonText} numberOfLines={1} adjustsFontSizeToFit>Report Issue</Text>
+                    </Pressable>
+                  ) : (
+                    <Pressable
+                      style={[styles.outlineButton, styles.buttonFlex]}
+                      onPress={handleGoHome}
+                    >
+                      <Text style={styles.outlineButtonText} numberOfLines={1} adjustsFontSizeToFit>Go Home</Text>
+                    </Pressable>
+                  )}
+                </>
+              ) : statusLower === "ongoing" && !isHostView ? (
+                <>
+                  <Pressable
+                    style={[styles.primaryButton, styles.buttonFlex, { backgroundColor: "#010135" }]}
+                    onPress={() => setShowExtendStayModal(true)}
+                  >
+                    <Text style={styles.primaryButtonText} numberOfLines={1} adjustsFontSizeToFit>Extend Stay</Text>
+                  </Pressable>
+                  <Pressable
+                    style={[styles.outlineButton, styles.buttonFlex]}
+                    onPress={() => setShowCheckoutModal(true)}
+                  >
+                    <Text style={styles.outlineButtonText} numberOfLines={1} adjustsFontSizeToFit>Check-out</Text>
+                  </Pressable>
+                </>
+              ) : (
+                <>
+                  <Pressable
+                    style={[styles.primaryButton, styles.buttonFlex]}
+                    onPress={handleShare}
+                  >
+                    <Text style={styles.primaryButtonText} numberOfLines={1} adjustsFontSizeToFit>Share</Text>
+                  </Pressable>
                   <Pressable
                     style={[styles.outlineButton, styles.buttonFlex]}
                     onPress={handleGoHome}
                   >
                     <Text style={styles.outlineButtonText} numberOfLines={1} adjustsFontSizeToFit>Go Home</Text>
                   </Pressable>
-                )}
-              </>
-            ) : statusLower === "ongoing" && !isHostView ? (
-              <>
-                <Pressable
-                  style={[styles.primaryButton, styles.buttonFlex, { backgroundColor: "#010135" }]}
-                  onPress={() => setShowExtendStayModal(true)}
-                >
-                  <Text style={styles.primaryButtonText} numberOfLines={1} adjustsFontSizeToFit>Extend Stay</Text>
-                </Pressable>
-                <Pressable
-                  style={[styles.outlineButton, styles.buttonFlex]}
-                  onPress={() => setShowCheckoutModal(true)}
-                >
-                  <Text style={styles.outlineButtonText} numberOfLines={1} adjustsFontSizeToFit>Check-out</Text>
-                </Pressable>
-              </>
-            ) : (
-              <>
-                <Pressable
-                  style={[styles.primaryButton, styles.buttonFlex]}
-                  onPress={handleShare}
-                >
-                  <Text style={styles.primaryButtonText} numberOfLines={1} adjustsFontSizeToFit>Share</Text>
-                </Pressable>
-                <Pressable
-                  style={[styles.outlineButton, styles.buttonFlex]}
-                  onPress={handleGoHome}
-                >
-                  <Text style={styles.outlineButtonText} numberOfLines={1} adjustsFontSizeToFit>Go Home</Text>
-                </Pressable>
-              </>
-            )}
+                </>
+              )}
+            </View>
           </View>
         </View>
       )}
@@ -2785,7 +2795,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
 
-  // Header
+  containerTablet: {
+    maxWidth: 650,
+    width: "100%",
+    alignSelf: "center",
+  },
   header: {
     flexDirection: "row",
     alignItems: "center",

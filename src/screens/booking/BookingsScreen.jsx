@@ -14,6 +14,7 @@ import {
     RefreshControl,
     ScrollView,
     StyleSheet,
+    useWindowDimensions,
     View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -41,6 +42,8 @@ import bookingService from "../../services/bookingService";
 import configService from "../../services/configService";
 
 const BookingsScreen = () => {
+  const { width: screenWidth } = useWindowDimensions();
+  const isTablet = screenWidth >= 768;
   const router = useRouter();
   const params = useLocalSearchParams();
   const [activeTab, setActiveTab] = useState("Upcoming");
@@ -279,19 +282,33 @@ const BookingsScreen = () => {
   /**
    * Map backend status to frontend format
    */
-  const mapStatus = (status) => {
+  const mapStatus = (status, checkOutDate) => {
     const statusMap = {
       PENDING: "pending",
       RESERVED: "reserved",
       CONFIRMED: "confirmed",
       ONGOING: "ongoing",
       COMPLETED: "completed",
+      CHECKED_OUT: "completed",
+      CHECKOUT: "completed",
+      FINISHED: "completed",
+      SUCCESSFUL: "completed",
+      PAST: "completed",
+      REVIEWED: "completed",
       CANCELED: "cancelled",
       CANCELLED: "cancelled",
+      DECLINED: "cancelled",
       EXPIRED: "expired",
       PENDING_PAYMENT: "pending_payment",
     };
-    return statusMap[status?.toUpperCase()] || "pending";
+    let mapped = statusMap[status?.toUpperCase()] || "pending";
+    if ((mapped === "confirmed" || mapped === "ongoing") && checkOutDate) {
+      const coTime = new Date(checkOutDate).getTime();
+      if (!isNaN(coTime) && coTime < Date.now()) {
+        return "completed";
+      }
+    }
+    return mapped;
   };
 
   /**
@@ -362,8 +379,10 @@ const BookingsScreen = () => {
           }
         }
 
-        // Refresh bookings list after cancellations
-        setTimeout(() => mutateBookings(), 1000);
+        // Refetch bookings to update UI
+        if (onCachedRefresh) {
+          onCachedRefresh();
+        }
       }
     } catch (error) {
       console.error(
@@ -391,13 +410,18 @@ const BookingsScreen = () => {
     switch (activeTab) {
       case "Upcoming":
         return safeBookings.filter((b) =>
-          ["pending", "reserved", "pending_payment", "confirmed", "ongoing"].includes(b.status),
+          ["pending", "reserved", "pending_payment", "confirmed", "ongoing"].includes(b.status) &&
+          (!b.rawCheckOut || new Date(b.rawCheckOut).getTime() >= Date.now() || b.status === "ongoing"),
         );
       case "Completed":
-        return safeBookings.filter((b) => b.status === "completed");
+        return safeBookings.filter((b) =>
+          b.status === "completed" ||
+          b.status === "checked_out" ||
+          ((b.status === "confirmed" || b.status === "ongoing") && b.rawCheckOut && new Date(b.rawCheckOut).getTime() < Date.now())
+        );
       case "Canceled":
         return safeBookings.filter(
-          (b) => b.status === "cancelled" || b.status === "expired",
+          (b) => b.status === "cancelled" || b.status === "expired" || b.status === "declined",
         );
       default:
         return [];
@@ -616,12 +640,14 @@ const BookingsScreen = () => {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       {/* Header with Tabs */}
-      <BookingsHeader activeTab={activeTab} onTabPress={handleTabPress} />
+      <View style={isTablet ? styles.containerTablet : undefined}>
+        <BookingsHeader activeTab={activeTab} onTabPress={handleTabPress} />
+      </View>
 
       {/* Bookings List */}
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, isTablet && { alignItems: "center" }]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -635,6 +661,7 @@ const BookingsScreen = () => {
           filteredBookings.map((booking, index) => (
             <View 
               key={booking.id}
+              style={isTablet ? styles.containerTablet : undefined}
             >
               <BookingCard
                 booking={booking}
@@ -646,10 +673,12 @@ const BookingsScreen = () => {
             </View>
           ))
         ) : (
-          <EmptyBookingState 
-            type={activeTab}
-            onAction={() => router.push("/")}
-          />
+          <View style={isTablet ? styles.containerTablet : undefined}>
+            <EmptyBookingState 
+              type={activeTab}
+              onAction={() => router.push("/")}
+            />
+          </View>
         )}
         {/* Bottom spacing for nav bar */}
         <View style={styles.bottomSpacer} />
@@ -699,6 +728,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#FFFFFF",
+  },
+  containerTablet: {
+    maxWidth: 650,
+    width: "100%",
+    alignSelf: "center",
   },
   scrollView: {
     flex: 1,

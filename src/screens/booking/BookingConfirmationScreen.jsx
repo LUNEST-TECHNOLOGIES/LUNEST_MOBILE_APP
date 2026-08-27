@@ -2095,7 +2095,7 @@ const BookingConfirmationScreen = () => {
           securityDeposit > 0 &&
           (booking?.securityDepositResolution?.status === "PENDING" ||
             !booking?.securityDepositResolution) && (
-            <View style={styles.cautionFeeCard}>
+            <View style={[styles.cautionFeeCard, isTablet && styles.containerTablet]}>
               <View style={styles.cautionFeeHeader}>
                 <Ionicons name="shield-checkmark" size={24} color="#6371F1" />
                 <Text style={styles.cautionFeeTitle}>Caution Fee Hold</Text>
@@ -2149,7 +2149,7 @@ const BookingConfirmationScreen = () => {
           securityDeposit > 0 &&
           booking?.securityDepositResolution?.status &&
           booking?.securityDepositResolution?.status !== "PENDING" && (
-            <View style={styles.cautionFeeCard}>
+            <View style={[styles.cautionFeeCard, isTablet && styles.containerTablet]}>
               <View style={styles.cautionFeeHeader}>
                 <Ionicons
                   name={
@@ -2211,7 +2211,7 @@ const BookingConfirmationScreen = () => {
 
         {/* ── Review Section (COMPLETED bookings only) ── */}
         {statusLower === "completed" && (
-          <View style={styles.reviewCard}>
+          <View style={[styles.reviewCard, isTablet && styles.containerTablet]}>
             <View style={styles.reviewHeader}>
               <Ionicons name="star" size={24} color="#FFB800" />
               <Text style={styles.reviewTitle}>

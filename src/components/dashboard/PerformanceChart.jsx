@@ -1,34 +1,35 @@
 /**
  * Performance Chart Component
- * Shows bar charts for Bookings, Earnings, and combined data
- * With filter tabs: All, Bookings, Earnings
- *
- * NOTE: For production, consider using a charting library like:
- * - react-native-chart-kit
- * - victory-native
- * - react-native-gifted-charts
- *
- * This is a simplified placeholder implementation.
+ * Shows modern analytics bar charts for Bookings, Earnings, and combined data
+ * With responsive tablet scaling, interactive filter tabs, and refined analytics UI.
  */
 
 import { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from "react-native";
 import Svg, { Path } from "react-native-svg";
 
 // Filter tabs
 const FILTER_TABS = [
-  { id: "all", label: "All" },
+  { id: "all", label: "All Insights" },
   { id: "bookings", label: "Bookings" },
   { id: "earnings", label: "Earnings" },
 ];
 
-// Chevron Down Icon
-const ChevronDownIcon = ({ size = 8, color = "#010135" }) => (
-  <Svg width={size} height={size / 2} viewBox="0 0 8 4" fill="none">
+// Trend Up Icon
+const TrendUpIcon = ({ size = 12, color = "#10B981" }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
-      d="M1 1L4 3L7 1"
+      d="M23 6L13.5 15.5L8.5 10.5L1 18M23 6H17M23 6V12"
       stroke={color}
-      strokeWidth={1.5}
+      strokeWidth={2.5}
       strokeLinecap="round"
       strokeLinejoin="round"
     />
@@ -49,28 +50,44 @@ const FilterTab = ({ tab, isActive, onPress }) => (
   </Pressable>
 );
 
-// Simple Bar Chart Component
+// Modern Single Bar Chart Component
 const BarChart = ({
-  data,
+  data = [],
   title,
   subtitle,
   valueFormatter,
-  color = "#EF6C00",
+  color = "#192DFF",
+  lightColor = "#EEF2FF",
   maxValue,
+  badgeText,
+  cardWidth,
 }) => {
-  const days = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
+  const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
   const max = maxValue || Math.max(...data, 1);
-
-  // Find the index of the max value for highlighting
   const activeIndex = data.indexOf(Math.max(...data));
+  const totalValue = data.reduce((acc, val) => acc + val, 0);
 
   return (
-    <View style={styles.chartContainer}>
+    <View style={[styles.chartCard, cardWidth ? { width: cardWidth } : null]}>
       {/* Header */}
       <View style={styles.chartHeader}>
-        <View style={styles.chartInfo}>
+        <View style={styles.chartTitleContainer}>
           <Text style={styles.chartSubtitle}>{subtitle}</Text>
-          <Text style={styles.chartTitle}>{title}</Text>
+          <View style={styles.titleRow}>
+            <Text style={styles.chartTitle}>{title}</Text>
+            {badgeText && (
+              <View style={[styles.badge, { backgroundColor: lightColor }]}>
+                <TrendUpIcon size={10} color={color} />
+                <Text style={[styles.badgeText, { color }]}>{badgeText}</Text>
+              </View>
+            )}
+          </View>
+        </View>
+        <View style={styles.totalBadge}>
+          <Text style={styles.totalLabel}>Total</Text>
+          <Text style={[styles.totalAmount, { color }]}>
+            {valueFormatter ? valueFormatter(totalValue) : totalValue}
+          </Text>
         </View>
       </View>
 
@@ -87,9 +104,9 @@ const BarChart = ({
           ))}
         </View>
 
-        {/* Bars */}
+        {/* Bars Container */}
         <View style={styles.barsContainer}>
-          {/* Grid Lines */}
+          {/* Background Grid Lines */}
           <View style={styles.gridLines}>
             {[0, 1, 2, 3].map((i) => (
               <View
@@ -99,24 +116,25 @@ const BarChart = ({
             ))}
           </View>
 
-          {/* Bars */}
+          {/* Bar Columns */}
           <View style={styles.bars}>
             {data.map((value, index) => {
-              const height = (value / max) * 118;
+              const barHeight = Math.max(6, Math.min(125, (value / max) * 125));
               const isActive = index === activeIndex;
               return (
                 <View key={index} style={styles.barColumn}>
-                  <View
-                    style={[
-                      styles.bar,
-                      {
-                        height,
-                        backgroundColor: isActive ? color : `${color}40`,
-                        borderRadius: 12, // Fully rounded bars
-                      },
-                    ]}
-                  />
-                  {isActive && <View style={styles.activeDot} />}
+                  {/* Track Background */}
+                  <View style={styles.barTrack}>
+                    <View
+                      style={[
+                        styles.barFill,
+                        {
+                          height: barHeight,
+                          backgroundColor: isActive ? color : `${color}55`,
+                        },
+                      ]}
+                    />
+                  </View>
                 </View>
               );
             })}
@@ -126,40 +144,41 @@ const BarChart = ({
 
       {/* X-Axis Labels */}
       <View style={styles.xAxis}>
-        {days.map((day, index) => (
-          <Text key={index} style={styles.xAxisLabel}>
-            {day}
-          </Text>
-        ))}
+        {days.map((day, index) => {
+          const isActive = index === activeIndex;
+          return (
+            <Text
+              key={index}
+              style={[styles.xAxisLabel, isActive && styles.xAxisLabelActive]}
+            >
+              {day}
+            </Text>
+          );
+        })}
       </View>
-
-      {/* Divider */}
-      <View style={styles.divider} />
     </View>
   );
 };
 
-// Combined Bar Chart for Yearly Data
-const CombinedBarChart = ({ bookingsData, earningsData, years }) => {
+// Combined Bar Chart for Yearly Trends
+const CombinedBarChart = ({ bookingsData = [], earningsData = [], years = [], cardWidth }) => {
+  const max = 4000000;
   return (
-    <View style={styles.chartContainer}>
+    <View style={[styles.chartCard, cardWidth ? { width: cardWidth } : null]}>
       {/* Header */}
       <View style={styles.chartHeader}>
-        <View style={styles.chartInfo}>
-          <Text style={styles.chartSubtitle}>Earnings & Bookings per Year</Text>
-          <View style={styles.legendRow}>
-            <View style={styles.legendItem}>
-              <View
-                style={[styles.legendDot, { backgroundColor: "#9747FF" }]}
-              />
-              <Text style={styles.legendText}>Earnings</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View
-                style={[styles.legendDot, { backgroundColor: "#EF6C00" }]}
-              />
-              <Text style={styles.legendText}>Bookings</Text>
-            </View>
+        <View style={styles.chartTitleContainer}>
+          <Text style={styles.chartSubtitle}>Annual Growth Overview</Text>
+          <Text style={styles.chartTitle}>Yearly Comparison</Text>
+        </View>
+        <View style={styles.legendRow}>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: "#7C3AED" }]} />
+            <Text style={styles.legendText}>Earnings</Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: "#192DFF" }]} />
+            <Text style={styles.legendText}>Bookings</Text>
           </View>
         </View>
       </View>
@@ -168,7 +187,7 @@ const CombinedBarChart = ({ bookingsData, earningsData, years }) => {
       <View style={styles.chartArea}>
         {/* Y-Axis Labels */}
         <View style={styles.yAxis}>
-          {["4M", "3M", "2M", "1M", "0"].map((label, i) => (
+          {["₦4M", "₦3M", "₦2M", "₦1M", "₦0"].map((label, i) => (
             <Text key={i} style={styles.yAxisLabel}>
               {label}
             </Text>
@@ -177,46 +196,57 @@ const CombinedBarChart = ({ bookingsData, earningsData, years }) => {
 
         {/* Grouped Bars */}
         <View style={styles.groupedBarsContainer}>
-          {years.map((year, index) => (
-            <View key={index} style={styles.groupedBarColumn}>
-              <View style={styles.groupedBars}>
-                <View
-                  style={[
-                    styles.groupedBar,
-                    {
-                      height: (earningsData[index] / 4000000) * 167,
-                      backgroundColor: "#9747FF",
-                      borderRadius: 8,
-                    },
-                  ]}
-                />
-                <View
-                  style={[
-                    styles.groupedBar,
-                    {
-                      height: (bookingsData[index] / 4000000) * 167,
-                      backgroundColor: "#192DFF", // Lunest Blue for bookings
-                      borderRadius: 8,
-                    },
-                  ]}
-                />
-              </View>
-            </View>
-          ))}
+          {/* Background Grid Lines */}
+          <View style={styles.gridLines}>
+            {[0, 1, 2, 3, 4].map((i) => (
+              <View
+                key={i}
+                style={[styles.gridLine, i > 0 && styles.gridLineDashed]}
+              />
+            ))}
+          </View>
+
+          <View style={styles.groupedBarsRow}>
+            {years.map((year, index) => {
+              const earnHeight = Math.max(6, Math.min(125, ((earningsData[index] || 0) / max) * 125));
+              const bookHeight = Math.max(6, Math.min(125, ((bookingsData[index] || 0) / max) * 125));
+              return (
+                <View key={index} style={styles.groupedBarColumn}>
+                  <View style={styles.groupedBars}>
+                    <View
+                      style={[
+                        styles.groupedBar,
+                        {
+                          height: earnHeight,
+                          backgroundColor: "#7C3AED",
+                        },
+                      ]}
+                    />
+                    <View
+                      style={[
+                        styles.groupedBar,
+                        {
+                          height: bookHeight,
+                          backgroundColor: "#192DFF",
+                        },
+                      ]}
+                    />
+                  </View>
+                </View>
+              );
+            })}
+          </View>
         </View>
       </View>
 
       {/* X-Axis Labels */}
       <View style={styles.yearAxis}>
         {years.map((year, index) => (
-          <Text key={index} style={styles.xAxisLabel}>
+          <Text key={index} style={styles.yearAxisLabel}>
             {year}
           </Text>
         ))}
       </View>
-
-      {/* Divider */}
-      <View style={styles.divider} />
     </View>
   );
 };
@@ -236,6 +266,8 @@ const PerformanceChart = ({
   yearlyEarnings = DEMO_YEARLY_EARNINGS,
   years = ["2022", "2023", "2024", "2025"],
 }) => {
+  const { width } = useWindowDimensions();
+  const isTablet = width >= 768;
   const [selectedFilter, setSelectedFilter] = useState("all");
 
   const formatBookings = (value) => {
@@ -244,10 +276,13 @@ const PerformanceChart = ({
   };
 
   const formatEarnings = (value) => {
-    if (value >= 1000000) return `${(value / 1000000).toFixed(2)}M`;
-    if (value >= 1000) return `${(value / 1000).toFixed(2)}K`;
-    return value.toFixed(2);
+    if (value >= 1000000) return `₦${(value / 1000000).toFixed(1)}M`;
+    if (value >= 1000) return `₦${(value / 1000).toFixed(0)}K`;
+    return `₦${value.toLocaleString()}`;
   };
+
+  const carouselCardWidth = isTablet ? 360 : Math.min(width - 48, 340);
+  const singleCardWidth = isTablet ? Math.min(width - 48, 720) : width - 40;
 
   const renderCharts = () => {
     switch (selectedFilter) {
@@ -255,22 +290,28 @@ const PerformanceChart = ({
         return (
           <BarChart
             data={bookingsData}
-            title="Bookings"
-            subtitle="Weekly Booking Trends"
+            title="Bookings Trend"
+            subtitle="Weekly Reservations"
             valueFormatter={formatBookings}
-            color="#192DFF" // Lunest Blue
-            maxValue={15000}
+            color="#192DFF"
+            lightColor="#EEF2FF"
+            maxValue={15}
+            badgeText="Peak: Thu"
+            cardWidth={singleCardWidth}
           />
         );
       case "earnings":
         return (
           <BarChart
             data={earningsData}
-            title="Earnings"
-            subtitle="Weekly Revenue Growth"
+            title="Revenue Trend"
+            subtitle="Weekly Earnings"
             valueFormatter={formatEarnings}
-            color="#9747FF" // Premium Purple
-            maxValue={1500000}
+            color="#7C3AED"
+            lightColor="#F5F3FF"
+            maxValue={700000}
+            badgeText="+18% Growth"
+            cardWidth={singleCardWidth}
           />
         );
       case "all":
@@ -279,26 +320,35 @@ const PerformanceChart = ({
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.chartsScroll}
+            contentContainerStyle={[
+              styles.chartsScroll,
+              isTablet && { paddingHorizontal: 24, gap: 16 },
+            ]}
           >
             {/* Bookings Chart */}
             <BarChart
               data={bookingsData}
               title="Bookings"
-              subtitle="Average Weekly Bookings"
+              subtitle="Weekly Reservations"
               valueFormatter={formatBookings}
-              color="#EF6C00"
-              maxValue={15000}
+              color="#192DFF"
+              lightColor="#EEF2FF"
+              maxValue={15}
+              badgeText="Active"
+              cardWidth={carouselCardWidth}
             />
 
             {/* Earnings Chart */}
             <BarChart
               data={earningsData}
               title="Earnings"
-              subtitle="Average Weekly Earnings"
+              subtitle="Weekly Net Revenue"
               valueFormatter={formatEarnings}
-              color="#9747FF"
-              maxValue={1500000}
+              color="#7C3AED"
+              lightColor="#F5F3FF"
+              maxValue={700000}
+              badgeText="+18%"
+              cardWidth={carouselCardWidth}
             />
 
             {/* Combined Yearly Chart */}
@@ -306,6 +356,7 @@ const PerformanceChart = ({
               bookingsData={yearlyBookings}
               earningsData={yearlyEarnings}
               years={years}
+              cardWidth={carouselCardWidth}
             />
           </ScrollView>
         );
@@ -313,9 +364,12 @@ const PerformanceChart = ({
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, isTablet && styles.containerTablet]}>
       <View style={styles.headerRow}>
-        <Text style={styles.sectionTitle}>Performance</Text>
+        <View>
+          <Text style={styles.sectionTitle}>Performance & Insights</Text>
+          <Text style={styles.sectionSubtitle}>Real-time analytics and booking trends</Text>
+        </View>
         <View style={styles.filterTabs}>
           {FILTER_TABS.map((tab) => (
             <FilterTab
@@ -339,114 +393,165 @@ const PerformanceChart = ({
 
 const styles = StyleSheet.create({
   container: {
-    gap: 14,
+    gap: 16,
+  },
+  containerTablet: {
+    width: "100%",
+    maxWidth: 720,
+    alignSelf: "center",
   },
   headerRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 20,
+    flexWrap: "wrap",
+    gap: 10,
   },
   sectionTitle: {
-    fontSize: 14,
-    fontWeight: "600",
-
-    color: "#292929",
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#010135",
+    letterSpacing: -0.2,
+  },
+  sectionSubtitle: {
+    fontSize: 12,
+    color: "#64748B",
+    marginTop: 2,
   },
   filterTabs: {
     flexDirection: "row",
-    backgroundColor: "#F5F5F5",
-    borderRadius: 8,
-    padding: 2,
+    backgroundColor: "#F1F5F9",
+    borderRadius: 10,
+    padding: 3,
+    gap: 4,
   },
   filterTab: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
   },
   filterTabActive: {
-    backgroundColor: "#192DFF",
+    backgroundColor: "#010135",
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   filterTabText: {
-    fontSize: 11,
-    fontWeight: "500",
-
-    color: "#656565",
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#64748B",
   },
   filterTabTextActive: {
     color: "#FFFFFF",
   },
   singleChartContainer: {
     paddingHorizontal: 20,
+    alignItems: "center",
   },
   chartsScroll: {
     paddingHorizontal: 20,
     gap: 14,
   },
-  chartContainer: {
-    width: 350,
-    height: 320,
+  chartCard: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 15,
+    borderRadius: 20,
     padding: 20,
-    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "#F1F5F9",
+    ...Platform.select({
+      ios: {
+        shadowColor: "#0F172A",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.05,
+        shadowRadius: 14,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
   chartHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 20,
+    marginBottom: 16,
   },
-  chartInfo: {
-    gap: 5,
+  chartTitleContainer: {
+    gap: 4,
   },
   chartSubtitle: {
-    fontSize: 14,
-
-    color: "#9291A5",
-    lineHeight: 16,
-  },
-  chartTitle: {
-    fontSize: 17,
-    fontWeight: "700",
-
-    color: "#010135",
-    lineHeight: 22,
-  },
-  dropdownButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#E5EFFF",
-    borderRadius: 16,
-    paddingHorizontal: 13,
-    paddingVertical: 8,
-    gap: 13,
-    height: 31,
-  },
-  dropdownText: {
     fontSize: 12,
     fontWeight: "500",
-
+    color: "#94A3B8",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  chartTitle: {
+    fontSize: 18,
+    fontWeight: "700",
     color: "#010135",
+  },
+  badge: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    gap: 4,
+  },
+  badgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  totalBadge: {
+    alignItems: "flex-end",
+  },
+  totalLabel: {
+    fontSize: 11,
+    color: "#94A3B8",
+    fontWeight: "500",
+  },
+  totalAmount: {
+    fontSize: 16,
+    fontWeight: "800",
+    marginTop: 1,
   },
   chartArea: {
     flexDirection: "row",
-    flex: 1,
+    height: 140,
+    alignItems: "flex-end",
   },
   yAxis: {
-    width: 40,
+    width: 45,
+    height: 125,
     justifyContent: "space-between",
-    paddingBottom: 5,
+    paddingBottom: 2,
   },
   yAxisLabel: {
-    fontSize: 11,
-
-    color: "#615E83",
-    textAlign: "right",
+    fontSize: 10,
+    color: "#94A3B8",
+    fontWeight: "500",
+    textAlign: "left",
   },
   barsContainer: {
     flex: 1,
+    height: 125,
     position: "relative",
+    justifyContent: "flex-end",
   },
   gridLines: {
     position: "absolute",
@@ -458,104 +563,108 @@ const styles = StyleSheet.create({
   },
   gridLine: {
     height: 1,
-    backgroundColor: "#E5E5EF",
+    backgroundColor: "#F1F5F9",
   },
   gridLineDashed: {
     borderStyle: "dashed",
     borderWidth: 0.5,
-    borderColor: "#E5E5EF",
+    borderColor: "#E2E8F0",
     backgroundColor: "transparent",
   },
   bars: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
     flexDirection: "row",
     justifyContent: "space-around",
     alignItems: "flex-end",
-    height: 118,
+    height: 125,
   },
   barColumn: {
     alignItems: "center",
-    width: 20,
+    flex: 1,
   },
-  bar: {
+  barTrack: {
     width: 14,
-    borderRadius: 8,
-    minHeight: 4,
+    height: 125,
+    backgroundColor: "#F8FAFC",
+    borderRadius: 7,
+    justifyContent: "flex-end",
+    overflow: "hidden",
   },
-  activeDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: "rgba(0,0,0,0.2)",
-    marginTop: 4,
+  barFill: {
+    width: "100%",
+    borderRadius: 7,
   },
   xAxis: {
     flexDirection: "row",
     justifyContent: "space-around",
-    paddingLeft: 40,
-    marginTop: 8,
+    paddingLeft: 45,
+    marginTop: 10,
   },
   xAxisLabel: {
-    fontSize: 9,
-
-    color: "#615E83",
+    fontSize: 11,
+    color: "#94A3B8",
+    fontWeight: "500",
     textAlign: "center",
-    width: 30,
   },
-  divider: {
-    height: 1,
-    backgroundColor: "#E5E5EF",
-    marginTop: 10,
+  xAxisLabelActive: {
+    color: "#010135",
+    fontWeight: "700",
   },
   legendRow: {
     flexDirection: "row",
-    gap: 8,
-    marginTop: 5,
+    gap: 12,
   },
   legendItem: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 5,
   },
   legendDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   legendText: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: "600",
-
-    color: "#010135",
+    color: "#475569",
   },
   groupedBarsContainer: {
     flex: 1,
+    height: 125,
+    position: "relative",
+    justifyContent: "flex-end",
+  },
+  groupedBarsRow: {
     flexDirection: "row",
     justifyContent: "space-around",
     alignItems: "flex-end",
-    height: 167,
+    height: 125,
   },
   groupedBarColumn: {
     alignItems: "center",
+    flex: 1,
   },
   groupedBars: {
     flexDirection: "row",
     alignItems: "flex-end",
-    gap: 8,
+    gap: 4,
   },
   groupedBar: {
-    width: 19,
+    width: 12,
     borderRadius: 6,
-    minHeight: 4,
+    minHeight: 6,
   },
   yearAxis: {
     flexDirection: "row",
     justifyContent: "space-around",
-    paddingLeft: 40,
-    marginTop: 8,
+    paddingLeft: 45,
+    marginTop: 10,
+  },
+  yearAxisLabel: {
+    fontSize: 11,
+    color: "#64748B",
+    fontWeight: "600",
+    textAlign: "center",
   },
 });
 

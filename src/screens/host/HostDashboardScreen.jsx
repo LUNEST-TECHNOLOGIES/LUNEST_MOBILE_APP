@@ -16,6 +16,7 @@ import {
     ScrollView,
     StyleSheet,
     Text,
+    useWindowDimensions,
     View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -40,6 +41,8 @@ import locationService from "../../services/locationService";
 import { HostDashboardSkeleton } from "../../components/skeletons";
 
 const HostDashboardScreen = () => {
+  const { width: screenWidth } = useWindowDimensions();
+  const isTablet = screenWidth >= 768;
   const router = useRouter();
   const { switchToGuest } = useUserMode();
 
@@ -314,49 +317,55 @@ const HostDashboardScreen = () => {
     <SafeAreaView style={styles.container} edges={["top"]}>
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, isTablet && { alignItems: "center" }]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={["#4F46E5"]}
+            colors={["#010135"]}
           />
         }
       >
         {/* Header with location and notifications */}
-        <DashboardHeader
-          location={dashboardData.location}
-          notificationCount={dashboardData.notificationCount}
-          onNotificationPress={handleNotificationPress}
-          onLocationPress={handleLocationPress}
-        />
+        <View style={isTablet ? styles.containerTablet : undefined}>
+          <DashboardHeader
+            location={dashboardData.location}
+            notificationCount={dashboardData.notificationCount}
+            onNotificationPress={handleNotificationPress}
+            onLocationPress={handleLocationPress}
+          />
+        </View>
 
         {/* Greeting with plan badge */}
-        <DashboardGreeting
-          userName={dashboardData.userName}
-          planType={dashboardData.plan}
-          lastUpdated={lastUpdated}
-        />
+        <View style={isTablet ? styles.containerTablet : undefined}>
+          <DashboardGreeting
+            userName={dashboardData.userName}
+            planType={dashboardData.plan}
+            lastUpdated={lastUpdated}
+          />
+        </View>
 
         {/* Stats Cards */}
-        <DashboardStatsCards
-          totalEarnings={dashboardData.totalEarnings}
-          walletBalance={dashboardData.walletBalance}
-          pendingBalance={dashboardData.pendingBalance}
-          pendingBalanceLabel={dashboardData.pendingBalanceLabel}
-          onHoldEarnings={dashboardData.onHoldEarnings}
-          onHoldCaution={dashboardData.onHoldCaution}
-          onHoldPlatformFee={dashboardData.onHoldPlatformFee}
-          onHoldVat={dashboardData.onHoldVat}
-          totalBookings={dashboardData.totalBookings}
-          totalListings={dashboardData.totalListings}
-          hostRating={dashboardData.hostRating}
-          hostRatingCount={dashboardData.hostRatingCount}
-        />
+        <View style={isTablet ? styles.containerTablet : undefined}>
+          <DashboardStatsCards
+            totalEarnings={dashboardData.totalEarnings}
+            walletBalance={dashboardData.walletBalance}
+            pendingBalance={dashboardData.pendingBalance}
+            pendingBalanceLabel={dashboardData.pendingBalanceLabel}
+            onHoldEarnings={dashboardData.onHoldEarnings}
+            onHoldCaution={dashboardData.onHoldCaution}
+            onHoldPlatformFee={dashboardData.onHoldPlatformFee}
+            onHoldVat={dashboardData.onHoldVat}
+            totalBookings={dashboardData.totalBookings}
+            totalListings={dashboardData.totalListings}
+            hostRating={dashboardData.hostRating}
+            hostRatingCount={dashboardData.hostRatingCount}
+          />
+        </View>
 
         {/* Quick Action Cards */}
-        <View style={styles.quickActionsRow}>
+        <View style={[styles.quickActionsRow, isTablet && styles.containerTablet]}>
           <QuickActionCard
             label="Upcoming Bookings"
             count={dashboardData.upcomingBookings || 0}
@@ -372,26 +381,32 @@ const HostDashboardScreen = () => {
         </View>
 
         {/* Performance Charts */}
-        <PerformanceChart
-          bookingsData={dashboardData.bookingsData}
-          earningsData={dashboardData.earningsData}
-          yearlyBookings={dashboardData.yearlyBookings}
-          yearlyEarnings={dashboardData.yearlyEarnings}
-        />
+        <View style={isTablet ? styles.containerTablet : undefined}>
+          <PerformanceChart
+            bookingsData={dashboardData.bookingsData}
+            earningsData={dashboardData.earningsData}
+            yearlyBookings={dashboardData.yearlyBookings}
+            yearlyEarnings={dashboardData.yearlyEarnings}
+          />
+        </View>
 
         {/* Your Listings Carousel */}
-        <YourListingsCarousel
-          listings={dashboardData.listings}
-          onListingPress={handleListingPress}
-          onViewAllPress={handleViewAllListings}
-          onCreateListingPress={handleCreateListing}
-        />
+        <View style={isTablet ? styles.containerTablet : undefined}>
+          <YourListingsCarousel
+            listings={dashboardData.listings}
+            onListingPress={handleListingPress}
+            onViewAllPress={handleViewAllListings}
+            onCreateListingPress={handleCreateListing}
+          />
+        </View>
 
         {/* Recent Activities */}
-        <RecentActivitiesSection
-          activities={dashboardData.recentActivities}
-          onActivityPress={handleActivityPress}
-        />
+        <View style={isTablet ? styles.containerTablet : undefined}>
+          <RecentActivitiesSection
+            activities={dashboardData.recentActivities}
+            onActivityPress={handleActivityPress}
+          />
+        </View>
 
         {/* Bottom spacer for FAB */}
         <View style={styles.bottomSpacer} />
@@ -407,6 +422,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#FFFFFF",
+  },
+  containerTablet: {
+    width: "100%",
+    maxWidth: 720,
+    alignSelf: "center",
   },
   scrollView: {
     flex: 1,

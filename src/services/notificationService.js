@@ -295,6 +295,7 @@ class NotificationService {
       booking_cancelled: "close-circle-outline",
       booking_completed: "star-outline",
       booking_ongoing: "time-outline",
+      upcoming_booking: "calendar-outline",
       checkout_completed: "log-out-outline",
       payment: "card-outline",
       review: "chatbubble-outline",

@@ -134,14 +134,35 @@ const BookingSummary = () => {
   console.log("[BookingSummary] Cover image URL:", params.coverImage);
   console.log("[BookingSummary] Validated cover image:", coverImage);
 
-  // Host's original rental price per period
-  const rawPrice = parseFloat(params.price) || parseFloat(params.amount) || 0;
+  // Host's original rental price per period (must NOT be overwritten by grand total amounts)
+  const rawPrice = (() => {
+    if (params.unitPrice !== undefined && params.unitPrice !== null && params.unitPrice !== '') {
+      return parseFloat(params.unitPrice);
+    }
+    if (params.price !== undefined && params.price !== null && params.price !== '') {
+      return parseFloat(params.price);
+    }
+    if (params.nightlyPrice !== undefined && params.nightlyPrice !== null && params.nightlyPrice !== '') {
+      return parseFloat(params.nightlyPrice);
+    }
+    if (params.basePrice !== undefined && params.basePrice !== null && params.basePrice !== '') {
+      return parseFloat(params.basePrice);
+    }
+    if (fetchedListing?.price) {
+      return parseFloat(fetchedListing.price);
+    }
+    // Only fallback to amount if from reservation or no other price field exists
+    if (params.fromReservation === "true" || params.bookingId) {
+      if (params.amount) return parseFloat(params.amount);
+    }
+    return parseFloat(params.amount) || 0;
+  })();
   const rentalPrice = isNaN(rawPrice) ? 0 : rawPrice;
 
   // Calculate number of nights from check-in and check-out dates
   const calculateNumberOfNights = () => {
-    const checkInDate = params?.checkInDate;
-    const checkOutDate = params?.checkOutDate;
+    const checkInDate = params?.checkInDate || params?.checkIn;
+    const checkOutDate = params?.checkOutDate || params?.checkOut;
 
     console.log("[BookingSummary] calculateNumberOfNights input:", {
       checkInDate,
@@ -149,8 +170,8 @@ const BookingSummary = () => {
     });
 
     if (!checkInDate || !checkOutDate) {
-      console.log("[BookingSummary] No dates provided, returning fallback 4");
-      return 4; // fallback to 4 nights if dates not provided
+      console.log("[BookingSummary] No dates provided, returning fallback 1");
+      return 1;
     }
 
     try {
@@ -158,12 +179,9 @@ const BookingSummary = () => {
       const checkIn = new Date(checkInDate);
       const checkOut = new Date(checkOutDate);
 
-      console.log("[BookingSummary] calculateNumberOfNights parsed dates:", {
-        checkIn,
-        checkOut,
-        checkInYear: checkIn.getFullYear(),
-        checkOutYear: checkOut.getFullYear()
-      });
+      if (isNaN(checkIn.getTime()) || isNaN(checkOut.getTime())) {
+        return 1;
+      }
 
       // Calculate difference in days
       const nights = differenceInDays(checkOut, checkIn);
@@ -174,22 +192,26 @@ const BookingSummary = () => {
       return result;
     } catch (error) {
       console.error("[BookingSummary] Error calculating nights:", error);
-      return 4; // fallback
+      return 1;
     }
   };
 
   // Calculate number of months
   const calculateNumberOfMonths = () => {
-    const checkInDate = params?.checkInDate;
-    const checkOutDate = params?.checkOutDate;
+    const checkInDate = params?.checkInDate || params?.checkIn;
+    const checkOutDate = params?.checkOutDate || params?.checkOut;
 
     if (!checkInDate || !checkOutDate) {
-      return 1; // fallback to 1 month
+      return 1;
     }
 
     try {
       const checkIn = new Date(checkInDate);
       const checkOut = new Date(checkOutDate);
+
+      if (isNaN(checkIn.getTime()) || isNaN(checkOut.getTime())) {
+        return 1;
+      }
 
       let months =
         (checkOut.getFullYear() - checkIn.getFullYear()) * 12 +
@@ -205,16 +227,20 @@ const BookingSummary = () => {
 
   // Calculate number of years
   const calculateNumberOfYears = () => {
-    const checkInDate = params?.checkInDate;
-    const checkOutDate = params?.checkOutDate;
+    const checkInDate = params?.checkInDate || params?.checkIn;
+    const checkOutDate = params?.checkOutDate || params?.checkOut;
 
     if (!checkInDate || !checkOutDate) {
-      return 1; // fallback to 1 year
+      return 1;
     }
 
     try {
       const checkIn = new Date(checkInDate);
       const checkOut = new Date(checkOutDate);
+
+      if (isNaN(checkIn.getTime()) || isNaN(checkOut.getTime())) {
+        return 1;
+      }
 
       let years = checkOut.getFullYear() - checkIn.getFullYear();
       if (
@@ -228,6 +254,7 @@ const BookingSummary = () => {
       return Math.max(1, years);
     } catch (error) {
       console.warn("Error calculating number of years:", error);
+      return 1;
     }
   };
   const [userData, setUserData] = useState(null);
@@ -1170,13 +1197,18 @@ const BookingSummary = () => {
     router.push({
       pathname: "/pay-with-wallet",
       params: {
-        amount: total, // Guest total (what guest pays) - for display
-        hostTotal: hostTotal, // Host's total (before 5% fee) - for backend
-        propertyName: bookingSummary.property.title,
+        ...params,
+        unitPrice: rentalPrice.toString(),
+        price: rentalPrice.toString(),
+        amount: (finalTotal || total).toString(), // Guest total (what guest pays) - for display and balance check
+        hostTotal: (finalTotal || hostTotal).toString(), // Host's total - for backend
+        propertyName: propertyName || bookingSummary.property.title,
         listingId: listingId,
         bookingType: bookingSummary.property.bookingType,
-        checkIn: bookingSummary.property.checkIn,
-        checkOut: bookingSummary.property.checkOut,
+        checkIn: params.checkInDate || bookingSummary.property.checkIn,
+        checkOut: params.checkOutDate || bookingSummary.property.checkOut,
+        checkInDate: params.checkInDate || params.checkIn,
+        checkOutDate: params.checkOutDate || params.checkOut,
         adults: bookingSummary.property.guests.adults,
         children: bookingSummary.property.guests.children,
         // Pass reservation info if coming from Pay Now on reserved booking

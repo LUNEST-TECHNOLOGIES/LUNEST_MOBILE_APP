@@ -151,13 +151,22 @@ const PayWithWalletScreen = () => {
 
   const handleChangePaymentMethod = () => {
     // Go back to payment method selection modal
-    router.replace({
-      pathname: "/booking-summary",
-      params: {
-        ...params,
-        showPaymentModal: "true",
-      },
-    });
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      const sanitizedParams = { ...params };
+      if (params.unitPrice || params.price) {
+        sanitizedParams.price = params.unitPrice || params.price;
+        delete sanitizedParams.amount; // Remove total amount to prevent it from becoming the nightly unit rate
+      }
+      router.replace({
+        pathname: "/booking-summary",
+        params: {
+          ...sanitizedParams,
+          showPaymentModal: "true",
+        },
+      });
+    }
   };
 
   const renderProcessingOverlay = () => {

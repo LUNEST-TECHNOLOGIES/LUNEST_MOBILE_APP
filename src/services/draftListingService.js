@@ -403,6 +403,13 @@ class DraftListingService {
         }
       }
 
+      // Sort merged drafts newest first
+      mergedDrafts.sort((a, b) => {
+        const timeA = new Date(a.updatedAt || a.lastModified || a.createdAt || a.timestamp || 0).getTime();
+        const timeB = new Date(b.updatedAt || b.lastModified || b.createdAt || b.timestamp || 0).getTime();
+        return timeB - timeA;
+      });
+
       // Save merged drafts locally - use user-specific key
       const draftsKey = await this.getDraftsKey();
       await storageService.setItem(draftsKey, mergedDrafts);
@@ -447,7 +454,12 @@ class DraftListingService {
         }
       }
 
-      return drafts || [];
+      const safeDrafts = Array.isArray(drafts) ? drafts : [];
+      return safeDrafts.sort((a, b) => {
+        const timeA = new Date(a.updatedAt || a.lastModified || a.createdAt || a.timestamp || 0).getTime();
+        const timeB = new Date(b.updatedAt || b.lastModified || b.createdAt || b.timestamp || 0).getTime();
+        return timeB - timeA;
+      });
     } catch (error) {
       console.error("Error getting drafts:", error);
       return [];

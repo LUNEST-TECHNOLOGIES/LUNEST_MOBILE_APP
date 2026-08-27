@@ -856,7 +856,7 @@ const HostListingsScreen = () => {
   const [draftListings, setDraftListings] = useState([]);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
-  const [sortOrder, setSortOrder] = useState("oldest");
+  const [sortOrder, setSortOrder] = useState("newest");
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [listingToDelete, setListingToDelete] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -1018,17 +1018,16 @@ const HostListingsScreen = () => {
         };
       });
 
-      // Sort drafts by earliest first (ascending)
+      // Sort drafts by newest first (descending)
       formattedDrafts.sort((a, b) => {
-        const timeA =
-          typeof a.createdAt === "number"
-            ? a.createdAt
-            : new Date(a.createdAt).getTime();
-        const timeB =
-          typeof b.createdAt === "number"
-            ? b.createdAt
-            : new Date(b.createdAt).getTime();
-        return timeA - timeB; // Ascending order (earliest first)
+        const parseTime = (item) => {
+          if (!item) return 0;
+          const t = item.updatedAt || item.createdAt || item.timestamp;
+          if (typeof t === "number") return t;
+          const parsed = new Date(t).getTime();
+          return isNaN(parsed) ? 0 : parsed;
+        };
+        return parseTime(b) - parseTime(a); // Descending order (newest first)
       });
 
       setDraftListings(formattedDrafts);
@@ -1126,22 +1125,8 @@ const HostListingsScreen = () => {
     }
   });
 
-  // Apply sorting
+  // Apply sorting - default is newest to oldest so new listings appear at the top
   filteredListings = [...filteredListings].sort((a, b) => {
-    // If on "All" filter, prioritize live/active listings first, then sort by time within each group
-    if (selectedFilter === "all") {
-      const aIsLive = a.status === "LIVE" || a.status === "ACTIVE";
-      const bIsLive = b.status === "LIVE" || b.status === "ACTIVE";
-
-      // Different status groups - live comes first
-      if (aIsLive && !bIsLive) return -1;
-      if (!aIsLive && bIsLive) return 1;
-
-      // Same status group - sort by time
-      // Continue to time-based sorting below
-    }
-
-    // Use updatedAt first (time edited), fall back to createdAt (time listed) or timestamp
     const parseTime = (val) => {
       if (!val) return 0;
       const parsed = new Date(val).getTime();
@@ -1150,7 +1135,7 @@ const HostListingsScreen = () => {
     const timeA = parseTime(a.updatedAt || a.createdAt || a.timestamp);
     const timeB = parseTime(b.updatedAt || b.createdAt || b.timestamp);
 
-    // Apply time-based sorting
+    // Apply time-based sorting (Newest to oldest by default)
     if (sortOrder === "newest") {
       return timeB - timeA; // Newest first
     } else {

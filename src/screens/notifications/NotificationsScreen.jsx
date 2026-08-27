@@ -43,8 +43,11 @@ const TYPE_TO_FILTER = {
   checkout_completed: "bookings",
   payment: "bookings",
   review: "reviews",
+  listing_submitted: "listings",
   listing_approved: "listings",
   listing_rejected: "listings",
+  listing_unlisted: "listings",
+  listing_relisted: "listings",
   new_listing: "listings",
   host_application: "system",
   message: "system",
@@ -55,7 +58,6 @@ const TYPE_TO_FILTER = {
   default: "system",
 };
 
-// Default image for notification types
 // Default image for notification types
 const DEFAULT_IMAGE = require("../../../assets/images/icon.png"); // Using app icon as fallback since prop_image is missing
 
@@ -69,8 +71,11 @@ const DEFAULT_IMAGES = {
   checkout_completed: DEFAULT_IMAGE,
   payment: DEFAULT_IMAGE,
   review: DEFAULT_IMAGE,
+  listing_submitted: DEFAULT_IMAGE,
   listing_approved: DEFAULT_IMAGE,
   listing_rejected: DEFAULT_IMAGE,
+  listing_unlisted: DEFAULT_IMAGE,
+  listing_relisted: DEFAULT_IMAGE,
   new_listing: DEFAULT_IMAGE,
   host_application: DEFAULT_IMAGE,
   message: DEFAULT_IMAGE,
@@ -305,8 +310,11 @@ const NotificationsScreen = () => {
       checkout_completed: "Checkout Complete",
       review: "New Review",
       new_listing: "New Space Available",
+      listing_submitted: "Listing Submitted for Review",
       listing_approved: "Listing Approved",
       listing_rejected: "Listing Rejected",
+      listing_unlisted: "Listing Unlisted",
+      listing_relisted: "Listing Relisted",
       payment: "Payment Update",
       admin_announcement: "Announcement",
       message: "New Message",

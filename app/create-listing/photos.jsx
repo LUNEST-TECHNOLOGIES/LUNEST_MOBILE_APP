@@ -1,18 +1,20 @@
 /**
- * Create Listing - Step 6: Photos
- * Upload property photos with automatic compression
- * Supports both native and web platforms
+ * Create Listing - Step 6: Photos & Videos
+ * Resilient background uploading with network glitch recovery and seamless back/forth navigation.
  */
 
 import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
+  AlertCircle,
   Camera,
+  CheckCircle2,
   Plus,
+  RefreshCw,
   Video,
-  X
+  X,
 } from "lucide-react-native";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -27,22 +29,12 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import ToastNotification from "../../src/components/common/ToastNotification";
 import CancelConfirmationModal from "../../src/components/create-listing/CancelConfirmationModal";
 import useDraftListing from "../../src/hooks/useDraftListing";
-import configService from "../../src/services/configService";
 import draftListingService from "../../src/services/draftListingService";
-import imageCompressionService from "../../src/services/imageCompressionService";
-import listingService from "../../src/services/listingService";
+import mediaUploadService from "../../src/services/mediaUploadService";
 import toastService from "../../src/services/toastService";
 
-// Fallback for ActivityIndicator if needed (React 19 / RN 0.81 compatibility)
+// Fallback for ActivityIndicator
 const RNActivityIndicator = ActivityIndicator;
-
-// Only import file system on native platforms
-let LegacyFileSystem = null;
-if (Platform.OS !== "web") {
-  LegacyFileSystem = require("expo-file-system/legacy");
-}
-
-// Icons migrated to Lucide
 
 // Progress Bar Component
 const ProgressBar = ({ currentStep, totalSteps }) => {
@@ -54,9 +46,7 @@ const ProgressBar = ({ currentStep, totalSteps }) => {
             key={index}
             style={[
               styles.progressSegment,
-              index < currentStep
-                ? styles.progressFilled
-                : styles.progressEmpty,
+              index < currentStep ? styles.progressFilled : styles.progressEmpty,
             ]}
           />
         ))}
@@ -68,9 +58,7 @@ const ProgressBar = ({ currentStep, totalSteps }) => {
   );
 };
 
-// Legacy icons migrated to Lucide
-
-// Safe JSON parse helper - defined outside component
+// Safe JSON parse helper
 const safeParseArray = (value) => {
   if (!value || value === "" || value === "[]") return [];
   try {
@@ -87,21 +75,21 @@ const Photos = () => {
   const params = useLocalSearchParams();
   const { draftData, draftId, saveDraftData } = useDraftListing();
 
-  // Initialize from draft or params
+  const currentDraftId = useMemo(() => {
+    return (draftData && draftData.draftId) || draftId || params?.draftId || "temp_draft";
+  }, [draftData, draftId, params]);
+
+  // State
   const [photos, setPhotos] = useState([]);
   const [videos, setVideos] = useState([]);
-  const [isCompressing, setIsCompressing] = useState(false);
-  const [isCompressingVideo, setIsCompressingVideo] = useState(false);
-  const [videoProgress, setVideoProgress] = useState(0); // Add progress state
-  const [imageProgress, setImageProgress] = useState(0); // Add image progress state
+  const [activeUploads, setActiveUploads] = useState([]);
   const [showCancelModal, setShowCancelModal] = useState(false);
 
-  // Toast Notification state
+  // Toast state
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [toastType, setToastType] = useState("SUCCESS");
 
-  // Subscribe to toast service
   useEffect(() => {
     const unsubscribe = toastService.subscribe(({ message, type }) => {
       setToastMessage(message);
@@ -111,491 +99,318 @@ const Photos = () => {
     return unsubscribe;
   }, []);
 
-  // Smooth incremental progress ticker for image upload (75%, 76%, 77% ... 98%)
-  useEffect(() => {
-    let interval;
-    if (isCompressing) {
-      interval = setInterval(() => {
-        setImageProgress((prev) => (prev >= 98 ? 98 : prev + 1));
-      }, 100);
-    }
-    return () => clearInterval(interval);
-  }, [isCompressing]);
-
-  // Smooth incremental progress ticker for video upload (75%, 76%, 77% ... 98%)
-  useEffect(() => {
-    let interval;
-    if (isCompressingVideo) {
-      interval = setInterval(() => {
-        setVideoProgress((prev) => (prev >= 98 ? 98 : prev + 1));
-      }, 120);
-    }
-    return () => clearInterval(interval);
-  }, [isCompressingVideo]);
-
-  // Flag to ensure we only load from draft/params once on mount
+  // Initial load from draft/params
   const [initialLoadDone, setInitialLoadDone] = useState(false);
-  // Stable reference to params.photos
   const paramsPhotos = params?.photos;
 
   useEffect(() => {
-    // If we have a draftId but draftData isn't loaded yet, wait for it
     if (draftId && !draftData) return;
-
-    // Once load is done, don't re-run this logic
     if (initialLoadDone) return;
 
-    const resolveAllImages = async () => {
-      console.log('📂 [Photos] Loading photos for draft:', draftId);
-      console.log('📊 [Photos] Draft data available:', !!draftData);
-      
-      let loadedPhotos = [];
-      if (draftData?.photos) {
-        loadedPhotos = Array.isArray(draftData.photos)
-          ? draftData.photos
-          : safeParseArray(draftData.photos);
-        console.log('📸 [Photos] Found photos in draft:', loadedPhotos.length);
-      } else if (paramsPhotos) {
-        loadedPhotos = safeParseArray(paramsPhotos);
-        console.log('📸 [Photos] Found photos in params:', loadedPhotos.length);
-      } else {
-        console.log('📸 [Photos] No photos found in draft or params');
-      }
+    let loadedPhotos = [];
+    if (draftData?.photos) {
+      loadedPhotos = Array.isArray(draftData.photos)
+        ? draftData.photos
+        : safeParseArray(draftData.photos);
+    } else if (paramsPhotos) {
+      loadedPhotos = safeParseArray(paramsPhotos);
+    }
 
-      // Filter and validate photos - keep all valid photo URIs and paths
-      const validPhotos = loadedPhotos
-        .map(p => (typeof p === "string" ? p : (p?.url || p?.uri || p?.path || null)))
-        .filter(Boolean);
-      
-      console.log(`📝 [Photos] Loaded photos: ${validPhotos.length}/${loadedPhotos.length}`);
-      setPhotos(validPhotos);
+    const validPhotos = loadedPhotos
+      .map((p) => (typeof p === "string" ? p : p?.url || p?.uri || p?.path || null))
+      .filter(Boolean);
 
-      let loadedVideos = [];
-      if (draftData?.propertyVideos || draftData?.video) {
-        const vids = draftData.propertyVideos || draftData.video;
-        loadedVideos = Array.isArray(vids) ? vids : safeParseArray(vids);
-        console.log('🎬 [Photos] Found videos in draft:', loadedVideos.length);
-      }
-      console.log('📝 [Photos] Setting videos state:', loadedVideos.length);
-      setVideos(loadedVideos);
+    setPhotos(validPhotos);
 
-      setInitialLoadDone(true);
-    };
+    let loadedVideos = [];
+    if (draftData?.propertyVideos || draftData?.video) {
+      const vids = draftData.propertyVideos || draftData.video;
+      loadedVideos = Array.isArray(vids) ? vids : safeParseArray(vids);
+    }
+    setVideos(loadedVideos);
 
-    resolveAllImages();
+    setInitialLoadDone(true);
   }, [draftData, draftId, initialLoadDone, paramsPhotos]);
 
-  // Auto-save when photos change
-  const updatePhotos = (newPhotos) => {
-    const photosArray = Array.isArray(newPhotos) ? newPhotos : [];
-    setPhotos(photosArray);
-    if (draftId) {
-      saveDraftData({
-        photos: photosArray,
-        video: videos,
-        propertyVideos: videos,
-        currentStep: 6,
-      }).catch((err) => console.error("Error auto-saving photos:", err));
-    }
-  };
+  // Subscribe to MediaUploadService background queue updates
+  useEffect(() => {
+    if (!currentDraftId) return;
 
-  // Auto-save when videos change
-  const updateVideos = (newVideos) => {
-    const videosArray = Array.isArray(newVideos) ? newVideos : [];
-    setVideos(videosArray);
-    if (draftId) {
-      saveDraftData({
-        photos: photos,
-        video: videosArray,
-        propertyVideos: videosArray,
-        currentStep: 6,
-      }).catch((err) => console.error("Error auto-saving videos:", err));
-    }
-  };
+    const unsubscribe = mediaUploadService.subscribe(currentDraftId, (tasks) => {
+      setActiveUploads(tasks || []);
 
-  const handleClose = () => {
-    // Close button always works - show modal
-    setShowCancelModal(true);
-  };
-
-  const handleCancelConfirm = async () => {
-    // Yes, Cancel - save draft and go to listings
-    try {
-      const finalDraftId =
-        (draftData && draftData.draftId) ||
-        draftId ||
-        draftListingService.generateDraftId();
-
-      await saveDraftData({
-        ...draftData,
-        photos: Array.isArray(photos) ? photos : safeParseArray(photos),
-        video: videos,
-        propertyVideos: videos,
-        currentStep: 6,
-        draftId: finalDraftId,
+      // If any task completed, sync local photos/videos state
+      tasks.forEach((task) => {
+        if (task.status === "completed" && task.serverUrl) {
+          if (task.type === "photo") {
+            setPhotos((prev) => {
+              const hasUrl = prev.includes(task.serverUrl);
+              if (!hasUrl) {
+                const localIndex = prev.findIndex((p) => p === task.localUri);
+                if (localIndex !== -1) {
+                  const updated = [...prev];
+                  updated[localIndex] = task.serverUrl;
+                  return updated;
+                }
+                return [...prev, task.serverUrl].slice(0, 10);
+              }
+              return prev;
+            });
+          } else if (task.type === "video") {
+            setVideos((prev) => {
+              const hasUrl = prev.includes(task.serverUrl);
+              if (!hasUrl) {
+                const localIndex = prev.findIndex((v) => v === task.localUri);
+                if (localIndex !== -1) {
+                  const updated = [...prev];
+                  updated[localIndex] = task.serverUrl;
+                  return updated;
+                }
+                return [...prev, task.serverUrl].slice(0, 3);
+              }
+              return prev;
+            });
+          }
+        }
       });
-
-      setShowCancelModal(false);
-      router.replace("/(host-tabs)/listings?filter=drafts&showDraftSaved=true");
-    } catch (error) {
-      console.error("Error saving draft:", error);
-      setShowCancelModal(false);
-      router.replace("/(host-tabs)/listings?filter=drafts&showDraftSaved=true");
-    }
-  };
-
-  const handleCancelDismiss = () => {
-    // No, Continue - close modal and keep editing
-    setShowCancelModal(false);
-  };
-
-  const handleBack = async () => {
-    // Save current photos before navigating back
-    const finalDraftId = (draftData && draftData.draftId) || draftId || draftListingService.generateDraftId();
-    
-    // OPTIMIZATION: Trigger save in background and navigate immediately
-    await saveDraftData({
-      photos: Array.isArray(photos) ? photos : safeParseArray(photos),
-      video: videos,
-      propertyVideos: videos,
-      currentStep: 6,
-      draftId: finalDraftId,
-    }, { background: true });
-
-    router.replace({
-      pathname: "/create-listing/amenities",
-      params: { draftId: finalDraftId },
     });
-  };
 
+    return unsubscribe;
+  }, [currentDraftId]);
+
+  // Auto-save photos helper
+  const updatePhotos = useCallback(
+    (newPhotos) => {
+      const photosArray = Array.isArray(newPhotos) ? newPhotos : [];
+      setPhotos(photosArray);
+      if (currentDraftId) {
+        saveDraftData({
+          photos: photosArray,
+          video: videos,
+          propertyVideos: videos,
+          currentStep: 6,
+        }).catch((err) => console.error("Error auto-saving photos:", err));
+      }
+    },
+    [currentDraftId, videos, saveDraftData]
+  );
+
+  // Auto-save videos helper
+  const updateVideos = useCallback(
+    (newVideos) => {
+      const videosArray = Array.isArray(newVideos) ? newVideos : [];
+      setVideos(videosArray);
+      if (currentDraftId) {
+        saveDraftData({
+          photos: photos,
+          video: videosArray,
+          propertyVideos: videosArray,
+          currentStep: 6,
+        }).catch((err) => console.error("Error auto-saving videos:", err));
+      }
+    },
+    [currentDraftId, photos, saveDraftData]
+  );
+
+  // Check if any uploads are actively in progress
+  const isAnyPhotoUploading = useMemo(() => {
+    return activeUploads.some(
+      (t) => t.type === "photo" && (t.status === "uploading" || t.status === "compressing" || t.status === "retrying")
+    );
+  }, [activeUploads]);
+
+  const isAnyVideoUploading = useMemo(() => {
+    return activeUploads.some(
+      (t) => t.type === "video" && (t.status === "uploading" || t.status === "compressing" || t.status === "retrying")
+    );
+  }, [activeUploads]);
+
+  // Pick Image(s) with resilient background queue
   const pickImage = async () => {
-    // On web, permissions work differently
     if (Platform.OS !== "web") {
-      const { status } =
-        await ImagePicker.requestMediaLibraryPermissionsAsync();
-
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== "granted") {
         toastService.showError("Please allow access to your photo library to upload images.");
         return;
       }
     }
 
+    const remainingSlots = Math.max(0, 10 - (photos ? photos.length : 0));
+    if (remainingSlots <= 0) {
+      toastService.showError("Maximum 10 photos allowed.");
+      return;
+    }
+
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
       allowsMultipleSelection: true,
       quality: 0.8,
-      selectionLimit: Math.min(10, 20 - (photos ? photos.length : 0)),
-      // For web, use base64 to ensure we can access the image data
+      selectionLimit: Math.min(10, remainingSlots),
       base64: Platform.OS === "web",
     });
 
-    if (!result.canceled && result.assets) {
-      setIsCompressing(true);
-      setImageProgress(0); // Add Image Progress Block
-      const currentPhotos = photos || [];
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      const selectedAssets = result.assets.slice(0, remainingSlots);
 
-      try {
-        // For native platforms, set up permanent storage directory
-        let permanentDir = null;
-        if (Platform.OS !== "web" && LegacyFileSystem) {
-          permanentDir = `${LegacyFileSystem.documentDirectory}listing_photos/`;
-          const dirInfo = await LegacyFileSystem.getInfoAsync(permanentDir);
-          if (!dirInfo.exists) {
-            await LegacyFileSystem.makeDirectoryAsync(permanentDir, {
-              intermediates: true,
-            });
-          }
-        }
+      // Immediately add local preview URIs so user sees them right away
+      const newLocalUris = selectedAssets.map((a) => a.uri);
+      const updatedPhotos = [...photos, ...newLocalUris].slice(0, 10);
+      setPhotos(updatedPhotos);
 
-        let failedUploads = 0;
+      // Enqueue to background MediaUploadService
+      await mediaUploadService.enqueuePhotos(currentDraftId, selectedAssets, photos);
 
-        // Process and save each image immediately for fast saving
-        for (const asset of result.assets) {
-          // Yield to UI thread to prevent freezing
-          await new Promise((resolve) => setTimeout(resolve, 10));
-          let finalUri = asset.uri;
-          try {
+      // Auto-save draft with preview URIs immediately
+      saveDraftData({
+        photos: updatedPhotos,
+        video: videos,
+        propertyVideos: videos,
+        currentStep: 6,
+      }).catch(console.error);
+    }
+  };
 
-            if (Platform.OS === "web") {
-              // For web: compress the image using canvas and use the data URL
-              console.log("🌐 [Photos] Processing web image...");
-              const compressionResult =
-                await imageCompressionService.compressImage(asset.uri, 2);
-              finalUri = compressionResult.uri;
-              console.log("✅ [Photos] Web image compressed");
-            } else {
-              // For native: compress and copy to permanent storage
-              const compressionResult =
-                await imageCompressionService.compressImage(asset.uri, 2);
-              const compressedUri = compressionResult.uri;
+  // Pick Video with resilient background queue
+  const pickVideo = async () => {
+    if ((videos || []).length >= 3) {
+      toastService.showError("Maximum 3 videos allowed.");
+      return;
+    }
 
-              const fileName = `listing_photo_${Date.now()}_${Math.random().toString(36).substring(7)}.jpg`;
-              const permanentUri = `${permanentDir}${fileName}`;
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["videos"],
+        allowsEditing: Platform.OS !== "web",
+        quality: 1,
+      });
 
-              await LegacyFileSystem.copyAsync({
-                from: compressedUri,
-                to: permanentUri,
-              });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const selectedAssets = result.assets.slice(0, 1);
+        const newLocalUris = selectedAssets.map((a) => a.uri);
+        const updatedVideos = [...videos, ...newLocalUris].slice(0, 3);
+        setVideos(updatedVideos);
 
-              finalUri = permanentUri;
-            }
+        // Enqueue to background MediaUploadService
+        await mediaUploadService.enqueueVideos(currentDraftId, selectedAssets, videos);
 
-            // Inline backend upload for immediate URL persistence - REQUIRED for retention
-            let serverUrl = null;
-            let uploadAttempts = 0;
-            const maxUploadAttempts = 3;
-            
-            while (!serverUrl && uploadAttempts < maxUploadAttempts) {
-              uploadAttempts++;
-              try {
-                console.log(
-                  `📸 [Photos] Uploading image to S3 (attempt ${uploadAttempts}/${maxUploadAttempts})...`,
-                );
-                const uploadImgRes = await listingService.uploadImages([finalUri]);
-                
-                if (uploadImgRes.success && uploadImgRes.images && uploadImgRes.images.length > 0) {
-                  const uploadedImg = uploadImgRes.images[0];
-                  let url = typeof uploadedImg === "string" 
-                    ? uploadedImg 
-                    : (uploadedImg?.url || uploadedImg?.location || uploadedImg?.storagePath || uploadedImg?.path || "");
-                  
-                  if (url) {
-                    if (typeof url === "string" && url.startsWith("/")) {
-                      const baseURL = await configService.getBaseURL();
-                      url = `${baseURL}${url}`;
-                    }
-                    serverUrl = url;
-                    console.log("✅ [Photos] Image uploaded successfully:", serverUrl);
-                  } else {
-                    throw new Error("No valid image URL returned from server");
-                  }
-                } else {
-                  throw new Error(uploadImgRes.message || "Upload returned no images");
-                }
-              } catch (upErr) {
-                console.warn(
-                  `⚠️ [Photos] Upload attempt ${uploadAttempts} failed:`,
-                  upErr.message || upErr
-                );
-                
-                if (uploadAttempts >= maxUploadAttempts) {
-                  throw new Error("Image upload failed after maximum retries");
-                } else {
-                  await new Promise(resolve => setTimeout(resolve, 800 * uploadAttempts));
-                }
-              }
-            }
-
-            if (!serverUrl) {
-              throw new Error("Image upload did not return a durable URL");
-            }
-            finalUri = serverUrl;
-
-            // Add to photos array
-            const newPhotos = [...currentPhotos, finalUri].slice(0, 10);
-            setPhotos(newPhotos);
-            currentPhotos.push(finalUri);
-
-            // Auto-save immediately after each photo
-            if (draftId) {
-              await saveDraftData({
-                photos: newPhotos,
-                video: videos,
-                propertyVideos: videos,
-                currentStep: 6,
-              });
-              console.log(
-                `✅ Photo ${currentPhotos.length} saved${Platform.OS === "web" ? " (web)" : " to permanent storage"}`,
-              );
-            }
-            // Update progress for each processed image
-            const currentImgProgress = Math.round((currentPhotos.length / result.assets.length) * 100);
-            setImageProgress(currentImgProgress);
-          } catch (error) {
-            console.error("Error compressing/saving image:", error);
-            failedUploads += 1;
-
-            // Browser blob/data URLs are session-only and must never be retained as a fallback.
-            // Native permanent file URIs remain useful for offline draft recovery.
-            if (Platform.OS !== "web" && finalUri && !/^https?:\/\//i.test(finalUri)) {
-              const newPhotos = [...currentPhotos, finalUri].slice(0, 10);
-              setPhotos(newPhotos);
-              currentPhotos.push(finalUri);
-
-              if (draftId) {
-                await saveDraftData({
-                  photos: newPhotos,
-                  video: videos,
-                  propertyVideos: videos,
-                  currentStep: 6,
-                });
-              }
-            }
-          }
-        }
-
-        if (failedUploads > 0) {
-          toastService.showError(`${failedUploads} photo${failedUploads === 1 ? "" : "s"} could not be uploaded. Please try again.`);
-        }
-        console.log(`✅ [Photos] Added ${currentPhotos.length - (photos?.length || 0)} photo(s); ${failedUploads} upload(s) failed`);
-      } catch (error) {
-        console.error("Error processing images:", error);
-        toastService.showError("Failed to process images. Please try again.");
-      } finally {
-        setIsCompressing(false);
-        setImageProgress(0);
+        // Auto-save draft
+        saveDraftData({
+          photos: photos,
+          video: updatedVideos,
+          propertyVideos: updatedVideos,
+          currentStep: 6,
+        }).catch(console.error);
       }
+    } catch (pickerError) {
+      console.error("Error picking video:", pickerError);
+      toastService.showError("Failed to select video. Please try again.");
     }
   };
 
   const removePhoto = (index) => {
+    const photoToRemove = photos[index];
     const newPhotos = (photos || []).filter((_, i) => i !== index);
     updatePhotos(newPhotos);
+
+    // Also remove from mediaUploadService queue if pending
+    const matchingTask = activeUploads.find(
+      (t) => t.localUri === photoToRemove || t.serverUrl === photoToRemove
+    );
+    if (matchingTask) {
+      mediaUploadService.removeTask(matchingTask.id);
+    }
   };
 
-  const handleNext = async () => {
-    if (photos && photos.length >= 3) {
-      const finalDraftId =
-        (draftData && draftData.draftId) ||
-        draftId ||
-        draftListingService.generateDraftId();
+  const removeVideo = (index) => {
+    const videoToRemove = videos[index];
+    const newVideos = (videos || []).filter((_, i) => i !== index);
+    updateVideos(newVideos);
 
-      // OPTIMIZATION: Trigger save in background and navigate immediately
-      // CRITICAL: We await the local save to ensure data is in cache for next screen
-      await saveDraftData({
+    const matchingTask = activeUploads.find(
+      (t) => t.localUri === videoToRemove || t.serverUrl === videoToRemove
+    );
+    if (matchingTask) {
+      mediaUploadService.removeTask(matchingTask.id);
+    }
+  };
+
+  const handleBack = async () => {
+    // Save draft and navigate back immediately — background uploads continue!
+    await saveDraftData(
+      {
         photos: Array.isArray(photos) ? photos : safeParseArray(photos),
         video: videos,
         propertyVideos: videos,
         currentStep: 6,
-        draftId: finalDraftId,
-      }, { background: true });
+        draftId: currentDraftId,
+      },
+      { background: true }
+    );
+
+    router.replace({
+      pathname: "/create-listing/amenities",
+      params: { draftId: currentDraftId },
+    });
+  };
+
+  const handleNext = async () => {
+    if (photos && photos.length >= 3) {
+      // Save draft and advance to pricing — background uploads continue!
+      await saveDraftData(
+        {
+          photos: Array.isArray(photos) ? photos : safeParseArray(photos),
+          video: videos,
+          propertyVideos: videos,
+          currentStep: 6,
+          draftId: currentDraftId,
+        },
+        { background: true }
+      );
 
       router.push({
         pathname: "/create-listing/pricing",
-        params: { draftId: finalDraftId },
+        params: { draftId: currentDraftId },
       });
     } else {
       toastService.showError("Please upload at least 3 photos of your property.");
     }
   };
 
-  // Pick video function
-  const pickVideo = async () => {
-    if ((videos || []).length >= 3) {
-      toastService.showError("Maximum 3 videos allowed");
-      return;
-    }
+  const handleClose = () => {
+    setShowCancelModal(true);
+  };
 
+  const handleCancelConfirm = async () => {
     try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Videos,
-        allowsEditing: Platform.OS !== "web",
-        quality: 1,
+      await saveDraftData({
+        ...draftData,
+        photos: Array.isArray(photos) ? photos : safeParseArray(photos),
+        video: videos,
+        propertyVideos: videos,
+        currentStep: 6,
+        draftId: currentDraftId,
       });
 
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        setIsCompressingVideo(true);
-        setVideoProgress(10);
-        const currentVideos = videos || [];
-
-        try {
-          const newDocVideos = [...currentVideos];
-          let successCount = 0;
-
-          for (const asset of result.assets) {
-            await new Promise((resolve) => setTimeout(resolve, 10));
-            try {
-              console.log("🎬 [Photos] Processing video:", asset.uri);
-              setVideoProgress(30);
-
-              const compressionResult = await imageCompressionService.compressVideo(
-                asset.uri,
-                (progress) => setVideoProgress(Math.round(30 + progress * 40)),
-                50,
-              );
-
-              let compressedUri = compressionResult ? compressionResult.uri : asset.uri;
-              setVideoProgress(70);
-
-              // Upload to server — try fast presigned S3 path first, fall back to multipart
-              try {
-                console.log("🎬 [Photos] Uploading video via fast presigned S3 path...");
-                setVideoProgress(75);
-
-                let uploadedUrl = null;
-
-                // Primary: presigned direct-to-S3 upload with real progress
-                const fastRes = await listingService.uploadVideoFast(
-                  compressedUri,
-                  (pct) => setVideoProgress(75 + Math.round(pct * 0.24)) // 75→99
-                );
-
-                if (fastRes.success && fastRes.url) {
-                  uploadedUrl = fastRes.url;
-                  console.log("✅ [Photos] Video fast-uploaded to S3:", uploadedUrl);
-                } else {
-                  // Fallback: multipart via backend
-                  console.warn("⚠️ [Photos] Fast upload failed, falling back to multipart:", fastRes.message);
-                  const uploadVidRes = await listingService.uploadVideos([compressedUri]);
-                  if (uploadVidRes.success && uploadVidRes.videos?.length > 0) {
-                    const uploadedVid = uploadVidRes.videos[0];
-                    let serverUrl = typeof uploadedVid === "string" ? uploadedVid : (uploadedVid.url || uploadedVid.uri || uploadedVid.path);
-                    if (typeof serverUrl === "string" && serverUrl.trim()) {
-                      if (serverUrl.startsWith("/")) {
-                        const baseURL = await configService.getBaseURL();
-                        const cleanBase = baseURL.replace(/\/$/, "");
-                        serverUrl = cleanBase.endsWith("/v1")
-                          ? `${cleanBase.replace(/\/v1$/, "")}${serverUrl}`
-                          : `${cleanBase}${serverUrl}`;
-                      }
-                      uploadedUrl = serverUrl;
-                    }
-                  }
-                }
-
-                if (!uploadedUrl || !/^https?:\/\//i.test(uploadedUrl)) {
-                  throw new Error("Video upload did not return a durable URL");
-                }
-
-                newDocVideos.push(uploadedUrl);
-                successCount += 1;
-                setVideoProgress(100);
-              } catch (upErr) {
-                console.warn("⚠️ [Photos] All upload paths failed:", upErr?.message);
-                toastService.showError("Video upload failed. Please try again while connected to the internet.");
-              }
-            } catch (compressError) {
-              console.error("❌ [Photos] Video processing failed:", compressError);
-              toastService.showError(`Failed to process video: ${compressError.message || "Please try a different video"}`);
-            }
-          }
-
-          const finalVideos = newDocVideos.slice(0, 3);
-          updateVideos(finalVideos);
-          
-          if (successCount > 0) {
-            toastService.showSuccess(`${successCount} video(s) added successfully`);
-          }
-        } catch (e) {
-          console.error("Error handling videos:", e);
-          toastService.showError("An error occurred while processing videos. Please try again.");
-        }
-      }
-    } catch (pickerError) {
-      console.error("Error picking video:", pickerError);
-      toastService.showError("Failed to select video. Please try again.");
-    } finally {
-      setVideoProgress(100);
-      setTimeout(() => {
-        setIsCompressingVideo(false);
-        setVideoProgress(0);
-      }, 500);
+      setShowCancelModal(false);
+      router.replace("/(host-tabs)/listings?filter=drafts&showDraftSaved=true");
+    } catch (error) {
+      setShowCancelModal(false);
+      router.replace("/(host-tabs)/listings?filter=drafts&showDraftSaved=true");
     }
   };
 
-  const removeVideo = (index) => {
-    const newVideos = (videos || []).filter((_, i) => i !== index);
-    updateVideos(newVideos);
+  const handleCancelDismiss = () => {
+    setShowCancelModal(false);
+  };
+
+  // Helper to get active upload status for a photo URI
+  const getPhotoUploadTask = (uri) => {
+    return activeUploads.find((t) => t.type === "photo" && (t.localUri === uri || t.serverUrl === uri));
+  };
+
+  // Helper to get active upload status for a video URI
+  const getVideoUploadTask = (uri) => {
+    return activeUploads.find((t) => t.type === "video" && (t.localUri === uri || t.serverUrl === uri));
   };
 
   return (
@@ -612,44 +427,15 @@ const Photos = () => {
       <ProgressBar currentStep={6} totalSteps={10} />
 
       {/* Content */}
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.content}
-      >
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
         {/* Photos Section */}
         <Text style={styles.sectionTitle}>Add photos of your property</Text>
         <Text style={styles.subtitle}>
-          Upload at least 3 photos (max 10){" "}
-          <Text style={styles.requiredText}>*Required</Text>
+          Upload at least 3 photos (max 10) <Text style={styles.requiredText}>*Required</Text>
         </Text>
 
-        {/* Photo Upload Area */}
-        {isCompressing ? (
-          <View style={[styles.uploadArea, { gap: 10 }]}>
-            <RNActivityIndicator size="large" color="#010135" />
-            <Text style={styles.uploadTitle}>
-              Processing and Uploading Photos... {imageProgress}%
-            </Text>
-            <View
-              style={{
-                width: "80%",
-                height: 6,
-                backgroundColor: "#E0E0E0",
-                borderRadius: 3,
-                marginTop: 10,
-              }}
-            >
-              <View
-                style={{
-                  width: `${imageProgress}%`,
-                  height: "100%",
-                  backgroundColor: "#010135",
-                  borderRadius: 3,
-                }}
-              />
-            </View>
-          </View>
-        ) : photos.length === 0 ? (
+        {/* Photos Grid & Upload Area */}
+        {photos.length === 0 ? (
           <Pressable style={styles.uploadArea} onPress={pickImage}>
             <Camera size={40} color="#010135" strokeWidth={1.5} />
             <Text style={styles.uploadTitle}>Tap to upload photos</Text>
@@ -657,22 +443,66 @@ const Photos = () => {
           </Pressable>
         ) : (
           <View style={styles.photosGrid}>
-            {photos.map((photo, index) => (
-              <View key={index} style={styles.photoContainer}>
-                <Image source={{ uri: photo }} style={styles.photo} />
-                <Pressable
-                  style={styles.removeButton}
-                  onPress={() => removePhoto(index)}
-                >
-                  <X size={12} color="#FFFFFF" />
-                </Pressable>
-                {index === 0 && (
-                  <View style={styles.coverBadge}>
-                    <Text style={styles.coverText}>Cover</Text>
-                  </View>
-                )}
-              </View>
-            ))}
+            {photos.map((photoUri, index) => {
+              const task = getPhotoUploadTask(photoUri);
+              const isUploading = task && task.status !== "completed";
+              const isRetrying = task && task.status === "retrying";
+              const isFailed = task && task.status === "failed";
+              const progress = task ? task.progress : 100;
+
+              return (
+                <View key={`${photoUri}_${index}`} style={styles.photoContainer}>
+                  <Image source={{ uri: photoUri }} style={styles.photo} />
+
+                  {/* Uploading / Retrying / Progress Micro-Overlay */}
+                  {isUploading && (
+                    <View style={styles.uploadOverlay}>
+                      {isRetrying ? (
+                        <View style={styles.retryingBox}>
+                          <RefreshCw size={14} color="#FFFFFF" />
+                          <Text style={styles.overlayText}>Reconnecting...</Text>
+                        </View>
+                      ) : isFailed ? (
+                        <Pressable
+                          style={styles.failedBox}
+                          onPress={() => mediaUploadService.retryTask(task.id)}
+                        >
+                          <AlertCircle size={14} color="#FFFFFF" />
+                          <Text style={styles.overlayText}>Tap to Retry</Text>
+                        </Pressable>
+                      ) : (
+                        <View style={styles.progressBox}>
+                          <RNActivityIndicator size="small" color="#FFFFFF" />
+                          <Text style={styles.overlayText}>
+                            {task.status === "compressing" ? "Optimizing" : `${progress}%`}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  )}
+
+                  {/* Completed Checkmark Indicator */}
+                  {task && task.status === "completed" && (
+                    <View style={styles.completedBadge}>
+                      <CheckCircle2 size={12} color="#10B981" />
+                    </View>
+                  )}
+
+                  {/* Delete Button */}
+                  <Pressable style={styles.removeButton} onPress={() => removePhoto(index)}>
+                    <X size={12} color="#FFFFFF" />
+                  </Pressable>
+
+                  {/* Cover Badge */}
+                  {index === 0 && (
+                    <View style={styles.coverBadge}>
+                      <Text style={styles.coverText}>Cover</Text>
+                    </View>
+                  )}
+                </View>
+              );
+            })}
+
             {photos.length < 10 && (
               <Pressable style={styles.addMoreButton} onPress={pickImage}>
                 <Plus size={24} color="#010135" strokeWidth={2} />
@@ -682,44 +512,14 @@ const Photos = () => {
           </View>
         )}
 
-        <Text style={styles.photoCount}>
-          {photos.length}/10 photos uploaded
-        </Text>
+        <Text style={styles.photoCount}>{photos.length}/10 photos selected</Text>
 
         {/* Video Section */}
         <View style={styles.videoSection}>
           <Text style={styles.sectionTitle}>Add a video tour</Text>
-          <Text style={styles.subtitle}>
-            Optional - showcase your property with up to 3 videos
-          </Text>
+          <Text style={styles.subtitle}>Optional - showcase your property with up to 3 videos</Text>
 
-          {isCompressingVideo ? (
-            <View style={[styles.videoUploadArea, { gap: 10 }]}>
-              <RNActivityIndicator size="large" color="#010135" />
-              <Text style={styles.uploadTitle}>
-                Processing videos... {videoProgress}%
-              </Text>
-
-              <View
-                style={{
-                  width: "80%",
-                  height: 6,
-                  backgroundColor: "#E0E0E0",
-                  borderRadius: 3,
-                  marginTop: 10,
-                }}
-              >
-                <View
-                  style={{
-                    width: `${videoProgress}%`,
-                    height: "100%",
-                    backgroundColor: "#010135",
-                    borderRadius: 3,
-                  }}
-                />
-              </View>
-            </View>
-          ) : videos.length === 0 ? (
+          {videos.length === 0 ? (
             <Pressable style={styles.videoUploadArea} onPress={pickVideo}>
               <Video size={40} color="#010135" />
               <Text style={styles.uploadTitle}>Tap to upload video</Text>
@@ -727,30 +527,65 @@ const Photos = () => {
             </Pressable>
           ) : (
             <View style={{ gap: 10, marginTop: 15 }}>
-              {videos.map((vid, index) => (
-                <View key={index} style={styles.videoItemContainer}>
-                  <View style={styles.videoPreview}>
-                    <Video size={30} color="#010135" />
-                    <Text style={styles.videoFileName} numberOfLines={1}>
-                      Video {index + 1}
-                    </Text>
+              {videos.map((vidUri, index) => {
+                const task = getVideoUploadTask(vidUri);
+                const isUploading = task && task.status !== "completed";
+                const isRetrying = task && task.status === "retrying";
+                const isFailed = task && task.status === "failed";
+                const progress = task ? task.progress : 100;
+
+                return (
+                  <View key={`${vidUri}_${index}`} style={styles.videoItemContainer}>
+                    <View style={styles.videoPreview}>
+                      <Video size={26} color="#010135" />
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.videoFileName} numberOfLines={1}>
+                          Video Tour {index + 1}
+                        </Text>
+                        {isUploading && (
+                          <View style={styles.videoProgressRow}>
+                            <Text style={styles.videoProgressText}>
+                              {isRetrying
+                                ? "Network glitch - reconnecting..."
+                                : isFailed
+                                ? "Upload failed. Tap to retry."
+                                : task.status === "compressing"
+                                ? "Optimizing video..."
+                                : `Uploading to cloud (${progress}%)`}
+                            </Text>
+                            <View style={styles.videoProgressBarBg}>
+                              <View style={[styles.videoProgressBarFill, { width: `${progress}%` }]} />
+                            </View>
+                          </View>
+                        )}
+                        {task && task.status === "completed" && (
+                          <Text style={styles.videoCompleteText}>Uploaded to LUNEST Cloud</Text>
+                        )}
+                      </View>
+                    </View>
+
+                    {isFailed ? (
+                      <Pressable
+                        style={styles.retryButton}
+                        onPress={() => mediaUploadService.retryTask(task.id)}
+                      >
+                        <RefreshCw size={14} color="#010135" />
+                      </Pressable>
+                    ) : null}
+
+                    <Pressable style={styles.removeVideoButton} onPress={() => removeVideo(index)}>
+                      <X size={14} color="#FFFFFF" />
+                    </Pressable>
                   </View>
-                  <Pressable
-                    style={styles.removeVideoButton}
-                    onPress={() => removeVideo(index)}
-                  >
-                    <X size={14} color="#FFFFFF" />
-                  </Pressable>
-                </View>
-              ))}
+                );
+              })}
+
               {videos.length < 3 && (
                 <Pressable
-                  style={[styles.videoUploadArea, { height: 80, marginTop: 5 }]}
+                  style={[styles.videoUploadArea, { height: 75, marginTop: 5 }]}
                   onPress={pickVideo}
                 >
-                  <Text style={[styles.uploadTitle, { fontSize: 14 }]}>
-                    + Add another video
-                  </Text>
+                  <Text style={[styles.uploadTitle, { fontSize: 14 }]}>+ Add another video</Text>
                 </Pressable>
               )}
             </View>
@@ -764,22 +599,14 @@ const Photos = () => {
           <Text style={styles.backButtonText}>Back</Text>
         </Pressable>
         <Pressable
-          style={[
-            styles.nextButton,
-            (photos.length < 3 || isCompressing || isCompressingVideo) &&
-              styles.nextButtonDisabled,
-          ]}
+          style={[styles.nextButton, photos.length < 3 && styles.nextButtonDisabled]}
           onPress={handleNext}
-          disabled={photos.length < 3 || isCompressing || isCompressingVideo}
+          disabled={photos.length < 3}
         >
           <Text
-            style={[
-              styles.nextButtonText,
-              (photos.length < 3 || isCompressing || isCompressingVideo) &&
-                styles.nextButtonTextDisabled,
-            ]}
+            style={[styles.nextButtonText, photos.length < 3 && styles.nextButtonTextDisabled]}
           >
-            {isCompressing || isCompressingVideo ? "Uploading..." : "Next"}
+            {isAnyPhotoUploading || isAnyVideoUploading ? "Uploading in Background..." : "Next"}
           </Text>
         </Pressable>
       </View>
@@ -817,8 +644,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: "500",
-
+    fontWeight: "600",
     color: "#000000",
     textAlign: "center",
   },
@@ -830,14 +656,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     zIndex: 10,
-  },
-  closeButtonBg: {
-    position: "absolute",
-    width: 40,
-    zIndex: 1,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#F5F5F5",
   },
   progressContainer: {
     flexDirection: "row",
@@ -866,7 +684,6 @@ const styles = StyleSheet.create({
   progressText: {
     fontSize: 12,
     fontWeight: "700",
-
     color: "#000000",
   },
   scrollView: {
@@ -874,23 +691,21 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: 20,
-    paddingTop: 30,
-    paddingBottom: 20,
+    paddingTop: 20,
+    paddingBottom: 24,
     gap: 15,
   },
   sectionTitle: {
     fontSize: 16,
     fontWeight: "700",
-
     color: "#000000",
   },
   subtitle: {
     fontSize: 14,
-
     color: "#666666",
   },
   uploadArea: {
-    height: 200,
+    height: 180,
     borderRadius: 16,
     borderWidth: 2,
     borderColor: "#010135",
@@ -904,12 +719,10 @@ const styles = StyleSheet.create({
   uploadTitle: {
     fontSize: 16,
     fontWeight: "600",
-
     color: "#010135",
   },
   uploadSubtitle: {
     fontSize: 12,
-
     color: "#666666",
   },
   photosGrid: {
@@ -919,26 +732,65 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   photoContainer: {
-    width: "31%",
+    width: "30.5%",
     aspectRatio: 1,
     borderRadius: 12,
     overflow: "hidden",
     position: "relative",
+    backgroundColor: "#F1F5F9",
   },
   photo: {
     width: "100%",
     height: "100%",
   },
+  uploadOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(1, 1, 53, 0.65)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 4,
+  },
+  progressBox: {
+    alignItems: "center",
+    gap: 4,
+  },
+  retryingBox: {
+    alignItems: "center",
+    gap: 4,
+  },
+  failedBox: {
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "rgba(239, 68, 68, 0.8)",
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  overlayText: {
+    color: "#FFFFFF",
+    fontSize: 9,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  completedBadge: {
+    position: "absolute",
+    bottom: 6,
+    right: 6,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 8,
+    padding: 2,
+  },
   removeButton: {
     position: "absolute",
     top: 6,
     right: 6,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: "rgba(0, 0, 0, 0.65)",
     justifyContent: "center",
     alignItems: "center",
+    zIndex: 5,
   },
   coverBadge: {
     position: "absolute",
@@ -946,130 +798,161 @@ const styles = StyleSheet.create({
     left: 6,
     backgroundColor: "#010135",
     borderRadius: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 2.5,
   },
   coverText: {
-    fontSize: 10,
-    fontWeight: "600",
-
+    fontSize: 9,
+    fontWeight: "700",
     color: "#FFFFFF",
   },
   addMoreButton: {
-    width: "31%",
+    width: "30.5%",
     aspectRatio: 1,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: "#E5E5E5",
+    borderColor: "#E2E8F0",
     borderStyle: "dashed",
-    backgroundColor: "#FAFAFA",
+    backgroundColor: "#F8FAFC",
     justifyContent: "center",
     alignItems: "center",
-    gap: 5,
+    gap: 4,
   },
   addMoreText: {
     fontSize: 12,
-    fontWeight: "500",
-
+    fontWeight: "600",
     color: "#010135",
   },
   photoCount: {
-    fontSize: 14,
-
-    color: "#666666",
+    fontSize: 13,
+    color: "#64748B",
     textAlign: "center",
-    marginTop: 10,
+    marginTop: 6,
   },
   requiredText: {
-    color: "#FD3131",
+    color: "#EF4444",
     fontWeight: "600",
   },
   videoSection: {
-    marginTop: 30,
-    paddingTop: 20,
+    marginTop: 24,
+    paddingTop: 18,
     borderTopWidth: 1,
-    borderTopColor: "#F0F0F0",
+    borderTopColor: "#F1F5F9",
   },
   videoUploadArea: {
-    height: 120,
+    height: 110,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: "#E5E5E5",
+    borderColor: "#E2E8F0",
     borderStyle: "dashed",
-    backgroundColor: "#FAFAFA",
+    backgroundColor: "#F8FAFC",
     justifyContent: "center",
     alignItems: "center",
-    marginTop: 15,
+    marginTop: 12,
   },
   videoItemContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#F5F5F5",
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
     borderRadius: 12,
-    padding: 15,
+    padding: 12,
+    gap: 10,
   },
   videoPreview: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 10,
   },
   videoFileName: {
     fontSize: 14,
-
-    color: "#333333",
-    flex: 1,
+    fontWeight: "600",
+    color: "#010135",
+  },
+  videoProgressRow: {
+    marginTop: 4,
+    gap: 3,
+  },
+  videoProgressText: {
+    fontSize: 11,
+    color: "#64748B",
+    fontWeight: "500",
+  },
+  videoProgressBarBg: {
+    width: "100%",
+    height: 4,
+    backgroundColor: "#E2E8F0",
+    borderRadius: 2,
+    overflow: "hidden",
+  },
+  videoProgressBarFill: {
+    height: "100%",
+    backgroundColor: "#010135",
+    borderRadius: 2,
+  },
+  videoCompleteText: {
+    fontSize: 11,
+    color: "#10B981",
+    fontWeight: "600",
+    marginTop: 2,
+  },
+  retryButton: {
+    padding: 6,
+    backgroundColor: "#E2E8F0",
+    borderRadius: 6,
   },
   removeVideoButton: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: "#FD3131",
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: "#EF4444",
     justifyContent: "center",
     alignItems: "center",
   },
   footer: {
     flexDirection: "row",
     paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: Platform.OS === "android" ? 48 : 20,
-    gap: 20,
+    paddingTop: 16,
+    paddingBottom: Platform.OS === "android" ? 44 : 20,
+    gap: 16,
     backgroundColor: "#FFFFFF",
+    borderTopWidth: 1,
+    borderTopColor: "#F1F5F9",
   },
   backButton: {
     flex: 1,
-    height: 50,
-    borderRadius: 25,
-    borderWidth: 1,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 1.5,
     borderColor: "#010135",
     justifyContent: "center",
     alignItems: "center",
   },
   backButtonText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "700",
-
-    color: "#000000",
+    color: "#010135",
   },
   nextButton: {
     flex: 1,
-    height: 50,
-    borderRadius: 25,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: "#010135",
     justifyContent: "center",
     alignItems: "center",
   },
   nextButtonDisabled: {
-    backgroundColor: "#CCCCCC",
+    backgroundColor: "#CBD5E1",
   },
   nextButtonText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "700",
-
     color: "#FFFFFF",
   },
   nextButtonTextDisabled: {
-    color: "#999999",
+    color: "#94A3B8",
   },
 });
 

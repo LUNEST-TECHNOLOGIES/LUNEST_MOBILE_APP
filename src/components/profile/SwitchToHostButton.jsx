@@ -60,7 +60,8 @@ export const HOST_APPLICATION_STATUS = {
  */
 const SwitchToHostButton = ({ onPress, status = HOST_APPLICATION_STATUS.APPROVED, onReapply }) => {
   const { width } = useWindowDimensions();
-  const containerWidth = Math.min(width - 40, 400);
+  const isTablet = width >= 768;
+  const containerWidth = isTablet ? Math.min(width - 48, 720) : Math.min(width - 40, 400);
 
   // Don't render if status is NONE
   if (status === HOST_APPLICATION_STATUS.NONE) {

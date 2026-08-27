@@ -66,7 +66,8 @@ const GuestIcon = ({ size = 20, color = '#FFFFFF' }) => (
  */
 const ModeSwitchCard = ({ isHostMode, onSwitch, disabled }) => {
   const { width } = useWindowDimensions();
-  const containerWidth = Math.min(width - 40, 400);
+  const isTablet = width >= 768;
+  const containerWidth = isTablet ? Math.min(width - 48, 720) : Math.min(width - 40, 400);
 
   return (
     <View style={[styles.container, { width: containerWidth }]}>

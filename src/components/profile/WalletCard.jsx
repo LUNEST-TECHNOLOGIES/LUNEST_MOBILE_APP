@@ -152,7 +152,8 @@ const WalletCard = ({
   isLoading = false,
 }) => {
   const { width } = useWindowDimensions();
-  const containerWidth = Math.min(width - 40, 400);
+  const isTablet = width >= 768;
+  const containerWidth = isTablet ? Math.min(width - 48, 720) : Math.min(width - 40, 400);
   
   // State for balance visibility and copy toast
   const [isBalanceVisible, setIsBalanceVisible] = useState(true);

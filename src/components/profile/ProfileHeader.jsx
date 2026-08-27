@@ -88,7 +88,8 @@ const ProfileHeader = ({
   onEditPress,
 }) => {
   const { width } = useWindowDimensions();
-  const containerWidth = Math.min(width - 40, 400);
+  const isTablet = width >= 768;
+  const containerWidth = isTablet ? Math.min(width - 48, 720) : Math.min(width - 40, 400);
 
   // Calculate distinct status flags for zero conflict
   const isPhoneProvided = !!phone && phone.trim().length > 0;

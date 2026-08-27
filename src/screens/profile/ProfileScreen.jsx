@@ -647,7 +647,7 @@ const styles = StyleSheet.create({
   },
   containerTablet: {
     width: "100%",
-    maxWidth: 600,
+    maxWidth: 720,
     alignSelf: "center",
   },
   header: {

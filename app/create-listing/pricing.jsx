@@ -5,7 +5,8 @@
 
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
-  X
+  ShieldCheck,
+  X,
 } from "lucide-react-native";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -583,6 +584,17 @@ const Pricing = () => {
             </>
           )}
         </View>
+
+        {/* LUNEST Host App Fee Notice */}
+        <View style={styles.feeNoticeBox}>
+          <View style={styles.feeNoticeHeader}>
+            <ShieldCheck size={18} color="#010135" />
+            <Text style={styles.feeNoticeTitle}>LUNEST Host Service Fee</Text>
+          </View>
+          <Text style={styles.feeNoticeDescription}>
+            LUNEST charges an app fee of 3% for connecting hosts with verified guests, providing secure escrow payouts, automated booking management, and 24/7 host support.
+          </Text>
+        </View>
       </ScrollView>
 
       {/* Footer Buttons */}
@@ -929,6 +941,31 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#010135',
     textTransform: 'uppercase',
+  },
+  feeNoticeBox: {
+    marginTop: 16,
+    marginBottom: 20,
+    padding: 16,
+    borderRadius: 14,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 8,
+  },
+  feeNoticeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  feeNoticeTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#010135',
+  },
+  feeNoticeDescription: {
+    fontSize: 12,
+    color: '#64748B',
+    lineHeight: 18,
   },
 });
 

@@ -145,11 +145,15 @@ const PhoneVerificationModal = ({ visible, phone, onClose, onVerified }) => {
         setResendTimer(60);
         setTimeout(() => otpInputRef.current?.focus(), 300);
       } else {
-        setError(result.message || 'Failed to send OTP. Please try again.');
+        const rawMsg = result.message || '';
+        const isFundingOrGatewayError = /fund|balance|insufficient|termii|gateway|provider|credit|sms/i.test(rawMsg);
+        setError(isFundingOrGatewayError || !rawMsg
+          ? 'Unable to send SMS verification code. Please try again in a few moments.'
+          : rawMsg);
       }
     } catch (err) {
       console.error('[PhoneVerification] Send OTP error:', err);
-      setError(err.message || 'An error occurred while sending OTP.');
+      setError('Unable to send verification code. Please check your connection and try again.');
     } finally {
       setIsLoading(false);
     }
@@ -178,12 +182,16 @@ const PhoneVerificationModal = ({ visible, phone, onClose, onVerified }) => {
         }
         setTimeout(() => onClose(), 2000);
       } else {
-        setError(result.message || 'Invalid OTP. Please try again.');
+        const rawMsg = result.message || '';
+        const isFundingOrGatewayError = /fund|balance|insufficient|termii|gateway|provider|credit/i.test(rawMsg);
+        setError(isFundingOrGatewayError || !rawMsg
+          ? 'Invalid verification code. Please check and try again.'
+          : rawMsg);
         setOtpCode('');
       }
     } catch (err) {
       console.error('[PhoneVerification] Verify OTP error:', err);
-      setError(err.message || 'An error occurred during verification.');
+      setError('An error occurred during verification. Please try again.');
       setOtpCode('');
     } finally {
       setIsLoading(false);
@@ -201,10 +209,14 @@ const PhoneVerificationModal = ({ visible, phone, onClose, onVerified }) => {
         setResendTimer(60);
         Alert.alert('OTP Sent', 'A new OTP has been sent to your phone number.');
       } else {
-        setError(result.message || 'Failed to resend OTP.');
+        const rawMsg = result.message || '';
+        const isFundingOrGatewayError = /fund|balance|insufficient|termii|gateway|provider|credit|sms/i.test(rawMsg);
+        setError(isFundingOrGatewayError || !rawMsg
+          ? 'Unable to resend SMS verification code. Please try again in a few moments.'
+          : rawMsg);
       }
     } catch (err) {
-      setError(err.message || 'An error occurred while resending OTP.');
+      setError('Unable to resend OTP at this time. Please try again.');
     } finally {
       setIsLoading(false);
     }

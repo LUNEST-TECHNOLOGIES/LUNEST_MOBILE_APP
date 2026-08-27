@@ -1766,15 +1766,26 @@ class AuthService {
         };
       }
 
+      const rawMsg = data?.message || data?.error || "";
+      const isInternalProviderMsg = /fund|balance|insufficient|termii|gateway|provider|credit|sms provider/i.test(rawMsg);
+      const friendlyMsg = isInternalProviderMsg || !rawMsg
+        ? "Unable to send SMS verification code at this time. Please try again in a few moments."
+        : rawMsg;
+
       return {
         success: false,
-        message: data.message || "Failed to send OTP",
+        message: friendlyMsg,
       };
     } catch (error) {
       console.error("[AuthService] sendPhoneOTP error:", error);
+      const rawErrorMsg = error?.message || "";
+      const isInternalProviderMsg = /fund|balance|insufficient|termii|gateway|provider|credit|sms provider/i.test(rawErrorMsg);
+      const friendlyMsg = isInternalProviderMsg || !rawErrorMsg
+        ? "Unable to send SMS verification code. Please check your connection and try again."
+        : rawErrorMsg;
       return {
         success: false,
-        message: error.message || "Failed to send OTP",
+        message: friendlyMsg,
       };
     }
   }
@@ -1831,15 +1842,21 @@ class AuthService {
         };
       }
 
+      const rawMsg = data?.message || data?.error || "";
+      const isInternalProviderMsg = /fund|balance|insufficient|termii|gateway|provider|credit/i.test(rawMsg);
+      const friendlyMsg = isInternalProviderMsg || !rawMsg
+        ? "Invalid verification code. Please check and try again."
+        : rawMsg;
+
       return {
         success: false,
-        message: data.message || "Invalid OTP. Please try again.",
+        message: friendlyMsg,
       };
     } catch (error) {
       console.error("[AuthService] verifyPhoneOTP error:", error);
       return {
         success: false,
-        message: error.message || "Failed to verify OTP",
+        message: error?.message || "Failed to verify OTP. Please try again.",
       };
     }
   }

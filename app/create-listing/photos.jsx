@@ -120,17 +120,33 @@ const Photos = () => {
       .map((p) => (typeof p === "string" ? p : p?.url || p?.uri || p?.path || null))
       .filter(Boolean);
 
-    setPhotos(validPhotos);
-
     let loadedVideos = [];
-    if (draftData?.propertyVideos || draftData?.video) {
-      const vids = draftData.propertyVideos || draftData.video;
+    if (draftData?.propertyVideos || draftData?.video || draftData?.videos) {
+      const vids = draftData.propertyVideos || draftData.video || draftData.videos;
       loadedVideos = Array.isArray(vids) ? vids : safeParseArray(vids);
     }
-    setVideos(loadedVideos);
+
+    // Merge in-flight or completed media from active MediaUploadService queue
+    const activeQueue = mediaUploadService.getDraftUploads(currentDraftId);
+    activeQueue.forEach((task) => {
+      if (task.type === "video") {
+        const item = task.serverUrl || task.localUri;
+        if (item && !loadedVideos.includes(item)) {
+          loadedVideos.push(item);
+        }
+      } else if (task.type === "photo") {
+        const item = task.serverUrl || task.localUri;
+        if (item && !validPhotos.includes(item)) {
+          validPhotos.push(item);
+        }
+      }
+    });
+
+    setPhotos(validPhotos.slice(0, 10));
+    setVideos(loadedVideos.slice(0, 3));
 
     setInitialLoadDone(true);
-  }, [draftData, draftId, initialLoadDone, paramsPhotos]);
+  }, [draftData, draftId, initialLoadDone, paramsPhotos, currentDraftId]);
 
   // Subscribe to MediaUploadService background queue updates
   useEffect(() => {
@@ -139,38 +155,45 @@ const Photos = () => {
     const unsubscribe = mediaUploadService.subscribe(currentDraftId, (tasks) => {
       setActiveUploads(tasks || []);
 
-      // If any task completed, sync local photos/videos state
       tasks.forEach((task) => {
-        if (task.status === "completed" && task.serverUrl) {
-          if (task.type === "photo") {
-            setPhotos((prev) => {
-              const hasUrl = prev.includes(task.serverUrl);
-              if (!hasUrl) {
-                const localIndex = prev.findIndex((p) => p === task.localUri);
-                if (localIndex !== -1) {
-                  const updated = [...prev];
-                  updated[localIndex] = task.serverUrl;
-                  return updated;
-                }
-                return [...prev, task.serverUrl].slice(0, 10);
+        if (task.type === "video") {
+          setVideos((prev) => {
+            if (task.status === "completed" && task.serverUrl) {
+              const localIdx = prev.findIndex((v) => v === task.localUri);
+              if (localIdx !== -1) {
+                const updated = [...prev];
+                updated[localIdx] = task.serverUrl;
+                return updated;
               }
-              return prev;
-            });
-          } else if (task.type === "video") {
-            setVideos((prev) => {
-              const hasUrl = prev.includes(task.serverUrl);
-              if (!hasUrl) {
-                const localIndex = prev.findIndex((v) => v === task.localUri);
-                if (localIndex !== -1) {
-                  const updated = [...prev];
-                  updated[localIndex] = task.serverUrl;
-                  return updated;
-                }
+              if (!prev.includes(task.serverUrl)) {
                 return [...prev, task.serverUrl].slice(0, 3);
               }
               return prev;
-            });
-          }
+            }
+            if (!prev.includes(task.localUri) && (!task.serverUrl || !prev.includes(task.serverUrl))) {
+              return [...prev, task.localUri].slice(0, 3);
+            }
+            return prev;
+          });
+        } else if (task.type === "photo") {
+          setPhotos((prev) => {
+            if (task.status === "completed" && task.serverUrl) {
+              const localIdx = prev.findIndex((p) => p === task.localUri);
+              if (localIdx !== -1) {
+                const updated = [...prev];
+                updated[localIdx] = task.serverUrl;
+                return updated;
+              }
+              if (!prev.includes(task.serverUrl)) {
+                return [...prev, task.serverUrl].slice(0, 10);
+              }
+              return prev;
+            }
+            if (!prev.includes(task.localUri) && (!task.serverUrl || !prev.includes(task.serverUrl))) {
+              return [...prev, task.localUri].slice(0, 10);
+            }
+            return prev;
+          });
         }
       });
     });
@@ -188,6 +211,7 @@ const Photos = () => {
           photos: photosArray,
           video: videos,
           propertyVideos: videos,
+          videos: videos,
           currentStep: 6,
         }).catch((err) => console.error("Error auto-saving photos:", err));
       }
@@ -205,6 +229,7 @@ const Photos = () => {
           photos: photos,
           video: videosArray,
           propertyVideos: videosArray,
+          videos: videosArray,
           currentStep: 6,
         }).catch((err) => console.error("Error auto-saving videos:", err));
       }
@@ -265,6 +290,7 @@ const Photos = () => {
         photos: updatedPhotos,
         video: videos,
         propertyVideos: videos,
+        videos: videos,
         currentStep: 6,
       }).catch(console.error);
     }
@@ -298,6 +324,7 @@ const Photos = () => {
           photos: photos,
           video: updatedVideos,
           propertyVideos: updatedVideos,
+          videos: updatedVideos,
           currentStep: 6,
         }).catch(console.error);
       }
@@ -341,6 +368,7 @@ const Photos = () => {
         photos: Array.isArray(photos) ? photos : safeParseArray(photos),
         video: videos,
         propertyVideos: videos,
+        videos: videos,
         currentStep: 6,
         draftId: currentDraftId,
       },
@@ -361,6 +389,7 @@ const Photos = () => {
           photos: Array.isArray(photos) ? photos : safeParseArray(photos),
           video: videos,
           propertyVideos: videos,
+          videos: videos,
           currentStep: 6,
           draftId: currentDraftId,
         },
@@ -387,6 +416,7 @@ const Photos = () => {
         photos: Array.isArray(photos) ? photos : safeParseArray(photos),
         video: videos,
         propertyVideos: videos,
+        videos: videos,
         currentStep: 6,
         draftId: currentDraftId,
       });

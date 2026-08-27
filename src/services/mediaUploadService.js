@@ -572,14 +572,19 @@ class MediaUploadService {
         }
       });
 
-      await draftListingService.saveDraft(draftId, {
+      await draftListingService.saveDraft({
         ...draft,
+        draftId: draftId,
         photos: currentPhotos.filter(Boolean),
         video: currentVideos.filter(Boolean),
         propertyVideos: currentVideos.filter(Boolean),
+        videos: currentVideos.filter(Boolean),
       });
 
-      console.log(`💾 [MediaUploadService] Draft ${draftId} synced with uploaded media.`);
+      console.log(`💾 [MediaUploadService] Draft ${draftId} synced with uploaded media:`, {
+        photosCount: currentPhotos.length,
+        videosCount: currentVideos.length,
+      });
     } catch (e) {
       console.error("Error syncing draft with media uploads:", e);
     }

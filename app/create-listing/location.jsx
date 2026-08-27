@@ -219,59 +219,119 @@ const Location = () => {
     debouncedSaveDraft(finalUpdates);
   };
 
-  // Geocode an address string using Google Geocoding API
+  // Geocode an address string using Google Geocoding API with Nominatim Fallback
   const geocodeAddress = useCallback(async (query) => {
-    const apiKey = APP_CONFIG.GOOGLE_MAPS_API_KEY;
-    if (!apiKey) return;
     try {
       // Build a comprehensive query string
       const fullQuery = [query, city, state, country].filter(v => v && v.trim()).join(', ');
       const q = encodeURIComponent(fullQuery);
-      const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${q}&key=${apiKey}`;
-      const res = await fetch(url);
-      const data = await res.json();
-      if (data.status === 'OK' && data.results.length > 0) {
-        const result = data.results[0];
-        const loc = result.geometry.location;
-        const newCoords = { lat: loc.lat, lon: loc.lng };
-        setPropertyCoords(newCoords);
-        
-        // Extract components to smart-fill fields
-        let extractedCity = "";
-        let extractedState = "";
-        let extractedCountry = "";
-        
-        result.address_components.forEach((comp) => {
-          const types = comp.types;
-          if (types.includes("locality") || types.includes("sublocality"))
-            extractedCity = comp.long_name;
-          if (types.includes("administrative_area_level_1"))
-            extractedState = comp.long_name;
-          if (types.includes("country"))
-            extractedCountry = comp.long_name;
-        });
+      
+      const apiKey = APP_CONFIG.GOOGLE_MAPS_API_KEY;
+      let geocoded = false;
 
-        if (extractedCity) setCity(extractedCity);
-        if (extractedState) setState(extractedState);
-        if (extractedCountry) setCountry(extractedCountry);
+      // 1. Try Google Maps API if configured
+      if (apiKey && apiKey !== 'YOUR_GOOGLE_MAPS_API_KEY') {
+        try {
+          const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${q}&key=${apiKey}`;
+          const res = await fetch(url);
+          const data = await res.json();
+          if (data.status === 'OK' && data.results.length > 0) {
+            const result = data.results[0];
+            const loc = result.geometry.location;
+            const newCoords = { lat: loc.lat, lon: loc.lng };
+            setPropertyCoords(newCoords);
+            
+            // Extract components to smart-fill fields
+            let extractedCity = "";
+            let extractedState = "";
+            let extractedCountry = "";
+            
+            result.address_components.forEach((comp) => {
+              const types = comp.types;
+              if (types.includes("locality") || types.includes("sublocality"))
+                extractedCity = comp.long_name;
+              if (types.includes("administrative_area_level_1"))
+                extractedState = comp.long_name;
+              if (types.includes("country"))
+                extractedCountry = comp.long_name;
+            });
 
-        saveDraftData({ 
-          latitude: loc.lat, 
-          longitude: loc.lng, 
-          city: extractedCity || city,
-          state: extractedState || state,
-          country: extractedCountry || country,
-          currentStep: 4 
-        });
+            if (extractedCity) setCity(extractedCity);
+            if (extractedState) setState(extractedState);
+            if (extractedCountry) setCountry(extractedCountry);
 
-        // Animate map to new location
-        if (mapRef.current) {
-          mapRef.current.animateToRegion({
-            latitude: loc.lat,
-            longitude: loc.lng,
-            latitudeDelta: 0.005,
-            longitudeDelta: 0.005,
-          }, 1000);
+            saveDraftData({ 
+              latitude: loc.lat, 
+              longitude: loc.lng, 
+              city: extractedCity || city,
+              state: extractedState || state,
+              country: extractedCountry || country,
+              currentStep: 4 
+            });
+
+            // Animate map to new location
+            if (mapRef.current) {
+              mapRef.current.animateToRegion({
+                latitude: loc.lat,
+                longitude: loc.lng,
+                latitudeDelta: 0.005,
+                longitudeDelta: 0.005,
+              }, 1000);
+            }
+            geocoded = true;
+          }
+        } catch (gErr) {
+          console.warn('Google geocode error, falling back to OSM:', gErr);
+        }
+      }
+
+      // 2. Fallback to OpenStreetMap (Nominatim) search if Google didn't succeed
+      if (!geocoded) {
+        try {
+          const osmUrl = `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${q}&limit=1&addressdetails=1`;
+          const osmRes = await fetch(osmUrl, {
+            headers: {
+              'User-Agent': 'LUNEST-App/1.0',
+              'Accept': 'application/json',
+            }
+          });
+          const osmResults = await osmRes.json();
+          if (Array.isArray(osmResults) && osmResults.length > 0) {
+            const first = osmResults[0];
+            const lat = parseFloat(first.lat);
+            const lon = parseFloat(first.lon);
+            const newCoords = { lat, lon };
+            setPropertyCoords(newCoords);
+
+            const addr = first.address || {};
+            const extractedCity = addr.city || addr.town || addr.village || addr.suburb || "";
+            const extractedState = addr.state || addr.state_district || "";
+            const extractedCountry = addr.country || "Nigeria";
+
+            if (extractedCity) setCity(extractedCity);
+            if (extractedState) setState(extractedState);
+            if (extractedCountry) setCountry(extractedCountry);
+
+            saveDraftData({ 
+              latitude: lat, 
+              longitude: lon, 
+              city: extractedCity || city,
+              state: extractedState || state,
+              country: extractedCountry || country,
+              currentStep: 4 
+            });
+
+            if (mapRef.current) {
+              mapRef.current.animateToRegion({
+                latitude: lat,
+                longitude: lon,
+                latitudeDelta: 0.005,
+                longitudeDelta: 0.005,
+              }, 1000);
+            }
+          }
+        } catch (osmErr) {
+          console.warn('OSM geocode error:', osmErr);
         }
       }
     } catch (e) {

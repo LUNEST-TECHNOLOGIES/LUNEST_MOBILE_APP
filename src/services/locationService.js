@@ -249,7 +249,7 @@ class LocationService {
             // 2. Fallback to Google Maps API if available
             const googleKey = APP_CONFIG.GOOGLE_MAPS_API_KEY;
             if (googleKey && googleKey !== 'YOUR_GOOGLE_MAPS_API_KEY') {
-                console.log('🌍 [LocationService] Falling back to Google Geocoding API...');
+                console.log('🌍 [LocationService] Trying Google Geocoding API...');
                 try {
                     const response = await fetch(
                         `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${googleKey}`
@@ -263,6 +263,26 @@ class LocationService {
                 } catch (gError) {
                     console.error('❌ [LocationService] Google Geocoding fetch failed:', gError);
                 }
+            }
+
+            // 3. Fallback to OpenStreetMap (Nominatim) Reverse Geocoding
+            try {
+                console.log('🌍 [LocationService] Falling back to OpenStreetMap (Nominatim) reverse geocode...');
+                const osmResponse = await fetch(
+                    `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}`,
+                    {
+                        headers: {
+                            'User-Agent': 'LUNEST-App/1.0',
+                            'Accept': 'application/json',
+                        }
+                    }
+                );
+                const osmData = await osmResponse.json();
+                if (osmData && osmData.address) {
+                    return this._formatNominatimAddress(osmData);
+                }
+            } catch (osmError) {
+                console.warn('⚠️ [LocationService] OpenStreetMap reverse geocoding failed:', osmError?.message);
             }
 
             return this.lastAddress;
@@ -325,6 +345,39 @@ class LocationService {
 
         this.lastAddress = formattedAddress;
         console.log('✅ [LocationService] Address obtained (Google):', formattedAddress);
+        return formattedAddress;
+    }
+
+    /**
+     * Helper to format OpenStreetMap (Nominatim) result
+     * @private
+     */
+    _formatNominatimAddress(osmData) {
+        const a = osmData.address || {};
+        const street = a.road || a.pedestrian || a.street || a.neighbourhood || '';
+        const streetNumber = a.house_number || '';
+        const city = a.city || a.town || a.village || a.suburb || a.county || '';
+        const district = a.suburb || a.neighbourhood || a.district || a.county || '';
+        const region = a.state || a.state_district || a.region || '';
+        const country = a.country || 'Nigeria';
+        const postalCode = a.postcode || '';
+        const name = osmData.name || '';
+        const fullAddress = osmData.display_name || [streetNumber, street, city, region, country].filter(Boolean).join(', ');
+
+        const formattedAddress = {
+            street,
+            streetNumber,
+            city,
+            district,
+            region,
+            country,
+            postalCode,
+            name,
+            fullAddress,
+        };
+
+        this.lastAddress = formattedAddress;
+        console.log('✅ [LocationService] Address obtained (Nominatim/OSM):', formattedAddress);
         return formattedAddress;
     }
 
@@ -395,11 +448,11 @@ class LocationService {
                         return coords;
                     }
                 } catch (nativeErr) {
-                    console.warn('⚠️ [LocationService] Native geocoding failed, falling back to Google API:', nativeErr.message);
+                    console.warn('⚠️ [LocationService] Native geocoding failed, falling back to Google/OSM API:', nativeErr.message);
                 }
             }
 
-            // Fallback (or primary on web): Google Maps Geocoding API
+            // Fallback: Google Maps Geocoding API
             if (googleKey && googleKey !== 'YOUR_GOOGLE_MAPS_API_KEY') {
                 try {
                     const encodedAddress = encodeURIComponent(address);
@@ -422,6 +475,32 @@ class LocationService {
                 } catch (gError) {
                     console.error('❌ [LocationService] Google Geocoding fetch failed:', gError);
                 }
+            }
+
+            // Fallback: OpenStreetMap (Nominatim) Search Geocoding
+            try {
+                console.log('🌍 [LocationService] Falling back to OpenStreetMap (Nominatim) forward geocode for:', address);
+                const osmSearchResponse = await fetch(
+                    `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(address)}&limit=1`,
+                    {
+                        headers: {
+                            'User-Agent': 'LUNEST-App/1.0',
+                            'Accept': 'application/json',
+                        }
+                    }
+                );
+                const osmResults = await osmSearchResponse.json();
+                if (Array.isArray(osmResults) && osmResults.length > 0) {
+                    const coords = {
+                        latitude: parseFloat(osmResults[0].lat),
+                        longitude: parseFloat(osmResults[0].lon),
+                    };
+                    this.geocodeCache.set(normalizedAddress, coords);
+                    console.log('✅ [LocationService] Coordinates obtained (Nominatim) and cached:', coords);
+                    return coords;
+                }
+            } catch (osmSearchError) {
+                console.warn('⚠️ [LocationService] Nominatim forward geocoding failed:', osmSearchError?.message);
             }
 
             return null;
@@ -492,7 +571,7 @@ class LocationService {
     }
 
     /**
-     * Search for places using Google Places Autocomplete API
+     * Search for places using Google Places Autocomplete API with Nominatim Fallback
      * @param {string} query - The search query
      * @returns {Promise<Array>} List of place suggestions
      */
@@ -500,33 +579,60 @@ class LocationService {
         if (!query || query.length < 3) return [];
 
         const googleKey = APP_CONFIG.GOOGLE_MAPS_API_KEY;
-        if (!googleKey || googleKey === 'YOUR_GOOGLE_MAPS_API_KEY') {
-            console.warn('⚠️ [LocationService] Google Maps API key not configured for searchPlaces');
-            return [];
+        if (googleKey && googleKey !== 'YOUR_GOOGLE_MAPS_API_KEY') {
+            try {
+                console.log(`🔍 [LocationService] Searching places for: "${query}"...`);
+                const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(query)}&types=(cities)&key=${googleKey}`;
+                
+                const response = await fetch(url);
+                const data = await response.json();
+
+                if (data.status === 'OK') {
+                    return data.predictions.map(prediction => ({
+                        description: prediction.description,
+                        placeId: prediction.place_id,
+                        mainText: prediction.structured_formatting.main_text,
+                        secondaryText: prediction.structured_formatting.secondary_text,
+                    }));
+                } else if (data.status === 'ZERO_RESULTS') {
+                    return [];
+                } else {
+                    console.warn('⚠️ [LocationService] Google Places API status:', data.status, data.error_message);
+                }
+            } catch (error) {
+                console.error('❌ [LocationService] Error searching places with Google API:', error);
+            }
         }
 
+        // Fallback: OpenStreetMap (Nominatim) search for cities / places
         try {
-            console.log(`🔍 [LocationService] Searching places for: "${query}"...`);
-            const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(query)}&types=(cities)&key=${googleKey}`;
-            
-            const response = await fetch(url);
-            const data = await response.json();
-
-            if (data.status === 'OK') {
-                return data.predictions.map(prediction => ({
-                    description: prediction.description,
-                    placeId: prediction.place_id,
-                    mainText: prediction.structured_formatting.main_text,
-                    secondaryText: prediction.structured_formatting.secondary_text,
-                }));
-            } else if (data.status === 'ZERO_RESULTS') {
-                return [];
-            } else {
-                console.warn('⚠️ [LocationService] Google Places API error:', data.status, data.error_message);
-                return [];
+            console.log(`🌍 [LocationService] Falling back to OpenStreetMap Nominatim place search for: "${query}"...`);
+            const osmUrl = `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(query)}&limit=6&countrycodes=ng`;
+            const response = await fetch(osmUrl, {
+                headers: {
+                    'User-Agent': 'LUNEST-App/1.0',
+                    'Accept': 'application/json',
+                }
+            });
+            const results = await response.json();
+            if (Array.isArray(results) && results.length > 0) {
+                return results.map(item => {
+                    const parts = (item.display_name || '').split(',');
+                    const mainText = parts[0]?.trim() || item.name || query;
+                    const secondaryText = parts.slice(1).join(',').trim();
+                    return {
+                        description: item.display_name,
+                        placeId: String(item.place_id),
+                        mainText,
+                        secondaryText,
+                        lat: parseFloat(item.lat),
+                        lon: parseFloat(item.lon),
+                    };
+                });
             }
-        } catch (error) {
-            console.error('❌ [LocationService] Error searching places:', error);
+            return [];
+        } catch (osmError) {
+            console.error('❌ [LocationService] Error searching places with OSM:', osmError);
             return [];
         }
     }

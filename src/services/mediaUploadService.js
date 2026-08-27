@@ -246,19 +246,41 @@ class MediaUploadService {
       let finalUri = localUri;
 
       if (Platform.OS === "web") {
-        const compressionResult = await imageCompressionService.compressImage(localUri, 2);
-        finalUri = compressionResult.uri;
-      } else if (LegacyFileSystem) {
-        const compressionResult = await imageCompressionService.compressImage(localUri, 2);
-        const permanentDir = `${LegacyFileSystem.documentDirectory}listing_photos/`;
-        const dirInfo = await LegacyFileSystem.getInfoAsync(permanentDir);
-        if (!dirInfo.exists) {
-          await LegacyFileSystem.makeDirectoryAsync(permanentDir, { intermediates: true });
+        try {
+          const compressionResult = await imageCompressionService.compressImage(localUri, 2);
+          finalUri = compressionResult?.uri || localUri;
+        } catch (webCompErr) {
+          console.warn("[MediaUploadService] Web compression fallback:", webCompErr?.message);
+          finalUri = localUri;
         }
-        const fileName = `listing_photo_${Date.now()}_${Math.random().toString(36).substring(7)}.jpg`;
-        const permanentUri = `${permanentDir}${fileName}`;
-        await LegacyFileSystem.copyAsync({ from: compressionResult.uri, to: permanentUri });
-        finalUri = permanentUri;
+      } else {
+        let compressedUri = localUri;
+        try {
+          const compressionResult = await imageCompressionService.compressImage(localUri, 2);
+          compressedUri = compressionResult?.uri || localUri;
+        } catch (compErr) {
+          console.warn("[MediaUploadService] Image compression fallback:", compErr?.message);
+          compressedUri = localUri;
+        }
+
+        if (LegacyFileSystem && LegacyFileSystem.documentDirectory) {
+          try {
+            const permanentDir = `${LegacyFileSystem.documentDirectory}listing_photos/`;
+            const dirInfo = await LegacyFileSystem.getInfoAsync(permanentDir);
+            if (!dirInfo.exists) {
+              await LegacyFileSystem.makeDirectoryAsync(permanentDir, { intermediates: true });
+            }
+            const fileName = `listing_photo_${Date.now()}_${Math.random().toString(36).substring(7)}.jpg`;
+            const permanentUri = `${permanentDir}${fileName}`;
+            await LegacyFileSystem.copyAsync({ from: compressedUri, to: permanentUri });
+            finalUri = permanentUri;
+          } catch (fsErr) {
+            console.warn("[MediaUploadService] Permanent copy fallback:", fsErr?.message);
+            finalUri = compressedUri;
+          }
+        } else {
+          finalUri = compressedUri;
+        }
       }
 
       task.status = "uploading";
@@ -317,17 +339,22 @@ class MediaUploadService {
       task.progress = 20;
       this.notify(draftId);
 
-      // Video compression
-      const compressionResult = await imageCompressionService.compressVideo(
-        localUri,
-        (p) => {
-          task.progress = Math.round(20 + p * 30); // 20% to 50%
-          this.notify(draftId);
-        },
-        50
-      );
-
-      const compressedUri = compressionResult ? compressionResult.uri : localUri;
+      // Video compression with safe fallback
+      let compressedUri = localUri;
+      try {
+        const compressionResult = await imageCompressionService.compressVideo(
+          localUri,
+          (p) => {
+            task.progress = Math.round(20 + p * 30); // 20% to 50%
+            this.notify(draftId);
+          },
+          50
+        );
+        compressedUri = compressionResult?.uri || localUri;
+      } catch (vCompErr) {
+        console.warn("[MediaUploadService] Video compression fallback:", vCompErr?.message);
+        compressedUri = localUri;
+      }
 
       task.status = "uploading";
       task.progress = 55;

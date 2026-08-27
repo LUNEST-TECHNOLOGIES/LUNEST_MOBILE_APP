@@ -443,6 +443,58 @@ const Photos = () => {
     return activeUploads.find((t) => t.type === "video" && (t.localUri === uri || t.serverUrl === uri));
   };
 
+  // Consolidated list of photos (state + active queue)
+  const displayPhotos = useMemo(() => {
+    const list = [];
+    const set = new Set();
+
+    (photos || []).forEach((p) => {
+      if (p && !set.has(p)) {
+        set.add(p);
+        list.push(p);
+      }
+    });
+
+    activeUploads
+      .filter((t) => t.type === "photo")
+      .forEach((t) => {
+        const key = t.serverUrl || t.localUri;
+        const exists = list.some((p) => p === t.localUri || p === t.serverUrl);
+        if (!exists && key) {
+          set.add(key);
+          list.push(key);
+        }
+      });
+
+    return list;
+  }, [photos, activeUploads]);
+
+  // Consolidated list of videos (state + active queue)
+  const displayVideos = useMemo(() => {
+    const list = [];
+    const set = new Set();
+
+    (videos || []).forEach((v) => {
+      if (v && !set.has(v)) {
+        set.add(v);
+        list.push(v);
+      }
+    });
+
+    activeUploads
+      .filter((t) => t.type === "video")
+      .forEach((t) => {
+        const key = t.serverUrl || t.localUri;
+        const exists = list.some((v) => v === t.localUri || v === t.serverUrl);
+        if (!exists && key) {
+          set.add(key);
+          list.push(key);
+        }
+      });
+
+    return list;
+  }, [videos, activeUploads]);
+
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       {/* Header */}
@@ -465,7 +517,7 @@ const Photos = () => {
         </Text>
 
         {/* Photos Grid & Upload Area */}
-        {photos.length === 0 ? (
+        {displayPhotos.length === 0 ? (
           <Pressable style={styles.uploadArea} onPress={pickImage}>
             <Camera size={40} color="#010135" strokeWidth={1.5} />
             <Text style={styles.uploadTitle}>Tap to upload photos</Text>
@@ -473,7 +525,7 @@ const Photos = () => {
           </Pressable>
         ) : (
           <View style={styles.photosGrid}>
-            {photos.map((photoUri, index) => {
+            {displayPhotos.map((photoUri, index) => {
               const task = getPhotoUploadTask(photoUri);
               const isUploading = task && task.status !== "completed";
               const isRetrying = task && task.status === "retrying";
@@ -533,7 +585,7 @@ const Photos = () => {
               );
             })}
 
-            {photos.length < 10 && (
+            {displayPhotos.length < 10 && (
               <Pressable style={styles.addMoreButton} onPress={pickImage}>
                 <Plus size={24} color="#010135" strokeWidth={2} />
                 <Text style={styles.addMoreText}>Add More</Text>
@@ -542,14 +594,14 @@ const Photos = () => {
           </View>
         )}
 
-        <Text style={styles.photoCount}>{photos.length}/10 photos selected</Text>
+        <Text style={styles.photoCount}>{displayPhotos.length}/10 photos selected</Text>
 
         {/* Video Section */}
         <View style={styles.videoSection}>
           <Text style={styles.sectionTitle}>Add a video tour</Text>
           <Text style={styles.subtitle}>Optional - showcase your property with up to 3 videos</Text>
 
-          {videos.length === 0 ? (
+          {displayVideos.length === 0 ? (
             <Pressable style={styles.videoUploadArea} onPress={pickVideo}>
               <Video size={40} color="#010135" />
               <Text style={styles.uploadTitle}>Tap to upload video</Text>
@@ -557,7 +609,7 @@ const Photos = () => {
             </Pressable>
           ) : (
             <View style={{ gap: 10, marginTop: 15 }}>
-              {videos.map((vidUri, index) => {
+              {displayVideos.map((vidUri, index) => {
                 const task = getVideoUploadTask(vidUri);
                 const isUploading = task && task.status !== "completed";
                 const isRetrying = task && task.status === "retrying";
@@ -613,7 +665,7 @@ const Photos = () => {
                 );
               })}
 
-              {videos.length < 3 && (
+              {displayVideos.length < 3 && (
                 <Pressable
                   style={[styles.videoUploadArea, { height: 75, marginTop: 5 }]}
                   onPress={pickVideo}

@@ -97,18 +97,18 @@ class MediaUploadService {
    * Notify all subscribers of changes for a draft
    */
   notify(draftId) {
-    if (!draftId) return;
-    const draftSubs = this.subscribers.get(draftId);
-    if (draftSubs) {
-      const uploads = this.getDraftUploads(draftId);
-      draftSubs.forEach((cb) => {
-        try {
-          cb(uploads);
-        } catch (err) {
-          console.error("Subscriber notification error:", err);
-        }
-      });
-    }
+    this.subscribers.forEach((callbacks, subDraftId) => {
+      if (!subDraftId || subDraftId === draftId || subDraftId === "temp_draft" || draftId === "temp_draft") {
+        const uploads = this.getDraftUploads(subDraftId);
+        callbacks.forEach((cb) => {
+          try {
+            cb(uploads);
+          } catch (err) {
+            console.error("Subscriber notification error:", err);
+          }
+        });
+      }
+    });
   }
 
   /**
@@ -117,10 +117,9 @@ class MediaUploadService {
    * @returns {Array} List of upload tasks
    */
   getDraftUploads(draftId) {
-    if (!draftId) return [];
     const results = [];
     this.queue.forEach((task) => {
-      if (task.draftId === draftId) {
+      if (!draftId || task.draftId === draftId || draftId === "temp_draft" || task.draftId === "temp_draft") {
         results.push({ ...task });
       }
     });

@@ -2,9 +2,10 @@
  * Performance Chart Component
  * Powered by react-native-chart-kit for cross-platform fidelity (Web, iOS, Android)
  * Shows modern analytics with smooth bezier line curves, bar charts, and responsive tablet scaling.
+ * Fully synchronized with live host dashboard data.
  */
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Platform,
   Pressable,
@@ -51,20 +52,51 @@ const FilterTab = ({ tab, isActive, onPress }) => (
   </Pressable>
 );
 
-// Demo data for charts
-const DEMO_BOOKINGS_DATA = [3, 5, 8, 12, 7, 10, 6];
-const DEMO_EARNINGS_DATA = [
-  150000, 250000, 400000, 600000, 350000, 500000, 300000,
-];
-const DEMO_YEARLY_BOOKINGS = [12, 18, 25, 32];
-const DEMO_YEARLY_EARNINGS = [2.0, 2.8, 3.5, 4.0];
+/**
+ * Generate rolling 7-day labels ending on today
+ */
+const getRolling7Days = () => {
+  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const today = new Date();
+  const result = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    result.push(dayNames[d.getDay()]);
+  }
+  return result;
+};
+
+/**
+ * Generate last 4 year labels ending on current year
+ */
+const getLast4Years = () => {
+  const currentYear = new Date().getFullYear();
+  const result = [];
+  for (let i = 3; i >= 0; i--) {
+    result.push(String(currentYear - i));
+  }
+  return result;
+};
+
+/**
+ * Format currency amounts with smart abbreviation
+ */
+const formatNaira = (amount) => {
+  const num = Math.round(Number(amount) || 0);
+  if (num === 0) return "₦0";
+  if (num >= 1000000) return `₦${(num / 1000000).toFixed(1)}M`;
+  if (num >= 1000) return `₦${Math.round(num / 1000)}K`;
+  return `₦${num.toLocaleString()}`;
+};
 
 const PerformanceChart = ({
-  bookingsData = DEMO_BOOKINGS_DATA,
-  earningsData = DEMO_EARNINGS_DATA,
-  yearlyBookings = DEMO_YEARLY_BOOKINGS,
-  yearlyEarnings = DEMO_YEARLY_EARNINGS,
-  years = ["2022", "2023", "2024", "2025"],
+  bookingsData,
+  earningsData,
+  yearlyBookings,
+  yearlyEarnings,
+  years,
+  days,
 }) => {
   const { width } = useWindowDimensions();
   const isTablet = width >= 768;
@@ -74,8 +106,118 @@ const PerformanceChart = ({
   const singleCardWidth = isTablet ? Math.min(width - 48, 720) : width - 40;
   const chartInnerWidth = (cardWidth) => cardWidth - 32;
 
-  const totalBookings = bookingsData.reduce((a, b) => a + b, 0);
-  const totalEarnings = earningsData.reduce((a, b) => a + b, 0);
+  // Ensure normalized 7-day arrays for weekly charts
+  const safeBookingsData = useMemo(() => {
+    if (Array.isArray(bookingsData) && bookingsData.length > 0) {
+      return bookingsData.map((v) => Number(v) || 0);
+    }
+    return [0, 0, 0, 0, 0, 0, 0];
+  }, [bookingsData]);
+
+  const safeEarningsData = useMemo(() => {
+    if (Array.isArray(earningsData) && earningsData.length > 0) {
+      return earningsData.map((v) => Number(v) || 0);
+    }
+    return [0, 0, 0, 0, 0, 0, 0];
+  }, [earningsData]);
+
+  // Ensure normalized 4-year arrays for yearly charts
+  const safeYearlyBookings = useMemo(() => {
+    if (Array.isArray(yearlyBookings) && yearlyBookings.length > 0) {
+      return yearlyBookings.map((v) => Number(v) || 0);
+    }
+    return [0, 0, 0, 0];
+  }, [yearlyBookings]);
+
+  const safeYearlyEarnings = useMemo(() => {
+    if (Array.isArray(yearlyEarnings) && yearlyEarnings.length > 0) {
+      return yearlyEarnings.map((v) => Number(v) || 0);
+    }
+    return [0, 0, 0, 0];
+  }, [yearlyEarnings]);
+
+  const dayLabels = useMemo(() => {
+    if (Array.isArray(days) && days.length === 7) return days;
+    return getRolling7Days();
+  }, [days]);
+
+  const yearLabels = useMemo(() => {
+    if (Array.isArray(years) && years.length === 4) return years;
+    return getLast4Years();
+  }, [years]);
+
+  // Totals tallying directly with the plotted chart values
+  const totalBookings = useMemo(() => {
+    return safeBookingsData.reduce((a, b) => a + b, 0);
+  }, [safeBookingsData]);
+
+  const totalEarnings = useMemo(() => {
+    return safeEarningsData.reduce((a, b) => a + b, 0);
+  }, [safeEarningsData]);
+
+  const total4YrEarnings = useMemo(() => {
+    return safeYearlyEarnings.reduce((a, b) => a + b, 0);
+  }, [safeYearlyEarnings]);
+
+  // Earnings Chart Scaling & Formatting
+  const maxWeeklyEarning = useMemo(() => {
+    return Math.max(...safeEarningsData, 0);
+  }, [safeEarningsData]);
+
+  const isWeeklyMillions = maxWeeklyEarning >= 1000000;
+  const isWeeklyThousands = maxWeeklyEarning >= 1000 && !isWeeklyMillions;
+
+  const scaledEarningsData = useMemo(() => {
+    if (isWeeklyMillions) {
+      return safeEarningsData.map((v) => Number((v / 1000000).toFixed(2)));
+    }
+    if (isWeeklyThousands) {
+      return safeEarningsData.map((v) => Number((v / 1000).toFixed(1)));
+    }
+    return safeEarningsData;
+  }, [safeEarningsData, isWeeklyMillions, isWeeklyThousands]);
+
+  const earningsYLabel = (val) => {
+    const num = Number(val) || 0;
+    if (isWeeklyMillions) return `₦${num.toFixed(1)}M`;
+    if (isWeeklyThousands) return `₦${Math.round(num)}K`;
+    return `₦${Math.round(num)}`;
+  };
+
+  // Yearly Bar Chart Scaling & Formatting
+  const maxYearlyEarning = useMemo(() => {
+    return Math.max(...safeYearlyEarnings, 0);
+  }, [safeYearlyEarnings]);
+
+  const isYearlyMillions = maxYearlyEarning >= 1000000;
+  const isYearlyThousands = maxYearlyEarning >= 1000 && !isYearlyMillions;
+
+  const scaledYearlyEarnings = useMemo(() => {
+    if (isYearlyMillions) {
+      return safeYearlyEarnings.map((v) => Number((v / 1000000).toFixed(2)));
+    }
+    if (isYearlyThousands) {
+      return safeYearlyEarnings.map((v) => Number((v / 1000).toFixed(1)));
+    }
+    return safeYearlyEarnings;
+  }, [safeYearlyEarnings, isYearlyMillions, isYearlyThousands]);
+
+  const yearlyYLabel = (val) => {
+    const num = Number(val) || 0;
+    if (isYearlyMillions) return `₦${num.toFixed(1)}M`;
+    if (isYearlyThousands) return `₦${Math.round(num)}K`;
+    return `₦${Math.round(num)}`;
+  };
+
+  // Trend badge calculation (first half of 7-day vs second half)
+  const earningsTrendBadge = useMemo(() => {
+    const firstHalf = safeEarningsData.slice(0, 3).reduce((a, b) => a + b, 0);
+    const secondHalf = safeEarningsData.slice(4).reduce((a, b) => a + b, 0);
+    if (firstHalf === 0 && secondHalf === 0) return "Live";
+    if (firstHalf === 0 && secondHalf > 0) return "+100% Growth";
+    const pct = Math.round(((secondHalf - firstHalf) / (firstHalf || 1)) * 100);
+    return `${pct >= 0 ? "+" : ""}${pct}% Growth`;
+  }, [safeEarningsData]);
 
   // Common chart configuration for Bookings (Lunest Blue)
   const bookingsChartConfig = {
@@ -89,7 +231,7 @@ const PerformanceChart = ({
       borderRadius: 16,
     },
     propsForDots: {
-      r: "5",
+      r: "4.5",
       strokeWidth: "2",
       stroke: "#192DFF",
       fill: "#FFFFFF",
@@ -112,7 +254,7 @@ const PerformanceChart = ({
       borderRadius: 16,
     },
     propsForDots: {
-      r: "5",
+      r: "4.5",
       strokeWidth: "2",
       stroke: "#7C3AED",
       fill: "#FFFFFF",
@@ -123,12 +265,12 @@ const PerformanceChart = ({
     },
   };
 
-  // Yearly Bar Chart Config
+  // Yearly Bar Chart Config (Navy)
   const yearlyChartConfig = {
     backgroundColor: "#FFFFFF",
     backgroundGradientFrom: "#FFFFFF",
     backgroundGradientTo: "#FFFFFF",
-    decimalPlaces: 1,
+    decimalPlaces: isYearlyMillions ? 1 : 0,
     color: (opacity = 1) => `rgba(1, 1, 53, ${opacity})`,
     labelColor: (opacity = 1) => `rgba(100, 116, 139, ${opacity})`,
     barPercentage: 0.6,
@@ -140,8 +282,6 @@ const PerformanceChart = ({
       stroke: "#F1F5F9",
     },
   };
-
-  const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
   const renderSingleBookingsChart = (cardW) => (
     <View style={[styles.chartCard, { width: cardW }]}>
@@ -157,22 +297,24 @@ const PerformanceChart = ({
           </View>
         </View>
         <View style={styles.totalBadge}>
-          <Text style={styles.totalLabel}>Total</Text>
+          <Text style={styles.totalLabel}>7-Day Total</Text>
           <Text style={[styles.totalAmount, { color: "#192DFF" }]}>
-            {totalBookings} stays
+            {totalBookings} {totalBookings === 1 ? "stay" : "stays"}
           </Text>
         </View>
       </View>
 
       <RNCLineChart
         data={{
-          labels: days,
-          datasets: [{ data: bookingsData }],
+          labels: dayLabels,
+          datasets: [{ data: safeBookingsData }],
         }}
         width={chartInnerWidth(cardW)}
         height={160}
         chartConfig={bookingsChartConfig}
         bezier
+        fromZero
+        segments={4}
         style={styles.rncChart}
         withInnerLines
         withOuterLines={false}
@@ -185,33 +327,37 @@ const PerformanceChart = ({
     <View style={[styles.chartCard, { width: cardW }]}>
       <View style={styles.chartHeader}>
         <View style={styles.chartTitleContainer}>
-          <Text style={styles.chartSubtitle}>Weekly Net Revenue</Text>
+          <Text style={styles.chartSubtitle}>
+            Weekly Net Revenue {isWeeklyMillions ? "(Millions ₦)" : isWeeklyThousands ? "(Thousands ₦)" : "(₦)"}
+          </Text>
           <View style={styles.titleRow}>
             <Text style={styles.chartTitle}>Earnings Growth</Text>
             <View style={[styles.badge, { backgroundColor: "#F5F3FF" }]}>
               <TrendUpIcon size={10} color="#7C3AED" />
-              <Text style={[styles.badgeText, { color: "#7C3AED" }]}>+18% Growth</Text>
+              <Text style={[styles.badgeText, { color: "#7C3AED" }]}>{earningsTrendBadge}</Text>
             </View>
           </View>
         </View>
         <View style={styles.totalBadge}>
-          <Text style={styles.totalLabel}>Total</Text>
+          <Text style={styles.totalLabel}>7-Day Total</Text>
           <Text style={[styles.totalAmount, { color: "#7C3AED" }]}>
-            ₦{(totalEarnings / 1000).toFixed(0)}K
+            {formatNaira(totalEarnings)}
           </Text>
         </View>
       </View>
 
       <RNCLineChart
         data={{
-          labels: days,
-          datasets: [{ data: earningsData.map((val) => val / 1000) }],
+          labels: dayLabels,
+          datasets: [{ data: scaledEarningsData }],
         }}
         width={chartInnerWidth(cardW)}
         height={160}
-        formatYLabel={(val) => `₦${Math.round(val)}K`}
+        formatYLabel={earningsYLabel}
         chartConfig={earningsChartConfig}
         bezier
+        fromZero
+        segments={4}
         style={styles.rncChart}
         withInnerLines
         withOuterLines={false}
@@ -224,29 +370,31 @@ const PerformanceChart = ({
     <View style={[styles.chartCard, { width: cardW }]}>
       <View style={styles.chartHeader}>
         <View style={styles.chartTitleContainer}>
-          <Text style={styles.chartSubtitle}>Annual Growth (Millions ₦)</Text>
+          <Text style={styles.chartSubtitle}>
+            Annual Growth {isYearlyMillions ? "(Millions ₦)" : isYearlyThousands ? "(Thousands ₦)" : "(₦)"}
+          </Text>
           <Text style={styles.chartTitle}>Yearly Revenue</Text>
         </View>
         <View style={styles.totalBadge}>
           <Text style={styles.totalLabel}>4-Yr Total</Text>
           <Text style={[styles.totalAmount, { color: "#010135" }]}>
-            ₦{yearlyEarnings.reduce((a, b) => a + b, 0).toFixed(1)}M
+            {formatNaira(total4YrEarnings)}
           </Text>
         </View>
       </View>
 
       <RNCBarChart
         data={{
-          labels: years,
-          datasets: [{ data: yearlyEarnings }],
+          labels: yearLabels,
+          datasets: [{ data: scaledYearlyEarnings }],
         }}
         width={chartInnerWidth(cardW)}
         height={160}
-        formatYLabel={(val) => `₦${val}M`}
+        formatYLabel={yearlyYLabel}
         chartConfig={yearlyChartConfig}
         style={styles.rncChart}
         withInnerLines
-        showValuesOnTopOfBars
+        showValuesOnTopOfBars={maxYearlyEarning > 0}
         fromZero
       />
     </View>

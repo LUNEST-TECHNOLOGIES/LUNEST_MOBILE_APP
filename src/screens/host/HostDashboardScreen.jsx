@@ -387,6 +387,8 @@ const HostDashboardScreen = () => {
             earningsData={dashboardData.earningsData}
             yearlyBookings={dashboardData.yearlyBookings}
             yearlyEarnings={dashboardData.yearlyEarnings}
+            years={dashboardData.years}
+            days={dashboardData.weeklyDays}
           />
         </View>
 

@@ -229,9 +229,9 @@ class DashboardService {
       });
 
       // Calculate weekly data for charts (last 7 days)
-      const weeklyBookingsData = this.calculateWeeklyData(bookings, "checkIn");
-      const weeklyEarningsData =
-        this.calculateWeeklyEarnings(completedBookings);
+      const weeklyBookingsData = this.calculateWeeklyData(validBookings, "checkIn");
+      const weeklyEarningsData = this.calculateWeeklyEarnings(completedBookings);
+      const weeklyDays = this.getWeeklyDays();
 
       // Get user info - use safe property access
       const userName =
@@ -252,7 +252,7 @@ class DashboardService {
       );
 
       // Calculate yearly data for combined chart
-      const yearlyData = this.calculateYearlyData(bookings, completedBookings);
+      const yearlyData = this.calculateYearlyData(validBookings, completedBookings);
 
       return {
         success: true,
@@ -276,6 +276,7 @@ class DashboardService {
           newMessages: 0, // Placeholder: Messaging feature is currently under development (Coming Soon)
           bookingsData: weeklyBookingsData,
           earningsData: weeklyEarningsData,
+          weeklyDays,
           yearlyBookings: yearlyData.yearlyBookings,
           yearlyEarnings: yearlyData.yearlyEarnings,
           years: yearlyData.years,
@@ -293,8 +294,23 @@ class DashboardService {
   }
 
   /**
+   * Get rolling 7 day names ending today
+   */
+  getWeeklyDays() {
+    const today = new Date();
+    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const weekDays = [];
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - i);
+      weekDays.push(dayNames[date.getDay()]);
+    }
+    return weekDays;
+  }
+
+  /**
    * Calculate weekly booking counts for chart
-   * Returns array of numbers for the last 7 days [Mon, Tue, Wed, Thu, Fri, Sat, Sun]
+   * Returns array of numbers for the last 7 days ending today
    */
   calculateWeeklyData(bookings, dateField) {
     const today = new Date();
@@ -305,9 +321,11 @@ class DashboardService {
       const date = new Date(today);
       date.setDate(date.getDate() - i);
 
-      const count = bookings.filter((b) => {
-        const bookingDate = new Date(b[dateField] || b.createdAt);
-        return bookingDate.toDateString() === date.toDateString();
+      const count = (bookings || []).filter((b) => {
+        const rawDate = b[dateField] || b.createdAt;
+        if (!rawDate) return false;
+        const bookingDate = new Date(rawDate);
+        return !isNaN(bookingDate.getTime()) && bookingDate.toDateString() === date.toDateString();
       }).length;
 
       weekData.push(count);
@@ -327,12 +345,18 @@ class DashboardService {
       const date = new Date(today);
       date.setDate(date.getDate() - i);
 
-      const dailyEarnings = completedBookings
+      const dailyEarnings = (completedBookings || [])
         .filter((b) => {
-          const bookingDate = new Date(b.checkOut || b.updatedAt);
-          return bookingDate.toDateString() === date.toDateString();
+          const rawDate = b.checkOut || b.completedAt || b.updatedAt || b.createdAt;
+          if (!rawDate) return false;
+          const bookingDate = new Date(rawDate);
+          return !isNaN(bookingDate.getTime()) && bookingDate.toDateString() === date.toDateString();
         })
-        .reduce((sum, b) => sum + (b.pricingBreakdown?.hostEarnings || b.pricingBreakdown?.hostTotal || b.hostEarnings || 0), 0);
+        .reduce((sum, b) => {
+          const pricing = b.pricingBreakdown || {};
+          const earnings = Number(pricing.hostEarnings) || (Number(pricing.rentFee || 0) + Number(pricing.serviceCharge || 0) - Number(pricing.hostFee || 0) - Number(pricing.hostVat || 0)) || Number(b.hostEarnings) || 0;
+          return sum + earnings;
+        }, 0);
 
       weekData.push(dailyEarnings);
     }
@@ -356,19 +380,27 @@ class DashboardService {
       years.push(year.toString());
 
       // Count bookings for this year
-      const bookingsThisYear = allBookings.filter((b) => {
-        const bookingDate = new Date(b.createdAt || b.checkIn);
-        return bookingDate.getFullYear() === year;
+      const bookingsThisYear = (allBookings || []).filter((b) => {
+        const rawDate = b.createdAt || b.checkIn;
+        if (!rawDate) return false;
+        const bookingDate = new Date(rawDate);
+        return !isNaN(bookingDate.getTime()) && bookingDate.getFullYear() === year;
       }).length;
       yearlyBookings.push(bookingsThisYear);
 
       // Sum earnings for this year
-      const earningsThisYear = completedBookings
+      const earningsThisYear = (completedBookings || [])
         .filter((b) => {
-          const bookingDate = new Date(b.checkOut || b.updatedAt);
-          return bookingDate.getFullYear() === year;
+          const rawDate = b.checkOut || b.completedAt || b.updatedAt || b.createdAt;
+          if (!rawDate) return false;
+          const bookingDate = new Date(rawDate);
+          return !isNaN(bookingDate.getTime()) && bookingDate.getFullYear() === year;
         })
-        .reduce((sum, b) => sum + (b.pricingBreakdown?.hostEarnings || b.pricingBreakdown?.hostTotal || b.hostEarnings || 0), 0);
+        .reduce((sum, b) => {
+          const pricing = b.pricingBreakdown || {};
+          const earnings = Number(pricing.hostEarnings) || (Number(pricing.rentFee || 0) + Number(pricing.serviceCharge || 0) - Number(pricing.hostFee || 0) - Number(pricing.hostVat || 0)) || Number(b.hostEarnings) || 0;
+          return sum + earnings;
+        }, 0);
       yearlyEarnings.push(earningsThisYear);
     }
 

@@ -215,6 +215,9 @@ const styles = StyleSheet.create({
         flex: 1,
         paddingHorizontal: 24,
         paddingTop: 24,
+        maxWidth: 520,
+        width: "100%",
+        alignSelf: "center",
     },
     headerContainer: {
         marginBottom: 30,

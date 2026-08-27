@@ -183,16 +183,18 @@ const PropertyListingCard = ({
     });
   };
 
+  const adaptiveImageHeight = Math.min(346, Math.max(200, Math.round(containerWidth * 0.62)));
+
   return (
     <Pressable
       onPress={handleCardPress}
       style={styles.pressable}
+      onLayout={handleContainerLayout}
     >
       <View style={styles.container}>
       {/* Image Slider */}
       <View
-        style={styles.imageSliderContainer}
-        onLayout={handleContainerLayout}
+        style={[styles.imageSliderContainer, { height: adaptiveImageHeight }]}
       >
         <ScrollView
           ref={scrollViewRef}
@@ -231,7 +233,7 @@ const PropertyListingCard = ({
                 key={index}
                 style={[
                   styles.slideImage,
-                  { width: containerWidth, height: IMAGE_HEIGHT },
+                  { width: containerWidth, height: adaptiveImageHeight },
                 ]}
               >
                 <Image

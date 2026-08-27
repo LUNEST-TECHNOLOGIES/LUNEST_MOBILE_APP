@@ -162,6 +162,9 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: 20,
+    maxWidth: 520,
+    width: "100%",
+    alignSelf: "center",
   },
   backButton: {
     width: 40,

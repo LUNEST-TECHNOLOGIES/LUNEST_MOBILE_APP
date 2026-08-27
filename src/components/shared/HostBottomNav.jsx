@@ -157,18 +157,19 @@ const HostBottomNav = () => {
   };
 
   // Responsive sizes based on screen dimensions
+  const isTablet = screenWidth >= 768;
   const isSmallScreen = screenWidth < 380;
   const isShortScreen = screenHeight < 700;
 
-  const iconSize = isSmallScreen ? 22 : isShortScreen ? 24 : 28;
-  const fontSize = isSmallScreen ? 9 : isShortScreen ? 10 : 12;
-  const paddingTop = isShortScreen ? 8 : 12;
-  const paddingHorizontal = isSmallScreen ? 5 : 10;
-  const gapSize = isSmallScreen ? 2 : 4;
+  const iconSize = isSmallScreen ? 22 : isTablet ? 30 : isShortScreen ? 24 : 28;
+  const fontSize = isSmallScreen ? 9 : isTablet ? 13 : isShortScreen ? 10 : 12;
+  const paddingTop = isShortScreen ? 8 : isTablet ? 14 : 12;
+  const paddingHorizontal = isTablet ? 24 : isSmallScreen ? 5 : 10;
+  const gapSize = isSmallScreen ? 2 : isTablet ? 5 : 4;
 
   // Safe bottom padding - ensure it works on all devices
   const bottomPadding = Platform.select({
-    ios: Math.max(insets.bottom, 8),
+    ios: Math.max(insets.bottom, isTablet ? 16 : 8),
     android: Math.max(insets.bottom, 12),
     default: 10,
   });
@@ -184,7 +185,7 @@ const HostBottomNav = () => {
         },
       ]}
     >
-      <View style={styles.tabsRow}>
+      <View style={[styles.tabsRow, isTablet && styles.tabsRowTablet]}>
         {HOST_TABS.map((tab) => {
           const isActive = activeTab === tab.key;
           const IconComponent = tab.Icon;
@@ -274,6 +275,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-around",
     alignItems: "center",
+  },
+  tabsRowTablet: {
+    maxWidth: 600,
+    width: "100%",
+    alignSelf: "center",
   },
   tab: {
     flex: 1,

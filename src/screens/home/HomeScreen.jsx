@@ -57,7 +57,8 @@ const HomeScreen = () => {
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [toastType, setToastType] = useState("success");
-  const { height: screenHeight } = useWindowDimensions();
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const isTablet = screenWidth >= 768;
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -914,7 +915,7 @@ const HomeScreen = () => {
   const renderItem = useCallback(({ item, index }) => {
     const currentBookmarkStatus = bookmarkMap[item.id] || { isBookmarked: false, bookmarkId: null };
     return (
-      <View>
+      <View style={isTablet ? { flex: 1, paddingHorizontal: 8, paddingBottom: 16 } : undefined}>
         <PropertyListingCard
           {...item}
           isFavorite={currentBookmarkStatus.isBookmarked}
@@ -923,7 +924,7 @@ const HomeScreen = () => {
         />
       </View>
     );
-  }, [bookmarkMap, handleItemPress, handleFavoritePress]);
+  }, [bookmarkMap, handleItemPress, handleFavoritePress, isTablet]);
 
   // Scrollable content below fixed header
   const renderScrollableContent = () => (
@@ -1115,12 +1116,14 @@ const HomeScreen = () => {
       </View>
 
       {/* SCROLLABLE CONTENT */}
-      <View style={{ flex: 1 }}>
+      <View style={[styles.scrollableContainer, isTablet && styles.scrollableContainerTablet]}>
         <FlashList
+        key={isTablet ? 'explore-grid-2' : 'explore-list-1'}
         data={filteredListings}
         keyExtractor={(item) => item.id}
         extraData={bookmarkMap} // Re-render when bookmarks change
-        estimatedItemSize={320}
+        numColumns={isTablet ? 2 : 1}
+        estimatedItemSize={isTablet ? 420 : 320}
         renderItem={renderItem}
         ListHeaderComponent={renderScrollableContent}
         ListEmptyComponent={
@@ -1202,6 +1205,14 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 3,
+  },
+  scrollableContainer: {
+    flex: 1,
+  },
+  scrollableContainerTablet: {
+    maxWidth: 1100,
+    width: "100%",
+    alignSelf: "center",
   },
   scrollContent: {
     paddingHorizontal: 16,

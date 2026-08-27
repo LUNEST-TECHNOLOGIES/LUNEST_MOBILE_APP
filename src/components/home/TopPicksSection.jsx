@@ -7,17 +7,13 @@ import {
   Text,
   View
 } from "react-native";
+import { useWindowDimensions } from "react-native";
 import configService from "../../services/configService";
 import listingService from "../../services/listingService";
 import * as ImageUtils from "../../utils/imageUtils";
 import PropertyCard from "../PropertyCard";
 import { HorizontalPropertySkeleton } from "../skeletons";
 import SectionHeader from "./SectionHeader";
-
-
-
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const CAROUSEL_CARD_WIDTH = 170; // Reduced width for a more compact carousel feel
 
 /**
  * TopPicksSection Component
@@ -37,6 +33,9 @@ const TopPicksSection = ({
   onSeeAllPress,
 }) => {
   const router = useRouter();
+  const { width: screenWidth } = useWindowDimensions();
+  const isTablet = screenWidth >= 768;
+  const carouselCardWidth = isTablet ? 220 : 170;
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -299,7 +298,7 @@ const TopPicksSection = ({
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
         decelerationRate="fast"
-        snapToInterval={CAROUSEL_CARD_WIDTH + 12} // Card width + gap
+        snapToInterval={carouselCardWidth + 12} // Card width + gap
         snapToAlignment="start"
       >
         {listings.map((listing) => {
@@ -331,7 +330,7 @@ const TopPicksSection = ({
               bedrooms={listing.bedrooms}
               bathrooms={listing.bathrooms}
               amenities={listing.amenities}
-              width={CAROUSEL_CARD_WIDTH} // PASS equal width here
+              width={carouselCardWidth} // PASS equal width here
               onPress={() => handlePropertyPress(listing)}
               onFavoritePress={handleFavoritePress}
             />

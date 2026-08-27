@@ -235,7 +235,9 @@ const LoginScreen = ({ onBack, onSignup, onForgotPassword, onLoginSuccess }) => 
           style={styles.scrollView}
           contentContainerStyle={[
             styles.scrollContent,
-            { paddingHorizontal: contentPadding },
+            {
+              paddingHorizontal: width >= 768 ? Math.max(32, (width - 520) / 2) : contentPadding,
+            },
           ]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"

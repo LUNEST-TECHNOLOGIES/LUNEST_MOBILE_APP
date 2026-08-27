@@ -301,7 +301,9 @@ const SignupScreen = ({ onBack, onLogin, onSignupSuccess }) => {
           style={styles.scrollView}
           contentContainerStyle={[
             styles.scrollContent,
-            { paddingHorizontal: contentPadding },
+            {
+              paddingHorizontal: width >= 768 ? Math.max(32, (width - 520) / 2) : contentPadding,
+            },
           ]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"

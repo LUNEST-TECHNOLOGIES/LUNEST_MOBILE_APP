@@ -26,6 +26,21 @@ export const getPlatformValue = (values) => {
 export const isIOS = () => Platform.OS === 'ios';
 
 /**
+ * Check if running on iPad
+ * @returns {boolean}
+ */
+export const isIPad = () => Platform.OS === 'ios' && Platform.isPad;
+
+/**
+ * Check if running on Tablet / iPad
+ * @returns {boolean}
+ */
+export const isTablet = () => {
+  if (Platform.OS === 'ios') return !!Platform.isPad;
+  return false;
+};
+
+/**
  * Check if running on Android
  * @returns {boolean}
  */

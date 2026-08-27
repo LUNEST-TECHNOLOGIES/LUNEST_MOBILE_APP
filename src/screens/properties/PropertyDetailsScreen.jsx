@@ -3339,6 +3339,9 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     justifyContent: "center",
     alignItems: "center",
+    maxWidth: 600,
+    width: "100%",
+    alignSelf: "center",
   },
   bookButtonText: {
     color: "#fff",

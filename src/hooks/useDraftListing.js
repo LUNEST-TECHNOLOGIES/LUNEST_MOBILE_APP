@@ -17,12 +17,7 @@ let lastAppState = AppState.currentState;
 const ensureDraftAppStateSubscription = () => {
   if (draftAppStateSubscription) return;
 
-  draftAppStateSubscription = AppState.addEventListener('change', (nextAppState) => {
-    const wasActive = lastAppState === 'active';
-    lastAppState = nextAppState;
-
-    if (!wasActive || !nextAppState.match(/inactive|background/)) return;
-
+  const flushDrafts = () => {
     const latestDrafts = new Map();
     for (const snapshot of draftRegistrations.values()) {
       if (!snapshot?.draft?.draftId) continue;
@@ -38,7 +33,20 @@ const ensureDraftAppStateSubscription = () => {
         console.warn('[useDraftListing] Auto-save failed on background:', error.message);
       });
     }
+  };
+
+  draftAppStateSubscription = AppState.addEventListener('change', (nextAppState) => {
+    const wasActive = lastAppState === 'active';
+    lastAppState = nextAppState;
+
+    if (!wasActive || !nextAppState.match(/inactive|background/)) return;
+    flushDrafts();
   });
+
+  if (typeof window !== 'undefined' && window.addEventListener) {
+    window.addEventListener('beforeunload', flushDrafts);
+    window.addEventListener('pagehide', flushDrafts);
+  }
 };
 
 export const useDraftListing = () => {

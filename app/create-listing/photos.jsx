@@ -1175,15 +1175,20 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     padding: 16,
+    width: "100%",
+    maxWidth: 900,
+    alignSelf: "center",
   },
   fullScreenVideo: {
     width: "100%",
     height: "85%",
+    maxHeight: "85%",
     borderRadius: 12,
   },
   fullScreenImage: {
     width: "100%",
     height: "85%",
+    maxHeight: "85%",
   },
   footer: {
     flexDirection: "row",

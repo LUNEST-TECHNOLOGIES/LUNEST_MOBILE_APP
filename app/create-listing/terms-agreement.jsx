@@ -135,40 +135,40 @@ const TermsAgreement = () => {
   };
 
   const handleBack = async () => {
-    // Save terms agreement state and navigate back to availability
     const finalDraftId = (draftData && draftData.draftId) || draftId;
-    
-    // OPTIMIZATION: Trigger save in background and navigate immediately
+
     await saveDraftData({
-      ...draftData,  // Preserve all existing data
+      ...draftData,
       termsAgreed,
       currentStep: 8,
       draftId: finalDraftId,
     }, { background: true });
 
-    router.push({
+    router.replace({
       pathname: '/create-listing/availability',
       params: finalDraftId ? { draftId: finalDraftId } : {},
     });
   };
 
   const handleNext = async () => {
-    if (termsAgreed) {
-      const finalDraftId = (draftData && draftData.draftId) || draftId || draftListingService.generateDraftId();
-      
-      // OPTIMIZATION: Trigger save in background and navigate immediately
-      saveDraftData({
-        ...draftData,  // Preserve all existing data
-        termsAgreed: true,
-        currentStep: 9,
-        draftId: finalDraftId,
-      }, { background: true });
-
-      router.push({
-        pathname: '/create-listing/review',
-        params: { draftId: finalDraftId },
-      });
+    if (!termsAgreed) {
+      toastService.showError("Please accept the terms and conditions to continue.");
+      return;
     }
+
+    const finalDraftId = (draftData && draftData.draftId) || draftId || draftListingService.generateDraftId();
+
+    await saveDraftData({
+      ...draftData,
+      termsAgreed: true,
+      currentStep: 9,
+      draftId: finalDraftId,
+    }, { background: true });
+
+    router.push({
+      pathname: '/create-listing/review',
+      params: { draftId: finalDraftId },
+    });
   };
 
   const handleViewTerm = (termId) => {

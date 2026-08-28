@@ -309,8 +309,12 @@ const Review = () => {
       // Ensure specific fields have consistent fallbacks
       propertyTitle: activeDraft.propertyTitle || activeDraft.propertyName || baseData.propertyTitle || baseData.propertyName || "Untitled",
       intent: (activeDraft.intent || baseData.intent || "rent").toLowerCase(),
-      houseRules: activeDraft.houseRules || baseData.houseRules || [],
-      additionalRules: activeDraft.additionalRules || baseData.additionalRules || ""
+      checkInTime: activeDraft.checkInTime || baseData.checkInTime || "02:00 PM",
+      checkOutTime: activeDraft.checkOutTime || baseData.checkOutTime || "11:00 AM",
+      houseRules: activeDraft.houseRules || activeDraft.regulations || baseData.houseRules || baseData.regulations || [],
+      regulations: activeDraft.regulations || activeDraft.houseRules || baseData.regulations || baseData.houseRules || [],
+      additionalRules: activeDraft.additionalRules || baseData.additionalRules || "",
+      termsAgreed: activeDraft.termsAgreed !== undefined ? activeDraft.termsAgreed : (baseData.termsAgreed !== undefined ? baseData.termsAgreed : true)
     });
   }, [draftData, draftId]); // Re-run whenever draftData arrives or updates
 

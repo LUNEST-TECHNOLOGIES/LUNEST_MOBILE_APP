@@ -97,8 +97,8 @@ const Availability = () => {
   const [availableNow, setAvailableNow] = useState(true);
   const [availabilityStatus, setAvailabilityStatus] = useState('available'); // 'available' or 'booked'
   const [showCancelModal, setShowCancelModal] = useState(false);
-  const [checkInTime, setCheckInTime] = useState("02:00 PM – 04:00 PM"); // Default Recommended Range
-  const [checkOutTime, setCheckOutTime] = useState("11:00 AM – 12:00 PM"); // Default Recommended Range
+  const [checkInTime, setCheckInTime] = useState("02:00 PM"); // Default Recommended Option
+  const [checkOutTime, setCheckOutTime] = useState("11:00 AM"); // Default Recommended Option
   const [selectedRules, setSelectedRules] = useState([]);
   const [additionalRules, setAdditionalRules] = useState('');
   const [initialLoadDone, setInitialLoadDone] = useState(false);
@@ -121,78 +121,173 @@ const Availability = () => {
   // Load draft data on mount
   useEffect(() => {
     if (draftData && !initialLoadDone) {
-      setInstantBooking(draftData.instantBooking !== false);
-      setMinStay(String(draftData.minStay || '1'));
-      setMaxStay(String(draftData.maxStay || '30'));
-      setAdvanceNotice(String(draftData.advanceNotice || '1'));
-      setAvailableNow(draftData.availableNow !== false);
-      setAvailabilityStatus(draftData.availabilityStatus || 'available');
-      // Handle legacy ISO dates or new string format
+      if (draftData.instantBooking !== undefined) {
+        setInstantBooking(draftData.instantBooking !== false && draftData.instantBooking !== 'false');
+      }
+      if (draftData.minStay) setMinStay(String(draftData.minStay));
+      if (draftData.maxStay) setMaxStay(String(draftData.maxStay));
+      if (draftData.advanceNotice) setAdvanceNotice(String(draftData.advanceNotice));
+      if (draftData.availableNow !== undefined) {
+        setAvailableNow(draftData.availableNow !== false && draftData.availableNow !== 'false');
+      }
+      if (draftData.availabilityStatus) {
+        setAvailabilityStatus(draftData.availabilityStatus);
+      }
+
+      // Check-in Time Restoration
       if (draftData.checkInTime) {
-        if (draftData.checkInTime.includes('T')) {
-          try { setCheckInTime(format(new Date(draftData.checkInTime), "hh:mm a")); } catch (e) { setCheckInTime("02:00 PM – 04:00 PM"); }
+        const val = String(draftData.checkInTime);
+        if (CHECK_IN_OPTIONS.some((o) => o.value === val)) {
+          setCheckInTime(val);
+        } else if (val.includes("12:00") || val.includes("12 PM")) {
+          setCheckInTime("12:00 PM");
+        } else if (val.includes("04:00") || val.includes("4:00") || val.includes("4 PM")) {
+          setCheckInTime("04:00 PM");
+        } else if (val.includes("02:00") || val.includes("2:00") || val.includes("2 PM")) {
+          setCheckInTime("02:00 PM");
         } else {
-          setCheckInTime(draftData.checkInTime);
+          setCheckInTime(val);
         }
       }
+
+      // Check-out Time Restoration
       if (draftData.checkOutTime) {
-        if (draftData.checkOutTime.includes('T')) {
-          try { setCheckOutTime(format(new Date(draftData.checkOutTime), "hh:mm a")); } catch (e) { setCheckOutTime("11:00 AM – 12:00 PM"); }
+        const val = String(draftData.checkOutTime);
+        if (CHECK_OUT_OPTIONS.some((o) => o.value === val)) {
+          setCheckOutTime(val);
+        } else if (val.includes("10:00") || val.includes("10 AM")) {
+          setCheckOutTime("10:00 AM");
+        } else if (val.includes("12:00") || val.includes("12 PM")) {
+          setCheckOutTime("12:00 PM");
+        } else if (val.includes("11:00") || val.includes("11 AM")) {
+          setCheckOutTime("11:00 AM");
         } else {
-          setCheckOutTime(draftData.checkOutTime);
+          setCheckOutTime(val);
         }
       }
-      // Load house rules
-      if (draftData.houseRules) {
-        if (Array.isArray(draftData.houseRules)) {
-          setSelectedRules(draftData.houseRules);
-        } else if (typeof draftData.houseRules === 'object') {
-          // Convert object format to array
-          const rulesArray = Object.keys(draftData.houseRules).filter(key => draftData.houseRules[key]);
+
+      // House Rules & Regulations Restoration
+      const rawRules = draftData.houseRules || draftData.regulations;
+      if (rawRules) {
+        if (Array.isArray(rawRules)) {
+          const ids = rawRules.map((r) => {
+            const match = HOUSE_RULES.find(
+              (hr) => hr.id === r || hr.label.toLowerCase() === String(r).toLowerCase()
+            );
+            return match ? match.id : r;
+          });
+          setSelectedRules(ids.filter(Boolean));
+        } else if (typeof rawRules === "object") {
+          const rulesArray = Object.keys(rawRules).filter((key) => rawRules[key]);
           setSelectedRules(rulesArray);
+        } else if (typeof rawRules === "string") {
+          try {
+            const parsed = JSON.parse(rawRules);
+            if (Array.isArray(parsed)) {
+              setSelectedRules(parsed);
+            } else {
+              const items = rawRules.split(",").map((s) => s.trim()).filter(Boolean);
+              const ids = items.map((r) => {
+                const match = HOUSE_RULES.find(
+                  (hr) => hr.id === r || hr.label.toLowerCase() === r.toLowerCase()
+                );
+                return match ? match.id : r;
+              });
+              setSelectedRules(ids.filter(Boolean));
+            }
+          } catch (e) {
+            const items = rawRules.split(",").map((s) => s.trim()).filter(Boolean);
+            const ids = items.map((r) => {
+              const match = HOUSE_RULES.find(
+                (hr) => hr.id === r || hr.label.toLowerCase() === r.toLowerCase()
+              );
+              return match ? match.id : r;
+            });
+            setSelectedRules(ids.filter(Boolean));
+          }
         }
       }
-      setAdditionalRules(draftData.additionalRules || '');
+
+      if (draftData.additionalRules !== undefined) {
+        setAdditionalRules(String(draftData.additionalRules || ""));
+      }
+
       setInitialLoadDone(true);
     }
   }, [draftData, initialLoadDone]);
 
   // Toggle house rule selection
   const toggleRule = (ruleId) => {
-    setSelectedRules(prev => {
+    setSelectedRules((prev) => {
       const newRules = prev.includes(ruleId)
-        ? prev.filter(id => id !== ruleId)
+        ? prev.filter((id) => id !== ruleId)
         : [...prev, ruleId];
-      
-      // Auto-save when rules change
-      saveDraftData({ houseRules: newRules });
+
+      // Auto-save all availability fields when rules change
+      const finalDraftId = (draftData && draftData.draftId) || draftId;
+      saveDraftData({
+        ...draftData,
+        instantBooking,
+        minStay,
+        maxStay,
+        advanceNotice,
+        availableNow: availabilityStatus === "available",
+        availabilityStatus,
+        checkInTime,
+        checkOutTime,
+        houseRules: newRules,
+        regulations: newRules,
+        additionalRules,
+        currentStep: 8,
+        draftId: finalDraftId,
+      });
+
       return newRules;
     });
   };
 
-  // Debounced save for text inputs to prevent glitching
+  // Debounced save for text inputs
   const debouncedSave = useCallback(
     (text) => {
       const timeoutId = setTimeout(() => {
-        saveDraftData({ additionalRules: text });
-      }, 500);
+        saveDraftData({
+          ...draftData,
+          instantBooking,
+          minStay,
+          maxStay,
+          advanceNotice,
+          availableNow: availabilityStatus === "available",
+          availabilityStatus,
+          checkInTime,
+          checkOutTime,
+          houseRules: selectedRules,
+          regulations: selectedRules,
+          additionalRules: text,
+        });
+      }, 400);
       return () => clearTimeout(timeoutId);
     },
-    [saveDraftData]
+    [draftData, instantBooking, minStay, maxStay, advanceNotice, availabilityStatus, checkInTime, checkOutTime, selectedRules, saveDraftData]
   );
 
   // Auto-save function
   const updateAvailability = (updates) => {
+    const finalDraftId = (draftData && draftData.draftId) || draftId;
     const finalUpdates = {
+      ...draftData,
       instantBooking: updates.instantBooking !== undefined ? updates.instantBooking : instantBooking,
       minStay: updates.minStay !== undefined ? updates.minStay : minStay,
       maxStay: updates.maxStay !== undefined ? updates.maxStay : maxStay,
       advanceNotice: updates.advanceNotice !== undefined ? updates.advanceNotice : advanceNotice,
-      availableNow: updates.availableNow !== undefined ? updates.availableNow : availableNow,
+      availableNow: updates.availableNow !== undefined ? updates.availableNow : (availabilityStatus === "available"),
       availabilityStatus: updates.availabilityStatus !== undefined ? updates.availabilityStatus : availabilityStatus,
-      houseRules: selectedRules,
-      additionalRules,
+      checkInTime: updates.checkInTime !== undefined ? updates.checkInTime : checkInTime,
+      checkOutTime: updates.checkOutTime !== undefined ? updates.checkOutTime : checkOutTime,
+      houseRules: updates.houseRules !== undefined ? updates.houseRules : selectedRules,
+      regulations: updates.houseRules !== undefined ? updates.houseRules : selectedRules,
+      additionalRules: updates.additionalRules !== undefined ? updates.additionalRules : additionalRules,
       currentStep: 8,
+      draftId: finalDraftId,
     };
 
     if (updates.instantBooking !== undefined) setInstantBooking(updates.instantBooking);
@@ -201,6 +296,8 @@ const Availability = () => {
     if (updates.advanceNotice !== undefined) setAdvanceNotice(updates.advanceNotice);
     if (updates.availableNow !== undefined) setAvailableNow(updates.availableNow);
     if (updates.availabilityStatus !== undefined) setAvailabilityStatus(updates.availabilityStatus);
+    if (updates.checkInTime !== undefined) setCheckInTime(updates.checkInTime);
+    if (updates.checkOutTime !== undefined) setCheckOutTime(updates.checkOutTime);
 
     saveDraftData(finalUpdates);
   };
@@ -210,20 +307,26 @@ const Availability = () => {
   };
 
   const handleCancelConfirm = async () => {
-    // Save as draft before dismissing
     try {
       const finalDraftId = (draftData && draftData.draftId) || draftId || draftListingService.generateDraftId();
-      
+
       await saveDraftData({
+        ...draftData,
         instantBooking,
         minStay,
         maxStay,
         advanceNotice,
-        availableNow,
+        availableNow: availabilityStatus === "available",
+        availabilityStatus,
+        checkInTime,
+        checkOutTime,
+        houseRules: selectedRules,
+        regulations: selectedRules,
+        additionalRules,
         currentStep: 8,
         draftId: finalDraftId,
       });
-      
+
       setShowCancelModal(false);
       router.dismissAll();
       router.replace('/(host-tabs)/listings?filter=drafts&showDraftSaved=true');
@@ -240,17 +343,21 @@ const Availability = () => {
   };
 
   const handleBack = async () => {
-    // Navigate back with current params to preserve data
     const finalDraftId = (draftData && draftData.draftId) || draftId || draftListingService.generateDraftId();
-    
-    // OPTIMIZATION: Trigger save in background and navigate immediately
+
     await saveDraftData({
-      ...draftData,  // Preserve all existing data
+      ...draftData,
       instantBooking,
       minStay,
       maxStay,
       advanceNotice,
-      availableNow,
+      availableNow: availabilityStatus === "available",
+      availabilityStatus,
+      checkInTime,
+      checkOutTime,
+      houseRules: selectedRules,
+      regulations: selectedRules,
+      additionalRules,
       currentStep: 8,
       draftId: finalDraftId,
     }, { background: true });
@@ -262,20 +369,23 @@ const Availability = () => {
   };
 
   const handleNext = async () => {
-    // Validate that check-in and check-out times are not the same
     if (checkInTime && checkOutTime && checkInTime === checkOutTime) {
       toastService.showError('Check-in and check-out times cannot be the same. Please select different times.');
       return;
     }
 
     const finalDraftId = (draftData && draftData.draftId) || draftId || draftListingService.generateDraftId();
-    
-    // OPTIMIZATION: Trigger save in background and navigate immediately
+
     await saveDraftData({
-      ...draftData,  // Preserve all existing data
+      ...draftData,
       instantBooking,
+      minStay,
+      maxStay,
+      advanceNotice,
       availableNow: availabilityStatus === 'available',
+      availabilityStatus,
       houseRules: selectedRules,
+      regulations: selectedRules,
       additionalRules,
       checkInTime: checkInTime || '02:00 PM',
       checkOutTime: checkOutTime || '11:00 AM',
@@ -283,7 +393,6 @@ const Availability = () => {
       draftId: finalDraftId,
     }, { background: true });
 
-    // Skip house-rules step, go directly to terms-agreement
     router.push({
       pathname: '/create-listing/terms-agreement',
       params: { draftId: finalDraftId },

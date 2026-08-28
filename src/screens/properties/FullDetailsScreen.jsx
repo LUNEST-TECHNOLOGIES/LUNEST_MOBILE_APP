@@ -678,10 +678,10 @@ const FullDetailsScreen = () => {
   // Build videos array from listing data
   const getPropertyVideos = () => {
     if (!listing) return [];
-    const videos = listing.propertyVideos || listing.videos || [];
-    return videos
+    const rawVids = listing.propertyVideos || listing.videos || (listing.video ? [listing.video] : []);
+    return (Array.isArray(rawVids) ? rawVids : [rawVids])
       .map((vid) => {
-        const url = convertImageUrl(vid);
+        const url = convertImageUrl(typeof vid === "string" ? vid : vid?.url || vid?.uri);
         return url ? { uri: url, type: "video" } : null;
       })
       .filter(Boolean);
@@ -691,8 +691,8 @@ const FullDetailsScreen = () => {
   const getPropertyMedia = () => {
     const images = getPropertyImages();
     const videos = getPropertyVideos();
-    // Images first, then videos
-    return [...images, ...videos];
+    // Videos first, then images
+    return [...videos, ...images];
   };
 
   // Build features from listing data

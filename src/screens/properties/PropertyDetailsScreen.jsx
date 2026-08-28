@@ -743,9 +743,10 @@ const PropertyDetailsScreen = () => {
 
   const propertyVideos = useMemo(() => {
     if (!listing) return [];
-    return (listing?.propertyVideos || listing?.videos || [])
+    const rawVids = listing?.propertyVideos || listing?.videos || (listing?.video ? [listing.video] : []);
+    return (Array.isArray(rawVids) ? rawVids : [rawVids])
       .map((v) => {
-        let url = typeof v === "string" ? v : v?.url;
+        let url = typeof v === "string" ? v : v?.url || v?.uri;
         url = convertImageUrl(url);
         return url ? { uri: url, type: "video" } : null;
       })
@@ -753,7 +754,7 @@ const PropertyDetailsScreen = () => {
   }, [listing, baseURL]);
 
   const propertyMedia = useMemo(
-    () => [...propertyImages, ...propertyVideos],
+    () => [...propertyVideos, ...propertyImages],
     [propertyImages, propertyVideos],
   );
 

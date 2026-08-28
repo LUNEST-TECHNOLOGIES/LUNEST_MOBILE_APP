@@ -61,9 +61,10 @@ const PRICING_PERIODS = [
 const Pricing = () => {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const intent = params.intent; // 'rent' or 'sale'
   const draftId = params.draftId || null;
   const { draftData, saveDraftData } = useDraftListing();
+  const effectiveIntent = ((draftData?.intent || params.intent || "rent") + "").toLowerCase();
+  const isSaleMode = effectiveIntent === "sale" || effectiveIntent === "sell";
 
   // Initialize with empty/default values
   const [price, setPrice] = useState("");
@@ -111,7 +112,7 @@ const Pricing = () => {
     const periodValue = draftData.pricingPeriod || (draftData.propertyPrice?.frequency ? String(draftData.propertyPrice.frequency).replace(/^per\s+/, "") : "") || "";
 
     if (priceValue) {
-      if (intent === "sale") setSalePrice(formatPrice(priceValue));
+      if (isSaleMode) setSalePrice(formatPrice(priceValue));
       else setPrice(formatPrice(priceValue));
     }
     
@@ -119,7 +120,7 @@ const Pricing = () => {
     if (securityValue) setSecurityDeposit(formatPrice(securityValue));
     if (serviceValue) setServiceCharge(formatPrice(serviceValue));
     if (draftData.acceptRefund !== undefined) setAcceptRefund(draftData.acceptRefund);
-  }, [draftData, intent]);
+  }, [draftData, effectiveIntent, isSaleMode]);
 
 
   // Auto-save function
@@ -212,7 +213,7 @@ const Pricing = () => {
     // OPTIMIZATION: Trigger save in background and navigate immediately
     await saveDraftData({
       ...draftData,
-      price: intent === "sale" ? salePrice : price,
+      price: isSaleMode ? salePrice : price,
       pricingPeriod: selectedPeriod,
       securityDeposit,
       serviceCharge,
@@ -229,14 +230,14 @@ const Pricing = () => {
 
   const handleNext = async () => {
     // Validate price
-    const priceValue = intent === "sale" ? salePrice : price;
+    const priceValue = isSaleMode ? salePrice : price;
     if (!priceValue) {
       toastService.showError("Please enter a price for your property.");
       return;
     }
 
     // Validate pricing period for rentals
-    if (intent !== "sale" && !selectedPeriod) {
+    if (!isSaleMode && !selectedPeriod) {
       toastService.showError("Please select a pricing period (per night, month, or year).");
       return;
     }
@@ -276,7 +277,7 @@ const Pricing = () => {
   };
 
   const isValid =
-    intent === "sale"
+    isSaleMode
       ? salePrice.length > 0
       : price.length > 0 && selectedPeriod.length > 0 && acceptRefund !== null;
 
@@ -300,7 +301,7 @@ const Pricing = () => {
       >
         <Text style={styles.sectionTitle}>Set your pricing</Text>
 
-        {intent === "sale" ? (
+        {isSaleMode ? (
           // Sale Price
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Sale Price *</Text>

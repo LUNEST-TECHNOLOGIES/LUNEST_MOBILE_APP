@@ -1503,23 +1503,7 @@ class ListingService {
 
       // 2. Map Core Property Details
       if (guestCapacity) payload.guests = Number(guestCapacity);
-      if (propertyHighlight) payload.description = propertyHighlight;
-
-      // 3. Map/Align Pricing Structure
-      const priceVal = Number(draftData.price) || 0;
-      const periodVal = uiPeriod || draftData.pricingPeriod || "night";
-      
-      payload.price = priceVal;
-      payload.pricingPeriod = periodVal;
-      
-      // Ensure propertyPrice object exists for model compatibility
-      payload.propertyPrice = {
-        price: priceVal,
-        currency: draftData.currency || "NGN",
-        frequency: `per ${periodVal.replace(/^per\s+/, "")}`, // "night" -> "per night"
-      };
-
-      // Ensure flat fields are valid numbers or null (don't send NaN)
+      // Helper to ensure numeric fields are valid numbers (strip commas and symbols)
       const toNum = (val) => {
           if (val === undefined || val === null || val === "") return 0;
           if (typeof val === "number") return isNaN(val) ? 0 : val;
@@ -1528,20 +1512,39 @@ class ListingService {
           return isNaN(n) ? 0 : n;
       };
 
-      payload.price = toNum(payload.price);
+      // 3. Map/Align Pricing Structure with full sanitization
+      const priceVal = toNum(draftData.price ?? draftData.propertyPrice?.price ?? 0);
+      const periodVal = uiPeriod || draftData.pricingPeriod || (draftData.propertyPrice?.frequency ? String(draftData.propertyPrice.frequency).replace(/^per\s+/, "") : "night");
+      const cautionVal = toNum(uiCaution ?? uiDeposit ?? draftData.cautionFee ?? draftData.securityDeposit ?? draftData.propertyPrice?.cautionFee ?? 0);
+      const serviceVal = toNum(uiService ?? draftData.serviceCharge ?? draftData.propertyPrice?.serviceCharge ?? 0);
+      const cleaningVal = toNum(draftData.cleaningFee ?? 0);
+
+      payload.price = priceVal;
+      payload.pricingPeriod = periodVal;
+      payload.cautionFee = cautionVal;
+      payload.securityDeposit = cautionVal;
+      payload.serviceCharge = serviceVal;
+      payload.cleaningFee = cleaningVal;
+      payload.acceptRefund = draftData.acceptRefund !== undefined ? Boolean(draftData.acceptRefund) : true;
+      payload.currentStep = toNum(draftData.currentStep) || 1;
+      payload.termsAgreed = Boolean(draftData.termsAgreed);
+      
+      // Ensure propertyPrice object exists for model compatibility
+      payload.propertyPrice = {
+        price: priceVal,
+        cautionFee: cautionVal,
+        securityDeposit: cautionVal,
+        serviceCharge: serviceVal,
+        currency: draftData.currency || "NGN",
+        frequency: `per ${periodVal.replace(/^per\s+/, "")}`, // "night" -> "per night"
+      };
+
       payload.bedrooms = toNum(payload.bedrooms);
       payload.bathrooms = toNum(payload.bathrooms);
       payload.guests = toNum(payload.guests || guestCapacity);
       payload.sittingRooms = toNum(draftData.sittingRooms);
       payload.lounges = toNum(draftData.lounges);
       payload.workspaces = toNum(draftData.workspaces);
-      payload.cautionFee = toNum(uiCaution || uiDeposit || draftData.cautionFee || draftData.securityDeposit || 0);
-      payload.securityDeposit = payload.cautionFee;
-      payload.serviceCharge = toNum(uiService || draftData.serviceCharge || 0);
-      payload.cleaningFee = toNum(draftData.cleaningFee || 0);
-      payload.acceptRefund = draftData.acceptRefund !== undefined ? Boolean(draftData.acceptRefund) : true;
-      payload.currentStep = toNum(draftData.currentStep) || 1;
-      payload.termsAgreed = Boolean(draftData.termsAgreed);
       if (draftData.selectedAmenities || draftData.amenities) {
         const amList = draftData.selectedAmenities || draftData.amenities;
         payload.amenities = Array.isArray(amList) ? amList : (typeof amList === 'string' ? JSON.parse(amList || '[]') : []);

@@ -571,18 +571,26 @@ class MediaUploadService {
         }
       });
 
-      await draftListingService.saveDraft({
-        ...draft,
-        draftId: draftId,
-        photos: currentPhotos.filter(Boolean),
-        video: currentVideos.filter(Boolean),
-        propertyVideos: currentVideos.filter(Boolean),
-        videos: currentVideos.filter(Boolean),
-      });
+      const validPhotos = currentPhotos.filter(Boolean);
+      const validVideos = currentVideos.filter(Boolean);
+
+      await draftListingService.saveDraft(
+        {
+          ...draft,
+          draftId: draftId,
+          photos: validPhotos,
+          images: validPhotos,
+          propertyImages: validPhotos,
+          video: validVideos[0] || null,
+          videos: validVideos,
+          propertyVideos: validVideos,
+        },
+        { syncImmediately: true }
+      );
 
       console.log(`💾 [MediaUploadService] Draft ${draftId} synced with uploaded media:`, {
-        photosCount: currentPhotos.length,
-        videosCount: currentVideos.length,
+        photosCount: validPhotos.length,
+        videosCount: validVideos.length,
       });
     } catch (e) {
       console.error("Error syncing draft with media uploads:", e);

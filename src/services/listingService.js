@@ -1631,10 +1631,17 @@ class ListingService {
       payload.sittingRooms = toNum(draftData.sittingRooms);
       payload.lounges = toNum(draftData.lounges);
       payload.workspaces = toNum(draftData.workspaces);
-      payload.cautionFee = toNum(payload.cautionFee);
-      payload.serviceCharge = toNum(payload.serviceCharge);
+      payload.cautionFee = toNum(uiCaution || uiDeposit || draftData.cautionFee || draftData.securityDeposit || 0);
+      payload.securityDeposit = payload.cautionFee;
+      payload.serviceCharge = toNum(uiService || draftData.serviceCharge || 0);
+      payload.cleaningFee = toNum(draftData.cleaningFee || 0);
+      payload.acceptRefund = draftData.acceptRefund !== undefined ? Boolean(draftData.acceptRefund) : true;
       payload.currentStep = toNum(draftData.currentStep) || 1;
       payload.termsAgreed = Boolean(draftData.termsAgreed);
+      if (draftData.selectedAmenities || draftData.amenities) {
+        const amList = draftData.selectedAmenities || draftData.amenities;
+        payload.amenities = Array.isArray(amList) ? amList : (typeof amList === 'string' ? JSON.parse(amList || '[]') : []);
+      }
 
       if (draftData.rentalPurpose || draftData.purposeOfRent) {
         payload.rentalPurpose = draftData.rentalPurpose || draftData.purposeOfRent;

@@ -87,3 +87,6 @@ diagnose-network.sh
 reset-cache.ps1
 reset-cache.sh
 start-expo.bat
+
+# Local Netlify folder
+.netlify

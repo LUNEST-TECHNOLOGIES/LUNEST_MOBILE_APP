@@ -90,28 +90,29 @@ const Pricing = () => {
   }, []);
   const hasInitialized = useRef(false);
 
-  // Load draft data on mount and when draftData changes
+  // Load draft data on mount and when draftData changes or hydrates remotely
   useEffect(() => {
-    if (draftData && !hasInitialized.current) {
-      console.log('✅ [Pricing] Initializing/Restoring from draft:', draftData.draftId);
-      
-      const priceValue = draftData.price !== undefined && draftData.price !== null ? String(draftData.price) : "";
-      const securityValue = draftData.securityDeposit !== undefined && draftData.securityDeposit !== null ? String(draftData.securityDeposit) : "";
-      const serviceValue = draftData.serviceCharge !== undefined && draftData.serviceCharge !== null ? String(draftData.serviceCharge) : "";
-      const periodValue = draftData.pricingPeriod || "";
+    if (!draftData) return;
+    console.log('✅ [Pricing] Initializing/Restoring from draft:', draftData.draftId);
+    
+    const rawPrice = draftData.price || draftData.propertyPrice?.price;
+    const priceValue = rawPrice !== undefined && rawPrice !== null && rawPrice !== "" && Number(rawPrice) > 0 ? String(rawPrice) : "";
+    const rawCaution = draftData.cautionFee !== undefined && draftData.cautionFee !== null && draftData.cautionFee !== "" 
+      ? draftData.cautionFee 
+      : (draftData.securityDeposit !== undefined && draftData.securityDeposit !== null ? draftData.securityDeposit : "");
+    const securityValue = rawCaution !== undefined && rawCaution !== null && rawCaution !== "" && Number(rawCaution) > 0 ? String(rawCaution) : "";
+    const serviceValue = draftData.serviceCharge !== undefined && draftData.serviceCharge !== null && draftData.serviceCharge !== "" && Number(draftData.serviceCharge) > 0 ? String(draftData.serviceCharge) : "";
+    const periodValue = draftData.pricingPeriod || (draftData.propertyPrice?.frequency ? String(draftData.propertyPrice.frequency).replace(/^per\s+/, "") : "") || "";
 
-      if (priceValue) {
-        if (intent === "sale") setSalePrice(formatPrice(priceValue));
-        else setPrice(formatPrice(priceValue));
-      }
-      
-      if (periodValue) setSelectedPeriod(periodValue);
-      if (securityValue) setSecurityDeposit(formatPrice(securityValue));
-      if (serviceValue) setServiceCharge(formatPrice(serviceValue));
-      if (draftData.acceptRefund !== undefined) setAcceptRefund(draftData.acceptRefund);
-      
-      hasInitialized.current = true;
+    if (priceValue) {
+      if (intent === "sale") setSalePrice(formatPrice(priceValue));
+      else setPrice(formatPrice(priceValue));
     }
+    
+    if (periodValue) setSelectedPeriod(periodValue);
+    if (securityValue) setSecurityDeposit(formatPrice(securityValue));
+    if (serviceValue) setServiceCharge(formatPrice(serviceValue));
+    if (draftData.acceptRefund !== undefined) setAcceptRefund(draftData.acceptRefund);
   }, [draftData, intent]);
 
 

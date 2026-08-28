@@ -486,6 +486,8 @@ class DraftListingService {
    */
   async getDraft(draftId) {
     try {
+      if (!draftId) return null;
+
       // Check in-memory cache first for maximum speed during transitions
       if (draftCache.has(draftId)) {
         console.log("🚀 [DraftListingService] Returning draft from cache:", draftId);
@@ -493,15 +495,52 @@ class DraftListingService {
       }
 
       const drafts = await this.getAllDrafts();
-      const draft = drafts.find((d) => 
+      let draft = drafts.find((d) => 
         d.draftId === draftId || 
         d._id === draftId || 
-        (d._id && d._id === draftId.replace('edit_', ''))
+        (d._id && d._id === String(draftId).replace('edit_', '')) ||
+        (d.draftId && d.draftId === String(draftId).replace('edit_', ''))
       ) || null;
       
-      // Seed cache if found in storage
+      // If not in local storage, query remote database to pull the draft!
+      if (!draft && (await authService.getToken())) {
+        console.log("⚡ [DraftListingService] Draft not found locally. Fetching from database for:", draftId);
+        try {
+          const remoteResult = await listingService.fetchDraftsFromDatabase();
+          if (remoteResult?.success && Array.isArray(remoteResult.drafts)) {
+            draft = remoteResult.drafts.find((d) => 
+              d.draftId === draftId || 
+              d._id === draftId || 
+              (d._id && d._id === String(draftId).replace('edit_', '')) ||
+              (d.draftId && d.draftId === String(draftId).replace('edit_', ''))
+            ) || null;
+
+            if (draft) {
+              // Cache and save locally
+              draftCache.set(draftId, draft);
+              draftCache.set(draft.draftId, draft);
+              if (draft._id) draftCache.set(draft._id, draft);
+              
+              const draftsKey = await this.getDraftsKey();
+              const existing = (await storageService.getItem(draftsKey)) || [];
+              const safeExisting = Array.isArray(existing) ? existing : [];
+              await storageService.setItem(draftsKey, [
+                draft,
+                ...safeExisting.filter(e => e.draftId !== draft.draftId && e._id !== draft._id)
+              ]);
+              console.log("✅ [DraftListingService] Remote draft fetched and hydrated into local storage:", draftId);
+            }
+          }
+        } catch (fetchErr) {
+          console.warn("⚠️ [DraftListingService] Error fetching remote draft:", fetchErr.message);
+        }
+      }
+
+      // Seed cache if found
       if (draft) {
         draftCache.set(draftId, draft);
+        if (draft.draftId) draftCache.set(draft.draftId, draft);
+        if (draft._id) draftCache.set(draft._id, draft);
       }
       
       return draft;

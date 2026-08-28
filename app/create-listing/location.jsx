@@ -128,51 +128,48 @@ const Location = () => {
     [saveDraftData]
   );
 
-  // Load draft data on mount
-  const isInitialized = useRef(false);
+  // Load draft data on mount and on remote sync
   useEffect(() => {
     let timeoutId;
-    if (draftData && !isInitialized.current) {
-      const savedAddress = draftData.address || "";
-      setAddress(savedAddress);
-      setCity(draftData.city || "");
-      setState(draftData.state || "");
-      setCountry(draftData.country || "Nigeria");
-      setPostalCode(draftData.postalCode || "");
+    if (!draftData) return;
 
-      // Use a small timeout to ensure the ref is available
-      timeoutId = setTimeout(() => {
-        if (googlePlacesRef.current && savedAddress) {
-          googlePlacesRef.current.setAddressText(savedAddress);
-        }
-      }, 500);
+    const savedAddress = draftData.address || draftData.propertyLocation?.fullAddress || "";
+    if (savedAddress) setAddress(savedAddress);
+    if (draftData.city) setCity(draftData.city);
+    if (draftData.state) setState(draftData.state);
+    if (draftData.country) setCountry(draftData.country);
+    if (draftData.postalCode) setPostalCode(draftData.postalCode);
 
-      let parsedLandmarks = [""];
-      if (draftData.landmarks) {
-        try {
-          if (typeof draftData.landmarks === "string") {
-            const parsed = JSON.parse(draftData.landmarks);
-            parsedLandmarks =
-              Array.isArray(parsed) && parsed.length > 0 ? parsed : [""];
-          } else if (Array.isArray(draftData.landmarks)) {
-            parsedLandmarks =
-              draftData.landmarks.length > 0 ? draftData.landmarks : [""];
-          }
-        } catch (e) {
-          console.warn("Error parsing landmarks:", e);
+    // Use a small timeout to ensure the ref is available
+    timeoutId = setTimeout(() => {
+      if (googlePlacesRef.current && savedAddress) {
+        googlePlacesRef.current.setAddressText(savedAddress);
+      }
+    }, 500);
+
+    let parsedLandmarks = [""];
+    if (draftData.landmarks) {
+      try {
+        if (typeof draftData.landmarks === "string") {
+          const parsed = JSON.parse(draftData.landmarks);
+          parsedLandmarks =
+            Array.isArray(parsed) && parsed.length > 0 ? parsed : [""];
+        } else if (Array.isArray(draftData.landmarks)) {
+          parsedLandmarks =
+            draftData.landmarks.length > 0 ? draftData.landmarks : [""];
         }
+      } catch (e) {
+        console.warn("Error parsing landmarks:", e);
       }
       setLandmarks(parsedLandmarks);
-      
-      // Load any saved coords from draft
-      if (draftData && draftData.latitude && draftData.longitude) {
-        setPropertyCoords({
-          lat: Number(draftData.latitude),
-          lon: Number(draftData.longitude),
-        });
-      }
-
-      isInitialized.current = true;
+    }
+    
+    // Load any saved coords from draft
+    if (draftData.latitude && draftData.longitude) {
+      setPropertyCoords({
+        lat: Number(draftData.latitude),
+        lon: Number(draftData.longitude),
+      });
     }
 
     return () => {

@@ -275,7 +275,8 @@ const Amenities = () => {
   useEffect(() => {
     console.log('📂 [Amenities] Loading draft data:', draftData?.draftId);
     if (draftData) {
-      const storedSelected = ensureArray(draftData.selectedAmenities);
+      const rawAmenities = draftData.selectedAmenities || draftData.amenities;
+      const storedSelected = ensureArray(rawAmenities);
       const storedCustom = ensureArray(draftData.customAmenities);
       
       console.log('📊 [Amenities] Found amenities in draft:', {

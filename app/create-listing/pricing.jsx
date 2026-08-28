@@ -95,13 +95,19 @@ const Pricing = () => {
     if (!draftData) return;
     console.log('✅ [Pricing] Initializing/Restoring from draft:', draftData.draftId);
     
+    const cleanNumStr = (val) => {
+      if (val === undefined || val === null || val === "") return "";
+      const clean = String(val).replace(/[^0-9.]/g, "");
+      return clean && !isNaN(Number(clean)) && Number(clean) > 0 ? clean : "";
+    };
+
     const rawPrice = draftData.price || draftData.propertyPrice?.price;
-    const priceValue = rawPrice !== undefined && rawPrice !== null && rawPrice !== "" && Number(rawPrice) > 0 ? String(rawPrice) : "";
+    const priceValue = cleanNumStr(rawPrice);
     const rawCaution = draftData.cautionFee !== undefined && draftData.cautionFee !== null && draftData.cautionFee !== "" 
       ? draftData.cautionFee 
       : (draftData.securityDeposit !== undefined && draftData.securityDeposit !== null ? draftData.securityDeposit : "");
-    const securityValue = rawCaution !== undefined && rawCaution !== null && rawCaution !== "" && Number(rawCaution) > 0 ? String(rawCaution) : "";
-    const serviceValue = draftData.serviceCharge !== undefined && draftData.serviceCharge !== null && draftData.serviceCharge !== "" && Number(draftData.serviceCharge) > 0 ? String(draftData.serviceCharge) : "";
+    const securityValue = cleanNumStr(rawCaution);
+    const serviceValue = cleanNumStr(draftData.serviceCharge);
     const periodValue = draftData.pricingPeriod || (draftData.propertyPrice?.frequency ? String(draftData.propertyPrice.frequency).replace(/^per\s+/, "") : "") || "";
 
     if (priceValue) {

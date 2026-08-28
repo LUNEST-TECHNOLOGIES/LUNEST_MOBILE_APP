@@ -12,6 +12,7 @@ import {
     View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Video as AVVideo, ResizeMode } from "expo-av";
 
 // Status color configurations
 const STATUS_CONFIG = {
@@ -174,18 +175,29 @@ const ListingPreview = () => {
           if (result.success && result.listing) {
             const listing = result.listing;
 
-            // Convert image URLs
-            const convertImageUrl = (image) => {
-              if (!image) return null;
-              if (typeof image === "object" && image.url) {
-                if (image.url.startsWith("http")) return image.url;
-                return `${baseURL}${image.url}`;
+            const isVideoMedia = (item) => {
+              if (!item) return false;
+              if (typeof item === "object" && item.type === "video") return true;
+              const url = typeof item === "string" ? item : item.url || item.uri || "";
+              return /\.(mp4|mov|webm|avi|m4v|mkv)($|\?)/i.test(url) || url.includes("/videos/") || url.includes("propertyVideos");
+            };
+
+            const convertMediaItem = (media, forceType = null) => {
+              if (!media) return null;
+              let url = "";
+              if (typeof media === "object") {
+                url = media.url || media.uri || "";
+              } else if (typeof media === "string") {
+                url = media;
               }
-              if (typeof image === "string") {
-                if (image.startsWith("http")) return image;
-                return `${baseURL}${image}`;
+              if (!url) return null;
+              if (!url.startsWith("http") && !url.startsWith("blob:") && !url.startsWith("data:") && !url.startsWith("file:")) {
+                url = `${baseURL}${url.startsWith("/") ? "" : "/"}${url}`;
               }
-              return null;
+              return {
+                type: forceType || (isVideoMedia(media) ? "video" : "photo"),
+                url,
+              };
             };
 
             const rawImages = listing.photos?.length
@@ -194,9 +206,23 @@ const ListingPreview = () => {
                 ? listing.images
                 : listing.propertyImages || [];
 
-            const processedImages = rawImages
-              .map(convertImageUrl)
+            const rawVideos = listing.propertyVideos?.length
+              ? listing.propertyVideos
+              : listing.videos?.length
+                ? listing.videos
+                : listing.video
+                  ? [listing.video]
+                  : [];
+
+            const processedVideos = (Array.isArray(rawVideos) ? rawVideos : [rawVideos])
+              .map((v) => convertMediaItem(v, "video"))
               .filter(Boolean);
+
+            const processedImages = (Array.isArray(rawImages) ? rawImages : [rawImages])
+              .map((img) => convertMediaItem(img, "photo"))
+              .filter(Boolean);
+
+            const combinedMedia = [...processedVideos, ...processedImages];
 
             // Build location string
             const locationCity =
@@ -234,7 +260,8 @@ const ListingPreview = () => {
               ),
               landmarks: listing.landmarks || [],
               features: listing.features || [],
-              images: processedImages,
+              images: combinedMedia.map((m) => m.url),
+              media: combinedMedia,
               status: listing.status ? listing.status.toUpperCase() : "PENDING",
               houseRules: listing.houseRules || "",
               additionalRules: listing.additionalRules || "",
@@ -293,6 +320,31 @@ const ListingPreview = () => {
     }
 
     try {
+      const isVideoMedia = (item) => {
+        if (!item) return false;
+        if (typeof item === "object" && item.type === "video") return true;
+        const url = typeof item === "string" ? item : item.url || item.uri || "";
+        return /\.(mp4|mov|webm|avi|m4v|mkv)($|\?)/i.test(url) || url.includes("/videos/") || url.includes("propertyVideos");
+      };
+
+      const rawPhotosFallback = safeParseArray(params.images, []).length
+        ? safeParseArray(params.images, [])
+        : safeParseArray(params.photos, []).length
+          ? safeParseArray(params.photos, [])
+          : safeParseArray(params.propertyImages, []);
+      const rawVideosFallback = safeParseArray(params.propertyVideos, []).length
+        ? safeParseArray(params.propertyVideos, [])
+        : safeParseArray(params.videos, []).length
+          ? safeParseArray(params.videos, [])
+          : params.video
+            ? [params.video]
+            : [];
+
+      const mediaFallback = [
+        ...rawVideosFallback.map((v) => ({ type: "video", url: typeof v === "string" ? v : v?.url || v?.uri || "" })),
+        ...rawPhotosFallback.map((p) => ({ type: isVideoMedia(p) ? "video" : "photo", url: typeof p === "string" ? p : p?.url || p?.uri || "" })),
+      ].filter((m) => m.url);
+
       return {
         title: params.title || params.propertyName || "Untitled Property",
         propertyType: params.propertyType || "Property",
@@ -311,11 +363,8 @@ const ListingPreview = () => {
         ),
         landmarks: safeParseArray(params.landmarks, []),
         features: safeParseArray(params.features, []),
-        images: safeParseArray(params.images, []).length
-          ? safeParseArray(params.images, [])
-          : safeParseArray(params.photos, []).length
-            ? safeParseArray(params.photos, [])
-            : safeParseArray(params.propertyImages, []),
+        media: mediaFallback,
+        images: mediaFallback.map((m) => m.url),
         status: params.status || "PENDING",
         // Additional fields
         houseRules: params.houseRules || "",
@@ -349,108 +398,46 @@ const ListingPreview = () => {
         regulations: [],
         landmarks: [],
         features: [],
+        media: [],
         images: [],
         status: "PENDING",
-        houseRules: "",
-        additionalRules: "",
-        checkInTime: "",
-        checkOutTime: "",
-        securityDeposit: 0,
-        cleaningFee: 0,
-        instantBooking: false,
-        address: "",
-        city: "",
-        state: "",
       };
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fetchedData, params.listingId, params.title, params.price]); // Stable dependencies
-
-  const handleGoDashboard = () => {
-    router.push("/(host-tabs)/");
-  };
-
-  const handleViewListings = () => {
-    router.push("/(host-tabs)/listings");
-  };
-
-  // Show loading state
-  if (loading) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <Pressable style={styles.closeButton} onPress={() => router.back()}>
-            <Text style={styles.closeButtonText}>✕</Text>
-          </Pressable>
-          <View style={styles.headerTitleContainer}>
-            <Text style={styles.headerTitle}>
-              {isHost ? "Your Listing" : "Property Details"}
-            </Text>
-          </View>
-          <View style={{ width: 40 }} />
-        </View>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#010135" />
-          <Text style={styles.loadingText}>Loading listing...</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  const isDraft = (listingData?.status && listingData.status.toUpperCase() === "DRAFT") || params.status === "DRAFT" || params.isDraft === "true";
-
-  const handleEditDraft = () => {
-    const targetDraftId = params.draftId || params.listingId || listingData._id || listingData.id;
-    const stepMap = {
-      1: "/create-listing/intent",
-      2: "/create-listing/property-details",
-      3: "/create-listing/location",
-      4: "/create-listing/pricing",
-      5: "/create-listing/amenities",
-      6: "/create-listing/photos",
-      7: "/create-listing/availability",
-      8: "/create-listing/terms-agreement",
-    };
-    const currentStep = listingData.currentStep || listingData.step || 6;
-    const targetPath = stepMap[currentStep] || "/create-listing/photos";
-
-    router.push({
-      pathname: targetPath,
-      params: { draftId: targetDraftId },
-    });
-  };
+  }, [params, fetchedData]);
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Header */}
       <View style={styles.header}>
-        <Pressable style={styles.closeButton} onPress={() => router.back()}>
-          <Text style={styles.closeButtonText}>✕</Text>
+        <Pressable
+          style={styles.backButton}
+          onPress={() => router.back()}
+          hitSlop={8}
+        >
+          <Image
+            source={require("../src/assets/icons/arrow-left.png")}
+            style={styles.backIcon}
+            resizeMode="contain"
+          />
         </Pressable>
-        <View style={styles.headerTitleContainer}>
-          <Text style={styles.headerTitle}>
-            {isHost ? "Your Listing" : "Property Details"}
-          </Text>
-          {isHost && <StatusBadge status={listingData.status} />}
+        <Text style={styles.headerTitle} numberOfLines={1}>
+          {listingData.title}
+        </Text>
+        <View style={styles.headerRight}>
+          <StatusBadge status={listingData.status} />
         </View>
-        {isDraft ? (
-          <Pressable style={styles.headerEditButton} onPress={handleEditDraft}>
-            <Text style={styles.headerEditButtonText}>Edit</Text>
-          </Pressable>
-        ) : (
-          <View style={{ width: 40 }} />
-        )}
       </View>
 
+      {/* Main Content */}
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Image Carousel */}
+        {/* Media Carousel (Videos & Photos) */}
         <View style={[styles.imageSection, { height: screenWidth * 0.75 }]}>
-          {!listingData.images ||
-          listingData.images.length === 0 ||
-          !listingData.images.some((img) => img) ? (
+          {(!listingData.media || listingData.media.length === 0) &&
+          (!listingData.images || listingData.images.length === 0) ? (
             <Image
               style={[styles.image, { width: screenWidth }]}
               source={require("../src/assets/images/prop_image.png")}
@@ -465,68 +452,82 @@ const ListingPreview = () => {
                 const index = Math.round(
                   event.nativeEvent.contentOffset.x / screenWidth,
                 );
-                setCurrentImageIndex(
-                  Math.min(
-                    index,
-                    listingData.images.filter((img) => img).length - 1,
-                  ),
-                );
+                const count = (listingData.media || listingData.images || []).length;
+                setCurrentImageIndex(Math.min(index, Math.max(0, count - 1)));
               }}
               scrollEventThrottle={16}
             >
-              {listingData.images
-                .filter((img) => img)
-                .map((image, index) => {
-                  // Skip local file:// URIs on web - not allowed to load local resources
-                  if (
-                    typeof image === "string" &&
-                    image.startsWith("file://") &&
-                    Platform.OS === "web"
-                  ) {
-                    console.warn(
-                      "Skipping local file URI on web for image:",
-                      image,
+              {(listingData.media && listingData.media.length > 0
+                ? listingData.media
+                : (listingData.images || []).map((img) => ({
+                    type: "photo",
+                    url: typeof img === "string" ? img : img?.url || img?.uri || "",
+                  }))
+              )
+                .filter((m) => m && m.url)
+                .map((mediaItem, index) => {
+                  if (mediaItem.type === "video") {
+                    return (
+                      <View
+                        key={`vid-${index}`}
+                        style={[
+                          styles.image,
+                          {
+                            width: screenWidth,
+                            backgroundColor: "#000000",
+                            justifyContent: "center",
+                            alignItems: "center",
+                          },
+                        ]}
+                      >
+                        <AVVideo
+                          source={{ uri: mediaItem.url }}
+                          style={[
+                            styles.image,
+                            { width: screenWidth },
+                            Platform.OS === "web" && {
+                              objectFit: "contain",
+                              width: "100%",
+                              height: "100%",
+                            },
+                          ]}
+                          useNativeControls={true}
+                          resizeMode={ResizeMode.CONTAIN}
+                          shouldPlay={false}
+                          isLooping={true}
+                        />
+                      </View>
                     );
-                    return null;
                   }
-
-                  // Handle different image formats (URL string, object with url, or require())
-                  const imageSource =
-                    typeof image === "string"
-                      ? { uri: image }
-                      : image?.url
-                        ? { uri: image.url }
-                        : image;
 
                   return (
                     <Image
-                      key={index}
+                      key={`img-${index}`}
                       style={[styles.image, { width: screenWidth }]}
-                      source={imageSource}
+                      source={{ uri: mediaItem.url }}
                       resizeMode="cover"
                       defaultSource={require("../src/assets/images/prop_image.png")}
                       onError={(e) => {
                         console.warn(
                           "Image failed to load:",
-                          image,
+                          mediaItem.url,
                           e.nativeEvent?.error,
                         );
                       }}
                     />
                   );
-                })
-                .filter(Boolean)}
+                })}
             </ScrollView>
           )}
 
-          {/* Image Counter */}
+          {/* Media Counter */}
           {listingData?.status?.toUpperCase() !== "DRAFT" &&
-            listingData.images &&
-            listingData.images.filter((img) => img).length > 0 && (
+            (listingData.media || listingData.images) &&
+            (listingData.media || listingData.images).length > 0 && (
               <View style={styles.imageCounter}>
                 <Text style={styles.imageCounterText}>
                   {currentImageIndex + 1}/
-                  {listingData.images.filter((img) => img).length}
+                  {(listingData.media || listingData.images).length}
                 </Text>
               </View>
             )}

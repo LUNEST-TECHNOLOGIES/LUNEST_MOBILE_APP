@@ -1522,7 +1522,9 @@ class ListingService {
       // Ensure flat fields are valid numbers or null (don't send NaN)
       const toNum = (val) => {
           if (val === undefined || val === null || val === "") return 0;
-          const n = Number(val);
+          if (typeof val === "number") return isNaN(val) ? 0 : val;
+          const cleaned = String(val).replace(/[^0-9.]/g, "");
+          const n = Number(cleaned);
           return isNaN(n) ? 0 : n;
       };
 

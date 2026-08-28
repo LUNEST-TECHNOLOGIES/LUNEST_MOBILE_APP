@@ -789,10 +789,10 @@ const Photos = () => {
                   style={[
                     styles.fullScreenVideo,
                     Platform.OS === "web" && {
-                      objectFit: "contain",
                       width: "100%",
-                      height: "100%",
-                      maxHeight: "85vh",
+                      maxWidth: "100%",
+                      maxHeight: "75vh",
+                      objectFit: "contain",
                     },
                   ]}
                   useNativeControls={true}
@@ -806,10 +806,10 @@ const Photos = () => {
                   style={[
                     styles.fullScreenImage,
                     Platform.OS === "web" && {
-                      objectFit: "contain",
                       width: "100%",
-                      height: "100%",
-                      maxHeight: "85vh",
+                      maxWidth: "100%",
+                      maxHeight: "75vh",
+                      objectFit: "contain",
                     },
                   ]}
                   resizeMode="contain"
@@ -1190,7 +1190,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 0,
+    paddingHorizontal: 12,
     paddingVertical: 12,
     width: "100%",
     maxWidth: 960,
@@ -1198,18 +1198,19 @@ const styles = StyleSheet.create({
   },
   fullScreenVideo: {
     width: "100%",
-    height: "100%",
-    maxHeight: "85%",
+    maxWidth: "100%",
     aspectRatio: 16 / 9,
     alignSelf: "center",
     backgroundColor: "#000000",
-    borderRadius: 8,
+    borderRadius: 12,
+    overflow: "hidden",
   },
   fullScreenImage: {
     width: "100%",
-    height: "100%",
-    maxHeight: "85%",
+    maxWidth: "100%",
+    aspectRatio: 16 / 9,
     alignSelf: "center",
+    borderRadius: 12,
   },
   footer: {
     flexDirection: "row",

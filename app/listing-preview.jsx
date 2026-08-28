@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Video as AVVideo, ResizeMode } from "expo-av";
+import { ArrowLeft } from "lucide-react-native";
 
 // Status color configurations
 const STATUS_CONFIG = {
@@ -414,11 +415,7 @@ const ListingPreview = () => {
           onPress={() => router.back()}
           hitSlop={8}
         >
-          <Image
-            source={require("../src/assets/icons/arrow-left.png")}
-            style={styles.backIcon}
-            resizeMode="contain"
-          />
+          <ArrowLeft size={22} color="#010135" />
         </Pressable>
         <Text style={styles.headerTitle} numberOfLines={1}>
           {listingData.title}

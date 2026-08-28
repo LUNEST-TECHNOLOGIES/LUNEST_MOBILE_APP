@@ -1359,43 +1359,6 @@ class ListingService {
     }
   }
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(
-          errorData.message || `Upload failed with status ${response.status}`,
-        );
-      }
-
-      const apiResponse = await response.json();
-      const uploadedVideos = (apiResponse?.body?.videos || apiResponse?.videos || [])
-        .map((video) => typeof video === "string" ? video : video?.url || video?.uri || video?.location)
-        .filter((url) => /^https?:\/\//i.test(String(url)) && !/(?:^|\/)(?:blob:|data:|file:|content:)/i.test(String(url)));
-
-      if (uploadedVideos.length !== videoCount) {
-        return {
-          success: false,
-          message: "Video upload returned incomplete media URLs",
-          videos: [],
-        };
-      }
-
-      return {
-        success: true,
-        message: "Videos uploaded successfully",
-        videos: uploadedVideos,
-      };
-    } catch (error) {
-      console.error("[ListingService] Error uploading videos:", error);
-      const categorized = NetworkErrorHandler.categorizeError(error);
-      return {
-        success: false,
-        message: categorized.userMessage || "Failed to upload videos. Please try again.",
-        error: categorized.type,
-        details: error.message,
-      };
-    }
-  }
-
   /**
    * Upload photos for a listing
    * @param {string} listingId - The listing ID

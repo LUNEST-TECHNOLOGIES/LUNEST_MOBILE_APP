@@ -1304,48 +1304,6 @@ const HostListingsScreen = () => {
           : "rent";
       }
 
-      // Prepare draft data with all listing information
-      const draftData = {
-        draftId: editDraftId,
-        editingListingId: listing.id,
-        isEditing: true,
-        currentStep: 1,
-        // Property basic info
-        propertyTitle:
-          fullListing.propertyName ||
-          fullListing.propertyTitle ||
-          fullListing.title ||
-          "",
-        propertyType: fullListing.propertyType || "",
-        propertyCategory: fullListing.propertyCategory || "rental",
-        intent: intent,
-        // Location
-        address: fullListing.address || locationData.fullAddress || "",
-        city: fullListing.city || "",
-        state: fullListing.state || "",
-        country: fullListing.country || "Nigeria",
-        postalCode: fullListing.postalCode || "",
-        latitude: fullListing.latitude || (locationData.coordinates && locationData.coordinates[0]) || 0,
-        longitude: fullListing.longitude || (locationData.coordinates && locationData.coordinates[1]) || 0,
-        propertyLocation: fullListing.propertyLocation || {
-          coordinates: [
-            fullListing.latitude || (locationData.coordinates && locationData.coordinates[0]) || 0,
-            fullListing.longitude || (locationData.coordinates && locationData.coordinates[1]) || 0
-          ],
-          fullAddress: fullListing.address || locationData.fullAddress || ""
-        },
-        // Details
-        description: fullListing.description || "",
-        propertyHighlight: fullListing.description || "", // Alias for property-details screen
-        propertyDescription: fullListing.description || "", // Additional alias
-        rentalPurpose: fullListing.rentalPurpose || fullListing.purposeOfRent || fullListing.purpose || "",
-        purposeOfRent: fullListing.purposeOfRent || fullListing.rentalPurpose || fullListing.purpose || "",
-        sittingRooms: fullListing.sittingRooms || 0,
-        lounges: fullListing.lounges || 0,
-        workspaces: fullListing.workspaces || 0,
-        roomSizes: Array.isArray(fullListing.roomSizes) ? fullListing.roomSizes : (typeof fullListing.roomSizes === 'string' ? fullListing.roomSizes.split(',').map(s => s.trim()).filter(Boolean) : []),
-        totalSquareFootage: fullListing.totalSquareFootage || "",
-        usageType: fullListing.usageType || "",
       const rawVideos = fullListing.propertyVideos || fullListing.videos || fullListing.video || [];
       const videosList = (Array.isArray(rawVideos) ? rawVideos : [rawVideos])
         .map((v) => (typeof v === "string" ? v : v?.url || v?.uri || ""))
@@ -1373,11 +1331,20 @@ const HostListingsScreen = () => {
         propertyCategory: fullListing.propertyCategory || "rental",
         intent: intent,
         // Location
-        address: address,
-        city: city,
-        state: state,
-        country: country,
+        address: fullListing.address || locationData.fullAddress || "",
+        city: fullListing.city || "",
+        state: fullListing.state || "",
+        country: fullListing.country || "Nigeria",
         postalCode: fullListing.postalCode || "",
+        latitude: fullListing.latitude || (locationData.coordinates && locationData.coordinates[0]) || 0,
+        longitude: fullListing.longitude || (locationData.coordinates && locationData.coordinates[1]) || 0,
+        propertyLocation: fullListing.propertyLocation || {
+          coordinates: [
+            fullListing.latitude || (locationData.coordinates && locationData.coordinates[0]) || 0,
+            fullListing.longitude || (locationData.coordinates && locationData.coordinates[1]) || 0
+          ],
+          fullAddress: fullListing.address || locationData.fullAddress || ""
+        },
         // Details
         description: fullListing.description || "",
         propertyHighlight: fullListing.description || "",
@@ -1420,7 +1387,6 @@ const HostListingsScreen = () => {
         houseRules: fullListing.houseRules || "",
         landmarks: Array.isArray(fullListing.landmarks) ? fullListing.landmarks : (typeof fullListing.landmarks === 'string' ? JSON.parse(fullListing.landmarks || '[]') : []),
         nearbyLandmarks: Array.isArray(fullListing.landmarks) ? fullListing.landmarks : (typeof fullListing.landmarks === 'string' ? JSON.parse(fullListing.landmarks || '[]') : []),
-        // Property features
         // Rules and times
         additionalRules: fullListing.additionalRules || "",
         checkInTime: fullListing.checkInTime || "",

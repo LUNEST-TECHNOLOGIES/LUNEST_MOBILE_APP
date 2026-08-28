@@ -300,10 +300,13 @@ class MediaUploadService {
 
         // Fallback to backend multipart
         console.warn("⚠️ [MediaUploadService] Direct S3 image upload notice, trying multipart fallback...");
-        task.progress = Math.min(task.progress + 15, 90);
+        task.progress = Math.min(task.progress + 10, 60);
         this.notify(draftId);
 
-        const uploadImgRes = await listingService.uploadImages([finalUri]);
+        const uploadImgRes = await listingService.uploadImages([finalUri], (pct) => {
+          task.progress = Math.min(Math.round(50 + pct * 0.45), 98);
+          this.notify(draftId);
+        });
         if (uploadImgRes.success && uploadImgRes.images && uploadImgRes.images.length > 0) {
           const uploadedImg = uploadImgRes.images[0];
           let url = typeof uploadedImg === "string"
@@ -391,10 +394,13 @@ class MediaUploadService {
 
         // Fallback to multipart
         console.warn("⚠️ [MediaUploadService] Fast video upload notice, trying multipart fallback...");
-        task.progress = Math.min(task.progress + 10, 85);
+        task.progress = Math.min(task.progress + 10, 45);
         this.notify(draftId);
 
-        const uploadVidRes = await listingService.uploadVideos([compressedUri]);
+        const uploadVidRes = await listingService.uploadVideos([compressedUri], (pct) => {
+          task.progress = Math.min(Math.round(40 + (pct * 0.58)), 98);
+          this.notify(draftId);
+        });
         if (uploadVidRes.success && uploadVidRes.videos?.length > 0) {
           const uploadedVid = uploadVidRes.videos[0];
           let sUrl = typeof uploadedVid === "string" ? uploadedVid : (uploadedVid.url || uploadedVid.uri || uploadedVid.path);
@@ -405,7 +411,7 @@ class MediaUploadService {
           if (sUrl) return sUrl;
         }
 
-        throw new Error(fastRes.message || "Video upload failed");
+        throw new Error(fastRes.message || uploadVidRes.message || "Video upload failed");
       }, task);
 
       task.status = "completed";

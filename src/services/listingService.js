@@ -1125,54 +1125,31 @@ class ListingService {
    * @param {Array} imageUris - Array of local image URIs from device
    * @returns {Promise<Object>} Response with image URLs
    */
-  async uploadImages(imageUris) {
-    console.log("[ListingService] Uploading images...", imageUris.length);
-    logService.logInfo("Uploading listing images", { count: imageUris.length });
+  async uploadImages(imageUris, onProgress = null) {
+    console.log("[ListingService] Uploading images...", imageUris && imageUris.length);
 
-    // Handle empty images array
     if (!imageUris || imageUris.length === 0) {
-      console.log(
-        "[ListingService] No images to upload, returning empty array",
-      );
-      return {
-        success: true,
-        message: "No images to upload",
-        images: [],
-      };
+      return { success: true, message: "No images to upload", images: [] };
     }
 
     try {
       const token = await authService.getToken();
-      if (!token) {
-        return {
-          success: false,
-          message: "Authentication required",
-          error: "NO_TOKEN",
-        };
-      }
+      if (!token) return { success: false, message: "Authentication required", error: "NO_TOKEN" };
 
       const formData = new FormData();
       let imageCount = 0;
 
       for (let i = 0; i < imageUris.length; i++) {
         const uri = imageUris[i];
+        if (!uri) continue;
 
-        if (!uri) {
-          console.log("[ListingService] Skipping empty URI at index " + i);
-          continue;
-        }
-
-        // Handle web and native differently
         if (Platform.OS === "web") {
-          // For web, handle both data URLs and blob URLs
           try {
             let blob;
             let extension = "jpg";
             let mimeType = "image/jpeg";
 
             if (uri.startsWith("data:")) {
-              // Data URL (base64) - convert to blob
-              console.log("[ListingService] Converting data URL to blob...");
               const parts = uri.split(",");
               const mimeMatch = parts[0].match(/:(.*?);/);
               if (mimeMatch) {
@@ -1182,137 +1159,87 @@ class ListingService {
               const base64Data = parts[1];
               const byteCharacters = atob(base64Data);
               const byteNumbers = new Array(byteCharacters.length);
-              for (let j = 0; j < byteCharacters.length; j++) {
-                byteNumbers[j] = byteCharacters.charCodeAt(j);
-              }
-              const byteArray = new Uint8Array(byteNumbers);
-              blob = new Blob([byteArray], { type: mimeType });
+              for (let j = 0; j < byteCharacters.length; j++) byteNumbers[j] = byteCharacters.charCodeAt(j);
+              blob = new Blob([new Uint8Array(byteNumbers)], { type: mimeType });
             } else {
-              // Blob URL or regular URL - fetch and convert
-              console.log("[ListingService] Fetching blob from URL...");
               const response = await fetch(uri);
               blob = await response.blob();
               mimeType = blob.type || "image/jpeg";
               extension = mimeType.split("/")[1] || "jpg";
             }
 
-            formData.append("images", blob, "image_" + i + "." + extension);
+            formData.append("images", blob, `image_${i}.${extension}`);
             imageCount++;
-            console.log(
-              "[ListingService] Added web image " +
-                imageCount +
-                " to upload queue (size: " +
-                blob.size +
-                " bytes)",
-            );
           } catch (blobError) {
-            console.error(
-              "[ListingService] Error converting web image to blob:",
-              blobError,
-            );
-            // Skip this image on web if conversion fails
+            console.error("[ListingService] Error converting web image:", blobError);
             continue;
           }
         } else {
-          // For native (React Native), use object format
-          const filename = uri.split("/").pop() || "image_" + i + ".jpg";
+          const filename = uri.split("/").pop() || `image_${i}.jpg`;
           const extension = filename.split(".").pop() || "jpg";
-          const mimeType = extension === "png" ? "image/png" : "image/jpeg";
-
           formData.append("images", {
             uri: uri,
-            type: mimeType,
-            name: "image_" + i + "." + extension,
+            type: extension === "png" ? "image/png" : "image/jpeg",
+            name: `image_${i}.${extension}`,
           });
           imageCount++;
-          console.log(
-            "[ListingService] Added native image " +
-              imageCount +
-              " to upload queue",
-          );
         }
       }
 
-      // Do not report success when browser/native conversion produced no files.
       if (imageCount === 0) {
-        return {
-          success: false,
-          message: "No valid images were available to upload",
-          images: [],
-        };
+        return { success: false, message: "No valid images were available to upload", images: [] };
       }
-
-      console.log(
-        "[ListingService] Sending " + imageCount + " images to API...",
-      );
-      console.log(
-        "[ListingService] Endpoint: POST /v1/listings/upload-images",
-      );
 
       const cleanBase = (await configService.getBaseURL()).replace(/\/$/, "");
-      const uploadUrl = cleanBase.endsWith("/v1")
-        ? `${cleanBase}/listings/upload-images`
-        : `${cleanBase}/v1/listings/upload-images`;
+      const uploadUrl = cleanBase.endsWith("/v1") ? `${cleanBase}/listings/upload-images` : `${cleanBase}/v1/listings/upload-images`;
 
-      const response = await fetch(
-        uploadUrl,
-        {
-          method: "POST",
-          headers: {
-            Authorization: "Bearer " + token,
-          },
-          body: formData,
-        },
-      );
+      const apiResponse = await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", uploadUrl, true);
+        xhr.setRequestHeader("Authorization", "Bearer " + token);
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(function () {
-          return {};
-        });
-        throw new Error(
-          errorData.message || "Upload failed with status " + response.status,
-        );
-      }
+        if (xhr.upload && onProgress) {
+          xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) {
+              const pct = Math.round((e.loaded / e.total) * 100);
+              onProgress(pct);
+            }
+          };
+        }
 
-      const apiResponse = await response.json();
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+              resolve(JSON.parse(xhr.responseText));
+            } catch (jsonErr) {
+              resolve({});
+            }
+          } else {
+            reject(new Error(`Upload failed with status ${xhr.status}`));
+          }
+        };
+        xhr.onerror = () => reject(new Error("Network error during image upload"));
+        xhr.send(formData);
+      });
 
-      const uploadedImages = apiResponse && apiResponse.body && apiResponse.body.images
-        ? apiResponse.body.images
-        : apiResponse && apiResponse.images
-          ? apiResponse.images
-          : [];
+      const uploadedImages = apiResponse?.body?.images || apiResponse?.images || [];
       const durableImages = uploadedImages.filter((image) => {
-        const url = typeof image === "string"
-          ? image
-          : image?.url || image?.location || image?.storagePath || image?.path;
+        const url = typeof image === "string" ? image : image?.url || image?.location || image?.storagePath || image?.path;
         return typeof url === "string" && /^https?:\/\//i.test(url) && !/(?:^|\/)(?:blob:|data:|file:|content:)/i.test(url);
       });
 
       if (durableImages.length === 0) {
-        return {
-          success: false,
-          message: "The server did not return a durable image URL",
-          images: [],
-        };
+        return { success: false, message: "The server did not return a durable image URL", images: [] };
       }
 
       console.log("[ListingService] Images uploaded successfully:", durableImages.length);
-
-      return {
-        success: true,
-        message: "Images uploaded successfully",
-        images: durableImages,
-      };
+      return { success: true, message: "Images uploaded successfully", images: durableImages };
     } catch (error) {
       console.error("[ListingService] Error uploading images:", error);
-
       const categorized = NetworkErrorHandler.categorizeError(error);
-
       return {
         success: false,
-        message:
-          categorized.userMessage ||
-          "Failed to upload images. Please try again.",
+        message: categorized.userMessage || "Failed to upload images. Please try again.",
         error: categorized.type,
         details: error.message,
       };
@@ -1322,31 +1249,19 @@ class ListingService {
   /**
    * Upload videos for a listing
    * @param {Array} videoUris - Array of local video URIs from device
+   * @param {Function} onProgress - Progress callback
    * @returns {Promise<Object>} Response with video URLs
    */
-  async uploadVideos(videoUris) {
-    console.log(
-      "[ListingService] Uploading videos...",
-      videoUris && videoUris.length,
-    );
+  async uploadVideos(videoUris, onProgress = null) {
+    console.log("[ListingService] Uploading videos...", videoUris && videoUris.length);
 
     if (!videoUris || videoUris.length === 0) {
-      return {
-        success: true,
-        message: "No videos to upload",
-        videos: [],
-      };
+      return { success: true, message: "No videos to upload", videos: [] };
     }
 
     try {
       const token = await authService.getToken();
-      if (!token) {
-        return {
-          success: false,
-          message: "Authentication required",
-          error: "NO_TOKEN",
-        };
-      }
+      if (!token) return { success: false, message: "Authentication required", error: "NO_TOKEN" };
 
       const formData = new FormData();
       let videoCount = 0;
@@ -1355,7 +1270,6 @@ class ListingService {
         const uri = videoUris[i];
         if (!uri) continue;
 
-        // Web: fetch blob or handle data URLs
         if (Platform.OS === "web") {
           try {
             let blob;
@@ -1366,10 +1280,8 @@ class ListingService {
               const base64Data = parts[1];
               const byteCharacters = atob(base64Data);
               const byteNumbers = new Array(byteCharacters.length);
-              for (let j = 0; j < byteCharacters.length; j++)
-                byteNumbers[j] = byteCharacters.charCodeAt(j);
-              const byteArray = new Uint8Array(byteNumbers);
-              blob = new Blob([byteArray], { type: mimeType });
+              for (let j = 0; j < byteCharacters.length; j++) byteNumbers[j] = byteCharacters.charCodeAt(j);
+              blob = new Blob([new Uint8Array(byteNumbers)], { type: mimeType });
             } else {
               const resp = await fetch(uri);
               blob = await resp.blob();
@@ -1382,14 +1294,11 @@ class ListingService {
             continue;
           }
         } else {
-          // Native: append file object as-is
           const filename = uri.split("/").pop() || `video_${i}.mp4`;
           const extension = filename.split(".").pop() || "mp4";
-          const mimeType = "video/mp4";
-
           formData.append("videos", {
             uri: uri,
-            type: mimeType,
+            type: "video/mp4",
             name: `video_${i}.${extension}`,
           });
           videoCount++;
@@ -1397,28 +1306,58 @@ class ListingService {
       }
 
       if (videoCount === 0) {
-        return {
-          success: false,
-          message: "No valid videos to upload",
-          videos: [],
-        };
+        return { success: false, message: "No valid videos to upload", videos: [] };
       }
 
       const cleanBase = (await configService.getBaseURL()).replace(/\/$/, "");
-      const uploadUrl = cleanBase.endsWith("/v1")
-        ? `${cleanBase}/listings/upload-videos`
-        : `${cleanBase}/v1/listings/upload-videos`;
+      const uploadUrl = cleanBase.endsWith("/v1") ? `${cleanBase}/listings/upload-videos` : `${cleanBase}/v1/listings/upload-videos`;
 
-      const response = await fetch(
-        uploadUrl,
-        {
-          method: "POST",
-          headers: {
-            Authorization: "Bearer " + token,
-          },
-          body: formData,
-        },
-      );
+      const apiResponse = await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", uploadUrl, true);
+        xhr.setRequestHeader("Authorization", "Bearer " + token);
+
+        if (xhr.upload && onProgress) {
+          xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) {
+              const pct = Math.round((e.loaded / e.total) * 100);
+              onProgress(pct);
+            }
+          };
+        }
+
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+              resolve(JSON.parse(xhr.responseText));
+            } catch (e) {
+              resolve({});
+            }
+          } else {
+            reject(new Error(`Upload failed with status ${xhr.status}`));
+          }
+        };
+        xhr.onerror = () => reject(new Error("Network error during video upload"));
+        xhr.send(formData);
+      });
+
+      const uploadedVideos = apiResponse?.body?.videos || apiResponse?.videos || [];
+      const durableVideos = uploadedVideos.filter((video) => {
+        const url = typeof video === "string" ? video : video?.url || video?.location || video?.storagePath || video?.path;
+        return typeof url === "string" && /^https?:\/\//i.test(url) && !/(?:^|\/)(?:blob:|data:|file:|content:)/i.test(url);
+      });
+
+      if (durableVideos.length === 0) {
+        return { success: false, message: "The server did not return a durable video URL", videos: [] };
+      }
+
+      console.log("[ListingService] Videos uploaded successfully:", durableVideos.length);
+      return { success: true, message: "Videos uploaded successfully", videos: durableVideos };
+    } catch (error) {
+      console.error("[ListingService] Error uploading videos:", error);
+      return { success: false, message: error.message || "Failed to upload video" };
+    }
+  }
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));

@@ -1251,12 +1251,13 @@ const HostListingsScreen = () => {
 
     try {
       // Fetch complete listing data from API to ensure all fields are retained
-      console.log("📥 [HostListingsScreen] Fetching complete listing data...");
-      const fetchResult = await listingService.fetchListingById(listing.id);
+      const targetId = listing.id || listing._id || listing.draftData?._id || listing.draftData?.draftId || listing.draftId;
+      console.log("📥 [HostListingsScreen] Fetching complete listing data for:", targetId);
+      const fetchResult = await listingService.fetchListingById(targetId);
 
-      let fullListing = listing; // Fallback to current data if fetch fails
+      let fullListing = listing.draftData || listing; // Fallback to current data if fetch fails
       if (fetchResult.success && fetchResult.listing) {
-        fullListing = fetchResult.listing;
+        fullListing = { ...listing, ...fetchResult.listing };
         console.log("✅ [HostListingsScreen] Complete listing data fetched");
       } else {
         console.warn(
@@ -1265,7 +1266,7 @@ const HostListingsScreen = () => {
       }
 
       // This ensures we update the existing record instead of creating a "clone"
-      const editDraftId = listing.id;
+      const editDraftId = listing.draftId || listing.draftData?.draftId || listing.id || listing._id;
 
       // Parse property images
       let photosList = [];

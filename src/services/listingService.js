@@ -1804,13 +1804,31 @@ class ListingService {
           .map((v) => (typeof v === "string" ? v : v?.url || v?.uri || ""))
           .filter(Boolean);
 
+        const priceVal = d.price !== undefined && d.price !== null ? Number(d.price) : (d.propertyPrice?.price ? Number(d.propertyPrice.price) : 0);
+        const periodVal = d.pricingPeriod || (d.propertyPrice?.frequency ? String(d.propertyPrice.frequency).replace(/^per\s+/, "") : "night");
+        const cautionVal = d.cautionFee !== undefined && d.cautionFee !== null ? Number(d.cautionFee) : (d.securityDeposit !== undefined && d.securityDeposit !== null ? Number(d.securityDeposit) : 0);
+        const serviceVal = d.serviceCharge !== undefined && d.serviceCharge !== null ? Number(d.serviceCharge) : 0;
+        const cleaningVal = d.cleaningFee !== undefined && d.cleaningFee !== null ? Number(d.cleaningFee) : 0;
+        const rawAmenities = d.amenities || [];
+        const amenitiesList = Array.isArray(rawAmenities) ? rawAmenities : (typeof rawAmenities === 'string' ? JSON.parse(rawAmenities || '[]') : []);
+
         return {
           ...d,
-          draftId: d._id || d.draftId,
+          _id: d._id,
+          draftId: d.draftId || d._id,
+          price: priceVal,
+          pricingPeriod: periodVal,
+          cautionFee: cautionVal,
+          securityDeposit: cautionVal,
+          serviceCharge: serviceVal,
+          cleaningFee: cleaningVal,
+          acceptRefund: d.acceptRefund !== undefined ? Boolean(d.acceptRefund) : true,
           propertyTitle: d.propertyTitle || d.propertyName || "",
           propertyName: d.propertyName || d.propertyTitle || "",
           propertyHighlight: d.description || d.propertyHighlight || "",
+          description: d.description || d.propertyHighlight || "",
           guestCapacity: d.guests || d.guestCapacity || 0,
+          guests: d.guests || d.guestCapacity || 0,
           bedrooms: d.bedrooms || 0,
           bathrooms: d.bathrooms || 0,
           sittingRooms: d.sittingRooms || 0,
@@ -1830,6 +1848,16 @@ class ListingService {
           houseRules: d.regulations || d.houseRules || [],
           regulations: d.regulations || d.houseRules || [],
           additionalRules: d.additionalRules || "",
+          address: d.address || d.propertyLocation?.fullAddress || "",
+          city: d.city || "",
+          state: d.state || "",
+          country: d.country || "Nigeria",
+          postalCode: d.postalCode || "",
+          landmarks: Array.isArray(d.landmarks) ? d.landmarks : (typeof d.landmarks === 'string' ? JSON.parse(d.landmarks || '[]') : []),
+          latitude: d.latitude || (d.propertyLocation?.coordinates ? d.propertyLocation.coordinates[0] : 0),
+          longitude: d.longitude || (d.propertyLocation?.coordinates ? d.propertyLocation.coordinates[1] : 0),
+          amenities: amenitiesList,
+          selectedAmenities: amenitiesList,
           photos,
           images: photos,
           propertyImages: photos,

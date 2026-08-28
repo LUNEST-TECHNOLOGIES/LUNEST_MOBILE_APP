@@ -786,7 +786,15 @@ const Photos = () => {
               {previewMedia?.type === "video" ? (
                 <AVVideo
                   source={{ uri: previewMedia.uri }}
-                  style={styles.fullScreenVideo}
+                  style={[
+                    styles.fullScreenVideo,
+                    Platform.OS === "web" && {
+                      objectFit: "contain",
+                      width: "100%",
+                      height: "100%",
+                      maxHeight: "85vh",
+                    },
+                  ]}
                   useNativeControls={true}
                   resizeMode={ResizeMode.CONTAIN}
                   shouldPlay={true}
@@ -795,7 +803,15 @@ const Photos = () => {
               ) : previewMedia?.type === "photo" ? (
                 <Image
                   source={{ uri: previewMedia?.uri }}
-                  style={styles.fullScreenImage}
+                  style={[
+                    styles.fullScreenImage,
+                    Platform.OS === "web" && {
+                      objectFit: "contain",
+                      width: "100%",
+                      height: "100%",
+                      maxHeight: "85vh",
+                    },
+                  ]}
                   resizeMode="contain"
                 />
               ) : null}
@@ -1182,16 +1198,18 @@ const styles = StyleSheet.create({
   },
   fullScreenVideo: {
     width: "100%",
-    height: "90%",
-    maxHeight: "90%",
-    alignSelf: "stretch",
+    height: "100%",
+    maxHeight: "85%",
+    aspectRatio: 16 / 9,
+    alignSelf: "center",
     backgroundColor: "#000000",
+    borderRadius: 8,
   },
   fullScreenImage: {
     width: "100%",
-    height: "90%",
-    maxHeight: "90%",
-    alignSelf: "stretch",
+    height: "100%",
+    maxHeight: "85%",
+    alignSelf: "center",
   },
   footer: {
     flexDirection: "row",

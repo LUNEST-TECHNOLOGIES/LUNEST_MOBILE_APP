@@ -344,49 +344,43 @@ class MediaUploadService {
    */
   async processVideoUpload(task) {
     const { id, draftId, localUri } = task;
-    let tickerInterval = null;
 
     try {
       task.status = "compressing";
-      task.progress = 15;
+      task.progress = 20;
       this.notify(draftId);
-
-      // Start a smooth background progress ticker that keeps the progress bar moving
-      tickerInterval = setInterval(() => {
-        if (task.progress < 94) {
-          task.progress = Math.min(task.progress + 1, 94);
-          this.notify(draftId);
-        }
-      }, 180);
 
       // Video compression with safe fallback
       let compressedUri = localUri;
-      try {
-        const compressionResult = await imageCompressionService.compressVideo(
-          localUri,
-          (p) => {
-            task.progress = Math.max(task.progress, Math.round(15 + p * 30));
-            this.notify(draftId);
-          },
-          50
-        );
-        compressedUri = compressionResult?.uri || localUri;
-      } catch (vCompErr) {
-        console.warn("[MediaUploadService] Video compression fallback:", vCompErr?.message);
-        compressedUri = localUri;
+      if (Platform.OS !== "web") {
+        try {
+          const compressionResult = await imageCompressionService.compressVideo(
+            localUri,
+            (p) => {
+              task.progress = Math.round(10 + p * 15); // 10% to 25%
+              this.notify(draftId);
+            },
+            50
+          );
+          compressedUri = compressionResult?.uri || localUri;
+        } catch (vCompErr) {
+          console.warn("[MediaUploadService] Video compression fallback:", vCompErr?.message);
+          compressedUri = localUri;
+        }
       }
 
       task.status = "uploading";
-      task.progress = Math.max(task.progress, 45);
+      task.progress = 30;
       this.notify(draftId);
 
-      // Perform upload with retry logic
+      // Perform upload with retry logic - maps real upload progress from 30% to 98%
       const serverUrl = await this.uploadWithRetry(async () => {
         // Try fast presigned S3 path first
         const fastRes = await listingService.uploadVideoFast(
           compressedUri,
           (pct) => {
-            task.progress = Math.max(task.progress, Math.round(45 + pct * 0.5));
+            // Real network progress scaled from 30% to 98%
+            task.progress = Math.min(Math.round(30 + (pct * 0.68)), 98);
             this.notify(draftId);
           }
         );
@@ -397,6 +391,9 @@ class MediaUploadService {
 
         // Fallback to multipart
         console.warn("⚠️ [MediaUploadService] Fast video upload notice, trying multipart fallback...");
+        task.progress = Math.min(task.progress + 10, 85);
+        this.notify(draftId);
+
         const uploadVidRes = await listingService.uploadVideos([compressedUri]);
         if (uploadVidRes.success && uploadVidRes.videos?.length > 0) {
           const uploadedVid = uploadVidRes.videos[0];
@@ -411,8 +408,6 @@ class MediaUploadService {
         throw new Error(fastRes.message || "Video upload failed");
       }, task);
 
-      if (tickerInterval) clearInterval(tickerInterval);
-
       task.status = "completed";
       task.progress = 100;
       task.serverUrl = serverUrl;
@@ -423,7 +418,6 @@ class MediaUploadService {
       await this.syncDraftWithUploadedMedia(draftId);
       this.notify(draftId);
     } catch (err) {
-      if (tickerInterval) clearInterval(tickerInterval);
       console.warn(`⚠️ [MediaUploadService] Video ${id} upload paused/failed:`, err.message);
       task.status = this.isOnline ? "failed" : "retrying";
       task.error = err.message;

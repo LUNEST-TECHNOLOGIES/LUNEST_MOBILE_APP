@@ -108,12 +108,11 @@ const Photos = () => {
     if (initialLoadDone) return;
 
     let loadedPhotos = [];
-    if (draftData?.photos) {
-      loadedPhotos = Array.isArray(draftData.photos)
-        ? draftData.photos
-        : safeParseArray(draftData.photos);
-    } else if (paramsPhotos) {
-      loadedPhotos = safeParseArray(paramsPhotos);
+    const rawPhotos = draftData?.photos || draftData?.propertyImages || draftData?.images || paramsPhotos;
+    if (rawPhotos) {
+      loadedPhotos = Array.isArray(rawPhotos)
+        ? rawPhotos
+        : safeParseArray(rawPhotos);
     }
 
     const validPhotos = loadedPhotos
@@ -121,9 +120,12 @@ const Photos = () => {
       .filter(Boolean);
 
     let loadedVideos = [];
-    if (draftData?.propertyVideos || draftData?.video || draftData?.videos) {
-      const vids = draftData.propertyVideos || draftData.video || draftData.videos;
-      loadedVideos = Array.isArray(vids) ? vids : safeParseArray(vids);
+    const rawVids = draftData?.propertyVideos || draftData?.videos || draftData?.video;
+    if (rawVids) {
+      const vids = Array.isArray(rawVids) ? rawVids : safeParseArray(rawVids);
+      loadedVideos = vids
+        .map((v) => (typeof v === "string" ? v : v?.url || v?.uri || v?.path || null))
+        .filter(Boolean);
     }
 
     // Merge in-flight or completed media from active MediaUploadService queue
@@ -147,6 +149,41 @@ const Photos = () => {
 
     setInitialLoadDone(true);
   }, [draftData, draftId, initialLoadDone, paramsPhotos, currentDraftId]);
+
+  // Sync state if draftData arrives asynchronously after remote sync
+  useEffect(() => {
+    if (!draftData) return;
+
+    const rawVids = draftData.propertyVideos || draftData.videos || draftData.video;
+    if (rawVids) {
+      const vids = (Array.isArray(rawVids) ? rawVids : safeParseArray(rawVids))
+        .map((v) => (typeof v === "string" ? v : v?.url || v?.uri || v?.path || null))
+        .filter(Boolean);
+
+      if (vids.length > 0) {
+        setVideos((prev) => {
+          if (prev.length === 0) return vids.slice(0, 3);
+          const combined = Array.from(new Set([...prev, ...vids]));
+          return combined.slice(0, 3);
+        });
+      }
+    }
+
+    const rawPhotos = draftData.photos || draftData.propertyImages || draftData.images;
+    if (rawPhotos) {
+      const pList = (Array.isArray(rawPhotos) ? rawPhotos : safeParseArray(rawPhotos))
+        .map((p) => (typeof p === "string" ? p : p?.url || p?.uri || p?.path || null))
+        .filter(Boolean);
+
+      if (pList.length > 0) {
+        setPhotos((prev) => {
+          if (prev.length === 0) return pList.slice(0, 10);
+          const combined = Array.from(new Set([...prev, ...pList]));
+          return combined.slice(0, 10);
+        });
+      }
+    }
+  }, [draftData?.propertyVideos, draftData?.videos, draftData?.video, draftData?.photos, draftData?.propertyImages, draftData?.images]);
 
   // Subscribe to MediaUploadService background queue updates
   useEffect(() => {

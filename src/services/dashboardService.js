@@ -30,12 +30,12 @@ class DashboardService {
       }
 
       // Fetch all host-specific data in parallel for performance
-      // Now including the single optimized dashboard stats endpoint with /v1 prefix
-      const [statsResult, listingsResult, bookingsResult, userProfileResult] = await Promise.allSettled([
+      const [statsResult, listingsResult, bookingsResult, userProfileResult, notificationsResult] = await Promise.allSettled([
         apiClient.get("/v1/notifications/host/dashboard-stats", { silent: true }),
         listingService.fetchUserListings(), // Uses /my-listings - only host's listings
         bookingService.fetchHostBookings(), // Uses /my-bookings - only host's property bookings
         authService.fetchProfile(),
+        apiClient.get("/v1/notifications?targetUserType=HOST&limit=15", { silent: true }),
       ]);
 
       // Handle results gracefully with strict unpacking and multi-layer fallbacks
@@ -53,6 +53,17 @@ class DashboardService {
         : (Array.isArray(rawBookings?.bookings) ? rawBookings.bookings : (Array.isArray(rawBookings?.data) ? rawBookings.data : []));
 
       const userProfile = userProfileResult.status === 'fulfilled' ? (userProfileResult.value?.data || userProfileResult.value?.body || userProfileResult.value || {}) : {};
+
+      const rawNotifs = notificationsResult.status === 'fulfilled' ? notificationsResult.value : null;
+      const notifications = Array.isArray(rawNotifs?.data?.notifications)
+        ? rawNotifs.data.notifications
+        : Array.isArray(rawNotifs?.notifications)
+          ? rawNotifs.notifications
+          : Array.isArray(rawNotifs?.data)
+            ? rawNotifs.data
+            : Array.isArray(rawNotifs?.body)
+              ? rawNotifs.body
+              : [];
 
       // Helper to safely parse financial numbers
       const parseAmount = (val) => {
@@ -281,7 +292,11 @@ class DashboardService {
           yearlyEarnings: yearlyData.yearlyEarnings,
           years: yearlyData.years,
           listings: formattedListings,
-          recentActivities: this.formatRecentActivities(bookings.slice(0, 5)),
+          recentActivities: this.formatRecentActivities({
+            bookings,
+            listings,
+            notifications,
+          }),
         },
       };
     } catch (error) {
@@ -291,6 +306,162 @@ class DashboardService {
         message: "Failed to load dashboard data",
       };
     }
+  }
+
+  /**
+   * Helper to format relative time
+   */
+  formatTimeAgo(dateString) {
+    if (!dateString) return "Just now";
+    try {
+      const date = new Date(dateString);
+      const now = new Date();
+      const diffInSec = Math.floor((now - date) / 1000);
+      if (diffInSec < 60) return "Just now";
+      if (diffInSec < 3600) return `${Math.floor(diffInSec / 60)}m ago`;
+      if (diffInSec < 86400) return `${Math.floor(diffInSec / 3600)}h ago`;
+      if (diffInSec < 604800) return `${Math.floor(diffInSec / 86400)}d ago`;
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    } catch (e) {
+      return "Recently";
+    }
+  }
+
+  /**
+   * Format recent activities combining in-app notifications, listing events, and bookings
+   */
+  formatRecentActivities({ bookings = [], listings = [], notifications = [] }) {
+    const activities = [];
+    const seenKeys = new Set();
+
+    // 1. Convert In-App Notifications (Most accurate source of host events)
+    for (const notif of notifications) {
+      const notifId = notif._id || notif.id;
+      const key = `notif_${notifId}`;
+      if (!seenKeys.has(key)) {
+        seenKeys.add(key);
+        const type = notif.type || "notification";
+        const title = notif.title || "Notification";
+        const subtitle = notif.message || notif.title || "View details";
+        const listingId = notif.payload?.listingId || notif.relatedListing || null;
+        const bookingId = notif.payload?.bookingId || notif.relatedBooking || null;
+        const iconUri = notif.payload?.propertyImage || null;
+        const createdAt = notif.createdAt || notif.timestamp || new Date().toISOString();
+
+        activities.push({
+          id: notifId || String(activities.length),
+          title,
+          subtitle,
+          date: this.formatTimeAgo(createdAt),
+          rawDate: new Date(createdAt).getTime() || 0,
+          type,
+          listingId,
+          bookingId,
+          iconUri,
+        });
+      }
+    }
+
+    // 2. Convert Listing Lifecycle Events (Pending review, Live approval)
+    for (const listing of listings) {
+      const listingId = listing._id || listing.id;
+      const propertyName = listing.propertyTitle || listing.propertyName || listing.title || "your property";
+      const imageUri = (listing.images && listing.images[0]) || (listing.propertyImages && listing.propertyImages[0]) || null;
+      const listingStatus = (listing.status || "").toUpperCase();
+      const listingTime = listing.updatedAt || listing.createdAt || listing.lastEditedAt;
+
+      if (listingStatus === "PENDING") {
+        const key = `listing_pending_${listingId}`;
+        if (!seenKeys.has(key)) {
+          seenKeys.add(key);
+          activities.push({
+            id: key,
+            title: "Listing Under Review 📋",
+            subtitle: `"${propertyName}" submitted for admin review`,
+            date: this.formatTimeAgo(listingTime),
+            rawDate: new Date(listingTime).getTime() || 0,
+            type: "listing_submitted",
+            listingId,
+            iconUri: imageUri,
+          });
+        }
+      } else if (listingStatus === "AVAILABLE" || listingStatus === "LIVE") {
+        const key = `listing_approved_${listingId}`;
+        if (!seenKeys.has(key)) {
+          seenKeys.add(key);
+          activities.push({
+            id: key,
+            title: "Listing Approved & Live 🎉",
+            subtitle: `"${propertyName}" is published on LUNEST`,
+            date: this.formatTimeAgo(listingTime),
+            rawDate: new Date(listingTime).getTime() || 0,
+            type: "listing_approved",
+            listingId,
+            iconUri: imageUri,
+          });
+        }
+      }
+    }
+
+    // 3. Convert Recent Bookings
+    for (const booking of bookings) {
+      const bookingId = booking._id || booking.id;
+      const key = `booking_${bookingId}`;
+      if (!seenKeys.has(key)) {
+        seenKeys.add(key);
+        const guest = booking.guest || {};
+        const guestName = guest.firstName
+          ? `${guest.firstName} ${guest.lastName || ""}`.trim()
+          : (guest.fullName || "A guest");
+        const listing = booking.listing || {};
+        const propertyName = listing.propertyTitle || listing.propertyName || listing.title || "your property";
+        const status = (booking.status || "").toUpperCase();
+        const bookingTime = booking.updatedAt || booking.createdAt || booking.checkIn;
+
+        let title = "";
+        let subtitle = "";
+
+        switch (status) {
+          case "PENDING":
+          case "RESERVED":
+            title = `New Booking Request 📅`;
+            subtitle = `${guestName} requested to book "${propertyName}"`;
+            break;
+          case "CONFIRMED":
+            title = `Booking Confirmed ✅`;
+            subtitle = `Confirmed stay for ${guestName} at "${propertyName}"`;
+            break;
+          case "COMPLETED":
+            title = `Stay Completed 🌟`;
+            subtitle = `${guestName} completed their stay at "${propertyName}"`;
+            break;
+          case "CANCELLED":
+          case "CANCELED":
+            title = `Booking Cancelled ❌`;
+            subtitle = `Reservation cancelled for "${propertyName}"`;
+            break;
+          default:
+            title = `Booking Activity`;
+            subtitle = `Update for "${propertyName}"`;
+        }
+
+        activities.push({
+          id: key,
+          title,
+          subtitle,
+          date: this.formatTimeAgo(bookingTime),
+          rawDate: new Date(bookingTime).getTime() || 0,
+          type: "booking",
+          bookingId,
+          listingId: listing._id || booking.listingId,
+        });
+      }
+    }
+
+    // Sort newest to oldest
+    activities.sort((a, b) => (b.rawDate || 0) - (a.rawDate || 0));
+
+    return activities.slice(0, 6);
   }
 
   /**
@@ -405,54 +576,6 @@ class DashboardService {
     }
 
     return { years, yearlyBookings, yearlyEarnings };
-  }
-
-  /**
-   * Format recent bookings as activities
-   */
-  formatRecentActivities(bookings) {
-    return bookings.map((booking, index) => {
-      const guest = booking.guest || {};
-      const guestName = guest.firstName
-        ? `${guest.firstName} ${guest.lastName || ""}`.trim()
-        : "A guest";
-      const listing = booking.listing || {};
-      const propertyName = listing.title || "your property";
-      const status = booking.status ? booking.status.toUpperCase() : "";
-
-      let title = "";
-      let subtitle = "";
-
-      switch (status) {
-        case "PENDING":
-        case "RESERVED":
-          title = `${guestName} requested to book ${propertyName}`;
-          subtitle = "View Request";
-          break;
-        case "CONFIRMED":
-          title = `Booking confirmed for ${propertyName}`;
-          subtitle = "View Details";
-          break;
-        case "COMPLETED":
-          title = `${guestName} completed their stay at ${propertyName}`;
-          subtitle = "Leave Review";
-          break;
-        case "CANCELED":
-          title = `Booking cancelled for ${propertyName}`;
-          subtitle = "View Details";
-          break;
-        default:
-          title = `Activity for ${propertyName}`;
-          subtitle = "View Details";
-      }
-
-      return {
-        id: booking._id || String(index),
-        title,
-        subtitle,
-        bookingId: booking._id,
-      };
-    });
   }
 }
 

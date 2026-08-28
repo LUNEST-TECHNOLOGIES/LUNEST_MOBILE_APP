@@ -1588,8 +1588,16 @@ class ListingService {
       console.log("[ListingService] Has _id?", '_id' in payload, "Has id?", 'id' in payload);
 
       // 1. Map Media Fields (Model expects propertyImages/propertyVideos)
-      payload.propertyImages = photos || uiImages || draftData.propertyImages || [];
-      payload.propertyVideos = draftData.video || draftData.propertyVideos || [];
+      const rawPhotos = photos || uiImages || draftData.propertyImages || draftData.photos || [];
+      payload.propertyImages = (Array.isArray(rawPhotos) ? rawPhotos : [rawPhotos])
+        .map((p) => (typeof p === "string" ? p : p?.url || p?.uri || ""))
+        .filter(Boolean);
+
+      const rawVideos = draftData.propertyVideos || draftData.videos || draftData.video || [];
+      const videoList = Array.isArray(rawVideos) ? rawVideos : [rawVideos];
+      payload.propertyVideos = videoList
+        .map((v) => (typeof v === "string" ? v : v?.url || v?.uri || ""))
+        .filter(Boolean);
 
       // 2. Map Core Property Details
       if (guestCapacity) payload.guests = Number(guestCapacity);
@@ -1754,11 +1762,29 @@ class ListingService {
             ? response.data
             : [];
 
-      // Map _id to draftId for local consistency
-      const mappedDrafts = drafts.map((d) => ({
-        ...d,
-        draftId: d._id,
-      }));
+      // Map _id to draftId for local consistency and normalize media arrays
+      const mappedDrafts = drafts.map((d) => {
+        const rawPhotos = d.propertyImages || d.images || d.photos || [];
+        const photos = (Array.isArray(rawPhotos) ? rawPhotos : [rawPhotos])
+          .map((p) => (typeof p === "string" ? p : p?.url || p?.uri || ""))
+          .filter(Boolean);
+
+        const rawVideos = d.propertyVideos || d.videos || d.video || [];
+        const videoList = (Array.isArray(rawVideos) ? rawVideos : [rawVideos])
+          .map((v) => (typeof v === "string" ? v : v?.url || v?.uri || ""))
+          .filter(Boolean);
+
+        return {
+          ...d,
+          draftId: d._id || d.draftId,
+          photos,
+          images: photos,
+          propertyImages: photos,
+          videos: videoList,
+          propertyVideos: videoList,
+          video: videoList[0] || null,
+        };
+      });
 
       return {
         success: true,

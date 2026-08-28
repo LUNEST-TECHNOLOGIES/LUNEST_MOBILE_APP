@@ -290,8 +290,17 @@ const HostDashboardScreen = () => {
 
 
   const handleActivityPress = (activity) => {
-    console.log("Activity pressed:", activity.id);
-    // Navigate based on activity type
+    console.log("Activity pressed:", activity.id, activity.type);
+    if (activity.listingId) {
+      router.push(`/(host-tabs)/listings?listingId=${activity.listingId}&highlightListing=true`);
+    } else if (activity.bookingId) {
+      router.push(`/(host-tabs)/bookings?bookingId=${activity.bookingId}&highlightBooking=true&hostMode=true`);
+    } else {
+      router.push({
+        pathname: "/notifications",
+        params: { userType: "HOST" },
+      });
+    }
   };
 
   const handleCreateListing = () => {

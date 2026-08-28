@@ -16,7 +16,7 @@ const DRAFTS_KEY_PREFIX = "listingDrafts_";
 const syncingDrafts = new Set();
 const pendingSyncs = new Map();
 const syncTimers = new Map();
-const SYNC_DEBOUNCE_MS = 750;
+const SYNC_DEBOUNCE_MS = 200; // Ultra-fast 200ms background sync
 // In-memory cache for the most recently saved/accessed draft to prevent race conditions during navigation
 const draftCache = new Map();
 

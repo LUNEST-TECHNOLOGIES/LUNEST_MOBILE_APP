@@ -140,8 +140,8 @@ export const useDraftListing = () => {
       // Update local state IMMEDIATELY for perfect consistency during rapid navigation
       setDraftData(updatedDraft);
 
-      // Call service
-      const savingPromise = draftListingService.saveDraft(updatedDraft);
+      // Call service with options (e.g. syncImmediately)
+      const savingPromise = draftListingService.saveDraft(updatedDraft, options);
       
       // If background, we don't await the promise for the UI state update
       if (options.background) {

@@ -1346,13 +1346,56 @@ const HostListingsScreen = () => {
         roomSizes: Array.isArray(fullListing.roomSizes) ? fullListing.roomSizes : (typeof fullListing.roomSizes === 'string' ? fullListing.roomSizes.split(',').map(s => s.trim()).filter(Boolean) : []),
         totalSquareFootage: fullListing.totalSquareFootage || "",
         usageType: fullListing.usageType || "",
+      const rawVideos = fullListing.propertyVideos || fullListing.videos || fullListing.video || [];
+      const videosList = (Array.isArray(rawVideos) ? rawVideos : [rawVideos])
+        .map((v) => (typeof v === "string" ? v : v?.url || v?.uri || ""))
+        .filter(Boolean);
+
+      const targetStep = parseInt(fullListing.currentStep || listing.currentStep) || 1;
+
+      // Prepare draft data with all listing information
+      const draftData = {
+        draftId: editDraftId,
+        editingListingId: listing.id,
+        isEditing: true,
+        currentStep: targetStep,
+        propertyTitle:
+          fullListing.propertyName ||
+          fullListing.propertyTitle ||
+          fullListing.title ||
+          "",
+        propertyName:
+          fullListing.propertyName ||
+          fullListing.propertyTitle ||
+          fullListing.title ||
+          "",
+        propertyType: fullListing.propertyType || "",
+        propertyCategory: fullListing.propertyCategory || "rental",
+        intent: intent,
+        // Location
+        address: address,
+        city: city,
+        state: state,
+        country: country,
+        postalCode: fullListing.postalCode || "",
+        // Details
+        description: fullListing.description || "",
+        propertyHighlight: fullListing.description || "",
         bedrooms: fullListing.bedrooms || 0,
         bathrooms: fullListing.bathrooms || 0,
         guests: fullListing.guests || 1,
-        guestCapacity: fullListing.guests || 1, // Alias for property-details screen
-        bedroomCount: fullListing.bedrooms || 0,
-        bathroomCount: fullListing.bathrooms || 0,
-        guestCount: fullListing.guests || 1,
+        guestCapacity: fullListing.guests || 1,
+        sittingRooms: fullListing.sittingRooms || 0,
+        lounges: fullListing.lounges || 0,
+        workspaces: fullListing.workspaces || 0,
+        rentalPurpose: fullListing.rentalPurpose || fullListing.purposeOfRent || "",
+        purposeOfRent: fullListing.rentalPurpose || fullListing.purposeOfRent || "",
+        furnishing: fullListing.furnishing || "",
+        titleType: fullListing.titleType || "",
+        usageType: fullListing.usageType || "",
+        totalSquareFootage: fullListing.totalSquareFootage || "",
+        roomSizes: Array.isArray(fullListing.roomSizes) ? fullListing.roomSizes : [],
+        termsAgreed: fullListing.termsAgreed !== undefined ? fullListing.termsAgreed : false,
         // Pricing
         price: fullListing.price || priceData.price || 0,
         pricingPeriod:
@@ -1362,9 +1405,14 @@ const HostListingsScreen = () => {
         serviceCharge: fullListing.serviceCharge || priceData.serviceCharge || 0,
         cleaningFee: fullListing.cleaningFee || priceData.cleaningFee || 0,
         acceptRefund: fullListing.acceptRefund !== undefined ? fullListing.acceptRefund : true,
-        // Photos
+        // Media
         photos: photosList,
-        // Amenities and features - convert labels to IDs for the amenities screen
+        images: photosList,
+        propertyImages: photosList,
+        videos: videosList,
+        propertyVideos: videosList,
+        video: videosList[0] || null,
+        // Amenities and features
         amenities: convertAmenitiesToIds(fullListing.amenities || []),
         selectedAmenities: convertAmenitiesToIds(fullListing.amenities || []),
         features: fullListing.features || [],
@@ -1373,8 +1421,6 @@ const HostListingsScreen = () => {
         landmarks: Array.isArray(fullListing.landmarks) ? fullListing.landmarks : (typeof fullListing.landmarks === 'string' ? JSON.parse(fullListing.landmarks || '[]') : []),
         nearbyLandmarks: Array.isArray(fullListing.landmarks) ? fullListing.landmarks : (typeof fullListing.landmarks === 'string' ? JSON.parse(fullListing.landmarks || '[]') : []),
         // Property features
-        furnishing: fullListing.furnishing || "",
-        titleType: fullListing.titleType || "",
         // Rules and times
         additionalRules: fullListing.additionalRules || "",
         checkInTime: fullListing.checkInTime || "",
@@ -1398,11 +1444,29 @@ const HostListingsScreen = () => {
       await draftListingService.saveDraft(draftData);
       console.log("✅ [HostListingsScreen] Draft data saved for editing");
 
-      // Navigate to the first step of create-listing flow
+      const getStepPathname = (step) => {
+        const s = parseInt(step) || 1;
+        switch (s) {
+          case 1: return "/create-listing";
+          case 2: return "/create-listing/intent";
+          case 3: return "/create-listing/property-details";
+          case 4: return "/create-listing/location";
+          case 5: return "/create-listing/amenities";
+          case 6: return "/create-listing/photos";
+          case 7: return "/create-listing/pricing";
+          case 8: return "/create-listing/availability";
+          case 9: return "/create-listing/terms-agreement";
+          case 10: return "/create-listing/review";
+          default: return "/create-listing";
+        }
+      };
+
+      // Navigate to the exact last step of the draft
       router.push({
-        pathname: "/create-listing",
+        pathname: getStepPathname(targetStep),
         params: {
           draftId: editDraftId,
+          currentStep: targetStep.toString(),
           isEditing: "true",
           editingListingId: listing.id,
         },

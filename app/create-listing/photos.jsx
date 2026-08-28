@@ -4,11 +4,13 @@
  */
 
 import * as ImagePicker from "expo-image-picker";
+import { Video as AVVideo, ResizeMode } from "expo-av";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   AlertCircle,
   Camera,
   CheckCircle2,
+  Play,
   Plus,
   RefreshCw,
   Video,
@@ -18,6 +20,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Image,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -84,6 +87,7 @@ const Photos = () => {
   const [videos, setVideos] = useState([]);
   const [activeUploads, setActiveUploads] = useState([]);
   const [showCancelModal, setShowCancelModal] = useState(false);
+  const [previewMedia, setPreviewMedia] = useState(null); // { type: 'photo' | 'video', uri: string }
 
   // Toast state
   const [toastVisible, setToastVisible] = useState(false);
@@ -571,7 +575,12 @@ const Photos = () => {
 
               return (
                 <View key={`${photoUri}_${index}`} style={styles.photoContainer}>
-                  <Image source={{ uri: photoUri }} style={styles.photo} />
+                  <Pressable
+                    style={styles.photoPressable}
+                    onPress={() => setPreviewMedia({ type: "photo", uri: photoUri })}
+                  >
+                    <Image source={{ uri: photoUri }} style={styles.photo} />
+                  </Pressable>
 
                   {/* Uploading / Retrying / Progress Micro-Overlay */}
                   {isUploading && (
@@ -645,7 +654,7 @@ const Photos = () => {
               <Text style={styles.uploadSubtitle}>MP4, MOV up to 100MB</Text>
             </Pressable>
           ) : (
-            <View style={{ gap: 10, marginTop: 15 }}>
+            <View style={{ gap: 12, marginTop: 15 }}>
               {displayVideos.map((vidUri, index) => {
                 const task = getVideoUploadTask(vidUri);
                 const isUploading = task && task.status !== "completed";
@@ -655,12 +664,31 @@ const Photos = () => {
 
                 return (
                   <View key={`${vidUri}_${index}`} style={styles.videoItemContainer}>
-                    <View style={styles.videoPreview}>
-                      <Video size={26} color="#010135" />
+                    <Pressable
+                      style={styles.videoPosterContainer}
+                      onPress={() => setPreviewMedia({ type: "video", uri: vidUri })}
+                    >
+                      <AVVideo
+                        source={{ uri: vidUri }}
+                        style={styles.videoPoster}
+                        resizeMode={ResizeMode.COVER}
+                        shouldPlay={false}
+                        isMuted={true}
+                      />
+                      <View style={styles.videoPlayOverlay}>
+                        <Play size={16} color="#FFFFFF" fill="#FFFFFF" />
+                      </View>
+                    </Pressable>
+
+                    <Pressable
+                      style={styles.videoInfoWrapper}
+                      onPress={() => setPreviewMedia({ type: "video", uri: vidUri })}
+                    >
                       <View style={{ flex: 1 }}>
                         <Text style={styles.videoFileName} numberOfLines={1}>
                           Video Tour {index + 1}
                         </Text>
+                        <Text style={styles.videoTapPreviewText}>Tap to preview video</Text>
                         {isUploading && (
                           <View style={styles.videoProgressRow}>
                             <Text style={styles.videoProgressText}>
@@ -684,7 +712,7 @@ const Photos = () => {
                           <Text style={styles.videoCompleteText}>Video tour ready</Text>
                         )}
                       </View>
-                    </View>
+                    </Pressable>
 
                     {isFailed ? (
                       <Pressable
@@ -732,6 +760,49 @@ const Photos = () => {
           </Text>
         </Pressable>
       </View>
+
+      {/* Full Screen Media Preview Modal */}
+      <Modal
+        visible={!!previewMedia}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setPreviewMedia(null)}
+      >
+        <View style={styles.previewModalBackdrop}>
+          <SafeAreaView style={styles.previewModalContainer}>
+            <View style={styles.previewModalHeader}>
+              <Text style={styles.previewModalTitle}>
+                {previewMedia?.type === "video" ? "Video Tour Preview" : "Photo Preview"}
+              </Text>
+              <Pressable
+                style={styles.previewCloseButton}
+                onPress={() => setPreviewMedia(null)}
+              >
+                <X size={24} color="#FFFFFF" />
+              </Pressable>
+            </View>
+
+            <View style={styles.previewMediaWrapper}>
+              {previewMedia?.type === "video" ? (
+                <AVVideo
+                  source={{ uri: previewMedia.uri }}
+                  style={styles.fullScreenVideo}
+                  useNativeControls={true}
+                  resizeMode={ResizeMode.CONTAIN}
+                  shouldPlay={true}
+                  isLooping={true}
+                />
+              ) : previewMedia?.type === "photo" ? (
+                <Image
+                  source={{ uri: previewMedia?.uri }}
+                  style={styles.fullScreenImage}
+                  resizeMode="contain"
+                />
+              ) : null}
+            </View>
+          </SafeAreaView>
+        </View>
+      </Modal>
 
       {/* Cancel Confirmation Modal */}
       <CancelConfirmationModal
@@ -1032,6 +1103,87 @@ const styles = StyleSheet.create({
     backgroundColor: "#EF4444",
     justifyContent: "center",
     alignItems: "center",
+  },
+  photoPressable: {
+    width: "100%",
+    height: "100%",
+  },
+  videoPosterContainer: {
+    width: 68,
+    height: 68,
+    borderRadius: 10,
+    backgroundColor: "#0F172A",
+    overflow: "hidden",
+    justifyContent: "center",
+    alignItems: "center",
+    position: "relative",
+  },
+  videoPoster: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 10,
+  },
+  videoPlayOverlay: {
+    position: "absolute",
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "rgba(1, 1, 53, 0.75)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  videoInfoWrapper: {
+    flex: 1,
+    justifyContent: "center",
+  },
+  videoTapPreviewText: {
+    fontSize: 11,
+    color: "#6366F1",
+    fontWeight: "600",
+    marginTop: 2,
+  },
+  previewModalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.94)",
+  },
+  previewModalContainer: {
+    flex: 1,
+    justifyContent: "space-between",
+  },
+  previewModalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+  },
+  previewModalTitle: {
+    fontSize: 17,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+  previewCloseButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  previewMediaWrapper: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 16,
+  },
+  fullScreenVideo: {
+    width: "100%",
+    height: "85%",
+    borderRadius: 12,
+  },
+  fullScreenImage: {
+    width: "100%",
+    height: "85%",
   },
   footer: {
     flexDirection: "row",

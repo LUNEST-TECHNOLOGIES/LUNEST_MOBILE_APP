@@ -1617,10 +1617,6 @@ class ListingService {
         frequency: `per ${periodVal.replace(/^per\s+/, "")}`, // "night" -> "per night"
       };
 
-      // 4. Map Admin/Governance Fees
-      payload.cautionFee = Number(uiCaution || uiDeposit || draftData.cautionFee || draftData.securityDeposit || 0);
-      payload.serviceCharge = Number(uiService || draftData.serviceCharge || 0);
-      
       // Ensure flat fields are valid numbers or null (don't send NaN)
       const toNum = (val) => {
           if (val === undefined || val === null || val === "") return 0;
@@ -1632,8 +1628,35 @@ class ListingService {
       payload.bedrooms = toNum(payload.bedrooms);
       payload.bathrooms = toNum(payload.bathrooms);
       payload.guests = toNum(payload.guests || guestCapacity);
+      payload.sittingRooms = toNum(draftData.sittingRooms);
+      payload.lounges = toNum(draftData.lounges);
+      payload.workspaces = toNum(draftData.workspaces);
       payload.cautionFee = toNum(payload.cautionFee);
       payload.serviceCharge = toNum(payload.serviceCharge);
+      payload.currentStep = toNum(draftData.currentStep) || 1;
+      payload.termsAgreed = Boolean(draftData.termsAgreed);
+
+      if (draftData.rentalPurpose || draftData.purposeOfRent) {
+        payload.rentalPurpose = draftData.rentalPurpose || draftData.purposeOfRent;
+        payload.purposeOfRent = draftData.rentalPurpose || draftData.purposeOfRent;
+      }
+      if (draftData.furnishing) payload.furnishing = draftData.furnishing;
+      if (draftData.titleType) payload.titleType = draftData.titleType;
+      if (draftData.usageType) payload.usageType = draftData.usageType;
+      if (draftData.totalSquareFootage) payload.totalSquareFootage = draftData.totalSquareFootage;
+      if (draftData.roomSizes) {
+        payload.roomSizes = Array.isArray(draftData.roomSizes) 
+          ? draftData.roomSizes 
+          : (typeof draftData.roomSizes === 'string' ? draftData.roomSizes.split(',').map(s => s.trim()).filter(Boolean) : []);
+      }
+      if (draftData.checkInTime) payload.checkInTime = draftData.checkInTime;
+      if (draftData.checkOutTime) payload.checkOutTime = draftData.checkOutTime;
+      if (draftData.additionalRules) payload.additionalRules = draftData.additionalRules;
+      if (draftData.regulations || draftData.houseRules) {
+        payload.regulations = Array.isArray(draftData.regulations) 
+          ? draftData.regulations 
+          : (Array.isArray(draftData.houseRules) ? draftData.houseRules : []);
+      }
 
       ARRAY_FIELDS.forEach(field => {
         if (payload[field] && typeof payload[field] === "string") {
@@ -1762,7 +1785,7 @@ class ListingService {
             ? response.data
             : [];
 
-      // Map _id to draftId for local consistency and normalize media arrays
+      // Map _id to draftId for local consistency and normalize media and detail arrays
       const mappedDrafts = drafts.map((d) => {
         const rawPhotos = d.propertyImages || d.images || d.photos || [];
         const photos = (Array.isArray(rawPhotos) ? rawPhotos : [rawPhotos])
@@ -1777,6 +1800,29 @@ class ListingService {
         return {
           ...d,
           draftId: d._id || d.draftId,
+          propertyTitle: d.propertyTitle || d.propertyName || "",
+          propertyName: d.propertyName || d.propertyTitle || "",
+          propertyHighlight: d.description || d.propertyHighlight || "",
+          guestCapacity: d.guests || d.guestCapacity || 0,
+          bedrooms: d.bedrooms || 0,
+          bathrooms: d.bathrooms || 0,
+          sittingRooms: d.sittingRooms || 0,
+          lounges: d.lounges || 0,
+          workspaces: d.workspaces || 0,
+          rentalPurpose: d.rentalPurpose || d.purposeOfRent || "",
+          purposeOfRent: d.rentalPurpose || d.purposeOfRent || "",
+          furnishing: d.furnishing || "",
+          titleType: d.titleType || "",
+          usageType: d.usageType || "",
+          totalSquareFootage: d.totalSquareFootage || "",
+          roomSizes: Array.isArray(d.roomSizes) ? d.roomSizes : [],
+          currentStep: d.currentStep || 1,
+          termsAgreed: Boolean(d.termsAgreed),
+          checkInTime: d.checkInTime || "02:00 PM",
+          checkOutTime: d.checkOutTime || "11:00 AM",
+          houseRules: d.regulations || d.houseRules || [],
+          regulations: d.regulations || d.houseRules || [],
+          additionalRules: d.additionalRules || "",
           photos,
           images: photos,
           propertyImages: photos,

@@ -193,29 +193,52 @@ const PropertyDetails = () => {
 
   const RENTAL_PURPOSE_OPTIONS = PURPOSE_SECTIONS.flatMap(s => s.options);
 
-  // Load draft data on mount
-  const isInitialized = useRef(false);
+  // Load draft data on mount and on remote hydration
   useEffect(() => {
-    if ((draftData || Object.keys(params).length > 0) && !isInitialized.current) {
-      const data = draftData || {};
-      setPropertyTitle(data.propertyTitle || params.propertyTitle || "");
-      setRentalPurpose(data.rentalPurpose || data.purposeOfRent || data.purpose || params.rentalPurpose || params.purposeOfRent || params.purpose || null);
+    if (!draftData && Object.keys(params).length === 0) return;
+    const data = draftData || {};
+
+    if (data.propertyTitle || data.propertyName || params.propertyTitle) {
+      setPropertyTitle(data.propertyTitle || data.propertyName || params.propertyTitle || "");
+    }
+    if (data.rentalPurpose || data.purposeOfRent || data.purpose || params.rentalPurpose) {
+      setRentalPurpose(data.rentalPurpose || data.purposeOfRent || data.purpose || params.rentalPurpose || null);
+    }
+    if (data.furnishing || params.furnishing) {
       setFurnishing(data.furnishing || params.furnishing || null);
-      setBedrooms(Number(data.bedrooms || params.bedrooms || 0));
-      setBathrooms(Number(data.bathrooms || params.bathrooms || 0));
-      setGuestCapacity(Number(data.guestCapacity || params.guestCapacity || 0));
+    }
+    if (data.bedrooms !== undefined || params.bedrooms !== undefined) {
+      setBedrooms(Number(data.bedrooms ?? params.bedrooms ?? 0));
+    }
+    if (data.bathrooms !== undefined || params.bathrooms !== undefined) {
+      setBathrooms(Number(data.bathrooms ?? params.bathrooms ?? 0));
+    }
+    if (data.guestCapacity !== undefined || data.guests !== undefined || params.guestCapacity !== undefined) {
+      setGuestCapacity(Number(data.guestCapacity ?? data.guests ?? params.guestCapacity ?? 0));
+    }
+    if (data.titleType || params.titleType) {
       setTitleType(data.titleType || params.titleType || "");
-      setPropertyHighlight(data.propertyHighlight || params.propertyHighlight || data.description || "");
+    }
+    if (data.propertyHighlight || data.description || params.propertyHighlight) {
+      setPropertyHighlight(data.propertyHighlight || data.description || params.propertyHighlight || "");
+    }
+    if (data.roomSizes !== undefined || params.roomSizes !== undefined) {
       setRoomSizes(Array.isArray(data.roomSizes) ? data.roomSizes.join(", ") : (data.roomSizes || params.roomSizes || ""));
+    }
+    if (data.totalSquareFootage !== undefined || params.totalSquareFootage !== undefined) {
       setTotalSquareFootage(data.totalSquareFootage || params.totalSquareFootage || "");
+    }
+    if (data.usageType !== undefined || params.usageType !== undefined) {
       setUsageType(data.usageType || params.usageType || "");
-      setSittingRooms(Number(data.sittingRooms || params.sittingRooms || 0));
-      setLounges(Number(data.lounges || params.lounges || 0));
-      setWorkspaces(Number(data.workspaces || params.workspaces || 0));
-      
-      if (Object.keys(data).length > 0) {
-        isInitialized.current = true;
-      }
+    }
+    if (data.sittingRooms !== undefined || params.sittingRooms !== undefined) {
+      setSittingRooms(Number(data.sittingRooms ?? params.sittingRooms ?? 0));
+    }
+    if (data.lounges !== undefined || params.lounges !== undefined) {
+      setLounges(Number(data.lounges ?? params.lounges ?? 0));
+    }
+    if (data.workspaces !== undefined || params.workspaces !== undefined) {
+      setWorkspaces(Number(data.workspaces ?? params.workspaces ?? 0));
     }
   }, [draftData, params]);
 

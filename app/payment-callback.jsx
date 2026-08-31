@@ -273,15 +273,18 @@ export default function PaymentCallbackScreen() {
         return;
       }
 
-      // Map incoming status to a simple flag — we always verify regardless
+      // Map incoming status to a clean state
       const incomingStatus = (params.status || "").toLowerCase();
-      if (["failed", "cancelled", "error"].includes(incomingStatus)) {
-        // Still verify with backend so transaction + booking get updated to FAILED
-        console.log(`[PaymentCallback] Incoming status is "${incomingStatus}" — verifying with backend to confirm failure`);
-        setMessage("Confirming payment status...");
+      const isCancelledEvent = ["cancelled", "canceled", "dismissed", "closed", "aborted"].includes(incomingStatus);
+      const isFailedEvent = ["failed", "declined", "error"].includes(incomingStatus);
+
+      if (isCancelledEvent || isFailedEvent) {
+        // Still verify with backend in case webhook succeeded in the background
+        console.log(`[PaymentCallback] Incoming status is "${incomingStatus}" — checking status`);
+        setMessage(isCancelledEvent ? "Checking payment status..." : "Confirming payment status...");
         try {
           const result = await paymentService.verifyPayment(ref);
-          console.log("[PaymentCallback] Verification result for failed payment:", result?.status);
+          console.log("[PaymentCallback] Verification result for event:", result?.status);
           
           if (result.status === "COMPLETED" || result.status === "success") {
             // Payment actually succeeded despite the incoming status (race condition)
@@ -289,16 +292,19 @@ export default function PaymentCallbackScreen() {
             return;
           }
         } catch (verifyErr) {
-          console.log("[PaymentCallback] Verification confirmed failure:", verifyErr?.message);
+          console.log("[PaymentCallback] Verification returned:", verifyErr?.message);
         }
 
-        // Payment truly failed — show the error
         setPaymentRef(ref);
-        setStatus("error");
-        setMessage("Payment was not completed. Please try again.");
+        if (isCancelledEvent) {
+          setStatus("cancelled");
+          setMessage("You cancelled the payment transaction. No charges were made to your account.");
+        } else {
+          setStatus("error");
+          setMessage("Payment was declined or could not be completed. Please try again.");
+        }
         return;
       }
-
 
       verifyPayment(ref);
     };
@@ -308,11 +314,14 @@ export default function PaymentCallbackScreen() {
 
   // ── RETRY HANDLER ─────────────────────────────────────────────────────────
 
-  const handleRetry = () => {
-    if (paymentRef) {
-      setRetryCount(0);
-      hasProcessed.current = false;
-      verifyPayment(paymentRef);
+  const handleRetry = async () => {
+    const context = await getStoredContext();
+    if (context?.returnUrl) {
+      goFinal(context.returnUrl, context.params || {});
+    } else if (params.type === "wallet_funding" || params.amount) {
+      router.replace("/add-funds");
+    } else {
+      router.replace(DEFAULT_HOME);
     }
   };
 
@@ -327,13 +336,19 @@ export default function PaymentCallbackScreen() {
       case "processing":
         return (
           <Animated.View style={{ transform: [{ rotate: spin }] }}>
-            <Ionicons name="sync" size={60} color="#246BFD" />
+            <Ionicons name="sync" size={60} color="#010135" />
           </Animated.View>
         );
       case "success":
         return (
           <View style={[styles.iconCircle, styles.successBg]}>
             <Ionicons name="checkmark" size={48} color="#FFF" />
+          </View>
+        );
+      case "cancelled":
+        return (
+          <View style={[styles.iconCircle, styles.cancelledBg]}>
+            <Ionicons name="ban-outline" size={44} color="#D97706" />
           </View>
         );
       case "error":
@@ -352,9 +367,10 @@ export default function PaymentCallbackScreen() {
   };
 
   const title = {
-    processing: "Processing…",
-    success: "Success!",
-    error: "Payment Issue",
+    processing: "Processing Payment…",
+    success: "Payment Successful!",
+    cancelled: "Payment Cancelled",
+    error: "Payment Failed",
     info: "Please Wait",
   }[status] || "Processing…";
 
@@ -379,7 +395,7 @@ export default function PaymentCallbackScreen() {
           </TouchableOpacity>
         )}
 
-        {status === "error" && (
+        {(status === "error" || status === "cancelled") && (
           <View style={styles.btnRow}>
             <TouchableOpacity style={[styles.btn, styles.btnSecondary]} onPress={handleGoHome}>
               <Text style={[styles.btnText, styles.btnTextSecondary]}>Go Home</Text>
@@ -400,10 +416,11 @@ const styles = StyleSheet.create({
   iconWrapper: { marginBottom: 28, height: 90, justifyContent: "center", alignItems: "center" },
   iconCircle: { width: 80, height: 80, borderRadius: 40, justifyContent: "center", alignItems: "center" },
   successBg: { backgroundColor: "#22C55E" },
+  cancelledBg: { backgroundColor: "#FEF3C7", borderWidth: 1.5, borderColor: "#FCD34D" },
   errorBg: { backgroundColor: "#EF4444" },
   infoBg: { backgroundColor: "#3B82F6" },
-  title: { fontSize: 26, fontWeight: "700", color: "#111", marginBottom: 12, textAlign: "center" },
-  message: { fontSize: 15, color: "#555", textAlign: "center", lineHeight: 22, marginBottom: 28 },
+  title: { fontSize: 24, fontWeight: "700", color: "#010135", marginBottom: 12, textAlign: "center" },
+  message: { fontSize: 15, color: "#555", textAlign: "center", lineHeight: 22, marginBottom: 28, maxWidth: 320 },
   refBox: { backgroundColor: "#F4F4F5", borderRadius: 10, paddingVertical: 10, paddingHorizontal: 18, marginBottom: 28, alignItems: "center" },
   refLabel: { fontSize: 11, color: "#888", marginBottom: 4 },
   refValue: { fontSize: 13, fontWeight: "600", color: "#333" },

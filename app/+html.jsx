@@ -41,53 +41,78 @@ export default function Root({ children }) {
         <script
           dangerouslySetInnerHTML={{
             __html: `
+              // Global safety guard: silence non-fatal Service Worker / script load rejection errors
+              window.addEventListener('unhandledrejection', function(event) {
+                var reason = (event && event.reason) ? (event.reason.message || String(event.reason)) : '';
+                if (reason.indexOf('sw.js') !== -1 || reason.indexOf('ServiceWorker') !== -1 || reason.indexOf('Script load failed') !== -1) {
+                  event.preventDefault();
+                  console.warn('🛡️ [LUNEST PWA] Suppressed non-critical worker/script load event:', reason);
+                }
+              });
+
               if ('serviceWorker' in navigator && window.location.protocol !== 'file:') {
                 window.addEventListener('load', function() {
-                  navigator.serviceWorker.register('/sw.js').then(function(registration) {
-                    console.log('✅ [LUNEST PWA] ServiceWorker registered with scope:', registration.scope);
-                    
-                    // Trigger immediate check for updates
-                    registration.update();
+                  try {
+                    navigator.serviceWorker.register('/sw.js').then(function(registration) {
+                      console.log('✅ [LUNEST PWA] ServiceWorker registered with scope:', registration.scope);
+                      
+                      // Trigger check for updates safely
+                      if (registration && registration.update) {
+                        registration.update().catch(function() {});
+                      }
 
-                    // Periodic check every 2 minutes
-                    setInterval(function() {
-                      registration.update();
-                    }, 120 * 1000);
-
-                    // Listen for newly installing worker
-                    registration.addEventListener('updatefound', function() {
-                      var newWorker = registration.installing;
-                      if (newWorker) {
-                        newWorker.addEventListener('statechange', function() {
-                          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                            console.log('🔄 [LUNEST PWA] New update detected. Applying immediately...');
-                            newWorker.postMessage({ type: 'SKIP_WAITING' });
+                      // Periodic check every 2 minutes safely
+                      setInterval(function() {
+                        try {
+                          if (registration && registration.update) {
+                            registration.update().catch(function() {});
                           }
-                        });
+                        } catch (_) {}
+                      }, 120 * 1000);
+
+                      // Listen for newly installing worker
+                      registration.addEventListener('updatefound', function() {
+                        var newWorker = registration.installing;
+                        if (newWorker) {
+                          newWorker.addEventListener('statechange', function() {
+                            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                              console.log('🔄 [LUNEST PWA] New update detected. Applying immediately...');
+                              try {
+                                newWorker.postMessage({ type: 'SKIP_WAITING' });
+                              } catch (_) {}
+                            }
+                          });
+                        }
+                      });
+                    }).catch(function(err) {
+                      console.warn('⚠️ [LUNEST PWA] ServiceWorker registration deferred:', err && err.message ? err.message : err);
+                    });
+
+                    // Reload once when the new service worker takes control
+                    var refreshing = false;
+                    navigator.serviceWorker.addEventListener('controllerchange', function() {
+                      if (!refreshing) {
+                        refreshing = true;
+                        console.log('🚀 [LUNEST PWA] Service worker updated. Reloading for latest version...');
+                        window.location.reload();
                       }
                     });
-                  }).catch(function(err) {
-                    console.log('⚠️ [LUNEST PWA] ServiceWorker registration failed:', err);
-                  });
 
-                  // Reload once when the new service worker takes control
-                  var refreshing = false;
-                  navigator.serviceWorker.addEventListener('controllerchange', function() {
-                    if (!refreshing) {
-                      refreshing = true;
-                      console.log('🚀 [LUNEST PWA] Service worker updated. Reloading for latest version...');
-                      window.location.reload();
-                    }
-                  });
-
-                  // Check for updates when user returns to app
-                  document.addEventListener('visibilitychange', function() {
-                    if (document.visibilityState === 'visible') {
-                      navigator.serviceWorker.getRegistration().then(function(reg) {
-                        if (reg) reg.update();
-                      });
-                    }
-                  });
+                    // Check for updates when user returns to app safely
+                    document.addEventListener('visibilitychange', function() {
+                      if (document.visibilityState === 'visible') {
+                        try {
+                          navigator.serviceWorker.getRegistration().then(function(reg) {
+                            if (reg && reg.update) {
+                              reg.update().catch(function() {});
+                            }
+                          }).catch(function() {});
+                        } catch (_) {}
+                      }
+                    });
+                  } catch (e) {
+                    console.warn('⚠️ [LUNEST PWA] Service worker init error:', e);
+                  }
                 });
               }
             `,

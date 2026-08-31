@@ -29,6 +29,7 @@ import bookmarkService from "../../services/bookmarkService";
 import configService from "../../services/configService";
 import listingService from "../../services/listingService";
 import locationService from "../../services/locationService";
+import notificationService from "../../services/notificationService";
 import profileService from "../../services/profileService";
 import storageService from "../../services/storageService";
 import * as ImageUtils from "../../utils/imageUtils";
@@ -549,12 +550,17 @@ const HomeScreen = () => {
 
   const handleEnableNotifications = async () => {
     try {
-      // Use device-wide key for notification alert
+      // 1. Request native/web OS notification permission
+      const status = await notificationService.requestPermission();
+      console.log("[HomeScreen] Notification permission status:", status);
+
+      // 2. Persist device-wide seen key
       await storageService.setItem("hasSeenNotificationAlert", true);
       setShowNotificationAlert(false);
       console.log("Notifications enabled");
     } catch (error) {
       console.log("Error saving notification preference:", error);
+      setShowNotificationAlert(false);
     }
   };
 

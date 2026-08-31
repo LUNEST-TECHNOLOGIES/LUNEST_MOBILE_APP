@@ -1,19 +1,29 @@
-/**
- * Notification Service
- * Handles both push-style and in-app notifications
- * UI feedback (Toasts) merged with backend data fetching
- * Supports both native (Expo) and web (Notification API)
- */
-
 import { Platform } from "react-native";
+import * as Notifications from "expo-notifications";
 import apiClient from "./apiClient";
 import toastService from "./toastService";
+
+// Configure foreground notification behavior for native platforms
+if (Platform.OS !== "web") {
+  try {
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: true,
+      }),
+    });
+  } catch (e) {
+    console.warn("[NotificationService] Failed to set notification handler:", e);
+  }
+}
 
 class NotificationService {
   constructor() {
     this.listeners = new Set();
     this.webNotificationsSupported = false;
     this.webNotificationsEnabled = false;
+    this.nativePermissionGranted = false;
     
     // Check web notification support
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
@@ -22,28 +32,66 @@ class NotificationService {
   }
 
   /**
-   * Request notification permission (works on both web and native)
+   * Request notification permission (works on iOS, Android, and Web)
    */
   async requestPermission() {
-    if (Platform.OS === 'web' && this.webNotificationsSupported) {
-      try {
-        const permission = await Notification.requestPermission();
-        this.webNotificationsEnabled = permission === 'granted';
-        return permission;
-      } catch (error) {
-        console.warn('[NotificationService] Web notification permission error:', error);
-        return 'denied';
+    // 1. Web Platform Permission
+    if (Platform.OS === 'web') {
+      if (this.webNotificationsSupported) {
+        try {
+          const permission = await Notification.requestPermission();
+          this.webNotificationsEnabled = permission === 'granted';
+          console.log('[NotificationService] Web notification permission:', permission);
+          return permission;
+        } catch (error) {
+          console.warn('[NotificationService] Web notification permission error:', error);
+          return 'denied';
+        }
       }
+      return 'denied';
     }
-    // For native, Expo handles permissions separately
-    return 'granted';
+
+    // 2. iOS and Android Native Permission
+    try {
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
+      
+      if (existingStatus !== 'granted') {
+        const { status } = await Notifications.requestPermissionsAsync({
+          ios: {
+            allowAlert: true,
+            allowBadge: true,
+            allowSound: true,
+          },
+        });
+        finalStatus = status;
+      }
+
+      this.nativePermissionGranted = finalStatus === 'granted';
+      console.log('[NotificationService] Native notification permission:', finalStatus);
+
+      // On Android, configure notification channel for high priority
+      if (Platform.OS === 'android') {
+        await Notifications.setNotificationChannelAsync('default', {
+          name: 'Default Notifications',
+          importance: Notifications.AndroidImportance.MAX,
+          vibrationPattern: [0, 250, 250, 250],
+          lightColor: '#010135',
+        });
+      }
+
+      return finalStatus;
+    } catch (error) {
+      console.warn('[NotificationService] Native notification permission error:', error);
+      return 'undetermined';
+    }
   }
 
   /**
    * Show a native/web push notification
    */
   async showPushNotification(title, body, options = {}) {
-    // Always show in-app toast as fallback
+    // Always show in-app toast as feedback
     toastService.show(body, options.type || 'INFO', options.duration || 5000);
     
     // Web push notification
@@ -70,6 +118,23 @@ class NotificationService {
         return notification;
       } catch (error) {
         console.warn('[NotificationService] Web notification error:', error);
+      }
+    }
+
+    // Native push notification
+    if (Platform.OS !== 'web') {
+      try {
+        return await Notifications.scheduleNotificationAsync({
+          content: {
+            title,
+            body,
+            data: options.data || {},
+            sound: true,
+          },
+          trigger: null, // immediate notification
+        });
+      } catch (error) {
+        console.warn('[NotificationService] Native notification schedule error:', error);
       }
     }
     

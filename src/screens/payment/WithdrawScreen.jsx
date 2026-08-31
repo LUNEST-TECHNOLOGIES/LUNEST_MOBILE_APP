@@ -30,6 +30,8 @@ import authService from "../../services/authService";
 import configService from "../../services/configService";
 import { formatCurrency } from "../../utils/currency";
 
+const WITHDRAWAL_FEE = 50;
+
 const WithdrawScreen = () => {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -68,7 +70,9 @@ const WithdrawScreen = () => {
   const lastVerifiedKey = useRef("");
   const verifyTimeoutRef = useRef(null);
 
-  const isInsufficient = Number(amount) > walletBalance;
+  const numAmount = Number(amount) || 0;
+  const netWithdrawalAmount = Math.max(0, numAmount - WITHDRAWAL_FEE);
+  const isInsufficient = numAmount > walletBalance;
 
   // Refresh wallet balance when screen comes into focus
   useFocusEffect(
@@ -360,6 +364,8 @@ const WithdrawScreen = () => {
           setShowProcessingModal(false);
           setWithdrawalDetails({
             amount: numericAmount,
+            fee: result.fee || WITHDRAWAL_FEE,
+            netAmount: result.netAmount || (numericAmount - WITHDRAWAL_FEE),
             bankName: selectedBank.name,
             accountNumber,
             accountName,
@@ -400,6 +406,9 @@ const WithdrawScreen = () => {
 
   // Render withdrawal success screen
   if (withdrawalSuccess && withdrawalDetails) {
+    const detailFee = withdrawalDetails.fee || WITHDRAWAL_FEE;
+    const detailNet = withdrawalDetails.netAmount || Math.max(0, withdrawalDetails.amount - detailFee);
+
     return (
       <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
         <View style={styles.successScreen}>
@@ -426,11 +435,14 @@ const WithdrawScreen = () => {
             Your money is on its way to your bank account.
           </Text>
 
-          {/* Amount */}
+          {/* Amount Card */}
           <View style={styles.successAmountCard}>
-            <Text style={styles.successAmountLabel}>Amount</Text>
+            <Text style={styles.successAmountLabel}>Net Amount to Bank</Text>
             <Text style={styles.successAmountValue}>
-              {formatCurrency(withdrawalDetails.amount)}
+              {formatCurrency(detailNet)}
+            </Text>
+            <Text style={styles.successFeeSubtext}>
+              Deducted: {formatCurrency(withdrawalDetails.amount)} (Fee: ₦{detailFee})
             </Text>
           </View>
 
@@ -675,6 +687,35 @@ const WithdrawScreen = () => {
             </View>
           </View>
 
+          {/* Withdrawal Fee Breakdown Summary */}
+          {numAmount >= 100 && !isInsufficient && (
+            <View style={styles.summaryCard}>
+              <Text style={styles.summaryTitle}>Withdrawal Summary</Text>
+              
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Amount to Deduct</Text>
+                <Text style={styles.summaryValue}>{formatCurrency(numAmount)}</Text>
+              </View>
+
+              <View style={styles.summaryRow}>
+                <View style={styles.summaryFeeLabelWrapper}>
+                  <Text style={styles.summaryLabel}>Transfer Fee</Text>
+                  <View style={styles.summaryFeeBadge}>
+                    <Text style={styles.summaryFeeBadgeText}>Flat</Text>
+                  </View>
+                </View>
+                <Text style={styles.summaryFeeValue}>- {formatCurrency(WITHDRAWAL_FEE)}</Text>
+              </View>
+
+              <View style={styles.summaryDivider} />
+
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryNetLabel}>You Will Receive in Bank</Text>
+                <Text style={styles.summaryNetValue}>{formatCurrency(netWithdrawalAmount)}</Text>
+              </View>
+            </View>
+          )}
+
           {/* Security Note */}
           <View style={styles.securityNote}>
             <Text style={styles.securityNoteText}>
@@ -739,9 +780,9 @@ const WithdrawScreen = () => {
               <View style={styles.pinModalIconCircle}>
                 <Ionicons name="lock-closed" size={30} color="#010135" />
               </View>
-              <Text style={styles.pinModalTitle}>Enter Withdrawal PIN</Text>
+              <Text style={styles.pinModalTitle}>Confirm Withdrawal</Text>
               <Text style={styles.pinModalSubtitle}>
-                Confirm your 4-digit PIN to continue
+                You will receive <Text style={{ fontWeight: "700", color: "#010135" }}>{formatCurrency(netWithdrawalAmount)}</Text> in your bank (Fee: ₦{WITHDRAWAL_FEE})
               </Text>
 
               {/* Dots */}
@@ -1449,6 +1490,79 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginTop: 16,
     textDecorationLine: "underline",
+  },
+  // ── Summary Card Styles ──
+  summaryCard: {
+    backgroundColor: "#F8FAFC",
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  summaryTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#0F172A",
+    marginBottom: 12,
+  },
+  summaryRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  summaryLabel: {
+    fontSize: 13,
+    color: "#64748B",
+  },
+  summaryValue: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#1E293B",
+  },
+  summaryFeeLabelWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  summaryFeeBadge: {
+    backgroundColor: "#EEF2FF",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: "#C7D2FE",
+  },
+  summaryFeeBadgeText: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: "#3730A3",
+  },
+  summaryFeeValue: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#DC2626",
+  },
+  summaryDivider: {
+    height: 1,
+    backgroundColor: "#E2E8F0",
+    marginVertical: 8,
+  },
+  summaryNetLabel: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#010135",
+  },
+  summaryNetValue: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: "#059669",
+  },
+  successFeeSubtext: {
+    fontSize: 12,
+    color: "#64748B",
+    marginTop: 4,
   },
 });
 

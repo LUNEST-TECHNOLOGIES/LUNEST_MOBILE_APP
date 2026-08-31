@@ -53,7 +53,6 @@ const CATEGORIES = [
   { key: "mini-flat", label: "Mini Flat", Icon: StandardFlatIcon },
   { key: "room-parlour", label: "Room & Parlour", Icon: SelfContainIcon },
   { key: "self-contain", label: "Self-Contain", Icon: SelfContainIcon },
-  { key: "purchase", label: "Purchase", Icon: PurchaseIcon },
   { key: "luxury", label: "Luxury", Icon: LuxuryIcon },
   { key: "penthouse", label: "Penthouse", Icon: LuxuryIcon },
   { key: "mansion", label: "Mansion", Icon: DuplexIcon },
@@ -93,7 +92,7 @@ const CategorySlider = ({ activeCategory = "all", onCategoryPress, availableList
       if (category.key === "all") return true;
       
       // Show if listings exist for this category OR if it's one of the primary types
-      const primaryTypes = ["apartment", "shortlet", "purchase", "luxury", "duplex"];
+      const primaryTypes = ["apartment", "shortlet", "luxury", "duplex"];
       return availableTypes.has(category.key.toLowerCase()) || primaryTypes.includes(category.key.toLowerCase());
     });
   }, [availableListings]);

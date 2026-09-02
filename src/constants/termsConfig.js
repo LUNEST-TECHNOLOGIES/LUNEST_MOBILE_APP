@@ -32,6 +32,33 @@ export const DEMO_TERMS = {
     ]
   },
 
+  hostingTerms: {
+    title: "Listing and Hosting Terms",
+    lastUpdated: "September 1, 2026",
+    sections: [
+      {
+        title: "1. Legal Authority & Property Title",
+        content: "By applying to list properties on LUNEST as a Landlord, Property Manager, or Realtor, you warrant and represent that you have full legal title, beneficial ownership, or valid written authority (Power of Attorney / Management Mandate) to list, manage, and lease the property."
+      },
+      {
+        title: "2. Standards, Safety & Media Integrity",
+        content: "All photographs, walkthrough videos, descriptions, amenities, and nightly rates provided must accurately depict the physical condition of the property. The property must comply with local safety, cleanliness, and structural standards."
+      },
+      {
+        title: "3. LUNEST Escrow & 24h Caution Deposit Guarantee",
+        content: "Host payouts are safeguarded through LUNEST Escrow. Guest caution deposits are held safely in escrow and automatically returned to the guest within 24 hours of checkout unless the host files a formal photographic damage dispute within that strict 24-hour window."
+      },
+      {
+        title: "4. Host Commission & Financial Remittance",
+        content: "LUNEST charges a standard 3% platform commission on host earnings (+ 7.5% VAT on the platform fee). Net host earnings are remitted directly to the host's verified Nigerian bank account or in-app wallet upon successful guest check-in verification."
+      },
+      {
+        title: "5. Professional Conduct & Nondiscrimination",
+        content: "Hosts agree to communicate professionally, respond promptly to guest inquiries, honor confirmed reservations without arbitrary cancellations, and comply with all applicable Nigerian housing regulations and nondiscrimination policies."
+      }
+    ]
+  },
+
   listingAgreement: {
     title: "Listing Agreement",
     lastUpdated: "March 25, 2026",

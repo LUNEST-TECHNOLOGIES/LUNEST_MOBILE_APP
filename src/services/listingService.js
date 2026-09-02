@@ -1837,9 +1837,152 @@ class ListingService {
         );
         return { success: true, message: "Draft already deleted." };
       }
-      console.error("[ListingService] Error deleting draft:", error);
       return { success: false, message: error.message };
     }
+  }
+
+  /**
+   * High-speed upload for multiple listing images with progress tracking
+   * @param {Array<string>} imageUris
+   * @param {Function} onProgress
+   */
+  async uploadImages(imageUris, onProgress) {
+    try {
+      if (!Array.isArray(imageUris) || imageUris.length === 0) {
+        return { success: false, message: "No image URIs provided" };
+      }
+
+      const token = await authService.getToken();
+      const formData = new FormData();
+
+      for (let i = 0; i < imageUris.length; i++) {
+        const uri = imageUris[i];
+        const filename = uri.split("/").pop() || `photo_${Date.now()}_${i}.jpg`;
+        const ext = filename.split(".").pop().toLowerCase();
+        let mime = "image/jpeg";
+        if (ext === "png") mime = "image/png";
+        else if (ext === "webp") mime = "image/webp";
+
+        if (Platform.OS === "web") {
+          const res = await fetch(uri);
+          const blob = await res.blob();
+          formData.append("images", blob, filename);
+        } else {
+          formData.append("images", { uri, name: filename, type: mime });
+        }
+      }
+
+      const response = await axiosInstance.post("/v1/listings/upload-images", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        onUploadProgress: (progressEvent) => {
+          if (progressEvent.total && onProgress) {
+            const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+            onProgress(percent);
+          }
+        },
+      });
+
+      const data = response.data;
+      if (data && (data.success || data.status)) {
+        return {
+          success: true,
+          images: data.data || data.images || [],
+        };
+      }
+      return { success: false, message: data?.message || "Image upload failed" };
+    } catch (err) {
+      console.error("[ListingService] uploadImages error:", err);
+      return { success: false, message: err.message || "Network error during image upload" };
+    }
+  }
+
+  /**
+   * Fast single image upload
+   */
+  async uploadImageFast(imageUri, onProgress) {
+    const res = await this.uploadImages([imageUri], onProgress);
+    if (res.success && res.images && res.images.length > 0) {
+      const img = res.images[0];
+      const url = typeof img === "string" ? img : (img.url || img.location || img.path);
+      return { success: true, url };
+    }
+    return { success: false, message: res.message || "Failed to upload image" };
+  }
+
+  /**
+   * High-speed upload for multiple listing videos with progress tracking
+   * @param {Array<string>} videoUris
+   * @param {Function} onProgress
+   */
+  async uploadVideos(videoUris, onProgress) {
+    try {
+      if (!Array.isArray(videoUris) || videoUris.length === 0) {
+        return { success: false, message: "No video URIs provided" };
+      }
+
+      const token = await authService.getToken();
+      const formData = new FormData();
+
+      for (let i = 0; i < videoUris.length; i++) {
+        const uri = videoUris[i];
+        const filename = uri.split("/").pop() || `video_${Date.now()}_${i}.mp4`;
+        const ext = filename.split(".").pop().toLowerCase();
+        let mime = "video/mp4";
+        if (ext === "mov" || ext === "qt") mime = "video/quicktime";
+        else if (ext === "webm") mime = "video/webm";
+        else if (ext === "mkv") mime = "video/x-matroska";
+
+        if (Platform.OS === "web") {
+          const res = await fetch(uri);
+          const blob = await res.blob();
+          formData.append("videos", blob, filename);
+        } else {
+          formData.append("videos", { uri, name: filename, type: mime });
+        }
+      }
+
+      const response = await axiosInstance.post("/v1/listings/upload-videos", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        timeout: 120000, // 2-minute timeout for large video uploads
+        onUploadProgress: (progressEvent) => {
+          if (progressEvent.total && onProgress) {
+            const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+            onProgress(percent);
+          }
+        },
+      });
+
+      const data = response.data;
+      if (data && (data.success || data.status)) {
+        return {
+          success: true,
+          videos: data.data || data.videos || [],
+        };
+      }
+      return { success: false, message: data?.message || "Video upload failed" };
+    } catch (err) {
+      console.error("[ListingService] uploadVideos error:", err);
+      return { success: false, message: err.message || "Network error during video upload" };
+    }
+  }
+
+  /**
+   * Fast single video upload
+   */
+  async uploadVideoFast(videoUri, onProgress) {
+    const res = await this.uploadVideos([videoUri], onProgress);
+    if (res.success && res.videos && res.videos.length > 0) {
+      const vid = res.videos[0];
+      const url = typeof vid === "string" ? vid : (vid.url || vid.location || vid.path || vid.uri);
+      return { success: true, url };
+    }
+    return { success: false, message: res.message || "Failed to upload video" };
   }
 }
 

@@ -23,6 +23,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import ToggleSwitch from '../src/components/ToggleSwitch';
+import TermsModal from '../src/components/create-listing/TermsModal';
+import { DEMO_TERMS } from '../src/constants/termsConfig';
 import { useUserMode } from '../src/context';
 import authService from '../src/services/authService';
 import profileService from '../src/services/profileService';
@@ -168,6 +170,8 @@ const LandlordRequestForm = () => {
   const [authorizationLetter, setAuthorizationLetter] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPendingModal, setShowPendingModal] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [selectedTerm, setSelectedTerm] = useState(null);
   const [kycCompleted, setKycCompleted] = useState(false);
 
   const isPropertyManager = hostRole === 'manager';
@@ -799,7 +803,17 @@ const LandlordRequestForm = () => {
         {/* Submit Section */}
         <View style={[styles.submitSection, { width: containerWidth }]}>
           <Text style={styles.termsText}>
-            By clicking <Text style={styles.termsBold}>&apos;SUBMIT&apos;</Text> i confirm that the information provided is accurate and i am legally allowed to list this property.
+            By submitting this application, you accept our{' '}
+            <Text
+              style={styles.termsLink}
+              onPress={() => {
+                setSelectedTerm(DEMO_TERMS.hostingTerms || DEMO_TERMS.listingAgreement);
+                setShowTermsModal(true);
+              }}
+            >
+              Listing and Hosting Terms
+            </Text>
+            {' '}and confirm that the information provided is accurate and you are legally authorized to list this property on LUNEST.
           </Text>
 
           <TouchableOpacity
@@ -809,13 +823,20 @@ const LandlordRequestForm = () => {
             activeOpacity={0.8}
           >
             <Text style={styles.submitButtonText}>
-              {isSubmitting ? 'Submitting...' : 'Submit'}
+              {isSubmitting ? 'Submitting Application...' : 'Submit Application'}
             </Text>
           </TouchableOpacity>
         </View>
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
+
+      {/* Listing and Hosting Terms Modal */}
+      <TermsModal
+        visible={showTermsModal}
+        term={selectedTerm}
+        onClose={() => setShowTermsModal(false)}
+      />
 
       {/* Pending Modal */}
       <Modal
@@ -1145,6 +1166,11 @@ const styles = StyleSheet.create({
   },
   termsBold: {
     fontWeight: '600',
+  },
+  termsLink: {
+    color: '#010135',
+    fontWeight: '700',
+    textDecorationLine: 'underline',
   },
   submitButton: {
     backgroundColor: '#010135',

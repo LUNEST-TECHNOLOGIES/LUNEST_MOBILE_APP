@@ -465,23 +465,31 @@ const LandlordRequestForm = () => {
                 <Text style={styles.lockedInputLabel}>National Identity Number (NIN)</Text>
                 <View style={styles.lockedBadge}>
                   <Ionicons name="lock-closed" size={11} color="#4B5563" style={{ marginRight: 4 }} />
-                  <Text style={styles.lockedBadgeText}>Locked</Text>
+                  <Text style={styles.lockedBadgeText}>Masked & Locked</Text>
                 </View>
               </View>
               <View style={styles.lockedInputWrapper}>
                 <TextInput
-                  value={userData.nin}
+                  value={(() => {
+                    const val = String(userData.nin || '').trim();
+                    if (!val) return '';
+                    if (val.includes('*') || val.includes('•')) return val;
+                    if (val.length >= 7) {
+                      return `${val.substring(0, 3)}${'*'.repeat(val.length - 7)}${val.substring(val.length - 4)}`;
+                    }
+                    return '123****4567';
+                  })()}
                   editable={false}
                   selectTextOnFocus={false}
                   pointerEvents="none"
-                  placeholder="NIN (Auto-filled from verified KYC) *"
+                  placeholder="123****4567 (Masked from KYC)"
                   placeholderTextColor="#9CA3AF"
                   style={styles.lockedTextInput}
                 />
                 <Ionicons name="shield-checkmark" size={18} color="#16A34A" />
               </View>
               <Text style={styles.lockedHelperText}>
-                Auto-filled from your verified KYC record. This field cannot be modified.
+                Auto-filled and masked from your verified KYC record for identity security. This field cannot be modified.
               </Text>
             </View>
 

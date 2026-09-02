@@ -425,40 +425,98 @@ const LandlordRequestForm = () => {
         <View style={[styles.section, { width: containerWidth }]}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Personal Information</Text>
-            <Text style={styles.sectionSubtitle}>Please provide your personal details. All fields marked with * are required.</Text>
+            <Text style={styles.sectionSubtitle}>Auto-filled from your verified identity and profile. These details are locked and cannot be edited.</Text>
           </View>
 
           <View style={styles.formGroup}>
-            <FormInput 
-              value={userData.fullName} 
-              onChangeText={(text) => setUserData(prev => ({ ...prev, fullName: text }))}
-              placeholder="Full Name *" 
-              editable={false}
-              style={{ backgroundColor: '#f0f0f0' }}
-            />
-            <FormInput 
-              value={userData.email} 
-              onChangeText={(text) => setUserData(prev => ({ ...prev, email: text }))}
-              placeholder="Email Address *" 
-              keyboardType="email-address"
-              editable={false}
-              style={{ backgroundColor: '#f0f0f0' }}
-            />
-            <FormInput 
-              value={userData.phone} 
-              onChangeText={(text) => setUserData(prev => ({ ...prev, phone: text }))}
-              placeholder="Phone Number *" 
-              keyboardType="phone-pad"
-              editable={false}
-              style={{ backgroundColor: '#f0f0f0' }}
-            />
-            <FormInput 
-              value={userData.location} 
-              onChangeText={(text) => setUserData(prev => ({ ...prev, location: text }))}
-              placeholder="Your Location *" 
-              editable={false}
-              style={{ backgroundColor: '#f0f0f0' }}
-            />
+            {/* Full Name - Auto-filled & Locked */}
+            <View style={styles.lockedInputContainer}>
+              <View style={styles.lockedInputHeader}>
+                <Text style={styles.lockedInputLabel}>Full Name</Text>
+                <View style={styles.lockedBadge}>
+                  <Ionicons name="lock-closed" size={11} color="#4B5563" style={{ marginRight: 4 }} />
+                  <Text style={styles.lockedBadgeText}>Locked</Text>
+                </View>
+              </View>
+              <View style={styles.lockedInputWrapper}>
+                <TextInput
+                  value={userData.fullName}
+                  editable={false}
+                  selectTextOnFocus={false}
+                  pointerEvents="none"
+                  placeholder="Full Name (Auto-filled from profile)"
+                  placeholderTextColor="#9CA3AF"
+                  style={styles.lockedTextInput}
+                />
+              </View>
+            </View>
+
+            {/* Email Address - Auto-filled & Locked */}
+            <View style={styles.lockedInputContainer}>
+              <View style={styles.lockedInputHeader}>
+                <Text style={styles.lockedInputLabel}>Email Address</Text>
+                <View style={styles.lockedBadge}>
+                  <Ionicons name="lock-closed" size={11} color="#4B5563" style={{ marginRight: 4 }} />
+                  <Text style={styles.lockedBadgeText}>Locked</Text>
+                </View>
+              </View>
+              <View style={styles.lockedInputWrapper}>
+                <TextInput
+                  value={userData.email}
+                  editable={false}
+                  selectTextOnFocus={false}
+                  pointerEvents="none"
+                  placeholder="Email Address (Auto-filled from account)"
+                  placeholderTextColor="#9CA3AF"
+                  style={styles.lockedTextInput}
+                />
+              </View>
+            </View>
+
+            {/* Phone Number - Auto-filled & Locked */}
+            <View style={styles.lockedInputContainer}>
+              <View style={styles.lockedInputHeader}>
+                <Text style={styles.lockedInputLabel}>Phone Number</Text>
+                <View style={styles.lockedBadge}>
+                  <Ionicons name="lock-closed" size={11} color="#4B5563" style={{ marginRight: 4 }} />
+                  <Text style={styles.lockedBadgeText}>Locked</Text>
+                </View>
+              </View>
+              <View style={styles.lockedInputWrapper}>
+                <TextInput
+                  value={userData.phone}
+                  editable={false}
+                  selectTextOnFocus={false}
+                  pointerEvents="none"
+                  placeholder="Phone Number (Auto-filled from profile)"
+                  placeholderTextColor="#9CA3AF"
+                  style={styles.lockedTextInput}
+                />
+              </View>
+            </View>
+
+            {/* Location - Auto-filled & Locked */}
+            <View style={styles.lockedInputContainer}>
+              <View style={styles.lockedInputHeader}>
+                <Text style={styles.lockedInputLabel}>Location</Text>
+                <View style={styles.lockedBadge}>
+                  <Ionicons name="lock-closed" size={11} color="#4B5563" style={{ marginRight: 4 }} />
+                  <Text style={styles.lockedBadgeText}>Locked</Text>
+                </View>
+              </View>
+              <View style={styles.lockedInputWrapper}>
+                <TextInput
+                  value={userData.location}
+                  editable={false}
+                  selectTextOnFocus={false}
+                  pointerEvents="none"
+                  placeholder="Location (Auto-filled from profile)"
+                  placeholderTextColor="#9CA3AF"
+                  style={styles.lockedTextInput}
+                />
+              </View>
+            </View>
+
             {/* Masked, Uneditable NIN */}
             <View style={styles.lockedInputContainer}>
               <View style={styles.lockedInputHeader}>
@@ -493,38 +551,38 @@ const LandlordRequestForm = () => {
               </Text>
             </View>
 
-            {/* Gender Selection */}
-            <View style={styles.genderContainer}>
-              <Text style={styles.genderLabel}>Gender:</Text>
-              <View style={styles.genderOptions}>
-                <TouchableOpacity
-                  style={styles.genderOption}
-                  onPress={() => setGender('male')}
-                >
+            {/* Gender Selection - Auto-filled & Locked */}
+            <View style={styles.lockedInputContainer}>
+              <View style={styles.lockedInputHeader}>
+                <Text style={styles.lockedInputLabel}>Gender</Text>
+                <View style={styles.lockedBadge}>
+                  <Ionicons name="lock-closed" size={11} color="#4B5563" style={{ marginRight: 4 }} />
+                  <Text style={styles.lockedBadgeText}>Locked</Text>
+                </View>
+              </View>
+              <View style={styles.genderOptionsLocked} pointerEvents="none">
+                <View style={[styles.genderOption, gender === 'male' && styles.genderOptionSelected]}>
                   <View style={[styles.radioOuter, gender === 'male' && styles.radioOuterSelected]}>
                     {gender === 'male' && <View style={styles.radioInner} />}
                   </View>
-                  <Text style={styles.genderText}>Male</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.genderOption}
-                  onPress={() => setGender('female')}
-                >
+                  <Text style={[styles.genderText, gender === 'male' && styles.genderTextSelected]}>Male</Text>
+                </View>
+                <View style={[styles.genderOption, gender === 'female' && styles.genderOptionSelected]}>
                   <View style={[styles.radioOuter, gender === 'female' && styles.radioOuterSelected]}>
                     {gender === 'female' && <View style={styles.radioInner} />}
                   </View>
-                  <Text style={styles.genderText}>Female</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.genderOption}
-                  onPress={() => setGender('other')}
-                >
+                  <Text style={[styles.genderText, gender === 'female' && styles.genderTextSelected]}>Female</Text>
+                </View>
+                <View style={[styles.genderOption, gender === 'other' && styles.genderOptionSelected]}>
                   <View style={[styles.radioOuter, gender === 'other' && styles.radioOuterSelected]}>
                     {gender === 'other' && <View style={styles.radioInner} />}
                   </View>
-                  <Text style={styles.genderText}>Other</Text>
-                </TouchableOpacity>
+                  <Text style={[styles.genderText, gender === 'other' && styles.genderTextSelected]}>Other</Text>
+                </View>
               </View>
+              <Text style={styles.lockedHelperText}>
+                Auto-filled from your profile. This field cannot be modified.
+              </Text>
             </View>
           </View>
         </View>
@@ -1026,6 +1084,23 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#6B7280',
     marginTop: 4,
+  },
+  genderOptionsLocked: {
+    flexDirection: 'row',
+    gap: 20,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+  },
+  genderOptionSelected: {
+    opacity: 1,
+  },
+  genderTextSelected: {
+    fontWeight: '700',
+    color: '#010135',
   },
   genderContainer: {
     flexDirection: 'row',

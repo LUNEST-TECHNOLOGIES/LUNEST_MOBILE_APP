@@ -173,6 +173,8 @@ const LandlordRequestForm = () => {
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [selectedTerm, setSelectedTerm] = useState(null);
   const [kycCompleted, setKycCompleted] = useState(false);
+  const [isPhoneLocked, setIsPhoneLocked] = useState(false);
+  const [isLocationLocked, setIsLocationLocked] = useState(false);
 
   const isPropertyManager = hostRole === 'manager';
 
@@ -212,11 +214,20 @@ const LandlordRequestForm = () => {
         maskedNin = '123****4567';
       }
 
+      const userPhone = String(serverData?.phoneNumber || profileData?.phone || authUser?.phoneNumber || authUser?.phone || '').trim();
+      const userLocation = String(serverData?.location || profileData?.location || authUser?.location || '').trim();
+
+      const hasPhone = Boolean(userPhone.length > 0);
+      const hasLocation = Boolean(userLocation.length > 0);
+
+      setIsPhoneLocked(hasPhone);
+      setIsLocationLocked(hasLocation);
+
       setUserData({
         fullName: serverData?.fullName || authUser?.fullName || profileData?.name || '',
         email: serverData?.emailAddress || authUser?.email || profileData?.email || '',
-        phone: serverData?.phoneNumber || profileData?.phone || '',
-        location: serverData?.location || profileData?.location || '',
+        phone: userPhone,
+        location: userLocation,
         nin: maskedNin, // Masked NIN from KYC
       });
 
@@ -473,49 +484,80 @@ const LandlordRequestForm = () => {
               </View>
             </View>
 
-            {/* Phone Number - Auto-filled & Locked */}
-            <View style={styles.lockedInputContainer}>
-              <View style={styles.lockedInputHeader}>
-                <Text style={styles.lockedInputLabel}>Phone Number</Text>
-                <View style={styles.lockedBadge}>
-                  <Ionicons name="lock-closed" size={11} color="#4B5563" style={{ marginRight: 4 }} />
-                  <Text style={styles.lockedBadgeText}>Locked</Text>
+            {/* Phone Number - Locked if filled from profile, editable otherwise */}
+            {isPhoneLocked ? (
+              <View style={styles.lockedInputContainer}>
+                <View style={styles.lockedInputHeader}>
+                  <Text style={styles.lockedInputLabel}>Phone Number</Text>
+                  <View style={styles.lockedBadge}>
+                    <Ionicons name="lock-closed" size={11} color="#4B5563" style={{ marginRight: 4 }} />
+                    <Text style={styles.lockedBadgeText}>Locked</Text>
+                  </View>
+                </View>
+                <View style={styles.lockedInputWrapper}>
+                  <TextInput
+                    value={userData.phone}
+                    editable={false}
+                    selectTextOnFocus={false}
+                    pointerEvents="none"
+                    placeholder="Phone Number (Auto-filled from profile)"
+                    placeholderTextColor="#9CA3AF"
+                    style={styles.lockedTextInput}
+                  />
                 </View>
               </View>
-              <View style={styles.lockedInputWrapper}>
-                <TextInput
-                  value={userData.phone}
-                  editable={false}
-                  selectTextOnFocus={false}
-                  pointerEvents="none"
-                  placeholder="Phone Number (Auto-filled from profile)"
-                  placeholderTextColor="#9CA3AF"
-                  style={styles.lockedTextInput}
-                />
+            ) : (
+              <View style={styles.lockedInputContainer}>
+                <Text style={[styles.lockedInputLabel, { marginBottom: 6 }]}>Phone Number *</Text>
+                <View style={styles.inputContainer}>
+                  <TextInput
+                    value={userData.phone}
+                    onChangeText={(text) => setUserData(prev => ({ ...prev, phone: text }))}
+                    placeholder="Enter Phone Number *"
+                    placeholderTextColor="#656565"
+                    keyboardType="phone-pad"
+                    style={styles.textInput}
+                  />
+                </View>
               </View>
-            </View>
+            )}
 
-            {/* Location - Auto-filled & Locked */}
-            <View style={styles.lockedInputContainer}>
-              <View style={styles.lockedInputHeader}>
-                <Text style={styles.lockedInputLabel}>Location</Text>
-                <View style={styles.lockedBadge}>
-                  <Ionicons name="lock-closed" size={11} color="#4B5563" style={{ marginRight: 4 }} />
-                  <Text style={styles.lockedBadgeText}>Locked</Text>
+            {/* Location - Locked if filled from profile, editable otherwise */}
+            {isLocationLocked ? (
+              <View style={styles.lockedInputContainer}>
+                <View style={styles.lockedInputHeader}>
+                  <Text style={styles.lockedInputLabel}>Location</Text>
+                  <View style={styles.lockedBadge}>
+                    <Ionicons name="lock-closed" size={11} color="#4B5563" style={{ marginRight: 4 }} />
+                    <Text style={styles.lockedBadgeText}>Locked</Text>
+                  </View>
+                </View>
+                <View style={styles.lockedInputWrapper}>
+                  <TextInput
+                    value={userData.location}
+                    editable={false}
+                    selectTextOnFocus={false}
+                    pointerEvents="none"
+                    placeholder="Location (Auto-filled from profile)"
+                    placeholderTextColor="#9CA3AF"
+                    style={styles.lockedTextInput}
+                  />
                 </View>
               </View>
-              <View style={styles.lockedInputWrapper}>
-                <TextInput
-                  value={userData.location}
-                  editable={false}
-                  selectTextOnFocus={false}
-                  pointerEvents="none"
-                  placeholder="Location (Auto-filled from profile)"
-                  placeholderTextColor="#9CA3AF"
-                  style={styles.lockedTextInput}
-                />
+            ) : (
+              <View style={styles.lockedInputContainer}>
+                <Text style={[styles.lockedInputLabel, { marginBottom: 6 }]}>Your Location *</Text>
+                <View style={styles.inputContainer}>
+                  <TextInput
+                    value={userData.location}
+                    onChangeText={(text) => setUserData(prev => ({ ...prev, location: text }))}
+                    placeholder="Enter Your Location (e.g. Abuja, Nigeria) *"
+                    placeholderTextColor="#656565"
+                    style={styles.textInput}
+                  />
+                </View>
               </View>
-            </View>
+            )}
 
             {/* Masked, Uneditable NIN */}
             <View style={styles.lockedInputContainer}>

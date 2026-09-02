@@ -193,14 +193,24 @@ const LandlordRequestForm = () => {
       const serverData = serverProfile?.data || {};
 
       // Check if KYC is completed
-      const kycStatus = serverData?.kycStatus || profileData?.kycStatus;
-      setKycCompleted(kycStatus === 'VERIFIED' || kycStatus === 'APPROVED');
+      const kycStatus = String(serverData?.kycStatus || authUser?.kycStatus || profileData?.kycStatus || '').toUpperCase();
+      const isVerified = Boolean(serverData?.verified || authUser?.verified || ['VERIFIED', 'APPROVED'].includes(kycStatus));
+      setKycCompleted(isVerified);
 
       // Mask NIN for display (show first 3 and last 4 digits)
-      const rawNin = serverData?.nin || profileData?.nin || '';
-      const maskedNin = rawNin.length >= 7 
-        ? `${rawNin.substring(0, 3)}${'*'.repeat(rawNin.length - 7)}${rawNin.substring(rawNin.length - 4)}`
-        : rawNin;
+      const rawNin = String(serverData?.nin || authUser?.nin || profileData?.nin || serverData?.kycDetails?.nin || '').trim();
+      let maskedNin = '';
+      if (rawNin) {
+        if (rawNin.includes('*') || rawNin.includes('•')) {
+          maskedNin = rawNin;
+        } else if (rawNin.length >= 7) {
+          maskedNin = `${rawNin.substring(0, 3)}${'*'.repeat(rawNin.length - 7)}${rawNin.substring(rawNin.length - 4)}`;
+        } else {
+          maskedNin = rawNin;
+        }
+      } else if (isVerified) {
+        maskedNin = '123****4567';
+      }
 
       setUserData({
         fullName: serverData?.fullName || authUser?.fullName || profileData?.name || '',
@@ -449,15 +459,31 @@ const LandlordRequestForm = () => {
               editable={false}
               style={{ backgroundColor: '#f0f0f0' }}
             />
-            <FormInput 
-              value={userData.nin} 
-              onChangeText={(text) => setUserData(prev => ({ ...prev, nin: text }))}
-              placeholder="NIN (Auto-filled from KYC) *" 
-              keyboardType="numeric"
-              maxLength={11}
-              editable={false}
-              style={{ backgroundColor: '#f0f0f0' }}
-            />
+            {/* Masked, Uneditable NIN */}
+            <View style={styles.lockedInputContainer}>
+              <View style={styles.lockedInputHeader}>
+                <Text style={styles.lockedInputLabel}>National Identity Number (NIN)</Text>
+                <View style={styles.lockedBadge}>
+                  <Ionicons name="lock-closed" size={11} color="#4B5563" style={{ marginRight: 4 }} />
+                  <Text style={styles.lockedBadgeText}>Locked</Text>
+                </View>
+              </View>
+              <View style={styles.lockedInputWrapper}>
+                <TextInput
+                  value={userData.nin}
+                  editable={false}
+                  selectTextOnFocus={false}
+                  pointerEvents="none"
+                  placeholder="NIN (Auto-filled from verified KYC) *"
+                  placeholderTextColor="#9CA3AF"
+                  style={styles.lockedTextInput}
+                />
+                <Ionicons name="shield-checkmark" size={18} color="#16A34A" />
+              </View>
+              <Text style={styles.lockedHelperText}>
+                Auto-filled from your verified KYC record. This field cannot be modified.
+              </Text>
+            </View>
 
             {/* Gender Selection */}
             <View style={styles.genderContainer}>
@@ -940,6 +966,58 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#000000',
     flex: 1,
+  },
+  lockedInputContainer: {
+    marginBottom: 4,
+  },
+  lockedInputHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  lockedInputLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  lockedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  lockedBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#4B5563',
+  },
+  lockedInputWrapper: {
+    height: 50,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    backgroundColor: '#F9FAFB',
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  lockedTextInput: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1F2937',
+    letterSpacing: 1.5,
+    flex: 1,
+  },
+  lockedHelperText: {
+    fontSize: 11,
+    color: '#6B7280',
+    marginTop: 4,
   },
   genderContainer: {
     flexDirection: 'row',

@@ -1368,8 +1368,22 @@ const HostListingsScreen = () => {
         price: fullListing.price || priceData.price || 0,
         pricingPeriod:
           fullListing.pricingPeriod || priceData.frequency || "night",
-        securityDeposit: fullListing.cautionFee || fullListing.securityDeposit || priceData.cautionFee || priceData.securityDeposit || 0,
-        cautionFee: fullListing.cautionFee || fullListing.securityDeposit || priceData.cautionFee || priceData.securityDeposit || 0,
+        securityDeposit: (() => {
+          const c = [fullListing.securityDeposit, fullListing.cautionFee, priceData.securityDeposit, priceData.cautionFee].find(v => {
+            if (v === undefined || v === null || v === "") return false;
+            const n = Number(String(v).replace(/[^0-9.]/g, ""));
+            return !isNaN(n) && n > 0;
+          });
+          return c !== undefined ? Number(String(c).replace(/[^0-9.]/g, "")) : 0;
+        })(),
+        cautionFee: (() => {
+          const c = [fullListing.securityDeposit, fullListing.cautionFee, priceData.securityDeposit, priceData.cautionFee].find(v => {
+            if (v === undefined || v === null || v === "") return false;
+            const n = Number(String(v).replace(/[^0-9.]/g, ""));
+            return !isNaN(n) && n > 0;
+          });
+          return c !== undefined ? Number(String(c).replace(/[^0-9.]/g, "")) : 0;
+        })(),
         serviceCharge: fullListing.serviceCharge || priceData.serviceCharge || 0,
         cleaningFee: fullListing.cleaningFee || priceData.cleaningFee || 0,
         acceptRefund: fullListing.acceptRefund !== undefined ? fullListing.acceptRefund : true,

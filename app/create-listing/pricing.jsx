@@ -104,10 +104,20 @@ const Pricing = () => {
 
     const rawPrice = draftData.price || draftData.propertyPrice?.price;
     const priceValue = cleanNumStr(rawPrice);
-    const rawCaution = draftData.cautionFee !== undefined && draftData.cautionFee !== null && draftData.cautionFee !== "" 
-      ? draftData.cautionFee 
-      : (draftData.securityDeposit !== undefined && draftData.securityDeposit !== null ? draftData.securityDeposit : "");
-    const securityValue = cleanNumStr(rawCaution);
+
+    // Prioritize whichever field has an actual positive value
+    const candidateCaution = [
+      draftData.securityDeposit,
+      draftData.cautionFee,
+      draftData.propertyPrice?.securityDeposit,
+      draftData.propertyPrice?.cautionFee,
+    ].find((v) => {
+      if (v === undefined || v === null || v === "") return false;
+      const clean = String(v).replace(/[^0-9.]/g, "");
+      return clean !== "" && !isNaN(Number(clean)) && Number(clean) > 0;
+    });
+
+    const securityValue = candidateCaution !== undefined ? cleanNumStr(candidateCaution) : "";
     const serviceValue = cleanNumStr(draftData.serviceCharge);
     const periodValue = draftData.pricingPeriod || (draftData.propertyPrice?.frequency ? String(draftData.propertyPrice.frequency).replace(/^per\s+/, "") : "") || "";
 
@@ -125,16 +135,19 @@ const Pricing = () => {
 
   // Auto-save function
   const updatePricing = (updates) => {
+    const depositVal =
+      updates.securityDeposit !== undefined
+        ? updates.securityDeposit
+        : securityDeposit;
+
     const finalUpdates = {
       price: updates.price !== undefined ? updates.price : price,
       pricingPeriod:
         updates.pricingPeriod !== undefined
           ? updates.pricingPeriod
           : selectedPeriod,
-      securityDeposit:
-        updates.securityDeposit !== undefined
-          ? updates.securityDeposit
-          : securityDeposit,
+      securityDeposit: depositVal,
+      cautionFee: depositVal,
       serviceCharge:
         updates.serviceCharge !== undefined
           ? updates.serviceCharge
@@ -182,6 +195,7 @@ const Pricing = () => {
         price: isSaleMode ? salePrice : price,
         pricingPeriod: selectedPeriod,
         securityDeposit,
+        cautionFee: securityDeposit,
         serviceCharge,
         acceptRefund: acceptRefund === null ? true : acceptRefund, // Default to true if not selected yet during save-on-close
         currentStep: 7,
@@ -216,6 +230,7 @@ const Pricing = () => {
       price: isSaleMode ? salePrice : price,
       pricingPeriod: selectedPeriod,
       securityDeposit,
+      cautionFee: securityDeposit,
       serviceCharge,
       acceptRefund,
       currentStep: 7,
@@ -252,6 +267,7 @@ const Pricing = () => {
       price: priceValue,
       pricingPeriod: selectedPeriod,
       securityDeposit,
+      cautionFee: securityDeposit,
       serviceCharge,
       acceptRefund,
       currentStep: 7,

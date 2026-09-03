@@ -696,7 +696,8 @@ const Review = () => {
         propertyVideos: propertyVideos || [],
         price: parsePrice(mergedData.price),
         pricingPeriod: mergedData.pricingPeriod || "night",
-        securityDeposit: parsePrice(mergedData.securityDeposit),
+        securityDeposit: parsePrice(mergedData.securityDeposit || mergedData.cautionFee),
+        cautionFee: parsePrice(mergedData.cautionFee || mergedData.securityDeposit),
         serviceCharge: parsePrice(mergedData.serviceCharge),
         cleaningFee: parsePrice(mergedData.cleaningFee),
         instantBooking:

@@ -1567,8 +1567,20 @@ class ListingService {
 
       // 3. Map/Align Pricing Structure with full sanitization
       const priceVal = toNum(draftData.price ?? draftData.propertyPrice?.price ?? 0);
-      const periodVal = uiPeriod || draftData.pricingPeriod || (draftData.propertyPrice?.frequency ? String(draftData.propertyPrice.frequency).replace(/^per\s+/, "") : "night");
-      const cautionVal = toNum(uiCaution ?? uiDeposit ?? draftData.cautionFee ?? draftData.securityDeposit ?? draftData.propertyPrice?.cautionFee ?? 0);
+      // Find whichever field has an actual positive value so 0 defaults don't overwrite user inputs
+      const candidateCaution = [
+        uiDeposit,
+        uiCaution,
+        draftData.securityDeposit,
+        draftData.cautionFee,
+        draftData.propertyPrice?.securityDeposit,
+        draftData.propertyPrice?.cautionFee,
+      ].find((v) => {
+        if (v === undefined || v === null || v === "") return false;
+        const num = toNum(v);
+        return num > 0;
+      });
+      const cautionVal = candidateCaution !== undefined ? toNum(candidateCaution) : 0;
       const serviceVal = toNum(uiService ?? draftData.serviceCharge ?? draftData.propertyPrice?.serviceCharge ?? 0);
       const cleaningVal = toNum(draftData.cleaningFee ?? 0);
 
@@ -1770,7 +1782,17 @@ class ListingService {
 
         const priceVal = d.price !== undefined && d.price !== null ? Number(d.price) : (d.propertyPrice?.price ? Number(d.propertyPrice.price) : 0);
         const periodVal = d.pricingPeriod || (d.propertyPrice?.frequency ? String(d.propertyPrice.frequency).replace(/^per\s+/, "") : "night");
-        const cautionVal = d.cautionFee !== undefined && d.cautionFee !== null ? Number(d.cautionFee) : (d.securityDeposit !== undefined && d.securityDeposit !== null ? Number(d.securityDeposit) : 0);
+        const candidateCaution = [
+          d.securityDeposit,
+          d.cautionFee,
+          d.propertyPrice?.securityDeposit,
+          d.propertyPrice?.cautionFee,
+        ].find((v) => {
+          if (v === undefined || v === null || v === "") return false;
+          const num = Number(String(v).replace(/[^0-9.]/g, ""));
+          return !isNaN(num) && num > 0;
+        });
+        const cautionVal = candidateCaution !== undefined ? Number(String(candidateCaution).replace(/[^0-9.]/g, "")) : 0;
         const serviceVal = d.serviceCharge !== undefined && d.serviceCharge !== null ? Number(d.serviceCharge) : 0;
         const cleaningVal = d.cleaningFee !== undefined && d.cleaningFee !== null ? Number(d.cleaningFee) : 0;
         const rawAmenities = d.amenities || [];

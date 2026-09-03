@@ -710,7 +710,8 @@ class DraftListingService {
       // Step 7
       price: params.price || "",
       pricingPeriod: params.pricingPeriod || "night",
-      securityDeposit: params.securityDeposit || "",
+      securityDeposit: params.securityDeposit !== undefined ? params.securityDeposit : (params.cautionFee || ""),
+      cautionFee: params.cautionFee !== undefined ? params.cautionFee : (params.securityDeposit || ""),
       cleaningFee: params.cleaningFee || "",
       serviceCharge: params.serviceCharge || "",
       acceptRefund: params.acceptRefund !== undefined ? params.acceptRefund : true,

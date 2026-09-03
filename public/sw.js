@@ -1,5 +1,5 @@
 // Service Worker for LUNEST Mobile PWA
-const CACHE_NAME = 'lunest-pwa-v5';
+const CACHE_NAME = 'lunest-pwa-v6';
 
 const ASSETS_TO_CACHE = [
   '/',
@@ -72,14 +72,19 @@ self.addEventListener('fetch', (event) => {
         }
         return networkResponse;
       })
-      .catch(() => {
-        return caches.match(event.request).then((cachedResponse) => {
-          if (cachedResponse) {
-            return cachedResponse;
-          }
-          if (event.request.headers.get('accept')?.includes('text/html')) {
-            return caches.match('/');
-          }
+      .catch(async () => {
+        const cachedResponse = await caches.match(event.request);
+        if (cachedResponse) {
+          return cachedResponse;
+        }
+        if (event.request.headers.get('accept')?.includes('text/html')) {
+          const rootCached = await caches.match('/');
+          if (rootCached) return rootCached;
+        }
+        return new Response('Network error occurred', {
+          status: 503,
+          statusText: 'Service Unavailable',
+          headers: { 'Content-Type': 'text/plain' },
         });
       })
   );

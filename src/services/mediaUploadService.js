@@ -342,8 +342,12 @@ class MediaUploadService {
       task.error = null;
       console.log(`✅ [MediaUploadService] Photo ${id} upload complete:`, serverUrl);
 
+      // Notify immediately so UI transitions to 100% / completed badge
+      this.notify(draftId);
+
       // Update draft automatically
       await this.syncDraftWithUploadedMedia(draftId);
+      this.notify(draftId);
     } catch (err) {
       console.warn(`⚠️ [MediaUploadService] Photo ${id} upload paused/failed:`, err.message);
       task.status = this.isConnected ? "failed" : "retrying";
@@ -428,6 +432,9 @@ class MediaUploadService {
       task.serverUrl = serverUrl;
       task.error = null;
       console.log(`✅ [MediaUploadService] Video ${id} upload complete:`, serverUrl);
+
+      // Notify immediately so UI transitions to 100% / completed badge
+      this.notify(draftId);
 
       // Update draft automatically
       await this.syncDraftWithUploadedMedia(draftId);

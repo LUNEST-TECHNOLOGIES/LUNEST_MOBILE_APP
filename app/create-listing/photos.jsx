@@ -788,10 +788,13 @@ const Photos = () => {
                   source={{ uri: previewMedia.uri }}
                   style={[
                     styles.fullScreenVideo,
-                    Platform.OS === "web" && {
+                    {
                       width: "100%",
-                      maxWidth: "100%",
-                      maxHeight: "75vh",
+                      height: "100%",
+                      maxHeight: "100%",
+                    },
+                    Platform.OS === "web" && {
+                      maxHeight: "80vh",
                       objectFit: "contain",
                     },
                   ]}
@@ -805,10 +808,13 @@ const Photos = () => {
                   source={{ uri: previewMedia?.uri }}
                   style={[
                     styles.fullScreenImage,
-                    Platform.OS === "web" && {
+                    {
                       width: "100%",
-                      maxWidth: "100%",
-                      maxHeight: "75vh",
+                      height: "100%",
+                      maxHeight: "100%",
+                    },
+                    Platform.OS === "web" && {
+                      maxHeight: "80vh",
                       objectFit: "contain",
                     },
                   ]}
@@ -1191,15 +1197,16 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 12,
-    paddingVertical: 12,
+    paddingBottom: Platform.OS === "ios" ? 34 : 16,
     width: "100%",
     maxWidth: 960,
     alignSelf: "center",
+    overflow: "hidden",
   },
   fullScreenVideo: {
     width: "100%",
-    maxWidth: "100%",
-    aspectRatio: 16 / 9,
+    height: "100%",
+    flex: 1,
     alignSelf: "center",
     backgroundColor: "#000000",
     borderRadius: 12,
@@ -1207,8 +1214,8 @@ const styles = StyleSheet.create({
   },
   fullScreenImage: {
     width: "100%",
-    maxWidth: "100%",
-    aspectRatio: 16 / 9,
+    height: "100%",
+    flex: 1,
     alignSelf: "center",
     borderRadius: 12,
   },

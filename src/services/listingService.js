@@ -942,10 +942,15 @@ class ListingService {
         throw new Error(err.message || "Failed to get upload URL");
       }
 
-      const { body: urlBody } = await urlRes.json();
-      const { uploadUrl, publicUrl, s3Key } = urlBody || {};
+      const resJson = await urlRes.json();
+      const uploadUrl = resJson.uploadUrl || resJson.body?.uploadUrl || resJson.data?.uploadUrl;
+      const publicUrl = resJson.publicUrl || resJson.body?.publicUrl || resJson.data?.publicUrl;
+      const s3Key = resJson.s3Key || resJson.body?.s3Key || resJson.data?.s3Key;
 
-      if (!uploadUrl) throw new Error("No presigned URL returned from server");
+      if (!uploadUrl) {
+        console.warn("[ListingService] No uploadUrl in presigned response:", resJson);
+        throw new Error(resJson.message || "No presigned URL returned from server");
+      }
 
       // STEP 3: PUT directly to S3 with progress tracking via XHR
       const s3Url = await new Promise((resolve, reject) => {
@@ -1078,10 +1083,15 @@ class ListingService {
         throw new Error(err.message || "Failed to get upload URL");
       }
 
-      const { body: urlBody } = await urlRes.json();
-      const { uploadUrl, publicUrl, s3Key } = urlBody || {};
+      const resJson = await urlRes.json();
+      const uploadUrl = resJson.uploadUrl || resJson.body?.uploadUrl || resJson.data?.uploadUrl;
+      const publicUrl = resJson.publicUrl || resJson.body?.publicUrl || resJson.data?.publicUrl;
+      const s3Key = resJson.s3Key || resJson.body?.s3Key || resJson.data?.s3Key;
 
-      if (!uploadUrl) throw new Error("No presigned URL returned from server");
+      if (!uploadUrl) {
+        console.warn("[ListingService] No uploadUrl in presigned video response:", resJson);
+        throw new Error(resJson.message || "No presigned URL returned from server");
+      }
       if (onProgress) onProgress(15);
 
       // STEP 3: On Native, stream directly to S3 via FileSystem.uploadAsync without loading into JS memory

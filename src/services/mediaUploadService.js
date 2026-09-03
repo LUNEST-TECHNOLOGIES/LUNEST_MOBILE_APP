@@ -31,6 +31,13 @@ class MediaUploadService {
     this.initNetworkListener();
   }
 
+  get isConnected() {
+    if (Platform.OS === "web" && typeof navigator !== "undefined" && typeof navigator.onLine === "boolean") {
+      return navigator.onLine;
+    }
+    return this.isOnline;
+  }
+
   /**
    * Set up network connectivity monitoring for auto-retry on reconnection
    */
@@ -39,7 +46,11 @@ class MediaUploadService {
     try {
       this.networkListener = NetInfo.addEventListener((state) => {
         const wasOffline = !this.isOnline;
-        this.isOnline = state.isConnected && state.isInternetReachable !== false;
+        if (Platform.OS === "web") {
+          this.isOnline = typeof navigator !== "undefined" && typeof navigator.onLine === "boolean" ? navigator.onLine : true;
+        } else {
+          this.isOnline = state.isConnected && state.isInternetReachable !== false;
+        }
         console.log(`🌐 [MediaUploadService] Network state changed: isOnline=${this.isOnline}`);
 
         if (wasOffline && this.isOnline) {
@@ -333,10 +344,9 @@ class MediaUploadService {
 
       // Update draft automatically
       await this.syncDraftWithUploadedMedia(draftId);
-      this.notify(draftId);
     } catch (err) {
       console.warn(`⚠️ [MediaUploadService] Photo ${id} upload paused/failed:`, err.message);
-      task.status = this.isOnline ? "failed" : "retrying";
+      task.status = this.isConnected ? "failed" : "retrying";
       task.error = err.message;
       this.notify(draftId);
     }
@@ -359,61 +369,60 @@ class MediaUploadService {
         try {
           const compressionResult = await imageCompressionService.compressVideo(
             localUri,
-            (p) => {
-              task.progress = Math.round(10 + p * 15); // 10% to 25%
-              this.notify(draftId);
-            },
-            50
+            50, // 50MB max for video
           );
           compressedUri = compressionResult?.uri || localUri;
-        } catch (vCompErr) {
-          console.warn("[MediaUploadService] Video compression fallback:", vCompErr?.message);
+        } catch (compErr) {
+          console.warn("[MediaUploadService] Video compression fallback:", compErr?.message);
           compressedUri = localUri;
         }
       }
 
       task.status = "uploading";
-      task.progress = 30;
+      task.progress = 50;
       this.notify(draftId);
 
-      // Perform upload with retry logic - maps real upload progress from 30% to 98%
+      // Perform upload with retry logic - direct presigned S3 PUT first
       const serverUrl = await this.uploadWithRetry(async () => {
-        // Try fast presigned S3 path first
-        const fastRes = await listingService.uploadVideoFast(
-          compressedUri,
-          (pct) => {
-            // Real network progress scaled from 30% to 98%
-            task.progress = Math.min(Math.round(30 + (pct * 0.68)), 98);
-            this.notify(draftId);
-          }
-        );
+        // Fast direct S3 PUT
+        const fastRes = await listingService.uploadVideoFast(compressedUri, (pct) => {
+          task.progress = Math.round(50 + pct * 0.45); // 50% to 95%
+          this.notify(draftId);
+        });
 
         if (fastRes.success && fastRes.url) {
           return fastRes.url;
         }
 
-        // Fallback to multipart
-        console.warn("⚠️ [MediaUploadService] Fast video upload notice, trying multipart fallback...");
-        task.progress = Math.min(task.progress + 10, 45);
+        // Fallback to backend multipart
+        console.warn("⚠️ [MediaUploadService] Direct S3 video upload notice, trying multipart fallback...");
+        task.progress = Math.min(task.progress + 10, 60);
         this.notify(draftId);
 
         const uploadVidRes = await listingService.uploadVideos([compressedUri], (pct) => {
-          task.progress = Math.min(Math.round(40 + (pct * 0.58)), 98);
+          task.progress = Math.min(Math.round(50 + pct * 0.45), 98);
           this.notify(draftId);
         });
-        if (uploadVidRes.success && uploadVidRes.videos?.length > 0) {
+
+        if (uploadVidRes.success && uploadVidRes.videos && uploadVidRes.videos.length > 0) {
           const uploadedVid = uploadVidRes.videos[0];
-          let sUrl = typeof uploadedVid === "string" ? uploadedVid : (uploadedVid.url || uploadedVid.uri || uploadedVid.path);
-          if (sUrl && sUrl.startsWith("/")) {
-            const baseURL = await configService.getBaseURL();
-            sUrl = `${baseURL.replace(/\/$/, "")}${sUrl}`;
+          let url = typeof uploadedVid === "string"
+            ? uploadedVid
+            : (uploadedVid?.url || uploadedVid?.location || uploadedVid?.storagePath || uploadedVid?.path || "");
+
+          if (url) {
+            if (typeof url === "string" && url.startsWith("/")) {
+              const baseURL = await configService.getBaseURL();
+              url = `${baseURL}${url}`;
+            }
+            return url;
           }
-          if (sUrl) return sUrl;
         }
 
-        throw new Error(fastRes.message || uploadVidRes.message || "Video upload failed");
+        throw new Error(uploadVidRes.message || fastRes.message || "Video upload did not return a valid URL");
       }, task);
 
+      // Successfully completed
       task.status = "completed";
       task.progress = 100;
       task.serverUrl = serverUrl;
@@ -425,7 +434,7 @@ class MediaUploadService {
       this.notify(draftId);
     } catch (err) {
       console.warn(`⚠️ [MediaUploadService] Video ${id} upload paused/failed:`, err.message);
-      task.status = this.isOnline ? "failed" : "retrying";
+      task.status = this.isConnected ? "failed" : "retrying";
       task.error = err.message;
       this.notify(draftId);
     }
@@ -439,7 +448,7 @@ class MediaUploadService {
 
     while (task.retryCount < task.maxRetries) {
       try {
-        if (!this.isOnline) {
+        if (!this.isConnected) {
           task.status = "retrying";
           this.notify(task.draftId);
           console.log(`⏸️ [MediaUploadService] Device offline, pausing task ${task.id}...`);
@@ -456,6 +465,9 @@ class MediaUploadService {
         );
 
         if (task.retryCount >= task.maxRetries) {
+          task.status = "failed";
+          task.error = err.message || "Upload failed";
+          this.notify(task.draftId);
           break;
         }
 
@@ -463,7 +475,7 @@ class MediaUploadService {
         this.notify(task.draftId);
 
         // Exponential backoff: 1s, 2s, 4s, 8s...
-        const backoffMs = Math.min(1000 * Math.pow(2, task.retryCount - 1), 10000);
+        const backoffMs = Math.min(1000 * Math.pow(2, task.retryCount - 1), 6000);
         await new Promise((resolve) => setTimeout(resolve, backoffMs));
       }
     }
@@ -477,7 +489,7 @@ class MediaUploadService {
   waitForOnline() {
     return new Promise((resolve) => {
       const checkInterval = setInterval(() => {
-        if (this.isOnline) {
+        if (this.isConnected) {
           clearInterval(checkInterval);
           resolve();
         }

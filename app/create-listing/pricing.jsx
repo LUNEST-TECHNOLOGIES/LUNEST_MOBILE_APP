@@ -147,7 +147,7 @@ const Pricing = () => {
     };
 
     if (updates.price !== undefined) {
-      if (intent === "sale") {
+      if (isSaleMode) {
         setSalePrice(updates.price);
       } else {
         setPrice(updates.price);
@@ -179,7 +179,7 @@ const Pricing = () => {
 
       await saveDraftData({
         ...draftData,
-        price: intent === "sale" ? salePrice : price,
+        price: isSaleMode ? salePrice : price,
         pricingPeriod: selectedPeriod,
         securityDeposit,
         serviceCharge,
@@ -479,26 +479,26 @@ const Pricing = () => {
           <Text style={styles.previewTitle}>Price Preview</Text>
           <View style={styles.previewRow}>
             <Text style={styles.previewLabel}>
-              {intent === "sale" ? "Sale Price" : `Price per ${selectedPeriod}`}
+              {isSaleMode ? "Sale Price" : `Price per ${selectedPeriod}`}
             </Text>
             <Text style={styles.previewValue}>
-              ₦{intent === "sale" ? salePrice || "0" : price || "0"}
+              ₦{isSaleMode ? salePrice || "0" : price || "0"}
             </Text>
           </View>
-          {intent !== "sale" && securityDeposit && (
+          {!isSaleMode && securityDeposit && (
             <View style={styles.previewRow}>
               <Text style={styles.previewLabel}>Security Deposit/Caution Fee</Text>
               <Text style={styles.previewValue}>₦{securityDeposit}</Text>
             </View>
           )}
-          {intent !== "sale" && serviceCharge && (
+          {!isSaleMode && serviceCharge && (
             <View style={styles.previewRow}>
               <Text style={styles.previewLabel}>Service Charge</Text>
               <Text style={styles.previewValue}>₦{serviceCharge}</Text>
             </View>
           )}
           {/* App Charge & VAT breakdown */}
-          {intent !== "sale" && price && (
+          {!isSaleMode && price && (
             <>
               <View
                 style={[

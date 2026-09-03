@@ -890,24 +890,39 @@ class ListingService {
       const token = await authService.getToken();
       if (!token) return { success: false, message: "Authentication required" };
 
-      const isDataUrl = imageUri && imageUri.startsWith("data:");
+      // STEP 1: Prepare blob first to accurately determine true MIME type & extension
+      let imageBlob;
       let mimeType = "image/jpeg";
       let ext = "jpg";
 
-      if (isDataUrl) {
+      if (imageUri && imageUri.startsWith("data:")) {
         const match = imageUri.match(/data:([^;]+);/);
         if (match) {
           mimeType = match[1];
           ext = mimeType.split("/")[1] || "jpg";
         }
-      } else if (imageUri) {
-        const uriLower = imageUri.toLowerCase();
-        if (uriLower.includes(".png")) { mimeType = "image/png"; ext = "png"; }
-        else if (uriLower.includes(".webp")) { mimeType = "image/webp"; ext = "webp"; }
-        else if (uriLower.includes(".heic")) { mimeType = "image/heic"; ext = "heic"; }
+        const base64Data = imageUri.split(",")[1];
+        const byteCharacters = atob(base64Data);
+        const byteArr = new Uint8Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) byteArr[i] = byteCharacters.charCodeAt(i);
+        imageBlob = new Blob([byteArr], { type: mimeType });
+      } else {
+        const resp = await fetch(imageUri);
+        imageBlob = await resp.blob();
+        if (imageBlob && imageBlob.type) {
+          mimeType = imageBlob.type;
+          ext = mimeType.split("/")[1] || "jpg";
+        } else if (imageUri) {
+          const uriLower = imageUri.toLowerCase();
+          if (uriLower.includes(".png")) { mimeType = "image/png"; ext = "png"; }
+          else if (uriLower.includes(".webp")) { mimeType = "image/webp"; ext = "webp"; }
+          else if (uriLower.includes(".heic")) { mimeType = "image/heic"; ext = "heic"; }
+        }
       }
 
-      // STEP 1: Request presigned upload URL from backend
+      if (ext === "jpeg") ext = "jpg";
+
+      // STEP 2: Request presigned upload URL from backend
       const cleanBase = (await configService.getBaseURL()).replace(/\/$/, "");
       const presignedEndpoint = cleanBase.endsWith("/v1")
         ? `${cleanBase}/listings/presigned-upload-url`
@@ -931,24 +946,6 @@ class ListingService {
       const { uploadUrl, publicUrl, s3Key } = urlBody || {};
 
       if (!uploadUrl) throw new Error("No presigned URL returned from server");
-
-      // STEP 2: Prepare image blob
-      let imageBlob;
-      if (Platform.OS === "web") {
-        if (isDataUrl) {
-          const parts = imageUri.split(",");
-          const byteCharacters = atob(parts[1]);
-          const byteArr = new Uint8Array(byteCharacters.length);
-          for (let i = 0; i < byteCharacters.length; i++) byteArr[i] = byteCharacters.charCodeAt(i);
-          imageBlob = new Blob([byteArr], { type: mimeType });
-        } else {
-          const resp = await fetch(imageUri);
-          imageBlob = await resp.blob();
-        }
-      } else {
-        const resp = await fetch(imageUri);
-        imageBlob = await resp.blob();
-      }
 
       // STEP 3: PUT directly to S3 with progress tracking via XHR
       const s3Url = await new Promise((resolve, reject) => {
@@ -979,8 +976,17 @@ class ListingService {
       console.log("✅ [ListingService] Image fast-uploaded to S3:", s3Url);
       return { success: true, url: String(s3Url), s3Key };
     } catch (error) {
-      console.warn("[ListingService] Fast image upload notice, will use fallback:", error.message);
-      return { success: false, message: error.message };
+      console.warn("[ListingService] Fast image upload notice, falling back to multipart:", error.message);
+      // Seamlessly fallback to multipart upload
+      const fallbackRes = await this.uploadImages([imageUri], onProgress);
+      if (fallbackRes.success && fallbackRes.images && fallbackRes.images.length > 0) {
+        const uploadedImg = fallbackRes.images[0];
+        const url = typeof uploadedImg === "string" ? uploadedImg : (uploadedImg?.url || uploadedImg?.location || uploadedImg?.storagePath || uploadedImg?.path);
+        if (url) {
+          return { success: true, url };
+        }
+      }
+      return { success: false, message: fallbackRes.message || error.message };
     }
   }
 
@@ -998,27 +1004,61 @@ class ListingService {
       const token = await authService.getToken();
       if (!token) return { success: false, message: "Authentication required" };
 
-      // Detect mime type and extension from URI
+      // STEP 1: Accurately detect video mime type and extension from URI or blob
       const isDataUrl = videoUri && videoUri.startsWith("data:");
       let mimeType = "video/mp4";
       let ext = "mp4";
 
+      let videoBlob = null;
       if (isDataUrl) {
         const match = videoUri.match(/data:([^;]+);/);
         if (match) {
           mimeType = match[1];
-          ext = mimeType.split("/")[1] || "mp4";
+          const sub = mimeType.split("/")[1]?.toLowerCase();
+          if (sub === "quicktime") ext = "mov";
+          else if (sub === "webm") ext = "webm";
+          else if (sub === "x-matroska" || sub === "mkv") ext = "mkv";
+          else if (sub === "x-msvideo" || sub === "avi") ext = "avi";
+          else if (sub === "3gpp") ext = "3gp";
+          else ext = sub || "mp4";
+        }
+        const parts = videoUri.split(",");
+        const byteCharacters = atob(parts[1]);
+        const byteArr = new Uint8Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) byteArr[i] = byteCharacters.charCodeAt(i);
+        videoBlob = new Blob([byteArr], { type: mimeType });
+      } else if (Platform.OS === "web") {
+        try {
+          const resp = await fetch(videoUri);
+          videoBlob = await resp.blob();
+          if (videoBlob && videoBlob.type) {
+            mimeType = videoBlob.type;
+            const sub = mimeType.split("/")[1]?.toLowerCase();
+            if (sub === "quicktime") ext = "mov";
+            else if (sub === "webm") ext = "webm";
+            else if (sub === "x-matroska" || sub === "mkv") ext = "mkv";
+            else if (sub === "x-msvideo" || sub === "avi") ext = "avi";
+            else if (sub === "3gpp") ext = "3gp";
+            else ext = sub || "mp4";
+          }
+        } catch (fetchErr) {
+          console.warn("[ListingService] Could not inspect web video blob:", fetchErr?.message);
         }
       } else if (videoUri) {
         const uriLower = videoUri.toLowerCase();
-        if (uriLower.includes(".mov")) { mimeType = "video/quicktime"; ext = "mov"; }
+        if (uriLower.includes(".mov") || uriLower.includes(".qt")) { mimeType = "video/quicktime"; ext = "mov"; }
         else if (uriLower.includes(".webm")) { mimeType = "video/webm"; ext = "webm"; }
         else if (uriLower.includes(".avi")) { mimeType = "video/x-msvideo"; ext = "avi"; }
         else if (uriLower.includes(".mkv")) { mimeType = "video/x-matroska"; ext = "mkv"; }
         else if (uriLower.includes(".3gp")) { mimeType = "video/3gpp"; ext = "3gp"; }
+        else if (uriLower.includes(".flv")) { mimeType = "video/x-flv"; ext = "flv"; }
+        else if (uriLower.includes(".wmv")) { mimeType = "video/x-ms-wmv"; ext = "wmv"; }
+        else if (uriLower.includes(".m4v")) { mimeType = "video/x-m4v"; ext = "m4v"; }
       }
 
-      // STEP 1: Request presigned upload URL from backend
+      if (ext.length > 5) ext = "mp4";
+
+      // STEP 2: Request presigned upload URL from backend
       const cleanBase = (await configService.getBaseURL()).replace(/\/$/, "");
       const presignedEndpoint = cleanBase.endsWith("/v1")
         ? `${cleanBase}/listings/presigned-upload-url`
@@ -1044,7 +1084,7 @@ class ListingService {
       if (!uploadUrl) throw new Error("No presigned URL returned from server");
       if (onProgress) onProgress(15);
 
-      // STEP 2: On Native, stream directly to S3 via FileSystem.uploadAsync without loading into JS memory
+      // STEP 3: On Native, stream directly to S3 via FileSystem.uploadAsync without loading into JS memory
       if (Platform.OS !== "web" && LegacyFileSystem && LegacyFileSystem.uploadAsync) {
         try {
           console.log("[ListingService] Streaming video to S3 via native FileSystem.uploadAsync...");
@@ -1068,20 +1108,8 @@ class ListingService {
         }
       }
 
-      // STEP 3: Web or XHR fallback
-      let videoBlob;
-      if (Platform.OS === "web") {
-        if (isDataUrl) {
-          const parts = videoUri.split(",");
-          const byteCharacters = atob(parts[1]);
-          const byteArr = new Uint8Array(byteCharacters.length);
-          for (let i = 0; i < byteCharacters.length; i++) byteArr[i] = byteCharacters.charCodeAt(i);
-          videoBlob = new Blob([byteArr], { type: mimeType });
-        } else {
-          const resp = await fetch(videoUri);
-          videoBlob = await resp.blob();
-        }
-      } else {
+      // STEP 4: Web or XHR fallback
+      if (!videoBlob) {
         const resp = await fetch(videoUri);
         videoBlob = await resp.blob();
       }
@@ -1115,8 +1143,16 @@ class ListingService {
       console.log("✅ [ListingService] Video fast-uploaded to S3:", s3Url);
       return { success: true, url: String(s3Url), s3Key };
     } catch (error) {
-      console.warn("[ListingService] Fast video upload notice, will fall back:", error.message);
-      return { success: false, message: error.message };
+      console.warn("[ListingService] Fast video upload notice, falling back to multipart:", error.message);
+      const fallbackRes = await this.uploadVideos([videoUri], onProgress);
+      if (fallbackRes.success && fallbackRes.videos && fallbackRes.videos.length > 0) {
+        const uploadedVid = fallbackRes.videos[0];
+        const url = typeof uploadedVid === "string" ? uploadedVid : (uploadedVid?.url || uploadedVid?.location || uploadedVid?.storagePath || uploadedVid?.path);
+        if (url) {
+          return { success: true, url };
+        }
+      }
+      return { success: false, message: fallbackRes.message || error.message };
     }
   }
 
@@ -1168,6 +1204,7 @@ class ListingService {
               extension = mimeType.split("/")[1] || "jpg";
             }
 
+            if (extension === "jpeg") extension = "jpg";
             formData.append("images", blob, `image_${i}.${extension}`);
             imageCount++;
           } catch (blobError) {
@@ -1175,11 +1212,16 @@ class ListingService {
             continue;
           }
         } else {
-          const filename = uri.split("/").pop() || `image_${i}.jpg`;
-          const extension = filename.split(".").pop() || "jpg";
+          let extension = "jpg";
+          let mime = "image/jpeg";
+          const uriLower = uri.toLowerCase();
+          if (uriLower.includes(".png")) { extension = "png"; mime = "image/png"; }
+          else if (uriLower.includes(".webp")) { extension = "webp"; mime = "image/webp"; }
+          else if (uriLower.includes(".heic")) { extension = "heic"; mime = "image/heic"; }
+
           formData.append("images", {
             uri: uri,
-            type: extension === "png" ? "image/png" : "image/jpeg",
+            type: mime,
             name: `image_${i}.${extension}`,
           });
           imageCount++;
@@ -1841,148 +1883,159 @@ class ListingService {
     }
   }
 
-  /**
-   * High-speed upload for multiple listing images with progress tracking
-   * @param {Array<string>} imageUris
-   * @param {Function} onProgress
-   */
-  async uploadImages(imageUris, onProgress) {
-    try {
-      if (!Array.isArray(imageUris) || imageUris.length === 0) {
-        return { success: false, message: "No image URIs provided" };
-      }
 
-      const token = await authService.getToken();
-      const formData = new FormData();
-
-      for (let i = 0; i < imageUris.length; i++) {
-        const uri = imageUris[i];
-        const filename = uri.split("/").pop() || `photo_${Date.now()}_${i}.jpg`;
-        const ext = filename.split(".").pop().toLowerCase();
-        let mime = "image/jpeg";
-        if (ext === "png") mime = "image/png";
-        else if (ext === "webp") mime = "image/webp";
-
-        if (Platform.OS === "web") {
-          const res = await fetch(uri);
-          const blob = await res.blob();
-          formData.append("images", blob, filename);
-        } else {
-          formData.append("images", { uri, name: filename, type: mime });
-        }
-      }
-
-      const response = await axiosInstance.post("/v1/listings/upload-images", formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        onUploadProgress: (progressEvent) => {
-          if (progressEvent.total && onProgress) {
-            const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-            onProgress(percent);
-          }
-        },
-      });
-
-      const data = response.data;
-      if (data && (data.success || data.status)) {
-        return {
-          success: true,
-          images: data.data || data.images || [],
-        };
-      }
-      return { success: false, message: data?.message || "Image upload failed" };
-    } catch (err) {
-      console.error("[ListingService] uploadImages error:", err);
-      return { success: false, message: err.message || "Network error during image upload" };
-    }
-  }
-
-  /**
-   * Fast single image upload
-   */
-  async uploadImageFast(imageUri, onProgress) {
-    const res = await this.uploadImages([imageUri], onProgress);
-    if (res.success && res.images && res.images.length > 0) {
-      const img = res.images[0];
-      const url = typeof img === "string" ? img : (img.url || img.location || img.path);
-      return { success: true, url };
-    }
-    return { success: false, message: res.message || "Failed to upload image" };
-  }
 
   /**
    * High-speed upload for multiple listing videos with progress tracking
    * @param {Array<string>} videoUris
    * @param {Function} onProgress
    */
-  async uploadVideos(videoUris, onProgress) {
-    try {
-      if (!Array.isArray(videoUris) || videoUris.length === 0) {
-        return { success: false, message: "No video URIs provided" };
-      }
+  async uploadVideos(videoUris, onProgress = null) {
+    console.log("[ListingService] Uploading videos...", videoUris && videoUris.length);
 
+    if (!Array.isArray(videoUris) || videoUris.length === 0) {
+      return { success: true, message: "No videos to upload", videos: [] };
+    }
+
+    try {
       const token = await authService.getToken();
+      if (!token) return { success: false, message: "Authentication required", error: "NO_TOKEN" };
+
       const formData = new FormData();
+      let videoCount = 0;
 
       for (let i = 0; i < videoUris.length; i++) {
         const uri = videoUris[i];
-        const filename = uri.split("/").pop() || `video_${Date.now()}_${i}.mp4`;
-        const ext = filename.split(".").pop().toLowerCase();
-        let mime = "video/mp4";
-        if (ext === "mov" || ext === "qt") mime = "video/quicktime";
-        else if (ext === "webm") mime = "video/webm";
-        else if (ext === "mkv") mime = "video/x-matroska";
+        if (!uri) continue;
 
-        if (Platform.OS === "web") {
-          const res = await fetch(uri);
-          const blob = await res.blob();
-          formData.append("videos", blob, filename);
+        if (Platform.OS === "web" || typeof window !== "undefined") {
+          try {
+            let blob;
+            let mimeType = "video/mp4";
+            let ext = "mp4";
+
+            if (uri.startsWith("data:")) {
+              const parts = uri.split(",");
+              const mimeMatch = parts[0].match(/:(.*?);/);
+              if (mimeMatch) {
+                mimeType = mimeMatch[1];
+                ext = mimeType.split("/")[1] || "mp4";
+              }
+              const base64Data = parts[1];
+              const byteCharacters = atob(base64Data);
+              const byteNumbers = new Uint8Array(byteCharacters.length);
+              for (let j = 0; j < byteCharacters.length; j++) byteNumbers[j] = byteCharacters.charCodeAt(j);
+              blob = new Blob([byteNumbers], { type: mimeType });
+            } else {
+              const res = await fetch(uri);
+              blob = await res.blob();
+              if (blob && blob.type) {
+                mimeType = blob.type;
+                const sub = mimeType.split("/")[1]?.toLowerCase();
+                if (sub === "quicktime") ext = "mov";
+                else if (sub === "webm") ext = "webm";
+                else if (sub === "x-matroska" || sub === "mkv") ext = "mkv";
+                else if (sub === "x-msvideo" || sub === "avi") ext = "avi";
+                else if (sub === "3gpp" || sub === "3gpp2") ext = "3gp";
+                else ext = sub || "mp4";
+              }
+            }
+
+            if (ext.length > 5) ext = "mp4";
+            const filename = `video_${Date.now()}_${i}.${ext}`;
+            formData.append("videos", blob, filename);
+            videoCount++;
+          } catch (blobErr) {
+            console.error("[ListingService] Error converting web video to blob:", blobErr);
+            continue;
+          }
         } else {
-          formData.append("videos", { uri, name: filename, type: mime });
+          // Native
+          let ext = "mp4";
+          let mime = "video/mp4";
+          const uriLower = uri.toLowerCase();
+          if (uriLower.includes(".mov") || uriLower.includes(".qt")) { ext = "mov"; mime = "video/quicktime"; }
+          else if (uriLower.includes(".webm")) { ext = "webm"; mime = "video/webm"; }
+          else if (uriLower.includes(".mkv")) { ext = "mkv"; mime = "video/x-matroska"; }
+          else if (uriLower.includes(".avi")) { ext = "avi"; mime = "video/x-msvideo"; }
+          else if (uriLower.includes(".3gp")) { ext = "3gp"; mime = "video/3gpp"; }
+          else if (uriLower.includes(".flv")) { ext = "flv"; mime = "video/x-flv"; }
+          else if (uriLower.includes(".wmv")) { ext = "wmv"; mime = "video/x-ms-wmv"; }
+          else if (uriLower.includes(".m4v")) { ext = "m4v"; mime = "video/x-m4v"; }
+
+          const filename = `video_${Date.now()}_${i}.${ext}`;
+          formData.append("videos", {
+            uri,
+            name: filename,
+            type: mime,
+          });
+          videoCount++;
         }
       }
 
-      const response = await axiosInstance.post("/v1/listings/upload-videos", formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        timeout: 120000, // 2-minute timeout for large video uploads
-        onUploadProgress: (progressEvent) => {
-          if (progressEvent.total && onProgress) {
-            const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-            onProgress(percent);
+      if (videoCount === 0) {
+        return { success: false, message: "No valid videos were available to upload", videos: [] };
+      }
+
+      const cleanBase = (await configService.getBaseURL()).replace(/\/$/, "");
+      const uploadEndpoint = cleanBase.endsWith("/v1")
+        ? `${cleanBase}/listings/upload-videos`
+        : `${cleanBase}/v1/listings/upload-videos`;
+
+      const uploadResult = await new Promise((resolve) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", uploadEndpoint, true);
+        xhr.setRequestHeader("Authorization", "Bearer " + token);
+        // Do NOT set Content-Type on Web so browser automatically computes multipart boundary
+        if (Platform.OS !== "web") {
+          xhr.setRequestHeader("Content-Type", "multipart/form-data");
+        }
+
+        if (xhr.upload && onProgress) {
+          xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) {
+              const pct = Math.round((e.loaded / e.total) * 100);
+              onProgress(pct);
+            }
+          };
+        }
+
+        xhr.onload = () => {
+          try {
+            const data = JSON.parse(xhr.responseText || "{}");
+            if (xhr.status >= 200 && xhr.status < 300 && (data.success || data.status)) {
+              const vids = data.body?.videos || data.data?.videos || data.videos || data.data || [];
+              resolve({
+                success: true,
+                videos: vids,
+              });
+            } else {
+              resolve({
+                success: false,
+                message: data.message || `Upload failed with status ${xhr.status}`,
+              });
+            }
+          } catch (err) {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              resolve({ success: true, videos: [] });
+            } else {
+              resolve({ success: false, message: `Upload error (${xhr.status})` });
+            }
           }
-        },
+        };
+
+        xhr.onerror = () => {
+          resolve({ success: false, message: "Network error during video upload" });
+        };
+
+        xhr.send(formData);
       });
 
-      const data = response.data;
-      if (data && (data.success || data.status)) {
-        return {
-          success: true,
-          videos: data.data || data.videos || [],
-        };
-      }
-      return { success: false, message: data?.message || "Video upload failed" };
+      return uploadResult;
     } catch (err) {
       console.error("[ListingService] uploadVideos error:", err);
       return { success: false, message: err.message || "Network error during video upload" };
     }
-  }
-
-  /**
-   * Fast single video upload
-   */
-  async uploadVideoFast(videoUri, onProgress) {
-    const res = await this.uploadVideos([videoUri], onProgress);
-    if (res.success && res.videos && res.videos.length > 0) {
-      const vid = res.videos[0];
-      const url = typeof vid === "string" ? vid : (vid.url || vid.location || vid.path || vid.uri);
-      return { success: true, url };
-    }
-    return { success: false, message: res.message || "Failed to upload video" };
   }
 }
 

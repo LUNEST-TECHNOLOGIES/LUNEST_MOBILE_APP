@@ -11,6 +11,7 @@ import configService from "./configService";
 import logService from "./logService";
 import NetworkErrorHandler from "./networkErrorHandler";
 import storageService from "./storageService";
+import { formatAmenitiesList } from "../utils/amenityUtils";
 // Listing Status Constants from API Backend
 export const LISTING_STATUSES = {
   PENDING: "PENDING",
@@ -1639,11 +1640,15 @@ class ListingService {
 
       // 5. Consolidate Amenities (Selected + Custom)
       const selAmenities = Array.isArray(draftData.selectedAmenities) ? draftData.selectedAmenities : [];
-      const custAmenities = Array.isArray(draftData.customAmenities) ? draftData.customAmenities.map(a => typeof a === 'string' ? a : a.label) : [];
+      const custAmenities = Array.isArray(draftData.customAmenities) ? draftData.customAmenities : [];
+      const existingAmenities = Array.isArray(draftData.amenities) ? draftData.amenities : [];
       
-      // If we have selected/custom amenities but no consolidated 'amenities' array yet
-      if ((selAmenities.length > 0 || custAmenities.length > 0) && (!payload.amenities || payload.amenities.length === 0)) {
-        payload.amenities = [...new Set([...selAmenities, ...custAmenities])];
+      const consolidatedAmenities = formatAmenitiesList(
+        [...existingAmenities, ...selAmenities],
+        custAmenities
+      );
+      if (consolidatedAmenities.length > 0) {
+        payload.amenities = consolidatedAmenities;
       }
 
       // 6. Explicit Availability & Rules mapping

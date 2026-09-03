@@ -30,6 +30,7 @@ import { useDraftListing } from '../../src/hooks/useDraftListing';
 import draftListingService from '../../src/services/draftListingService';
 import toastService from '../../src/services/toastService';
 import { getAmenityIcon } from "../../src/utils/amenityIcons";
+import { formatAmenitiesList } from "../../src/utils/amenityUtils";
 
 // Progress Bar Component
 const ProgressBar = ({ currentStep, totalSteps }) => {
@@ -341,9 +342,11 @@ const Amenities = () => {
     // Always ensure arrays before saving
     const nextSelected = updates.selectedAmenities !== undefined ? ensureArray(updates.selectedAmenities) : selectedAmenities;
     const nextCustom = updates.customAmenities !== undefined ? ensureArray(updates.customAmenities) : customAmenities;
+    const resolvedAmenities = formatAmenitiesList(nextSelected, nextCustom);
     const finalUpdates = {
       selectedAmenities: nextSelected,
       customAmenities: nextCustom,
+      amenities: resolvedAmenities,
       currentStep: 5,
     };
 
@@ -446,12 +449,14 @@ const Amenities = () => {
     // Always ensure arrays before saving
     const safeSelected = Array.isArray(selectedAmenities) ? selectedAmenities : [];
     const safeCustom = Array.isArray(customAmenities) ? customAmenities : [];
+    const resolvedAmenities = formatAmenitiesList(safeSelected, safeCustom);
     
     // OPTIMIZATION: Trigger save in background and navigate immediately
     // CRITICAL: We await the local save to ensure data is in cache for next screen
     await saveDraftData({
       selectedAmenities: safeSelected,
       customAmenities: safeCustom,
+      amenities: resolvedAmenities,
       currentStep: 5,
       draftId: finalDraftId,
     }, { background: true });

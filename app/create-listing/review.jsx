@@ -36,6 +36,7 @@ import draftListingService from "../../src/services/draftListingService";
 import { fetchHostData, getHostAvatarUrl } from "../../src/services/hostService";
 import listingService from "../../src/services/listingService";
 import toastService from "../../src/services/toastService";
+import { formatAmenitiesList, formatAmenityLabel } from "../../src/utils/amenityUtils";
 // Use distinct name to avoid collision with local StarIcon component
 
 // Icons migrated to Lucide
@@ -656,29 +657,8 @@ const Review = () => {
       }
 
       // Step 2: Build listing data with image URLs
-      // Convert amenity IDs to labels for backend
-      // Filter out 'custom_' IDs from selectedAmenities as they are handled by customAmenities array
-      const amenityLabels = selectedAmenities
-        .filter((id) => !String(id).startsWith("custom_"))
-        .map((id) => getAmenityLabel(id));
-
-      // Extract labels from custom amenities (handle both string and object formats)
-      const customAmenityLabels = customAmenities
-        .map((amenity) => {
-          if (typeof amenity === "object" && amenity !== null) {
-            // Priority: label -> name -> id (if no label/name)
-            return (
-              amenity.label ||
-              amenity.name ||
-              amenity.value ||
-              String(amenity.id || "")
-            );
-          }
-          return String(amenity || "");
-        })
-        .filter((label) => label.trim() !== "" && !label.startsWith("custom_"));
-
-      const allAmenities = [...amenityLabels, ...customAmenityLabels];
+      // Convert amenity IDs and custom amenities to clean human labels
+      const allAmenities = formatAmenitiesList(selectedAmenities, customAmenities);
 
       // Convert house rules (array or object) to string for backend display
       const houseRulesLabels = convertHouseRulesToLabels(mergedData.houseRules);
@@ -1063,29 +1043,14 @@ const Review = () => {
           <View style={styles.section}>
             <Text style={styles.subsectionTitle}>Key Amenities</Text>
             <View style={styles.amenitiesContainer}>
-              {selectedAmenities.map((amenityId, index) => (
-                <View key={`amenity-${index}`} style={styles.amenityItem}>
-                  <Check size={16} color="#22C55E" />
-                  <Text style={styles.amenityText}>
-                    {String(getAmenityLabel(amenityId) || "")}
-                  </Text>
-                </View>
-              ))}
-              {customAmenities.map((amenity, index) => {
-                // Handle both string and object formats
-                const amenityLabel =
-                  typeof amenity === "object" && amenity !== null
-                    ? amenity.label || amenity.name || String(amenity.id || "")
-                    : String(amenity || "");
-                return (
-                  <View key={`custom-${index}`} style={styles.amenityItem}>
+              {formatAmenitiesList(selectedAmenities, customAmenities).map(
+                (amenityLabel, index) => (
+                  <View key={`amenity-${index}`} style={styles.amenityItem}>
                     <Check size={16} color="#22C55E" />
-                    <Text style={styles.amenityText}>
-                      {String(amenityLabel || "")}
-                    </Text>
+                    <Text style={styles.amenityText}>{amenityLabel}</Text>
                   </View>
-                );
-              })}
+                )
+              )}
             </View>
           </View>
         )}

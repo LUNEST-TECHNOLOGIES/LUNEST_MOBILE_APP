@@ -66,6 +66,7 @@ import locationService from "../../services/locationService";
 import profileService from "../../services/profileService";
 import { getUserData } from "../../services/userDataService";
 import { getAmenityIcon } from "../../utils/amenityIcons";
+import { formatAmenityLabel } from "../../utils/amenityUtils";
 import { formatCurrency } from "../../utils/currency";
 import { resolveImageUrlSync } from "../../utils/imageUtils";
 import ShieldTickIcon from "../../assets/icons/shield-tick.svg";
@@ -2089,7 +2090,7 @@ const PropertyDetailsScreen = () => {
                     })}
                   </View>
                   <Text style={styles.amenityGridText}>
-                    {amenity.replace(/^custom_/, "").replace(/_/g, " ")}
+                    {formatAmenityLabel(amenity)}
                   </Text>
                 </View>
               ))}

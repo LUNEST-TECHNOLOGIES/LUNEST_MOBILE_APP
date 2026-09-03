@@ -13,7 +13,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Video as AVVideo, ResizeMode } from "expo-av";
-import { ArrowLeft } from "lucide-react-native";
+import { ChevronLeft } from "lucide-react-native";
+import { formatAmenitiesList, formatAmenityLabel } from "../src/utils/amenityUtils";
 
 // Status color configurations
 const STATUS_CONFIG = {
@@ -255,7 +256,10 @@ const ListingPreview = () => {
               bedrooms: listing.bedrooms || 0,
               guests: listing.guests || 1,
               bathrooms: listing.bathrooms || 0,
-              amenities: listing.amenities || [],
+              amenities: formatAmenitiesList(
+                listing.amenities || listing.selectedAmenities || [],
+                listing.customAmenities || []
+              ),
               regulations: convertRegulationsToLabels(
                 listing.regulations || [],
               ),
@@ -358,7 +362,10 @@ const ListingPreview = () => {
         bedrooms: params.bedrooms ? parseInt(params.bedrooms) : 0,
         guests: params.guests ? parseInt(params.guests) : 0,
         bathrooms: params.bathrooms ? parseInt(params.bathrooms) : 0,
-        amenities: safeParseArray(params.amenities, []),
+        amenities: formatAmenitiesList(
+          safeParseArray(params.amenities, []),
+          safeParseArray(params.customAmenities, [])
+        ),
         regulations: convertRegulationsToLabels(
           safeParseArray(params.regulations, []),
         ),
@@ -415,7 +422,7 @@ const ListingPreview = () => {
           onPress={() => router.back()}
           hitSlop={8}
         >
-          <ArrowLeft size={22} color="#010135" />
+          <ChevronLeft size={24} color="#010135" />
         </Pressable>
         <Text style={styles.headerTitle} numberOfLines={1}>
           {listingData.title}
@@ -686,14 +693,18 @@ const ListingPreview = () => {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>What You Get</Text>
             <View style={styles.amenitiesContainer}>
-              {listingData.amenities.map((amenity, index) => (
-                <View key={index} style={styles.amenityItem}>
-                  <View style={styles.amenityCheckmark}>
-                    <Text style={styles.checkmark}>✓</Text>
+              {listingData.amenities.map((amenity, index) => {
+                const label = formatAmenityLabel(amenity);
+                if (!label) return null;
+                return (
+                  <View key={index} style={styles.amenityItem}>
+                    <View style={styles.amenityCheckmark}>
+                      <Text style={styles.checkmark}>✓</Text>
+                    </View>
+                    <Text style={styles.amenityText}>{label}</Text>
                   </View>
-                  <Text style={styles.amenityText}>{amenity}</Text>
-                </View>
-              ))}
+                );
+              })}
             </View>
           </View>
         )}

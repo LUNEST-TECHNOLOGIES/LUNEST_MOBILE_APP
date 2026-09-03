@@ -34,6 +34,7 @@ import { getUserData } from "../../services/userDataService";
 import Skeleton from "../../components/common/Skeleton";
 import configService from "../../services/configService";
 import { getAmenityIcon } from "../../utils/amenityIcons";
+import { formatAmenityLabel } from "../../utils/amenityUtils";
 import { fetchHostData } from "../../services/hostService";
 import listingService from "../../services/listingService";
 import { formatCurrency } from "../../utils/currency";
@@ -955,7 +956,7 @@ const FullDetailsScreen = () => {
                 const Icon = getAmenityIcon(amenity);
                 return <Icon size={20} color="#010135" strokeWidth={2} />;
               })()}
-              <Text style={styles.amenityText}>{amenity}</Text>
+              <Text style={styles.amenityText}>{formatAmenityLabel(amenity)}</Text>
             </View>
           ))}
         </View>

@@ -26,6 +26,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -88,6 +89,32 @@ const Photos = () => {
   const [activeUploads, setActiveUploads] = useState([]);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [previewMedia, setPreviewMedia] = useState(null); // { type: 'photo' | 'video', uri: string }
+  const [videoAspectRatio, setVideoAspectRatio] = useState(16 / 9);
+
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+
+  // Maximum dimensions strictly constrained to device boundaries
+  const previewMaxWidth = Math.max(Math.min(screenWidth - 32, 680), 260);
+  const previewMaxHeight = Math.max(Math.round(screenHeight * 0.70), 280);
+
+  const videoCalculatedDimensions = useMemo(() => {
+    const ar = videoAspectRatio && videoAspectRatio > 0 ? videoAspectRatio : 16 / 9;
+    let w = previewMaxWidth;
+    let h = w / ar;
+    if (h > previewMaxHeight) {
+      h = previewMaxHeight;
+      w = h * ar;
+    }
+    return {
+      width: Math.max(Math.round(w), 240),
+      height: Math.max(Math.round(h), 150),
+    };
+  }, [previewMaxWidth, previewMaxHeight, videoAspectRatio]);
+
+  const handleOpenPreview = (type, uri) => {
+    setVideoAspectRatio(16 / 9);
+    setPreviewMedia({ type, uri });
+  };
 
   // Toast state
   const [toastVisible, setToastVisible] = useState(false);
@@ -577,7 +604,7 @@ const Photos = () => {
                 <View key={`${photoUri}_${index}`} style={styles.photoContainer}>
                   <Pressable
                     style={styles.photoPressable}
-                    onPress={() => setPreviewMedia({ type: "photo", uri: photoUri })}
+                    onPress={() => handleOpenPreview("photo", photoUri)}
                   >
                     <Image source={{ uri: photoUri }} style={styles.photo} />
                   </Pressable>
@@ -666,7 +693,7 @@ const Photos = () => {
                   <View key={`${vidUri}_${index}`} style={styles.videoItemContainer}>
                     <Pressable
                       style={styles.videoPosterContainer}
-                      onPress={() => setPreviewMedia({ type: "video", uri: vidUri })}
+                      onPress={() => handleOpenPreview("video", vidUri)}
                     >
                       <AVVideo
                         source={{ uri: vidUri }}
@@ -682,7 +709,7 @@ const Photos = () => {
 
                     <Pressable
                       style={styles.videoInfoWrapper}
-                      onPress={() => setPreviewMedia({ type: "video", uri: vidUri })}
+                      onPress={() => handleOpenPreview("video", vidUri)}
                     >
                       <View style={{ flex: 1 }}>
                         <Text style={styles.videoFileName} numberOfLines={1}>
@@ -784,37 +811,44 @@ const Photos = () => {
 
             <View style={styles.previewMediaWrapper}>
               {previewMedia?.type === "video" ? (
-                <AVVideo
-                  source={{ uri: previewMedia.uri }}
+                <View
                   style={[
-                    styles.fullScreenVideo,
-                    {
+                    styles.videoBoxWrapper,
+                    videoCalculatedDimensions,
+                  ]}
+                >
+                  <AVVideo
+                    source={{ uri: previewMedia.uri }}
+                    style={{
                       width: "100%",
                       height: "100%",
-                      maxHeight: "100%",
-                    },
-                    Platform.OS === "web" && {
-                      maxHeight: "80vh",
-                      objectFit: "contain",
-                    },
-                  ]}
-                  useNativeControls={true}
-                  resizeMode={ResizeMode.CONTAIN}
-                  shouldPlay={true}
-                  isLooping={true}
-                />
+                    }}
+                    useNativeControls={true}
+                    resizeMode={ResizeMode.CONTAIN}
+                    shouldPlay={true}
+                    isLooping={true}
+                    onReadyForDisplay={(event) => {
+                      const natW = event.naturalSize?.width;
+                      const natH = event.naturalSize?.height;
+                      if (natW && natH && natH > 0) {
+                        setVideoAspectRatio(natW / natH);
+                      }
+                    }}
+                  />
+                </View>
               ) : previewMedia?.type === "photo" ? (
                 <Image
                   source={{ uri: previewMedia?.uri }}
                   style={[
                     styles.fullScreenImage,
                     {
-                      width: "100%",
-                      height: "100%",
+                      width: previewMaxWidth,
+                      height: previewMaxHeight,
+                      maxWidth: "100%",
                       maxHeight: "100%",
                     },
                     Platform.OS === "web" && {
-                      maxHeight: "80vh",
+                      maxHeight: "72vh",
                       objectFit: "contain",
                     },
                   ]}
@@ -1196,26 +1230,22 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
     paddingBottom: Platform.OS === "ios" ? 34 : 16,
     width: "100%",
-    maxWidth: 960,
     alignSelf: "center",
     overflow: "hidden",
   },
-  fullScreenVideo: {
-    width: "100%",
-    height: "100%",
-    flex: 1,
-    alignSelf: "center",
+  videoBoxWrapper: {
     backgroundColor: "#000000",
     borderRadius: 12,
     overflow: "hidden",
+    alignSelf: "center",
+    justifyContent: "center",
+    alignItems: "center",
+    maxWidth: "100%",
   },
   fullScreenImage: {
-    width: "100%",
-    height: "100%",
-    flex: 1,
     alignSelf: "center",
     borderRadius: 12,
   },

@@ -847,108 +847,120 @@ const KYCVerificationScreen = () => {
                 </View>
               </View>
 
-              {/* NIN / vNIN Form */}
-              <View style={{ gap: 14 }}>
-                {/* 1. NIN / vNIN Input Field */}
-                <View style={styles.inputContainer}>
-                  <Text style={styles.inputLabel}>National Identification Number (NIN / vNIN)</Text>
-                  <TextInput
-                    id="kora-nin-input"
-                    style={[
-                      styles.input,
-                      ninError ? { borderColor: "#EF4444" } : null,
-                    ]}
-                    placeholder="Enter 11-digit NIN or 16-character vNIN"
-                    placeholderTextColor="#9CA3AF"
-                    value={ninInput}
-                    onChangeText={(text) => {
-                      setNinInput(text.trim().toUpperCase());
-                      if (ninError) setNinError("");
-                    }}
-                    autoCapitalize="characters"
-                    maxLength={16}
-                    returnKeyType="done"
-                  />
-                  {!!ninError && (
-                    <Text style={{ color: "#EF4444", fontSize: 12, marginTop: 4 }}>{ninError}</Text>
-                  )}
-                  {ninInput.trim().length < 11 && (
-                    <Text style={{ fontSize: 11, color: "#6B7280", marginTop: 6, lineHeight: 16 }}>
-                      Enter your 11-digit NIN or 16-character vNIN to verify your government record and lock it to your profile.
-                    </Text>
+              {/* Consent Checkbox First for Kora */}
+              <TouchableOpacity
+                style={styles.consentContainer}
+                onPress={() => setConsentChecked(!consentChecked)}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.checkbox, consentChecked && styles.checkboxChecked]}>
+                  {consentChecked && (
+                    <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
+                      <Path d="M20 6L9 17L4 12" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                    </Svg>
                   )}
                 </View>
+                <Text style={styles.consentText}>
+                  I consent to the secure processing of my NIN for identity verification purposes.
+                </Text>
+              </TouchableOpacity>
 
-                {/* 2. Official Registered Name Field (soft check) */}
-                {ninInput.trim().length >= 11 && (
+              {/* NIN / vNIN Form (Revealed ONLY after consent is checked) */}
+              {consentChecked ? (
+                <View style={{ gap: 14, marginTop: 14 }}>
+                  {/* 1. NIN / vNIN Input Field */}
                   <View style={styles.inputContainer}>
-                    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-                      <Text style={styles.inputLabel}>Official Registered Name</Text>
+                    <Text style={styles.inputLabel}>National Identification Number (NIN / vNIN)</Text>
+                    <TextInput
+                      id="kora-nin-input"
+                      style={[
+                        styles.input,
+                        ninError ? { borderColor: "#EF4444" } : null,
+                      ]}
+                      placeholder="Enter 11-digit NIN or 16-character vNIN"
+                      placeholderTextColor="#9CA3AF"
+                      value={ninInput}
+                      onChangeText={(text) => {
+                        setNinInput(text.trim().toUpperCase());
+                        if (ninError) setNinError("");
+                      }}
+                      autoCapitalize="characters"
+                      maxLength={16}
+                      returnKeyType="done"
+                    />
+                    {!!ninError && (
+                      <Text style={{ color: "#EF4444", fontSize: 12, marginTop: 4 }}>{ninError}</Text>
+                    )}
+                    {ninInput.trim().length < 11 && (
+                      <Text style={{ fontSize: 11, color: "#6B7280", marginTop: 6, lineHeight: 16 }}>
+                        Enter your 11-digit NIN or 16-character vNIN to verify your government record and lock it to your profile.
+                      </Text>
+                    )}
+                  </View>
+
+                  {/* 2. Official Registered Name Field (soft check) */}
+                  {ninInput.trim().length >= 11 && (
+                    <View style={styles.inputContainer}>
+                      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                        <Text style={styles.inputLabel}>Official Registered Name</Text>
+                        {isFetchingNinName ? (
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                            <ActivityIndicator size="small" color="#008751" />
+                            <Text style={{ fontSize: 10, fontWeight: "700", color: "#008751" }}>FETCHING...</Text>
+                          </View>
+                        ) : (
+                          <Text style={{ fontSize: 10, fontWeight: "700", color: "#6B7280", letterSpacing: 0.5 }}>🔒 UNEDITABLE</Text>
+                        )}
+                      </View>
+
                       {isFetchingNinName ? (
-                        <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                        <View style={[styles.disabledInputBox, { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: "#ECFDF5", borderColor: "#A7F3D0" }]}>
                           <ActivityIndicator size="small" color="#008751" />
-                          <Text style={{ fontSize: 10, fontWeight: "700", color: "#008751" }}>FETCHING...</Text>
+                          <Text style={{ fontSize: 13, fontWeight: "600", color: "#047857" }}>
+                            Checking NIN status with database...
+                          </Text>
+                        </View>
+                      ) : ninFetchedName ? (
+                        <View style={[styles.disabledInputBox, { flexDirection: "row", alignItems: "center", gap: 10, borderColor: "#A7F3D0", backgroundColor: "#F0FDF4" }]}>
+                          <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+                            <Circle cx="12" cy="12" r="11" fill="#008751" />
+                            <Path d="M7.5 12L10.5 15L16.5 9" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                          </Svg>
+                          <Text style={[styles.disabledInputText, { color: "#064E3B", fontWeight: "700" }]}>
+                            {ninFetchedName}
+                          </Text>
                         </View>
                       ) : (
-                        <Text style={{ fontSize: 10, fontWeight: "700", color: "#6B7280", letterSpacing: 0.5 }}>🔒 UNEDITABLE</Text>
+                        <View style={[styles.disabledInputBox, { flexDirection: "row", alignItems: "center", gap: 10, borderColor: "#E5E7EB", backgroundColor: "#F9FAFB" }]}>
+                          <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+                            <Circle cx="12" cy="12" r="10" stroke="#008751" strokeWidth="2" fill="none" />
+                            <Path d="M12 8V12M12 16H12.01" stroke="#008751" strokeWidth="2" strokeLinecap="round" />
+                          </Svg>
+                          <Text style={{ fontSize: 13, fontWeight: "600", color: "#374151" }}>
+                            Ready to verify NIN with official database
+                          </Text>
+                        </View>
                       )}
+
+                      <Text style={{ fontSize: 11, color: "#6B7280", marginTop: 4, lineHeight: 16 }}>
+                        {ninFetchedName
+                          ? "This NIN is verified and locked to your account profile."
+                          : "Tap 'Verify KYC Identity' below to validate this NIN with Korapay and retrieve your official record."}
+                      </Text>
                     </View>
-
-                    {isFetchingNinName ? (
-                      <View style={[styles.disabledInputBox, { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: "#ECFDF5", borderColor: "#A7F3D0" }]}>
-                        <ActivityIndicator size="small" color="#008751" />
-                        <Text style={{ fontSize: 13, fontWeight: "600", color: "#047857" }}>
-                          Checking NIN status with database...
-                        </Text>
-                      </View>
-                    ) : ninFetchedName ? (
-                      <View style={[styles.disabledInputBox, { flexDirection: "row", alignItems: "center", gap: 10, borderColor: "#A7F3D0", backgroundColor: "#F0FDF4" }]}>
-                        <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-                          <Circle cx="12" cy="12" r="11" fill="#008751" />
-                          <Path d="M7.5 12L10.5 15L16.5 9" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                        </Svg>
-                        <Text style={[styles.disabledInputText, { color: "#064E3B", fontWeight: "700" }]}>
-                          {ninFetchedName}
-                        </Text>
-                      </View>
-                    ) : (
-                      <View style={[styles.disabledInputBox, { flexDirection: "row", alignItems: "center", gap: 10, borderColor: "#E5E7EB", backgroundColor: "#F9FAFB" }]}>
-                        <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-                          <Circle cx="12" cy="12" r="10" stroke="#008751" strokeWidth="2" fill="none" />
-                          <Path d="M12 8V12M12 16H12.01" stroke="#008751" strokeWidth="2" strokeLinecap="round" />
-                        </Svg>
-                        <Text style={{ fontSize: 13, fontWeight: "600", color: "#374151" }}>
-                          Ready to verify NIN with official database
-                        </Text>
-                      </View>
-                    )}
-
-                    <Text style={{ fontSize: 11, color: "#6B7280", marginTop: 4, lineHeight: 16 }}>
-                      {ninFetchedName
-                        ? "This NIN is verified and locked to your account profile."
-                        : "Tap 'Verify KYC Identity' below to validate this NIN with Korapay and retrieve your official record."}
-                    </Text>
-                  </View>
-                )}
-
-                {/* Consent Checkbox */}
-                <TouchableOpacity
-                  style={styles.consentContainer}
-                  onPress={() => setConsentChecked(!consentChecked)}
-                  activeOpacity={0.7}
-                >
-                  <View style={[styles.checkbox, consentChecked && styles.checkboxChecked]}>
-                    {consentChecked && (
-                      <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
-                        <Path d="M20 6L9 17L4 12" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-                      </Svg>
-                    )}
-                  </View>
-                  <Text style={styles.consentText}>
-                    I authorize LUNEST and licensed partner Kora Identity to securely verify my National Identification Number against official government identity databases.
+                  )}
+                </View>
+              ) : (
+                <View style={[styles.noticeSecurityBadge, { marginTop: 10, paddingVertical: 10 }]}>
+                  <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
+                    <Circle cx="12" cy="12" r="10" stroke="#008751" strokeWidth="2" fill="none" />
+                    <Path d="M12 8V12M12 16H12.01" stroke="#008751" strokeWidth="2" strokeLinecap="round" />
+                  </Svg>
+                  <Text style={[styles.noticeSecurityText, { color: "#065F46" }]}>
+                    Check the consent box above to enter your NIN and proceed with verification.
                   </Text>
-                </TouchableOpacity>
-              </View>
+                </View>
+              )}
             </View>
           )}
 

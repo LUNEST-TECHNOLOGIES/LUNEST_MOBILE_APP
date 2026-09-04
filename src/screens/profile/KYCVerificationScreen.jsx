@@ -189,7 +189,7 @@ const KYCVerificationScreen = () => {
             setRejectionReason(uData.kycData.rejectionReason);
           }
         }
-      } catch (e) {}
+      } catch (e) { }
 
       // 2. Auth check
       const loggedIn = await authService.isLoggedIn();
@@ -735,7 +735,7 @@ const KYCVerificationScreen = () => {
                 </View>
               </View>
               <Text style={[styles.tabSubText, activeTab === "KORA" && styles.tabSubTextActive]}>
-                Kora · Instant Database
+                Kora · Instant Verification
               </Text>
             </TouchableOpacity>
 
@@ -873,7 +873,7 @@ const KYCVerificationScreen = () => {
                     <Text style={{ color: "#EF4444", fontSize: 12, marginTop: 4 }}>{ninError}</Text>
                   )}
                   {ninInput.trim().length < 11 && (
-                     <Text style={{ fontSize: 11, color: "#6B7280", marginTop: 6, lineHeight: 16 }}>
+                    <Text style={{ fontSize: 11, color: "#6B7280", marginTop: 6, lineHeight: 16 }}>
                       Enter your 11-digit NIN or 16-character vNIN to verify your government record and lock it to your profile.
                     </Text>
                   )}

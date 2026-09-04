@@ -28,7 +28,9 @@ import {
 import { ProfileSkeleton } from "../../components/skeletons";
 import { HOST_APPLICATION_STATUS } from "../../components/profile/SwitchToHostButton";
 import { USER_MODES, useUserMode } from "../../context";
+import { useProductTour } from "../../context/ProductTourContext";
 import axiosInstance from "../../lib/axiosInstance";
+
 import authService from "../../services/authService";
 import logService from "../../services/logService";
 import LogoutModal from "../../components/common/LogoutModal";
@@ -56,7 +58,9 @@ const ProfileScreen = ({ isHostMode: isHostModeProp = false }) => {
     refreshHostStatus,
     cancelSwitch,
   } = useUserMode();
+  const { startTour } = useProductTour();
   const [isRefreshingState, setIsRefreshingState] = useState(false);
+
   const [mounted, setMounted] = useState(false);
   const [isLogoutModalVisible, setIsLogoutModalVisible] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -379,7 +383,17 @@ const ProfileScreen = ({ isHostMode: isHostModeProp = false }) => {
         router.push("/support-chat");
       },
     },
+    {
+      id: "tour",
+      icon: "help",
+      title: "Take App Tour",
+      onPress: () => {
+        startTour({ force: true, role: isInHostMode ? "host" : "guest" });
+        router.replace(isInHostMode ? "/(host-tabs)" : "/(tabs)");
+      },
+    },
   ];
+
 
   const otherItems = [
     {

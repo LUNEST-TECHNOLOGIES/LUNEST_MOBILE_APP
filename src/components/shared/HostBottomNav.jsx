@@ -20,6 +20,8 @@ import BookingsIcon from "../../assets/icons/navbar/BookingsIcon.svg";
 import DashboardIcon from "../../assets/icons/navbar/DashboardIcon.svg";
 import MessagesIcon from "../../assets/icons/navbar/MessagesIcon.svg";
 import ProfileIcon from "../../assets/icons/navbar/ProfileIcon.svg";
+import { TourAnchor } from "../tour";
+
 
 /**
  * HostBottomNav Component
@@ -192,7 +194,18 @@ const HostBottomNav = () => {
           const iconColor = isActive ? "#192DFF" : "#292929";
           const isProfileTab = tab.key === "profile";
 
-          return (
+          const anchorId =
+            tab.key === "dashboard"
+              ? "tour-host-nav-dashboard"
+              : tab.key === "bookings"
+              ? "tour-host-nav-bookings"
+              : tab.key === "listings"
+              ? "tour-host-nav-listings"
+              : tab.key === "profile"
+              ? "tour-host-nav-profile"
+              : null;
+
+          const tabElement = (
             <Pressable
               key={tab.key}
               style={styles.tab}
@@ -250,6 +263,16 @@ const HostBottomNav = () => {
               )}
             </Pressable>
           );
+
+          if (anchorId) {
+            return (
+              <TourAnchor key={tab.key} id={anchorId} style={{ flex: 1 }}>
+                {tabElement}
+              </TourAnchor>
+            );
+          }
+
+          return tabElement;
         })}
       </View>
     </View>

@@ -23,6 +23,8 @@ import TopPicksSection from "../../components/home/TopPicksSection";
 import FilterModal from "../../components/modals/FilterModal";
 import { CategorySlider } from "../../components/shared";
 import PropertyListingCard from "../../components/shared/PropertyListingCard";
+import { TourAnchor } from "../../components/tour";
+
 import { usePremiumUI } from "../../hooks/usePremiumUI";
 import authService from "../../services/authService";
 import bookmarkService from "../../services/bookmarkService";
@@ -943,87 +945,90 @@ const HomeScreen = () => {
 
       {/* Top Picks Near You Section - ONLY show when category is 'all' */}
       {(activeCategory === "all" || !activeCategory) && (
-        <TopPicksSection
-          externalListings={topPicksListings}
-          bookmarkMap={bookmarkMap}
-          onPropertyPress={(property) => {
-            console.log("View property:", property.id);
-            console.log("[HomeScreen] Property data structure:", {
-              id: property.id,
-              _id: property._id,
-              latitude: property.latitude,
-              longitude: property.longitude,
-              propertyLocation: property.propertyLocation,
-            });
-            // Navigate to property details from Top Picks
-            navigateToPropertyDetails(property.id);
-          }}
-          onFavoritePress={async (id, isFavorite) => {
-            console.log(
-              "[HomeScreen] Top Picks favorite pressed:",
-              id,
-              "new state:",
-              isFavorite,
-            );
-            try {
-              // Get current bookmark status for this listing
-              const currentStatus = bookmarkMap[id] || {
-                isBookmarked: false,
-                bookmarkId: null,
-              };
-
+        <TourAnchor id="tour-property-card">
+          <TopPicksSection
+            externalListings={topPicksListings}
+            bookmarkMap={bookmarkMap}
+            onPropertyPress={(property) => {
+              console.log("View property:", property.id);
+              console.log("[HomeScreen] Property data structure:", {
+                id: property.id,
+                _id: property._id,
+                latitude: property.latitude,
+                longitude: property.longitude,
+                propertyLocation: property.propertyLocation,
+              });
+              // Navigate to property details from Top Picks
+              navigateToPropertyDetails(property.id);
+            }}
+            onFavoritePress={async (id, isFavorite) => {
               console.log(
-                "[HomeScreen] Current bookmark status:",
-                currentStatus.isBookmarked,
-              );
-
-              // Toggle bookmark via service - pass CURRENT state, not the new state
-              const result = await bookmarkService.toggleBookmark(
+                "[HomeScreen] Top Picks favorite pressed:",
                 id,
-                currentStatus.isBookmarked,
-                currentStatus.bookmarkId,
+                "new state:",
+                isFavorite,
               );
+              try {
+                // Get current bookmark status for this listing
+                const currentStatus = bookmarkMap[id] || {
+                  isBookmarked: false,
+                  bookmarkId: null,
+                };
 
-              if (result.success) {
-                // Update bookmark map
-                const updatedStatus =
-                  await bookmarkService.isListingBookmarked(id);
-                setBookmarkMap((prev) => ({
-                  ...prev,
-                  [id]: updatedStatus,
-                }));
                 console.log(
-                  "[HomeScreen] Top Picks bookmark toggled successfully",
-                  result.action,
+                  "[HomeScreen] Current bookmark status:",
+                  currentStatus.isBookmarked,
                 );
-                // Show success toast
-                if (result.action === "added") {
-                  setToastMessage("Property saved to favorites");
-                  setToastType("success");
+
+                // Toggle bookmark via service - pass CURRENT state, not the new state
+                const result = await bookmarkService.toggleBookmark(
+                  id,
+                  currentStatus.isBookmarked,
+                  currentStatus.bookmarkId,
+                );
+
+                if (result.success) {
+                  // Update bookmark map
+                  const updatedStatus =
+                    await bookmarkService.isListingBookmarked(id);
+                  setBookmarkMap((prev) => ({
+                    ...prev,
+                    [id]: updatedStatus,
+                  }));
+                  console.log(
+                    "[HomeScreen] Top Picks bookmark toggled successfully",
+                    result.action,
+                  );
+                  // Show success toast
+                  if (result.action === "added") {
+                    setToastMessage("Property saved to favorites");
+                    setToastType("success");
+                  } else {
+                    setToastMessage("Property removed from favorites");
+                    setToastType("info");
+                  }
+                  setShowToast(true);
                 } else {
-                  setToastMessage("Property removed from favorites");
-                  setToastType("info");
+                  console.error("[HomeScreen] Failed to toggle top picks bookmark");
+                  setToastMessage(result.message || "Failed to update bookmark");
+                  setToastType("error");
+                  setShowToast(true);
                 }
-                setShowToast(true);
-              } else {
-                console.error("[HomeScreen] Failed to toggle top picks bookmark");
-                setToastMessage(result.message || "Failed to update bookmark");
+              } catch (error) {
+                console.error(
+                  "[HomeScreen] Error toggling top picks favorite:",
+                  error,
+                );
+                setToastMessage("Failed to update bookmark");
                 setToastType("error");
                 setShowToast(true);
               }
-            } catch (error) {
-              console.error(
-                "[HomeScreen] Error toggling top picks favorite:",
-                error,
-              );
-              setToastMessage("Failed to update bookmark");
-              setToastType("error");
-              setShowToast(true);
-            }
-          }}
-          onSeeAllPress={() => console.log("See all top picks")}
-        />
+            }}
+            onSeeAllPress={() => console.log("See all top picks")}
+          />
+        </TourAnchor>
       )}
+
 
       {/* Explore Now Section Header */}
       <SectionHeader title="Explore now" icon="compass" showSeeAll={false} />

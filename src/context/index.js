@@ -7,4 +7,5 @@ export {
     useAccountStatus
 } from "./AccountStatusContext";
 export { USER_MODES, UserModeProvider, useUserMode } from "./UserModeContext";
+export { ProductTourProvider, useProductTour } from "./ProductTourContext";
 

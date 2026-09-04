@@ -20,6 +20,8 @@ import HomeIcon from "../../assets/icons/navbar/HomeIcon.svg";
 import MessagesIcon from "../../assets/icons/navbar/MessagesIcon.svg";
 import ProfileIcon from "../../assets/icons/navbar/ProfileIcon.svg";
 import SavedIcon from "../../assets/icons/navbar/SavedIcon.svg";
+import { TourAnchor } from "../tour";
+
 
 /**
  * GuestBottomNav Component
@@ -185,7 +187,16 @@ const GuestBottomNav = () => {
           const textColor = isActive ? "#192DFF" : "#6D6D6D";
           const isProfileTab = tab.key === "profile";
 
-          return (
+          const anchorId =
+            tab.key === "bookings"
+              ? "tour-guest-nav-bookings"
+              : tab.key === "saved"
+              ? "tour-guest-nav-saved"
+              : tab.key === "profile"
+              ? "tour-guest-nav-profile"
+              : null;
+
+          const tabElement = (
             <Pressable
               key={tab.key}
               style={styles.tab}
@@ -243,6 +254,16 @@ const GuestBottomNav = () => {
               )}
             </Pressable>
           );
+
+          if (anchorId) {
+            return (
+              <TourAnchor key={tab.key} id={anchorId} style={{ flex: 1 }}>
+                {tabElement}
+              </TourAnchor>
+            );
+          }
+
+          return tabElement;
         })}
       </View>
     </View>

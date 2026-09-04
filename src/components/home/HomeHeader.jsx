@@ -1,6 +1,7 @@
 import { Platform, Pressable, StatusBar, StyleSheet, Text, View } from "react-native";
 import LocationIcon from "../../assets/icons/home/LocationIcon.svg";
 import NotificationIcon from "../../assets/icons/home/NotificationIcon.svg";
+import { TourAnchor } from "../tour";
 
 const HomeHeader = ({ 
   location = "Abuja, Nigeria.", 
@@ -11,28 +12,33 @@ const HomeHeader = ({
   return (
     <View style={styles.container}>
       {/* Location - Left Side */}
-      <Pressable style={styles.locationContainer} onPress={onLocationPress}>
-        <LocationIcon width={22} height={22} color="#192DFF" />
-        <Text style={styles.locationText}>{location}</Text>
-      </Pressable>
+      <TourAnchor id="tour-home-header">
+        <Pressable style={styles.locationContainer} onPress={onLocationPress}>
+          <LocationIcon width={22} height={22} color="#192DFF" />
+          <Text style={styles.locationText}>{location}</Text>
+        </Pressable>
+      </TourAnchor>
 
       {/* Notification - Right Side */}
-      <Pressable 
-        style={styles.notificationButton}
-        onPress={onNotificationPress}
-      >
-        <NotificationIcon width={24} height={24} color="#292929" />
-        {notificationCount > 0 && (
-          <View style={styles.badgeWrapper}>
-            <Text style={styles.badgeText}>
-              {notificationCount > 99 ? "99" : notificationCount}
-            </Text>
-          </View>
-        )}
-      </Pressable>
+      <TourAnchor id="tour-notifications-btn">
+        <Pressable 
+          style={styles.notificationButton}
+          onPress={onNotificationPress}
+        >
+          <NotificationIcon width={24} height={24} color="#292929" />
+          {notificationCount > 0 && (
+            <View style={styles.badgeWrapper}>
+              <Text style={styles.badgeText}>
+                {notificationCount > 99 ? "99" : notificationCount}
+              </Text>
+            </View>
+          )}
+        </Pressable>
+      </TourAnchor>
     </View>
   );
 };
+
 
 const styles = StyleSheet.create({
   container: {

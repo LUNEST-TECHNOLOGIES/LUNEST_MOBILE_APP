@@ -21,6 +21,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useUserMode } from "../../context";
+import { TourAnchor } from "../../components/tour";
+
 
 // Dashboard Components
 import {
@@ -357,20 +359,22 @@ const HostDashboardScreen = () => {
 
         {/* Stats Cards */}
         <View style={isTablet ? styles.containerTablet : undefined}>
-          <DashboardStatsCards
-            totalEarnings={dashboardData.totalEarnings}
-            walletBalance={dashboardData.walletBalance}
-            pendingBalance={dashboardData.pendingBalance}
-            pendingBalanceLabel={dashboardData.pendingBalanceLabel}
-            onHoldEarnings={dashboardData.onHoldEarnings}
-            onHoldCaution={dashboardData.onHoldCaution}
-            onHoldPlatformFee={dashboardData.onHoldPlatformFee}
-            onHoldVat={dashboardData.onHoldVat}
-            totalBookings={dashboardData.totalBookings}
-            totalListings={dashboardData.totalListings}
-            hostRating={dashboardData.hostRating}
-            hostRatingCount={dashboardData.hostRatingCount}
-          />
+          <TourAnchor id="tour-host-nav-earnings">
+            <DashboardStatsCards
+              totalEarnings={dashboardData.totalEarnings}
+              walletBalance={dashboardData.walletBalance}
+              pendingBalance={dashboardData.pendingBalance}
+              pendingBalanceLabel={dashboardData.pendingBalanceLabel}
+              onHoldEarnings={dashboardData.onHoldEarnings}
+              onHoldCaution={dashboardData.onHoldCaution}
+              onHoldPlatformFee={dashboardData.onHoldPlatformFee}
+              onHoldVat={dashboardData.onHoldVat}
+              totalBookings={dashboardData.totalBookings}
+              totalListings={dashboardData.totalListings}
+              hostRating={dashboardData.hostRating}
+              hostRatingCount={dashboardData.hostRatingCount}
+            />
+          </TourAnchor>
         </View>
 
         {/* Quick Action Cards */}
@@ -424,7 +428,9 @@ const HostDashboardScreen = () => {
       </ScrollView>
 
       {/* Floating Action Button */}
-      <CreateListingFAB onPress={handleCreateListing} />
+      <TourAnchor id="tour-host-create-listing">
+        <CreateListingFAB onPress={handleCreateListing} />
+      </TourAnchor>
     </SafeAreaView>
   );
 };

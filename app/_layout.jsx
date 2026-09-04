@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Alert, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { AccountStatusProvider, UserModeProvider } from "../src/context";
+import { AccountStatusProvider, UserModeProvider, ProductTourProvider } from "../src/context";
+import { ProductTourOverlay } from "../src/components/tour";
 import { useReferralTracker } from "../src/hooks/useReferralTracker";
 import OfflineBanner from "../src/components/common/OfflineBanner";
 import ErrorBoundary from "../src/components/common/ErrorBoundary";
@@ -100,21 +101,13 @@ export default function RootLayout() {
         authService.initialize()
       ]);
 
-      // 2. Load onboarding storage and authenticate status in parallel
-      const [onboardingValue, loggedIn] = await Promise.all([
-        AsyncStorage.getItem(ONBOARDING_KEY),
-        // Add a 4-second timeout guard so slow network refresh/cold backend never hangs the app launch spinner
-        Promise.race([
-          authService.isLoggedIn(),
-          new Promise((resolve) => setTimeout(() => {
-            console.warn("[App] Auth verification check timed out. Bypassing spinner.");
-            resolve(false);
-          }, 4000))
-        ])
-      ]);
-
-      setHasCompletedOnboarding(onboardingValue === "true");
+      // 2. Auth check
+      const loggedIn = await authService.isLoggedIn();
       setIsAuthenticated(loggedIn);
+
+      // 3. Check onboarding status
+      const onboardingStatus = await AsyncStorage.getItem(ONBOARDING_KEY);
+      setHasCompletedOnboarding(onboardingStatus === "true");
     } catch (error) {
       console.error("Error checking app status:", error);
     } finally {
@@ -142,36 +135,39 @@ export default function RootLayout() {
                     <ActivityIndicator size="large" color="#192DFF" />
                   </View>
                 ) : (
-                  <Stack
-                    screenOptions={{
-                      headerShown: false,
-                    }}
-                  >
-                    <Stack.Screen name="index" options={{ headerShown: false }} />
-                    <Stack.Screen name="onboarding" options={{ headerShown: false }} />
-                    <Stack.Screen name="signup" options={{ headerShown: false }} />
-                    <Stack.Screen name="forgot-password" options={{ headerShown: false }} />
-                    <Stack.Screen name="verify-code" options={{ headerShown: false }} />
-                    <Stack.Screen name="reset-password" options={{ headerShown: false }} />
-                    <Stack.Screen name="login" options={{ headerShown: false }} />
-                    <Stack.Screen name="(tabs)" options={{ gestureEnabled: false }} />
-                    <Stack.Screen name="(host-tabs)" options={{ gestureEnabled: false }} />
-                    <Stack.Screen name="+not-found" options={{ headerShown: false }} />
-                    <Stack.Screen name="landlord-request" options={{ presentation: "card", headerShown: false }} />
-                    <Stack.Screen name="host-request-pending" options={{ presentation: "card", headerShown: false }} />
-                    <Stack.Screen name="property-details" options={{ presentation: "card", headerShown: false }} />
-                    <Stack.Screen name="select-booking-details" options={{ presentation: "card", headerShown: false }} />
-                    <Stack.Screen name="booking-details" options={{ presentation: "card", headerShown: false }} />
-                    <Stack.Screen name="booking-summary" options={{ presentation: "card", headerShown: false }} />
-                    <Stack.Screen name="booking-confirmation" options={{ presentation: "transparentModal", headerShown: false, animationEnabled: true }} />
-                    <Stack.Screen name="pay-with-wallet" options={{ presentation: "card", headerShown: false }} />
-                    <Stack.Screen name="transaction-detail" options={{ presentation: "card", headerShown: false }} />
-                    <Stack.Screen name="full-details" options={{ presentation: "card", headerShown: false }} />
-                    <Stack.Screen name="host-information" options={{ presentation: "card", headerShown: false }} />
-                    <Stack.Screen name="personal-info-edit" options={{ presentation: "card", headerShown: false }} />
-                    <Stack.Screen name="referrals" options={{ presentation: "card", headerShown: false }} />
-                    <Stack.Screen name="modal" options={{ presentation: "modal", headerShown: false }} />
-                  </Stack>
+                  <ProductTourProvider>
+                    <Stack
+                      screenOptions={{
+                        headerShown: false,
+                      }}
+                    >
+                      <Stack.Screen name="index" options={{ headerShown: false }} />
+                      <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+                      <Stack.Screen name="signup" options={{ headerShown: false }} />
+                      <Stack.Screen name="forgot-password" options={{ headerShown: false }} />
+                      <Stack.Screen name="verify-code" options={{ headerShown: false }} />
+                      <Stack.Screen name="reset-password" options={{ headerShown: false }} />
+                      <Stack.Screen name="login" options={{ headerShown: false }} />
+                      <Stack.Screen name="(tabs)" options={{ gestureEnabled: false }} />
+                      <Stack.Screen name="(host-tabs)" options={{ gestureEnabled: false }} />
+                      <Stack.Screen name="+not-found" options={{ headerShown: false }} />
+                      <Stack.Screen name="landlord-request" options={{ presentation: "card", headerShown: false }} />
+                      <Stack.Screen name="host-request-pending" options={{ presentation: "card", headerShown: false }} />
+                      <Stack.Screen name="property-details" options={{ presentation: "card", headerShown: false }} />
+                      <Stack.Screen name="select-booking-details" options={{ presentation: "card", headerShown: false }} />
+                      <Stack.Screen name="booking-details" options={{ presentation: "card", headerShown: false }} />
+                      <Stack.Screen name="booking-summary" options={{ presentation: "card", headerShown: false }} />
+                      <Stack.Screen name="booking-confirmation" options={{ presentation: "transparentModal", headerShown: false, animationEnabled: true }} />
+                      <Stack.Screen name="pay-with-wallet" options={{ presentation: "card", headerShown: false }} />
+                      <Stack.Screen name="transaction-detail" options={{ presentation: "card", headerShown: false }} />
+                      <Stack.Screen name="full-details" options={{ presentation: "card", headerShown: false }} />
+                      <Stack.Screen name="host-information" options={{ presentation: "card", headerShown: false }} />
+                      <Stack.Screen name="personal-info-edit" options={{ presentation: "card", headerShown: false }} />
+                      <Stack.Screen name="referrals" options={{ presentation: "card", headerShown: false }} />
+                      <Stack.Screen name="modal" options={{ presentation: "modal", headerShown: false }} />
+                    </Stack>
+                    <ProductTourOverlay />
+                  </ProductTourProvider>
                 )}
                 <PwaInstallPrompt />
               </SafeAreaProvider>

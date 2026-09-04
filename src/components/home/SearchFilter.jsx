@@ -1,6 +1,8 @@
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import SearchIcon from "../../assets/icons/home/SearchIcon.svg";
 import FilterIcon from "../../assets/icons/navbar/vuesax/outline/setting-4.svg";
+import { TourAnchor } from "../tour";
+
 
 const SearchFilter = ({
   placeholder = "Search apartments, hotels, location...",
@@ -57,36 +59,39 @@ const SearchFilter = ({
   return (
     <View style={styles.container}>
       {/* Search Input Row */}
-      <View style={styles.searchRow}>
-        <Pressable style={styles.searchInputWrapper} onPress={onSubmit}>
-          <SearchIcon width={20} height={20} color="#9E9E9E" />
-          <TextInput
-            style={styles.textInput}
-            placeholder={placeholder}
-            placeholderTextColor="#9E9E9E"
-            value={value}
-            onChangeText={onChangeText}
-            returnKeyType="search"
-            onSubmitEditing={onSubmit}
-          />
-        </Pressable>
+      <TourAnchor id="tour-search-bar">
+        <View style={styles.searchRow}>
+          <Pressable style={styles.searchInputWrapper} onPress={onSubmit}>
+            <SearchIcon width={20} height={20} color="#9E9E9E" />
+            <TextInput
+              style={styles.textInput}
+              placeholder={placeholder}
+              placeholderTextColor="#9E9E9E"
+              value={value}
+              onChangeText={onChangeText}
+              returnKeyType="search"
+              onSubmitEditing={onSubmit}
+            />
+          </Pressable>
 
-        {/* Filter Button */}
-        <Pressable
-          style={({ pressed }) => [
-            styles.filterButton,
-            pressed && styles.filterButtonPressed,
-          ]}
-          onPress={onFilterPress}
-        >
-          <FilterIcon width={20} height={20} color="#7C7C7C" />
-          {activeFilterCount > 0 && (
-            <View style={styles.filterBadge}>
-              <Text style={styles.filterBadgeText}>{activeFilterCount}</Text>
-            </View>
-          )}
-        </Pressable>
-      </View>
+          {/* Filter Button */}
+          <Pressable
+            style={({ pressed }) => [
+              styles.filterButton,
+              pressed && styles.filterButtonPressed,
+            ]}
+            onPress={onFilterPress}
+          >
+            <FilterIcon width={20} height={20} color="#7C7C7C" />
+            {activeFilterCount > 0 && (
+              <View style={styles.filterBadge}>
+                <Text style={styles.filterBadgeText}>{activeFilterCount}</Text>
+              </View>
+            )}
+          </Pressable>
+        </View>
+      </TourAnchor>
+
 
       {/* Filter Chips Row */}
       {filterChips.length > 0 && (

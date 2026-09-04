@@ -116,8 +116,8 @@ export const PostTourKycModal = () => {
               </View>
 
               <View style={styles.benefitCard}>
-                <View style={[styles.benefitIconBox, { backgroundColor: "#ECFDF5" }]}>
-                  <Lock size={22} color="#059669" strokeWidth={2.2} />
+                <View style={[styles.benefitIconBox, { backgroundColor: "#EEF2FF" }]}>
+                  <Lock size={22} color="#192DFF" strokeWidth={2.2} />
                 </View>
                 <View style={styles.benefitTextCol}>
                   <Text style={styles.benefitTitle}>Protected Payments</Text>
@@ -128,8 +128,8 @@ export const PostTourKycModal = () => {
               </View>
 
               <View style={styles.benefitCard}>
-                <View style={[styles.benefitIconBox, { backgroundColor: "#FFFBEB" }]}>
-                  <ShieldCheck size={22} color="#D97706" strokeWidth={2.2} />
+                <View style={[styles.benefitIconBox, { backgroundColor: "#EEF2FF" }]}>
+                  <ShieldCheck size={22} color="#192DFF" strokeWidth={2.2} />
                 </View>
                 <View style={styles.benefitTextCol}>
                   <Text style={styles.benefitTitle}>Verified Member Trust</Text>
@@ -143,10 +143,11 @@ export const PostTourKycModal = () => {
             {/* Micro reassurance notice */}
             <View style={styles.guaranteeBox}>
               <Text style={styles.guaranteeText}>
-                🔒 Takes less than 2 minutes with automated BVN/NIN verification.
+                🔒 Takes less than 2 minutes with automated NIN / vNIN verification.
               </Text>
             </View>
           </ScrollView>
+
 
           {/* Action Buttons Fixed at Bottom */}
           <View style={styles.actionsContainer}>
@@ -323,8 +324,8 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
   guaranteeBox: {
-    backgroundColor: "#F0FDF4",
-    borderColor: "#DCFCE7",
+    backgroundColor: "#F0F4FF",
+    borderColor: "#D8E3FF",
     borderWidth: 1,
     borderRadius: 12,
     paddingVertical: 10,
@@ -334,10 +335,11 @@ const styles = StyleSheet.create({
   },
   guaranteeText: {
     fontSize: 12,
-    fontWeight: "500",
-    color: "#166534",
+    fontWeight: "600",
+    color: "#192DFF",
     textAlign: "center",
   },
+
   actionsContainer: {
     width: "100%",
     paddingTop: 12,

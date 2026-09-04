@@ -14,28 +14,20 @@ export const GUEST_TOUR_STEPS = [
     secondaryButtonText: "Skip",
   },
   {
-    id: "guest-home",
-    anchorId: "tour-home-header",
-    title: "Start here",
+    id: "guest-property-card",
+    anchorId: "tour-property-card",
+    title: "Curated Stays Near You 📍",
     description:
-      "This is your LUNEST home. From here, you can discover properties, manage your activity and access important account features.",
-    preferredPosition: "bottom",
+      "LUNEST automatically detects your location to present premium, verified properties closest to you. Tap any listing to review high-resolution photos, real-time availability, transparent pricing, and instant booking options.",
+    preferredPosition: "top",
   },
   {
     id: "guest-search",
     anchorId: "tour-search-bar",
-    title: "Find your next stay 🔍",
+    title: "Explore Any Destination 🔍",
     description:
-      "Search for properties by location, dates and other available filters.",
+      "Looking to travel beyond your current location? Use the smart search bar to filter properties across Nigeria by dates, price points, and premium amenities.",
     preferredPosition: "bottom",
-  },
-  {
-    id: "guest-property-card",
-    anchorId: "tour-property-card",
-    title: "Explore a property",
-    description:
-      "Tap any property to view its photos, details, pricing, availability and other information before booking.",
-    preferredPosition: "top",
   },
   {
     id: "guest-bookings",

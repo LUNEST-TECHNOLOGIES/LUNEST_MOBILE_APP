@@ -760,22 +760,16 @@ const KYCVerificationScreen = () => {
           {/* ── KORA TAB (FIRST / RECOMMENDED) ── */}
           {activeTab === "KORA" && (
             <View>
-              {/* Modern Professional Notice Card */}
-              <View style={[styles.modernNoticeCard, styles.modernNoticeCardKora]}>
-                <View style={styles.noticeHeader}>
-                  <View style={styles.noticeIconWrapKora}>
+              {/* Notice Box - Simplified */}
+              <View style={styles.noticeBox}>
+                <View style={styles.noticeHeaderRow}>
+                  <View style={styles.noticeIconCircle}>
                     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+                      <Circle cx="12" cy="12" r="10" stroke="#008751" strokeWidth="2" />
                       <Path
-                        d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"
+                        d="M8 12l3 3 5-5"
                         stroke="#008751"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                      <Path
-                        d="M9 12l2 2 4-4"
-                        stroke="#008751"
-                        strokeWidth="2"
+                        strokeWidth="2.5"
                         strokeLinecap="round"
                         strokeLinejoin="round"
                       />
@@ -783,67 +777,15 @@ const KYCVerificationScreen = () => {
                   </View>
                   <View style={{ flex: 1 }}>
                     <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                      <Text style={styles.noticeTitle}>Official Government NIN Lookup</Text>
+                      <Text style={styles.noticeTitle}>Instant NIN Lookup</Text>
                       <View style={styles.recommendedPill}>
                         <Text style={styles.recommendedPillText}>RECOMMENDED</Text>
                       </View>
                     </View>
                     <Text style={styles.noticeSubtitle}>
-                      Fastest verification method with no document scanning required.
+                      Fastest verification. Enter your 11-digit NIN or 16-character vNIN — no document upload needed.
                     </Text>
                   </View>
-                </View>
-
-                <View style={styles.noticeDivider} />
-
-                <View style={styles.benefitsList}>
-                  <View style={styles.benefitItem}>
-                    <View style={styles.checkBullet}>
-                      <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
-                        <Path d="M20 6L9 17L4 12" stroke="#008751" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-                      </Svg>
-                    </View>
-                    <Text style={styles.benefitText}>
-                      <Text style={styles.benefitBold}>Instant Verification:</Text> Validated directly against official National Identity registry in seconds.
-                    </Text>
-                  </View>
-
-                  <View style={styles.benefitItem}>
-                    <View style={styles.checkBullet}>
-                      <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
-                        <Path d="M20 6L9 17L4 12" stroke="#008751" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-                      </Svg>
-                    </View>
-                    <Text style={styles.benefitText}>
-                      <Text style={styles.benefitBold}>Flexible Formats:</Text> Supports 11-digit raw NIN or 16-character Virtual NIN (vNIN).
-                    </Text>
-                  </View>
-
-                  <View style={styles.benefitItem}>
-                    <View style={styles.checkBullet}>
-                      <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
-                        <Path d="M20 6L9 17L4 12" stroke="#008751" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-                      </Svg>
-                    </View>
-                    <Text style={styles.benefitText}>
-                      <Text style={styles.benefitBold}>Automatic Profile Sync:</Text> Verified name is locked directly to your LUNEST account.
-                    </Text>
-                  </View>
-                </View>
-
-                <View style={styles.noticeSecurityBadge}>
-                  <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
-                    <Path
-                      d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                      stroke="#4B5563"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </Svg>
-                  <Text style={styles.noticeSecurityText}>
-                    Official government records accessed via licensed partner Kora Identity.
-                  </Text>
                 </View>
               </View>
 
@@ -967,80 +909,26 @@ const KYCVerificationScreen = () => {
           {/* ── DIDIT TAB (SECOND / ALTERNATIVE) ── */}
           {activeTab === "DIDIT" && (
             <View>
-              {/* Modern Professional Notice Card */}
-              <View style={[styles.modernNoticeCard, styles.modernNoticeCardDidit]}>
-                <View style={styles.noticeHeader}>
-                  <View style={styles.noticeIconWrapDidit}>
-                    <CameraIcon size={22} color="#010135" />
+              {/* Notice Box - Simplified */}
+              <View style={styles.noticeBox}>
+                <View style={styles.noticeHeaderRow}>
+                  <View style={[styles.noticeIconCircle, { backgroundColor: "#F3F4F6", borderColor: "#E5E7EB" }]}>
+                    <CameraIcon size={20} color="#010135" />
                   </View>
                   <View style={{ flex: 1 }}>
                     <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                      <Text style={styles.noticeTitle}>Identity Document & Selfie Scan</Text>
+                      <Text style={styles.noticeTitle}>ID & Selfie Scan</Text>
                       <View style={styles.altPill}>
                         <Text style={styles.altPillText}>ALTERNATIVE</Text>
                       </View>
                     </View>
                     <Text style={styles.noticeSubtitle}>
-                      Scan your valid government ID and complete a 3D facial liveness check.
+                      Upload a valid government ID (Passport, Driver&apos;s License, or Voter&apos;s Card) and take a quick selfie.
                     </Text>
                   </View>
                 </View>
-
-                <View style={styles.noticeDivider} />
-
-                <View style={styles.stepsList}>
-                  <View style={styles.stepItem}>
-                    <View style={styles.stepNumberBadge}>
-                      <Text style={styles.stepNumberText}>1</Text>
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.stepItemTitle}>Accepted ID Types</Text>
-                      <Text style={styles.stepItemDesc}>
-                        {"National ID Card, Driver's License, International Passport, or Voter's Card."}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.stepItem}>
-                    <View style={styles.stepNumberBadge}>
-                      <Text style={styles.stepNumberText}>2</Text>
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.stepItemTitle}>Clear Document Capture</Text>
-                      <Text style={styles.stepItemDesc}>
-                        Ensure good lighting, no glare, and all four corners of your card are visible.
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.stepItem}>
-                    <View style={styles.stepNumberBadge}>
-                      <Text style={styles.stepNumberText}>3</Text>
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.stepItemTitle}>3D Selfie Liveness</Text>
-                      <Text style={styles.stepItemDesc}>
-                        Quick 5-second camera scan with head movement to confirm identity ownership.
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-
-                <View style={styles.noticeSecurityBadge}>
-                  <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
-                    <Path
-                      d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"
-                      stroke="#4B5563"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </Svg>
-                  <Text style={styles.noticeSecurityText}>
-                    Bank-grade 256-bit encryption · Biometric data securely protected by LUNEST.
-                  </Text>
-                </View>
               </View>
+
 
               {/* Consent Checkbox */}
               <TouchableOpacity

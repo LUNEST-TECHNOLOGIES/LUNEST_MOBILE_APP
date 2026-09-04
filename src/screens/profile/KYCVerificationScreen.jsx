@@ -74,8 +74,8 @@ const KYCVerificationScreen = () => {
   const [isStatusChecking, setIsStatusChecking] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Method tab: 'DIDIT' = biometric scan (Didit), 'KORA' = NIN database check (Kora)
-  const [activeTab, setActiveTab] = useState("DIDIT");
+  // Method tab: 'KORA' = NIN database check (Kora), 'DIDIT' = biometric scan (Didit)
+  const [activeTab, setActiveTab] = useState("KORA");
   const [ninInput, setNinInput] = useState("");
   const [ninError, setNinError] = useState("");
   const [userFullName, setUserFullName] = useState("");
@@ -83,7 +83,7 @@ const KYCVerificationScreen = () => {
   const [ninFetchedName, setNinFetchedName] = useState(null);
   const [rejectionReason, setRejectionReason] = useState(null);
 
-  // Soft check with Korapay/Database when user enters 11+ digit NIN
+  // Soft check with Korapay/Database when user enters 11+ digit NIN and gives consent
   useEffect(() => {
     const clean = ninInput.trim().toUpperCase();
     if (clean.length >= 11 && consentChecked) {
@@ -716,6 +716,30 @@ const KYCVerificationScreen = () => {
           {/* Method Tab Selector */}
           <View style={styles.tabContainer}>
             <TouchableOpacity
+              id="tab-kora"
+              style={[styles.tabButton, activeTab === "KORA" && styles.tabButtonActive]}
+              onPress={() => {
+                setActiveTab("KORA");
+                setNinError("");
+              }}
+              activeOpacity={0.75}
+            >
+              <View style={styles.tabBadgeRow}>
+                <Text style={[styles.tabButtonText, activeTab === "KORA" && styles.tabButtonTextActive]}>
+                  🔢 NIN Lookup
+                </Text>
+                <View style={[styles.miniBadge, activeTab === "KORA" ? styles.miniBadgeActive : styles.miniBadgeInactive]}>
+                  <Text style={[styles.miniBadgeText, activeTab === "KORA" ? styles.miniBadgeTextActive : styles.miniBadgeTextInactive]}>
+                    FASTEST
+                  </Text>
+                </View>
+              </View>
+              <Text style={[styles.tabSubText, activeTab === "KORA" && styles.tabSubTextActive]}>
+                Kora · Instant Database
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
               id="tab-didit"
               style={[styles.tabButton, activeTab === "DIDIT" && styles.tabButtonActive]}
               onPress={() => {
@@ -728,50 +752,287 @@ const KYCVerificationScreen = () => {
                 📷 Document Scan
               </Text>
               <Text style={[styles.tabSubText, activeTab === "DIDIT" && styles.tabSubTextActive]}>
-                Didit · Biometric
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              id="tab-kora"
-              style={[styles.tabButton, activeTab === "KORA" && styles.tabButtonActive]}
-              onPress={() => {
-                setActiveTab("KORA");
-                setNinError("");
-              }}
-              activeOpacity={0.75}
-            >
-              <Text style={[styles.tabButtonText, activeTab === "KORA" && styles.tabButtonTextActive]}>
-                🔢 NIN Lookup
-              </Text>
-              <Text style={[styles.tabSubText, activeTab === "KORA" && styles.tabSubTextActive]}>
-                Kora · Database
+                Didit · Biometrics
               </Text>
             </TouchableOpacity>
           </View>
 
-          {/* ── DIDIT TAB ── */}
-          {activeTab === "DIDIT" && (
-            <View style={styles.diditNoteContainer}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-                  <Circle cx="12" cy="12" r="10" fill="#EEF2FF" stroke="#010135" strokeWidth="2" />
-                  <Path d="M12 16V12M12 8H12.01" stroke="#010135" strokeWidth="2.5" strokeLinecap="round" />
-                </Svg>
-                <Text style={styles.diditNoteTitle}>Identity Verification Scan</Text>
+          {/* ── KORA TAB (FIRST / RECOMMENDED) ── */}
+          {activeTab === "KORA" && (
+            <View>
+              {/* Modern Professional Notice Card */}
+              <View style={[styles.modernNoticeCard, styles.modernNoticeCardKora]}>
+                <View style={styles.noticeHeader}>
+                  <View style={styles.noticeIconWrapKora}>
+                    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+                      <Path
+                        d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"
+                        stroke="#008751"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      <Path
+                        d="M9 12l2 2 4-4"
+                        stroke="#008751"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </Svg>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                      <Text style={styles.noticeTitle}>Official Government NIN Lookup</Text>
+                      <View style={styles.recommendedPill}>
+                        <Text style={styles.recommendedPillText}>RECOMMENDED</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.noticeSubtitle}>
+                      Fastest verification method with no document scanning required.
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.noticeDivider} />
+
+                <View style={styles.benefitsList}>
+                  <View style={styles.benefitItem}>
+                    <View style={styles.checkBullet}>
+                      <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
+                        <Path d="M20 6L9 17L4 12" stroke="#008751" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                      </Svg>
+                    </View>
+                    <Text style={styles.benefitText}>
+                      <Text style={styles.benefitBold}>Instant Verification:</Text> Validated directly against official National Identity registry in seconds.
+                    </Text>
+                  </View>
+
+                  <View style={styles.benefitItem}>
+                    <View style={styles.checkBullet}>
+                      <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
+                        <Path d="M20 6L9 17L4 12" stroke="#008751" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                      </Svg>
+                    </View>
+                    <Text style={styles.benefitText}>
+                      <Text style={styles.benefitBold}>Flexible Formats:</Text> Supports 11-digit raw NIN or 16-character Virtual NIN (vNIN).
+                    </Text>
+                  </View>
+
+                  <View style={styles.benefitItem}>
+                    <View style={styles.checkBullet}>
+                      <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
+                        <Path d="M20 6L9 17L4 12" stroke="#008751" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                      </Svg>
+                    </View>
+                    <Text style={styles.benefitText}>
+                      <Text style={styles.benefitBold}>Automatic Profile Sync:</Text> Verified name is locked directly to your LUNEST account.
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.noticeSecurityBadge}>
+                  <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
+                    <Path
+                      d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                      stroke="#4B5563"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </Svg>
+                  <Text style={styles.noticeSecurityText}>
+                    Official government records accessed via licensed partner Kora Identity.
+                  </Text>
+                </View>
               </View>
-              <Text style={styles.diditNoteText}>
-                Scan your valid government ID document and complete a liveness check to verify your identity instantly.
-              </Text>
+
+              {/* NIN / vNIN Form */}
+              <View style={{ gap: 14 }}>
+                {/* 1. NIN / vNIN Input Field */}
+                <View style={styles.inputContainer}>
+                  <Text style={styles.inputLabel}>National Identification Number (NIN / vNIN)</Text>
+                  <TextInput
+                    id="kora-nin-input"
+                    style={[
+                      styles.input,
+                      ninError ? { borderColor: "#EF4444" } : null,
+                    ]}
+                    placeholder="Enter 11-digit NIN or 16-character vNIN"
+                    placeholderTextColor="#9CA3AF"
+                    value={ninInput}
+                    onChangeText={(text) => {
+                      setNinInput(text.trim().toUpperCase());
+                      if (ninError) setNinError("");
+                    }}
+                    autoCapitalize="characters"
+                    maxLength={16}
+                    returnKeyType="done"
+                  />
+                  {!!ninError && (
+                    <Text style={{ color: "#EF4444", fontSize: 12, marginTop: 4 }}>{ninError}</Text>
+                  )}
+                  {ninInput.trim().length < 11 && (
+                     <Text style={{ fontSize: 11, color: "#6B7280", marginTop: 6, lineHeight: 16 }}>
+                      Enter your 11-digit NIN or 16-character vNIN to verify your government record and lock it to your profile.
+                    </Text>
+                  )}
+                </View>
+
+                {/* 2. Official Registered Name Field (soft check) */}
+                {ninInput.trim().length >= 11 && (
+                  <View style={styles.inputContainer}>
+                    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                      <Text style={styles.inputLabel}>Official Registered Name</Text>
+                      {isFetchingNinName ? (
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                          <ActivityIndicator size="small" color="#008751" />
+                          <Text style={{ fontSize: 10, fontWeight: "700", color: "#008751" }}>FETCHING...</Text>
+                        </View>
+                      ) : (
+                        <Text style={{ fontSize: 10, fontWeight: "700", color: "#6B7280", letterSpacing: 0.5 }}>🔒 UNEDITABLE</Text>
+                      )}
+                    </View>
+
+                    {isFetchingNinName ? (
+                      <View style={[styles.disabledInputBox, { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: "#ECFDF5", borderColor: "#A7F3D0" }]}>
+                        <ActivityIndicator size="small" color="#008751" />
+                        <Text style={{ fontSize: 13, fontWeight: "600", color: "#047857" }}>
+                          Checking NIN status with database...
+                        </Text>
+                      </View>
+                    ) : ninFetchedName ? (
+                      <View style={[styles.disabledInputBox, { flexDirection: "row", alignItems: "center", gap: 10, borderColor: "#A7F3D0", backgroundColor: "#F0FDF4" }]}>
+                        <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+                          <Circle cx="12" cy="12" r="11" fill="#008751" />
+                          <Path d="M7.5 12L10.5 15L16.5 9" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </Svg>
+                        <Text style={[styles.disabledInputText, { color: "#064E3B", fontWeight: "700" }]}>
+                          {ninFetchedName}
+                        </Text>
+                      </View>
+                    ) : (
+                      <View style={[styles.disabledInputBox, { flexDirection: "row", alignItems: "center", gap: 10, borderColor: "#E5E7EB", backgroundColor: "#F9FAFB" }]}>
+                        <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+                          <Circle cx="12" cy="12" r="10" stroke="#008751" strokeWidth="2" fill="none" />
+                          <Path d="M12 8V12M12 16H12.01" stroke="#008751" strokeWidth="2" strokeLinecap="round" />
+                        </Svg>
+                        <Text style={{ fontSize: 13, fontWeight: "600", color: "#374151" }}>
+                          Ready to verify NIN with official database
+                        </Text>
+                      </View>
+                    )}
+
+                    <Text style={{ fontSize: 11, color: "#6B7280", marginTop: 4, lineHeight: 16 }}>
+                      {ninFetchedName
+                        ? "This NIN is verified and locked to your account profile."
+                        : "Tap 'Verify KYC Identity' below to validate this NIN with Korapay and retrieve your official record."}
+                    </Text>
+                  </View>
+                )}
+
+                {/* Consent Checkbox */}
+                <TouchableOpacity
+                  style={styles.consentContainer}
+                  onPress={() => setConsentChecked(!consentChecked)}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.checkbox, consentChecked && styles.checkboxChecked]}>
+                    {consentChecked && (
+                      <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
+                        <Path d="M20 6L9 17L4 12" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                      </Svg>
+                    )}
+                  </View>
+                  <Text style={styles.consentText}>
+                    I authorize LUNEST and licensed partner Kora Identity to securely verify my National Identification Number against official government identity databases.
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
           )}
 
-          {/* ── KORA TAB ── */}
-          {activeTab === "KORA" && (
+          {/* ── DIDIT TAB (SECOND / ALTERNATIVE) ── */}
+          {activeTab === "DIDIT" && (
             <View>
-              {/* Consent Checkbox First for Kora */}
+              {/* Modern Professional Notice Card */}
+              <View style={[styles.modernNoticeCard, styles.modernNoticeCardDidit]}>
+                <View style={styles.noticeHeader}>
+                  <View style={styles.noticeIconWrapDidit}>
+                    <CameraIcon size={22} color="#010135" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                      <Text style={styles.noticeTitle}>Identity Document & Selfie Scan</Text>
+                      <View style={styles.altPill}>
+                        <Text style={styles.altPillText}>ALTERNATIVE</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.noticeSubtitle}>
+                      Scan your valid government ID and complete a 3D facial liveness check.
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.noticeDivider} />
+
+                <View style={styles.stepsList}>
+                  <View style={styles.stepItem}>
+                    <View style={styles.stepNumberBadge}>
+                      <Text style={styles.stepNumberText}>1</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.stepItemTitle}>Accepted ID Types</Text>
+                      <Text style={styles.stepItemDesc}>
+                        {"National ID Card, Driver's License, International Passport, or Voter's Card."}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.stepItem}>
+                    <View style={styles.stepNumberBadge}>
+                      <Text style={styles.stepNumberText}>2</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.stepItemTitle}>Clear Document Capture</Text>
+                      <Text style={styles.stepItemDesc}>
+                        Ensure good lighting, no glare, and all four corners of your card are visible.
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.stepItem}>
+                    <View style={styles.stepNumberBadge}>
+                      <Text style={styles.stepNumberText}>3</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.stepItemTitle}>3D Selfie Liveness</Text>
+                      <Text style={styles.stepItemDesc}>
+                        Quick 5-second camera scan with head movement to confirm identity ownership.
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+
+                <View style={styles.noticeSecurityBadge}>
+                  <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
+                    <Path
+                      d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"
+                      stroke="#4B5563"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </Svg>
+                  <Text style={styles.noticeSecurityText}>
+                    Bank-grade 256-bit encryption · Biometric data securely protected by LUNEST.
+                  </Text>
+                </View>
+              </View>
+
+              {/* Consent Checkbox */}
               <TouchableOpacity
-                style={[styles.consentContainer, { marginBottom: 16, marginTop: 4 }]}
+                style={styles.consentContainer}
                 onPress={() => setConsentChecked(!consentChecked)}
                 activeOpacity={0.7}
               >
@@ -783,133 +1044,37 @@ const KYCVerificationScreen = () => {
                   )}
                 </View>
                 <Text style={styles.consentText}>
-                  I consent to the secure processing of my NIN for identity verification purposes.
+                  I consent to the secure biometric processing of my government ID document and facial liveness verification via Didit.
                 </Text>
               </TouchableOpacity>
-
-              {!consentChecked ? (
-                <View style={styles.koraNoteContainer}>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-                      <Circle cx="12" cy="12" r="10" fill="#ECFDF5" stroke="#008751" strokeWidth="2" />
-                      <Path d="M12 16V12M12 8H12.01" stroke="#008751" strokeWidth="2.5" strokeLinecap="round" />
-                    </Svg>
-                    <Text style={styles.koraNoteTitle}>Government NIN Lookup (Kora)</Text>
-                  </View>
-                  <Text style={styles.koraNoteText}>
-                    Please review and check the consent box above to open your NIN verification form.
-                  </Text>
-                </View>
-              ) : (
-                <View style={{ gap: 14 }}>
-                  {/* 1. NIN / vNIN Input Field */}
-                  <View style={styles.inputContainer}>
-                    <Text style={styles.inputLabel}>National Identification Number (NIN / vNIN)</Text>
-                    <TextInput
-                      id="kora-nin-input"
-                      style={[
-                        styles.input,
-                        ninError ? { borderColor: "#EF4444" } : null,
-                      ]}
-                      placeholder="Enter 11-digit NIN or 16-character vNIN"
-                      placeholderTextColor="#9CA3AF"
-                      value={ninInput}
-                      onChangeText={(text) => {
-                        setNinInput(text.trim().toUpperCase());
-                        if (ninError) setNinError("");
-                      }}
-                      autoCapitalize="characters"
-                      maxLength={16}
-                      returnKeyType="done"
-                    />
-                    {!!ninError && (
-                      <Text style={{ color: "#EF4444", fontSize: 12, marginTop: 4 }}>{ninError}</Text>
-                    )}
-                    {ninInput.trim().length < 11 && (
-                      <Text style={{ fontSize: 11, color: "#6B7280", marginTop: 6, lineHeight: 16 }}>
-                        Enter your 11-digit NIN or 16-character vNIN to display your official account name and lock it in.
-                      </Text>
-                    )}
-                  </View>
-
-                  {/* 2. Official Registered Name Field (Displayed ONLY after user inputs valid NIN with soft loading) */}
-                  {ninInput.trim().length >= 11 && (
-                    <View style={styles.inputContainer}>
-                      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-                        <Text style={styles.inputLabel}>Official Registered Name</Text>
-                        {isFetchingNinName ? (
-                          <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                            <ActivityIndicator size="small" color="#008751" />
-                            <Text style={{ fontSize: 10, fontWeight: "700", color: "#008751" }}>FETCHING...</Text>
-                          </View>
-                        ) : (
-                          <Text style={{ fontSize: 10, fontWeight: "700", color: "#6B7280", letterSpacing: 0.5 }}>🔒 UNEDITABLE</Text>
-                        )}
-                      </View>
-
-                      {isFetchingNinName ? (
-                        <View style={[styles.disabledInputBox, { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: "#ECFDF5", borderColor: "#A7F3D0" }]}>
-                          <ActivityIndicator size="small" color="#008751" />
-                          <Text style={{ fontSize: 13, fontWeight: "600", color: "#047857" }}>
-                            Checking NIN status with database...
-                          </Text>
-                        </View>
-                      ) : ninFetchedName ? (
-                        <View style={[styles.disabledInputBox, { flexDirection: "row", alignItems: "center", gap: 10, borderColor: "#A7F3D0", backgroundColor: "#F0FDF4" }]}>
-                          <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-                            <Circle cx="12" cy="12" r="11" fill="#008751" />
-                            <Path d="M7.5 12L10.5 15L16.5 9" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                          </Svg>
-                          <Text style={[styles.disabledInputText, { color: "#064E3B", fontWeight: "700" }]}>
-                            {ninFetchedName}
-                          </Text>
-                        </View>
-                      ) : (
-                        <View style={[styles.disabledInputBox, { flexDirection: "row", alignItems: "center", gap: 10, borderColor: "#E5E7EB", backgroundColor: "#F9FAFB" }]}>
-                          <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-                            <Circle cx="12" cy="12" r="10" stroke="#008751" strokeWidth="2" fill="none" />
-                            <Path d="M12 8V12M12 16H12.01" stroke="#008751" strokeWidth="2" strokeLinecap="round" />
-                          </Svg>
-                          <Text style={{ fontSize: 13, fontWeight: "600", color: "#374151" }}>
-                            Ready to verify NIN with official database
-                          </Text>
-                        </View>
-                      )}
-
-                      <Text style={{ fontSize: 11, color: "#6B7280", marginTop: 4, lineHeight: 16 }}>
-                        {ninFetchedName
-                          ? "This NIN is verified and locked to your account profile."
-                          : "Tap 'Verify KYC Identity' below to validate this NIN with Korapay and retrieve your official record."}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-              )}
             </View>
-          )}
-
-          {/* Consent checkbox for DIDIT TAB only */}
-          {activeTab === "DIDIT" && (
-            <TouchableOpacity
-              style={styles.consentContainer}
-              onPress={() => setConsentChecked(!consentChecked)}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.checkbox, consentChecked && styles.checkboxChecked]}>
-                {consentChecked && (
-                  <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
-                    <Path d="M20 6L9 17L4 12" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-                  </Svg>
-                )}
-              </View>
-              <Text style={styles.consentText}>
-                I consent to the secure processing of my government ID document and facial liveness verification.
-              </Text>
-            </TouchableOpacity>
           )}
         </ScrollView>
 
         <View style={styles.footer}>
+          {/* ── KORA footer button (FIRST / DEFAULT) ── */}
+          {activeTab === "KORA" && (
+            <TouchableOpacity
+              id="btn-kora-verify"
+              style={[
+                styles.verifyButton,
+                { backgroundColor: "#010135" },
+                (!consentChecked || !ninInput || isLoading) && styles.disabledButton,
+              ]}
+              onPress={handleKoraVerify}
+              disabled={!consentChecked || !ninInput || isLoading}
+            >
+              {isLoading ? (
+                <View style={{ alignItems: "center" }}>
+                  <ActivityIndicator color="white" />
+                  {!!loadingMessage && <Text style={styles.verifyButtonSubtext}>{loadingMessage}</Text>}
+                </View>
+              ) : (
+                <Text style={styles.verifyButtonText}>Verify KYC Identity</Text>
+              )}
+            </TouchableOpacity>
+          )}
+
           {/* ── DIDIT footer buttons ── */}
           {activeTab === "DIDIT" && (
             activeSessionId ? (
@@ -958,31 +1123,8 @@ const KYCVerificationScreen = () => {
             )
           )}
 
-          {/* ── KORA footer button ── */}
-          {activeTab === "KORA" && (
-            <TouchableOpacity
-              id="btn-kora-verify"
-              style={[
-                styles.verifyButton,
-                { backgroundColor: "#008751" },
-                (!consentChecked || !ninInput || isLoading) && styles.disabledButton,
-              ]}
-              onPress={handleKoraVerify}
-              disabled={!consentChecked || !ninInput || isLoading}
-            >
-              {isLoading ? (
-                <View style={{ alignItems: "center" }}>
-                  <ActivityIndicator color="white" />
-                  {!!loadingMessage && <Text style={styles.verifyButtonSubtext}>{loadingMessage}</Text>}
-                </View>
-              ) : (
-                <Text style={styles.verifyButtonText}>Verify KYC Identity</Text>
-              )}
-            </TouchableOpacity>
-          )}
-
           <Text style={styles.poweredByText}>
-            {activeTab === "KORA" ? "Powered by Kora Identity" : "Powered by Didit"}
+            {activeTab === "KORA" ? "🔒 Powered securely by Kora Identity" : "🔒 Powered securely by Didit Protocol"}
           </Text>
         </View>
       </KeyboardAvoidingView>
@@ -1151,70 +1293,224 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
   },
-  diditNoteContainer: {
-    backgroundColor: "#F4F6FF",
-    padding: 16,
-    borderRadius: 14,
-    borderLeftWidth: 4,
-    borderLeftColor: "#010135",
-    marginBottom: 8,
-  },
-  diditNoteTitle: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#010135",
-    letterSpacing: -0.2,
-  },
-  diditNoteText: {
-    fontSize: 13,
-    color: "#374151",
-    lineHeight: 20,
-  },
-  koraNoteContainer: {
-    backgroundColor: "#F0FDF4",
-    padding: 16,
-    borderRadius: 14,
-    borderLeftWidth: 4,
-    borderLeftColor: "#008751",
-    marginBottom: 16,
-  },
-  koraNoteTitle: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#065F46",
-    letterSpacing: -0.2,
-  },
-  koraNoteText: {
-    fontSize: 13,
-    color: "#047857",
-    lineHeight: 20,
-  },
-
-  consentContainer: {
+  tabBadgeRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 24,
-    backgroundColor: "#F0F2FF",
+    gap: 6,
+  },
+  miniBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 4,
+  },
+  miniBadgeActive: {
+    backgroundColor: "#22C55E",
+  },
+  miniBadgeInactive: {
+    backgroundColor: "#E5E7EB",
+  },
+  miniBadgeText: {
+    fontSize: 8,
+    fontWeight: "800",
+    letterSpacing: 0.4,
+  },
+  miniBadgeTextActive: {
+    color: "#FFFFFF",
+  },
+  miniBadgeTextInactive: {
+    color: "#4B5563",
+  },
+  modernNoticeCard: {
+    backgroundColor: "#F9FAFB",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
     padding: 16,
-    borderRadius: 12,
+    marginBottom: 20,
+  },
+  modernNoticeCardKora: {
+    backgroundColor: "#F0FDF4",
+    borderColor: "#BBF7D0",
+  },
+  modernNoticeCardDidit: {
+    backgroundColor: "#F8FAFC",
+    borderColor: "#E2E8F0",
+  },
+  noticeHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+  },
+  noticeIconWrapKora: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: "#DCFCE7",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  noticeIconWrapDidit: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: "#EEF2FF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  noticeTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#111827",
+    letterSpacing: -0.2,
+    flexShrink: 1,
+  },
+  noticeSubtitle: {
+    fontSize: 12,
+    color: "#4B5563",
+    marginTop: 2,
+    lineHeight: 17,
+  },
+  recommendedPill: {
+    backgroundColor: "#DCFCE7",
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#86EFAC",
+    marginLeft: 6,
+  },
+  recommendedPillText: {
+    fontSize: 9,
+    fontWeight: "800",
+    color: "#15803D",
+    letterSpacing: 0.5,
+  },
+  altPill: {
+    backgroundColor: "#EEF2FF",
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#C7D2FE",
+    marginLeft: 6,
+  },
+  altPillText: {
+    fontSize: 9,
+    fontWeight: "800",
+    color: "#4338CA",
+    letterSpacing: 0.5,
+  },
+  noticeDivider: {
+    height: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.06)",
+    marginVertical: 12,
+  },
+  benefitsList: {
+    gap: 8,
+  },
+  benefitItem: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+  },
+  checkBullet: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: "#DCFCE7",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 1,
+  },
+  benefitText: {
+    flex: 1,
+    fontSize: 12,
+    color: "#374151",
+    lineHeight: 18,
+  },
+  benefitBold: {
+    fontWeight: "700",
+    color: "#111827",
+  },
+  stepsList: {
+    gap: 10,
+  },
+  stepItem: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+  },
+  stepNumberBadge: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "#010135",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 1,
+  },
+  stepNumberText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+  stepItemTitle: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#1F2937",
+  },
+  stepItemDesc: {
+    fontSize: 12,
+    color: "#6B7280",
+    marginTop: 1,
+    lineHeight: 16,
+  },
+  noticeSecurityBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(0, 0, 0, 0.06)",
+  },
+  noticeSecurityText: {
+    fontSize: 11,
+    color: "#6B7280",
+    flex: 1,
+    lineHeight: 15,
+  },
+  consentContainer: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginTop: 16,
+    marginBottom: 8,
+    backgroundColor: "#F9FAFB",
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
   },
   checkbox: {
-    width: 24,
-    height: 24,
+    width: 22,
+    height: 22,
     borderRadius: 6,
     borderWidth: 2,
-    borderColor: "#010135",
+    borderColor: "#9CA3AF",
     marginRight: 12,
+    marginTop: 2,
     justifyContent: "center",
     alignItems: "center",
+    backgroundColor: "#FFFFFF",
   },
   checkboxChecked: {
     backgroundColor: "#010135",
+    borderColor: "#010135",
   },
   consentText: {
     flex: 1,
-    fontSize: 13,
-    color: "#010135",
+    fontSize: 12,
+    color: "#374151",
     lineHeight: 18,
   },
   footer: {

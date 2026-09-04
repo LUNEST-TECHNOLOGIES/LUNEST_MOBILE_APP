@@ -23,7 +23,7 @@ export const PostTourKycModal = () => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
-  const { showPostTourKycModal, setShowPostTourKycModal, isForbiddenRoute } =
+  const { showPostTourKycModal, dismissKycModal, isForbiddenRoute } =
     useProductTour();
 
   if (!showPostTourKycModal || isForbiddenRoute) {
@@ -31,13 +31,14 @@ export const PostTourKycModal = () => {
   }
 
   const handleVerifyKyc = () => {
-    setShowPostTourKycModal(false);
+    dismissKycModal();
     router.push("/kyc-verification");
   };
 
   const handleClose = () => {
-    setShowPostTourKycModal(false);
+    dismissKycModal();
   };
+
 
   const isTablet = screenWidth >= 768;
 

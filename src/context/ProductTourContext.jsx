@@ -8,6 +8,7 @@ import { GUEST_TOUR_STEPS, HOST_TOUR_STEPS } from "../components/tour/tourSteps"
 const ProductTourContext = createContext(null);
 
 const TOUR_STORAGE_PREFIX = "@lunest_tour_status_";
+const KYC_POPUP_STORAGE_PREFIX = "@lunest_kyc_login_popup_shown_";
 
 // Routes where tooltips and tour bubbles are STRICTLY FORBIDDEN (Core Rule)
 const FORBIDDEN_ROUTES = [
@@ -30,9 +31,11 @@ export const ProductTourProvider = ({ children }) => {
   const [tourRole, setTourRole] = useState("guest"); // guest | host
   const [isKycVerified, setIsKycVerified] = useState(false);
   const [showPostTourKycModal, setShowPostTourKycModal] = useState(false);
+  const [hasShownKycPopup, setHasShownKycPopup] = useState(false);
   const [anchors, setAnchors] = useState({});
 
   const currentUserRef = useRef(null);
+
   const isCheckingRef = useRef(false);
 
 
@@ -87,15 +90,34 @@ export const ProductTourProvider = ({ children }) => {
       const role = isHostPath ? "host" : "guest";
       setTourRole(role);
 
+      const kycPopupKey = `${KYC_POPUP_STORAGE_PREFIX}${userId}`;
+      const hasShown = await storageService.getItem(kycPopupKey);
+      setHasShownKycPopup(hasShown === "true");
+
       // Check stored tour status
       const storageKey = `${TOUR_STORAGE_PREFIX}${userId}_${role}`;
       const savedStatus = await storageService.getItem(storageKey);
 
       if (savedStatus === "completed" || savedStatus === "skipped") {
         setTourState(savedStatus);
+        // One-time prompt for unverified users on login if not yet shown
+        const isOnMainTabs =
+          pathname === "/" ||
+          pathname === "/(tabs)" ||
+          pathname === "/(host-tabs)" ||
+          pathname?.startsWith("/(tabs)");
+        if (isOnMainTabs && !verified && hasShown !== "true" && !isForbiddenRoute) {
+          setTimeout(() => {
+            setShowPostTourKycModal(true);
+          }, 1000);
+        }
       } else {
         // Only trigger automatically when user is on main dashboard tabs
-        const isOnMainTabs = pathname === "/" || pathname === "/(tabs)" || pathname === "/(host-tabs)" || pathname?.startsWith("/(tabs)");
+        const isOnMainTabs =
+          pathname === "/" ||
+          pathname === "/(tabs)" ||
+          pathname === "/(host-tabs)" ||
+          pathname?.startsWith("/(tabs)");
         if (isOnMainTabs && (savedStatus === "not_started" || !savedStatus)) {
           // Delay start slightly to let the home screen finish initial rendering & layout measurements
           setTimeout(() => {
@@ -110,6 +132,7 @@ export const ProductTourProvider = ({ children }) => {
       isCheckingRef.current = false;
     }
   }, [pathname, isForbiddenRoute]);
+
 
   useEffect(() => {
     checkTourEligibility();
@@ -153,11 +176,32 @@ export const ProductTourProvider = ({ children }) => {
     await storageService.setItem(storageKey, status);
   }, [tourRole]);
 
+  // Dismiss one-time KYC popup and persist so it does not reappear
+  const dismissKycModal = useCallback(async () => {
+    setShowPostTourKycModal(false);
+    const userId =
+      currentUserRef.current?.id ||
+      currentUserRef.current?._id ||
+      currentUserRef.current?.email ||
+      "anonymous_user";
+    const storageKey = `${KYC_POPUP_STORAGE_PREFIX}${userId}`;
+    await storageService.setItem(storageKey, "true");
+    setHasShownKycPopup(true);
+  }, []);
+
   const handleTourEnd = useCallback(
     async (status) => {
       await saveTourStatus(status);
-      // Prompt user to verify KYC for full app experience if they have not done so yet
-      if (!isKycVerified && !isForbiddenRoute) {
+      const userId =
+        currentUserRef.current?.id ||
+        currentUserRef.current?._id ||
+        currentUserRef.current?.email ||
+        "anonymous_user";
+      const storageKey = `${KYC_POPUP_STORAGE_PREFIX}${userId}`;
+      const hasShown = await storageService.getItem(storageKey);
+
+      // Prompt user one-time to verify KYC for full app experience if they have not done so yet
+      if (!isKycVerified && !isForbiddenRoute && hasShown !== "true") {
         setTimeout(() => {
           setShowPostTourKycModal(true);
         }, 350);
@@ -213,6 +257,7 @@ export const ProductTourProvider = ({ children }) => {
     isKycVerified,
     showPostTourKycModal,
     setShowPostTourKycModal,
+    dismissKycModal,
     registerAnchor,
     unregisterAnchor,
     nextStep,
@@ -223,6 +268,7 @@ export const ProductTourProvider = ({ children }) => {
     startTour,
     isForbiddenRoute,
   };
+
 
   return (
     <ProductTourContext.Provider value={value}>

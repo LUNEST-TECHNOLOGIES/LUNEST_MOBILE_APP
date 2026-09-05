@@ -20,7 +20,7 @@ import {
     View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useUserMode } from "../../context";
+import { useUserMode, useProductTour } from "../../context";
 import { TourAnchor } from "../../components/tour";
 
 
@@ -47,6 +47,16 @@ const HostDashboardScreen = () => {
   const isTablet = screenWidth >= 768;
   const router = useRouter();
   const { switchToGuest } = useUserMode();
+  const { checkTourEligibility } = useProductTour();
+
+  // Trigger host tour if user is visiting the host dashboard for the first time
+  useFocusEffect(
+    useCallback(() => {
+      if (checkTourEligibility) {
+        checkTourEligibility("host");
+      }
+    }, [checkTourEligibility])
+  );
 
   // Loading and refresh state
   const [loading, setLoading] = useState(true);

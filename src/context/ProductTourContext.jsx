@@ -4,6 +4,7 @@ import authService from "../services/authService";
 import { getUserData } from "../services/userDataService";
 import storageService from "../services/storageService";
 import { GUEST_TOUR_STEPS, HOST_TOUR_STEPS } from "../components/tour/tourSteps";
+import { USER_MODES, useUserMode } from "./UserModeContext";
 
 const ProductTourContext = createContext(null);
 
@@ -25,6 +26,8 @@ const FORBIDDEN_ROUTES = [
 export const ProductTourProvider = ({ children }) => {
   const router = useRouter();
   const pathname = usePathname();
+  const userModeContext = useUserMode();
+  const mode = userModeContext?.mode;
 
   const [tourState, setTourState] = useState("not_started"); // not_started | in_progress | completed | skipped
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
@@ -33,10 +36,8 @@ export const ProductTourProvider = ({ children }) => {
   const [showPostTourKycModal, setShowPostTourKycModal] = useState(false);
   const [anchors, setAnchors] = useState({});
 
-
   const currentUserRef = useRef(null);
   const sessionKycDismissedRef = useRef(false);
-  const isCheckingRef = useRef(false);
 
   // Check if current route is forbidden for the tour
   const isForbiddenRoute = useMemo(() => {
@@ -62,81 +63,105 @@ export const ProductTourProvider = ({ children }) => {
   }, [tourState, activeSteps, currentStepIndex]);
 
   // Load user data and tour status on mount and path changes
-  const checkTourEligibility = useCallback(async () => {
-    if (isForbiddenRoute || isCheckingRef.current) return;
-    isCheckingRef.current = true;
+  const checkTourEligibility = useCallback(
+    async (forcedRole) => {
+      if (isForbiddenRoute) return;
 
-    try {
-      const loggedIn = await authService.isLoggedIn();
-      if (!loggedIn) {
-        setTourState("not_started");
-        sessionKycDismissedRef.current = false;
-        isCheckingRef.current = false;
-        return;
-      }
-
-      const userData = await getUserData();
-      currentUserRef.current = userData;
-
-      const userId = userData?.id || userData?._id || userData?.email || "anonymous_user";
-      const verified =
-        userData?.verified === true ||
-        userData?.kycStatus === "VERIFIED" ||
-        userData?.kycStatus === "APPROVED";
-      setIsKycVerified(verified);
-
-      // Determine role from pathname or user mode
-      const isHostPath = pathname?.includes("host");
-      const role = isHostPath ? "host" : "guest";
-      setTourRole(role);
-
-      // Check stored tour status
-      const storageKey = `${TOUR_STORAGE_PREFIX}${userId}_${role}`;
-      const savedStatus = await storageService.getItem(storageKey);
-
-      if (savedStatus === "completed" || savedStatus === "skipped") {
-        setTourState(savedStatus);
-        // Even after tour, when an unverified user logs in again, prompt for KYC after some time
-        const isOnMainTabs =
-          pathname === "/" ||
-          pathname === "/(tabs)" ||
-          pathname === "/(host-tabs)" ||
-          pathname?.startsWith("/(tabs)");
-        if (
-          isOnMainTabs &&
-          !verified &&
-          !sessionKycDismissedRef.current &&
-          !isForbiddenRoute
-        ) {
-          setTimeout(() => {
-            if (!sessionKycDismissedRef.current) {
-              setShowPostTourKycModal(true);
-            }
-          }, 2500);
+      try {
+        const loggedIn = await authService.isLoggedIn();
+        if (!loggedIn) {
+          setTourState("not_started");
+          sessionKycDismissedRef.current = false;
+          return;
         }
-      } else {
-        // Only trigger automatically when user is on main dashboard tabs
-        const isOnMainTabs =
-          pathname === "/" ||
-          pathname === "/(tabs)" ||
+
+        const userData = await getUserData();
+        currentUserRef.current = userData;
+
+        const userId = userData?.id || userData?._id || userData?.email || "anonymous_user";
+        const verified =
+          userData?.verified === true ||
+          userData?.kycStatus === "VERIFIED" ||
+          userData?.kycStatus === "APPROVED";
+        setIsKycVerified(verified);
+
+        // Determine role from forcedRole, pathname, or user mode
+        const isHostPath =
           pathname === "/(host-tabs)" ||
-          pathname?.startsWith("/(tabs)");
-        if (isOnMainTabs && (savedStatus === "not_started" || !savedStatus)) {
-          // Delay start slightly to let the home screen finish initial rendering & layout measurements
-          setTimeout(() => {
-            setTourState("in_progress");
-            setCurrentStepIndex(0);
-          }, 700);
+          pathname === "/(host-tabs)/" ||
+          pathname === "/(host-tabs)/index" ||
+          pathname?.startsWith("/(host-tabs)") ||
+          pathname?.includes("host");
+
+        const isHostMode = mode === USER_MODES.HOST || isHostPath;
+        const role = forcedRole || (isHostMode ? "host" : "guest");
+        setTourRole(role);
+
+        // Check stored tour status for this specific role
+        const storageKey = `${TOUR_STORAGE_PREFIX}${userId}_${role}`;
+        const savedStatus = await storageService.getItem(storageKey);
+
+        if (savedStatus === "completed" || savedStatus === "skipped") {
+          setTourState(savedStatus);
+          // Even after tour, when an unverified user logs in again, prompt for KYC after some time
+          const isOnMainTabs =
+            pathname === "/" ||
+            pathname === "/(tabs)" ||
+            pathname === "/(tabs)/" ||
+            pathname === "/(tabs)/index" ||
+            pathname?.startsWith("/(tabs)") ||
+            pathname === "/(host-tabs)" ||
+            pathname === "/(host-tabs)/" ||
+            pathname === "/(host-tabs)/index" ||
+            pathname?.startsWith("/(host-tabs)");
+
+          if (
+            isOnMainTabs &&
+            !verified &&
+            !sessionKycDismissedRef.current &&
+            !isForbiddenRoute
+          ) {
+            setTimeout(() => {
+              if (!sessionKycDismissedRef.current) {
+                setShowPostTourKycModal(true);
+              }
+            }, 2500);
+          }
+        } else {
+          // If the user visits the host dashboard or guest dashboard for the first time
+          const isOnHostDashboard =
+            role === "host" &&
+            (pathname === "/(host-tabs)" ||
+              pathname === "/(host-tabs)/" ||
+              pathname === "/(host-tabs)/index" ||
+              pathname?.startsWith("/(host-tabs)") ||
+              pathname?.includes("host"));
+
+          const isOnGuestDashboard =
+            role === "guest" &&
+            (pathname === "/" ||
+              pathname === "/(tabs)" ||
+              pathname === "/(tabs)/" ||
+              pathname === "/(tabs)/index" ||
+              pathname?.startsWith("/(tabs)"));
+
+          const shouldTrigger = isOnHostDashboard || isOnGuestDashboard || forcedRole;
+
+          if (shouldTrigger && (savedStatus === "not_started" || !savedStatus)) {
+            // Delay start slightly to let the screen finish initial rendering & layout measurements
+            setTimeout(() => {
+              setTourRole(role);
+              setTourState("in_progress");
+              setCurrentStepIndex(0);
+            }, 600);
+          }
         }
+      } catch (err) {
+        console.warn("[ProductTour] Error checking eligibility:", err);
       }
-    } catch (err) {
-      console.warn("[ProductTour] Error checking eligibility:", err);
-    } finally {
-      isCheckingRef.current = false;
-    }
-  }, [pathname, isForbiddenRoute]);
-
-
+    },
+    [pathname, isForbiddenRoute, mode]
+  );
 
   useEffect(() => {
     checkTourEligibility();
@@ -263,6 +288,7 @@ export const ProductTourProvider = ({ children }) => {
     finishTour,
     closeTour,
     startTour,
+    checkTourEligibility,
     isForbiddenRoute,
   };
 

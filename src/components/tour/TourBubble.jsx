@@ -1,26 +1,36 @@
 import { useRouter } from "expo-router";
-import React from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import {
+  Animated,
+  Easing,
   Platform,
+  Pressable,
   StyleSheet,
   Text,
-  TouchableOpacity,
   useWindowDimensions,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 import { useProductTour } from "../../context/ProductTourContext";
 
 const BUBBLE_WIDTH = 340;
-const ARROW_SIZE = 12;
+const ARROW_SIZE = 10;
 
+/**
+ * TourBubble Component
+ * High-end modern glassmorphism floating bubble for first-login guidance.
+ * Provides smooth animations, dynamic positioning, glass depth, and minimal progress indicators.
+ */
 export const TourBubble = () => {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const {
     currentStep,
     currentStepIndex,
     totalSteps,
+    activeSteps,
     nextStep,
     prevStep,
     skipTour,
@@ -31,76 +41,143 @@ export const TourBubble = () => {
     anchors,
   } = useProductTour();
 
+  // Animation values for smooth step transitions (fade, lift, scale)
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const translateYAnim = useRef(new Animated.Value(8)).current;
+  const scaleAnim = useRef(new Animated.Value(0.96)).current;
+
+  useEffect(() => {
+    fadeAnim.setValue(0);
+    translateYAnim.setValue(8);
+    scaleAnim.setValue(0.96);
+
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 260,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(translateYAnim, {
+        toValue: 0,
+        duration: 260,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 1,
+        duration: 260,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [currentStepIndex, fadeAnim, translateYAnim, scaleAnim]);
 
   if (!currentStep) return null;
 
-  // ── WELCOME MODAL BUBBLE (STEP 0) ──
+  // Handle direct KYC redirect from bubble
+  const handleVerifyNow = () => {
+    setShowPostTourKycModal(false);
+    finishTour();
+    router.push("/kyc-verification");
+  };
+
+  // ── 1. MODAL STEPS (WELCOME & FINISH) ──
   if (currentStep.type === "modal") {
+    const isFinish = currentStep.isFinish === true;
+
     return (
       <View style={styles.modalOverlay}>
-        <View style={styles.welcomeCard}>
-          <TouchableOpacity
-            style={styles.closeIconButton}
+        <Animated.View
+          style={[
+            styles.welcomeGlassCard,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: translateYAnim }, { scale: scaleAnim }],
+            },
+          ]}
+        >
+          {/* Top Close Icon */}
+          <Pressable
+            style={({ pressed }) => [
+              styles.closeIconButton,
+              pressed && styles.iconButtonPressed,
+            ]}
             onPress={closeTour}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            accessibilityLabel="Close tour"
+            accessibilityRole="button"
           >
             <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
               <Path
                 d="M18 6L6 18M6 6L18 18"
                 stroke="#6B7280"
-                strokeWidth="2.5"
+                strokeWidth="2.2"
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
             </Svg>
-          </TouchableOpacity>
+          </Pressable>
 
+          {/* Role / Context Pill */}
           <View style={styles.welcomeBadgeRow}>
             <View style={styles.rolePill}>
               <Text style={styles.rolePillText}>
-                {tourRole === "host" ? "HOST TOUR" : "LUNEST TOUR"}
+                {isFinish
+                  ? "ALL SET"
+                  : tourRole === "host"
+                  ? "HOST TOUR"
+                  : "LUNEST TOUR"}
               </Text>
             </View>
           </View>
 
+          {/* Heading & Subtitle */}
           <Text style={styles.welcomeTitle}>{currentStep.title}</Text>
           <Text style={styles.welcomeSubtitle}>{currentStep.description}</Text>
 
+          {/* Action Buttons */}
           <View style={styles.welcomeActionRow}>
-            <TouchableOpacity
-              style={styles.primaryButton}
-              onPress={nextStep}
-              activeOpacity={0.8}
+            <Pressable
+              style={({ pressed }) => [
+                styles.primaryButton,
+                pressed && styles.buttonPressed,
+              ]}
+              onPress={isFinish ? finishTour : nextStep}
+              accessibilityRole="button"
             >
               <Text style={styles.primaryButtonText}>
-                {currentStep.primaryButtonText || "Take a quick tour"}
+                {currentStep.primaryButtonText || (isFinish ? "Start Exploring" : "Take the Tour")}
               </Text>
-            </TouchableOpacity>
+            </Pressable>
 
-            <TouchableOpacity
-              style={styles.secondaryButton}
-              onPress={skipTour}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.secondaryButtonText}>
-                {currentStep.secondaryButtonText || "Skip"}
-              </Text>
-            </TouchableOpacity>
+            {!isFinish && (
+              <Pressable
+                style={({ pressed }) => [
+                  styles.secondaryGlassButton,
+                  pressed && styles.buttonPressed,
+                ]}
+                onPress={skipTour}
+                accessibilityRole="button"
+              >
+                <Text style={styles.secondaryGlassButtonText}>
+                  {currentStep.secondaryButtonText || "Skip Tour"}
+                </Text>
+              </Pressable>
+            )}
           </View>
-        </View>
+        </Animated.View>
       </View>
     );
   }
 
-  // ── CONTEXTUAL POINTER BUBBLE (STEPS 1+) ──
+  // ── 2. CONTEXTUAL POINTER BUBBLE ──
   const targetAnchor = currentStep.anchorId ? anchors[currentStep.anchorId] : null;
-
-  // Dynamic bubble positioning
   const bubbleWidth = Math.min(screenWidth - 32, BUBBLE_WIDTH);
 
-  let bubbleTop = 120;
+  let bubbleTop = insets.top + 80;
   let bubbleLeft = (screenWidth - bubbleWidth) / 2;
-  let arrowPosition = "top"; // arrow points up (bubble is below target) or arrow points down (bubble is above target)
+  let arrowPosition = "top"; // 'top' = bubble sits below target; 'bottom' = bubble sits above target
   let arrowLeft = bubbleWidth / 2 - ARROW_SIZE;
 
   if (targetAnchor) {
@@ -108,187 +185,254 @@ export const TourBubble = () => {
     const targetCenterX = x + width / 2;
     const targetCenterY = y + height / 2;
 
-    // Center bubble horizontally relative to target, clamped to screen edges
+    // Center bubble horizontally relative to target, clamped safely within screen bounds
     const idealLeft = targetCenterX - bubbleWidth / 2;
     bubbleLeft = Math.max(16, Math.min(idealLeft, screenWidth - bubbleWidth - 16));
 
-    // Arrow X relative to bubble
+    // Align arrow with target center X
     arrowLeft = Math.max(
-      16,
-      Math.min(targetCenterX - bubbleLeft - ARROW_SIZE, bubbleWidth - 32)
+      20,
+      Math.min(targetCenterX - bubbleLeft - ARROW_SIZE, bubbleWidth - 40)
     );
 
-    // Place above or below based on target position
+    // Vertical placement logic:
+    // If target is in bottom half of screen or preferred position is top, place above target
     const spaceBelow = screenHeight - (y + height);
-    const spaceAbove = y;
-
     if (currentStep.preferredPosition === "top" || spaceBelow < 220) {
-      // Place above target
-      bubbleTop = Math.max(40, y - 200);
+      bubbleTop = Math.max(insets.top + 16, y - 180);
       arrowPosition = "bottom";
     } else {
-      // Place below target
-      bubbleTop = y + height + 14;
+      bubbleTop = y + height + 12;
       arrowPosition = "top";
     }
   }
 
-  // Handle KYC specific action
-  const handleVerifyNow = () => {
-    setShowPostTourKycModal(false);
-    finishTour();
-    router.push("/kyc-verification");
-  };
-
+  // Calculate contextual step indexing (ignoring welcome/finish modal steps for clean count)
+  const contextualSteps = activeSteps.filter((s) => s.type !== "modal");
+  const contextualIndex = contextualSteps.findIndex((s) => s.id === currentStep.id);
+  const displayStepNumber = contextualIndex !== -1 ? contextualIndex + 1 : currentStepIndex;
+  const totalDisplaySteps = contextualSteps.length;
 
   const isKycStep = currentStep.isKycOnly === true;
-  const isLastStep = currentStepIndex === totalSteps - 1;
+  const isLastContextualStep = contextualIndex === contextualSteps.length - 1;
 
   return (
-    <View
+    <Animated.View
       style={[
         styles.bubbleContainer,
         {
           top: bubbleTop,
           left: bubbleLeft,
           width: bubbleWidth,
+          opacity: fadeAnim,
+          transform: [{ translateY: translateYAnim }, { scale: scaleAnim }],
         },
       ]}
     >
-      {/* Pointer Notch pointing UP */}
+      {/* Pointer Notch pointing UP towards target above */}
       {arrowPosition === "top" && (
         <View style={[styles.arrowUp, { left: arrowLeft }]} />
       )}
 
-      <View style={styles.bubbleCard}>
-        {/* Header with step counter, role pill, and close button */}
+      <View style={styles.glassCard}>
+        {/* Header: Progress pill, minimal dots, and Close X */}
         <View style={styles.cardHeader}>
-          <View style={styles.stepBadge}>
-            <Text style={styles.stepBadgeText}>
-              Step {currentStepIndex} of {totalSteps - 1}
-            </Text>
+          <View style={styles.progressRow}>
+            <View style={styles.stepBadge}>
+              <Text style={styles.stepBadgeText}>
+                {displayStepNumber} of {totalDisplaySteps}
+              </Text>
+            </View>
+
+            {/* Subtle Progress Dots */}
+            <View style={styles.dotsRow}>
+              {contextualSteps.map((step, idx) => {
+                const isActive = idx === contextualIndex;
+                const isPast = idx < contextualIndex;
+                return (
+                  <View
+                    key={step.id}
+                    style={[
+                      styles.dot,
+                      isActive && styles.activeDot,
+                      isPast && styles.pastDot,
+                    ]}
+                  />
+                );
+              })}
+            </View>
           </View>
 
-          <TouchableOpacity
-            style={styles.closeButton}
+          {/* Close X */}
+          <Pressable
+            style={({ pressed }) => [
+              styles.closeIconButtonSmall,
+              pressed && styles.iconButtonPressed,
+            ]}
             onPress={closeTour}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            accessibilityLabel="Close tour"
+            accessibilityRole="button"
           >
-            <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+            <Svg width={15} height={15} viewBox="0 0 24 24" fill="none">
               <Path
                 d="M18 6L6 18M6 6L18 18"
-                stroke="#9CA3AF"
-                strokeWidth="2.5"
+                stroke="#6B7280"
+                strokeWidth="2.4"
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
             </Svg>
-          </TouchableOpacity>
+          </Pressable>
         </View>
 
-        {/* Content */}
+        {/* Title & Description */}
         <Text style={styles.bubbleTitle}>{currentStep.title}</Text>
         <Text style={styles.bubbleDesc}>{currentStep.description}</Text>
 
-        {/* Footer actions */}
+        {/* Footer Navigation Actions */}
         <View style={styles.footerRow}>
           {currentStepIndex > 1 ? (
-            <TouchableOpacity
-              style={styles.backButton}
+            <Pressable
+              style={({ pressed }) => [
+                styles.backButton,
+                pressed && styles.buttonPressed,
+              ]}
               onPress={prevStep}
-              activeOpacity={0.7}
+              accessibilityRole="button"
             >
               <Text style={styles.backButtonText}>Back</Text>
-            </TouchableOpacity>
+            </Pressable>
           ) : (
-            <TouchableOpacity
-              style={styles.skipLink}
+            <Pressable
+              style={({ pressed }) => [
+                styles.skipLink,
+                pressed && styles.buttonPressed,
+              ]}
               onPress={skipTour}
-              activeOpacity={0.7}
+              accessibilityRole="button"
             >
               <Text style={styles.skipLinkText}>Skip Tour</Text>
-            </TouchableOpacity>
+            </Pressable>
           )}
 
           <View style={styles.rightButtonsRow}>
             {isKycStep ? (
               <>
-                <TouchableOpacity
-                  style={styles.secondarySmallButton}
-                  onPress={finishTour}
-                  activeOpacity={0.7}
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.secondaryGlassSmallButton,
+                    pressed && styles.buttonPressed,
+                  ]}
+                  onPress={nextStep}
+                  accessibilityRole="button"
                 >
-                  <Text style={styles.secondarySmallButtonText}>Later</Text>
-                </TouchableOpacity>
+                  <Text style={styles.secondaryGlassSmallButtonText}>Later</Text>
+                </Pressable>
 
-                <TouchableOpacity
-                  style={[styles.primarySmallButton, { backgroundColor: "#008751" }]}
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.primarySmallButton,
+                    pressed && styles.buttonPressed,
+                  ]}
                   onPress={handleVerifyNow}
-                  activeOpacity={0.8}
+                  accessibilityRole="button"
                 >
-                  <Text style={styles.primarySmallButtonText}>Verify now</Text>
-                </TouchableOpacity>
+                  <Text style={styles.primarySmallButtonText}>Verify Now</Text>
+                </Pressable>
               </>
-            ) : isLastStep ? (
-              <TouchableOpacity
-                style={styles.primarySmallButton}
-                onPress={finishTour}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.primarySmallButtonText}>Finish 🎉</Text>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                style={styles.primarySmallButton}
+            ) : isLastContextualStep ? (
+              <Pressable
+                style={({ pressed }) => [
+                  styles.primarySmallButton,
+                  pressed && styles.buttonPressed,
+                ]}
                 onPress={nextStep}
-                activeOpacity={0.8}
+                accessibilityRole="button"
               >
-                <Text style={styles.primarySmallButtonText}>Next</Text>
-              </TouchableOpacity>
+                <Text style={styles.primarySmallButtonText}>
+                  {currentStep.primaryButtonText || "Next →"}
+                </Text>
+              </Pressable>
+            ) : (
+              <Pressable
+                style={({ pressed }) => [
+                  styles.primarySmallButton,
+                  pressed && styles.buttonPressed,
+                ]}
+                onPress={nextStep}
+                accessibilityRole="button"
+              >
+                <Text style={styles.primarySmallButtonText}>
+                  {currentStep.primaryButtonText || "Next →"}
+                </Text>
+              </Pressable>
             )}
           </View>
         </View>
       </View>
 
-      {/* Pointer Notch pointing DOWN */}
+      {/* Pointer Notch pointing DOWN towards target below */}
       {arrowPosition === "bottom" && (
         <View style={[styles.arrowDown, { left: arrowLeft }]} />
       )}
-    </View>
+    </Animated.View>
   );
 };
 
 const styles = StyleSheet.create({
   modalOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(5, 10, 30, 0.65)",
+    backgroundColor: "rgba(1, 1, 53, 0.44)",
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 20,
     zIndex: 10000,
   },
-  welcomeCard: {
+  welcomeGlassCard: {
     width: "100%",
     maxWidth: 360,
-    backgroundColor: "rgba(255, 255, 255, 0.92)",
+    backgroundColor: "rgba(255, 255, 255, 0.90)",
     borderRadius: 24,
     padding: 26,
     alignItems: "center",
     borderWidth: 1.5,
-    borderColor: "rgba(255, 255, 255, 0.8)",
-    shadowColor: "#01083B",
+    borderColor: "rgba(255, 255, 255, 0.75)",
+    shadowColor: "#010135",
     shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.16,
     shadowRadius: 28,
     elevation: 16,
-    ...(Platform.OS === "web" ? { backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)" } : {}),
+    ...(Platform.OS === "web"
+      ? {
+          backdropFilter: "blur(24px) saturate(180%)",
+          WebkitBackdropFilter: "blur(24px) saturate(180%)",
+        }
+      : {}),
   },
   closeIconButton: {
     position: "absolute",
     top: 16,
     right: 16,
-    padding: 6,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "rgba(1, 1, 53, 0.05)",
+    alignItems: "center",
+    justifyContent: "center",
     zIndex: 10,
+  },
+  closeIconButtonSmall: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "rgba(1, 1, 53, 0.05)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  iconButtonPressed: {
+    opacity: 0.7,
+    transform: [{ scale: 0.92 }],
   },
   welcomeBadgeRow: {
     flexDirection: "row",
@@ -296,17 +440,17 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   rolePill: {
-    backgroundColor: "rgba(25, 45, 255, 0.08)",
+    backgroundColor: "rgba(1, 1, 53, 0.06)",
     paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: "rgba(25, 45, 255, 0.2)",
+    borderColor: "rgba(1, 1, 53, 0.12)",
   },
   rolePillText: {
     fontSize: 11,
     fontWeight: "800",
-    color: "#192DFF",
+    color: "#010135",
     letterSpacing: 0.8,
   },
   welcomeTitle: {
@@ -323,6 +467,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 21,
     marginBottom: 24,
+    paddingHorizontal: 6,
   },
   welcomeActionRow: {
     width: "100%",
@@ -330,33 +475,33 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     width: "100%",
-    height: 50,
-    backgroundColor: "#192DFF",
-    borderRadius: 16,
+    height: 48,
+    backgroundColor: "#010135",
+    borderRadius: 24,
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#192DFF",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    elevation: 6,
+    shadowColor: "#010135",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 5,
   },
   primaryButtonText: {
     color: "#FFFFFF",
     fontSize: 15,
     fontWeight: "700",
   },
-  secondaryButton: {
+  secondaryGlassButton: {
     width: "100%",
-    height: 46,
-    backgroundColor: "rgba(243, 244, 246, 0.8)",
-    borderRadius: 16,
+    height: 44,
+    backgroundColor: "rgba(1, 1, 53, 0.04)",
+    borderRadius: 22,
     borderWidth: 1,
-    borderColor: "rgba(229, 231, 235, 0.8)",
+    borderColor: "rgba(1, 1, 53, 0.1)",
     justifyContent: "center",
     alignItems: "center",
   },
-  secondaryButtonText: {
+  secondaryGlassButtonText: {
     color: "#4B5563",
     fontSize: 14,
     fontWeight: "600",
@@ -367,18 +512,23 @@ const styles = StyleSheet.create({
     position: "absolute",
     zIndex: 10001,
   },
-  bubbleCard: {
-    backgroundColor: "rgba(255, 255, 255, 0.92)",
-    borderRadius: 20,
+  glassCard: {
+    backgroundColor: "rgba(255, 255, 255, 0.90)",
+    borderRadius: 22,
     padding: 18,
     borderWidth: 1.5,
-    borderColor: "rgba(255, 255, 255, 0.85)",
-    shadowColor: "#01083B",
+    borderColor: "rgba(255, 255, 255, 0.75)",
+    shadowColor: "#010135",
     shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.16,
     shadowRadius: 22,
-    elevation: 14,
-    ...(Platform.OS === "web" ? { backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)" } : {}),
+    elevation: 12,
+    ...(Platform.OS === "web"
+      ? {
+          backdropFilter: "blur(24px) saturate(180%)",
+          WebkitBackdropFilter: "blur(24px) saturate(180%)",
+        }
+      : {}),
   },
   arrowUp: {
     position: "absolute",
@@ -390,7 +540,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: ARROW_SIZE,
     borderLeftColor: "transparent",
     borderRightColor: "transparent",
-    borderBottomColor: "rgba(255, 255, 255, 0.92)",
+    borderBottomColor: "rgba(255, 255, 255, 0.90)",
     zIndex: 10002,
   },
   arrowDown: {
@@ -403,7 +553,7 @@ const styles = StyleSheet.create({
     borderTopWidth: ARROW_SIZE,
     borderLeftColor: "transparent",
     borderRightColor: "transparent",
-    borderTopColor: "rgba(255, 255, 255, 0.92)",
+    borderTopColor: "rgba(255, 255, 255, 0.90)",
     zIndex: 10002,
   },
   cardHeader: {
@@ -412,33 +562,55 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: 10,
   },
+  progressRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
   stepBadge: {
-    backgroundColor: "rgba(25, 45, 255, 0.08)",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
+    backgroundColor: "rgba(1, 1, 53, 0.06)",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: "rgba(25, 45, 255, 0.18)",
+    borderColor: "rgba(1, 1, 53, 0.12)",
   },
   stepBadgeText: {
     fontSize: 11,
     fontWeight: "700",
-    color: "#192DFF",
-    letterSpacing: 0.3,
+    color: "#010135",
+    letterSpacing: 0.2,
   },
-  closeButton: {
-    padding: 4,
+  dotsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  dot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: "rgba(1, 1, 53, 0.16)",
+  },
+  activeDot: {
+    width: 12,
+    borderRadius: 3,
+    backgroundColor: "#010135",
+  },
+  pastDot: {
+    backgroundColor: "rgba(1, 1, 53, 0.35)",
   },
   bubbleTitle: {
     fontSize: 16,
-    fontWeight: "800",
+    fontWeight: "700",
     color: "#010135",
-    marginBottom: 6,
+    marginBottom: 5,
     letterSpacing: -0.2,
+    lineHeight: 22,
   },
   bubbleDesc: {
     fontSize: 13,
-    color: "#374151",
+    color: "#4B5563",
     lineHeight: 19,
     marginBottom: 16,
   },
@@ -448,11 +620,11 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: "rgba(0, 0, 0, 0.06)",
+    borderTopColor: "rgba(1, 1, 53, 0.06)",
   },
   backButton: {
     paddingVertical: 6,
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
   },
   backButtonText: {
     fontSize: 13,
@@ -461,7 +633,7 @@ const styles = StyleSheet.create({
   },
   skipLink: {
     paddingVertical: 6,
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
   },
   skipLinkText: {
     fontSize: 12,
@@ -475,15 +647,15 @@ const styles = StyleSheet.create({
   },
   primarySmallButton: {
     height: 38,
-    paddingHorizontal: 18,
-    backgroundColor: "#192DFF",
-    borderRadius: 14,
+    paddingHorizontal: 16,
+    backgroundColor: "#010135",
+    borderRadius: 20,
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#192DFF",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    shadowColor: "#010135",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.22,
+    shadowRadius: 6,
     elevation: 4,
   },
   primarySmallButtonText: {
@@ -491,20 +663,24 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
   },
-  secondarySmallButton: {
+  secondaryGlassSmallButton: {
     height: 38,
     paddingHorizontal: 14,
-    backgroundColor: "rgba(243, 244, 246, 0.8)",
-    borderRadius: 14,
+    backgroundColor: "rgba(1, 1, 53, 0.04)",
+    borderRadius: 20,
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "rgba(229, 231, 235, 0.8)",
+    borderColor: "rgba(1, 1, 53, 0.1)",
   },
-  secondarySmallButtonText: {
+  secondaryGlassSmallButtonText: {
     color: "#4B5563",
     fontSize: 13,
     fontWeight: "600",
+  },
+  buttonPressed: {
+    opacity: 0.85,
+    transform: [{ scale: 0.97 }],
   },
 });
 

@@ -1,6 +1,6 @@
 /**
  * LUNEST Product Tour Steps Configuration
- * Defines step details for both Guest and Host tours.
+ * Follows the Modern Glassmorphism First-Login Tour specification.
  * Brand name "LUNEST" is ALWAYS in ALL CAPS.
  */
 
@@ -9,32 +9,41 @@ export const GUEST_TOUR_STEPS = [
     id: "guest-welcome",
     type: "modal",
     title: "Welcome to LUNEST 👋",
-    description: "You're all set. Let us quickly show you around the app.",
-    primaryButtonText: "Take a quick tour",
-    secondaryButtonText: "Skip",
+    description:
+      "You're all set. Let's take a quick look around so you can get the most out of LUNEST.",
+    primaryButtonText: "Take the Tour",
+    secondaryButtonText: "Skip Tour",
   },
   {
-    id: "guest-property-card",
-    anchorId: "tour-property-card",
-    title: "Curated Stays Near You 📍",
+    id: "guest-home",
+    anchorId: "tour-home-header",
+    title: "Your LUNEST home",
     description:
-      "LUNEST automatically detects your location to present premium, verified properties closest to you. Tap any listing to review high-resolution photos, real-time availability, transparent pricing, and instant booking options.",
-    preferredPosition: "top",
+      "Discover curated properties and apartments near your current location.",
+    preferredPosition: "bottom",
   },
   {
     id: "guest-search",
     anchorId: "tour-search-bar",
-    title: "Explore Any Destination 🔍",
+    title: "Find your next stay 🔍",
     description:
-      "Looking to travel beyond your current location? Use the smart search bar to filter properties across Nigeria by dates, price points, and premium amenities.",
+      "Search properties by location, dates and available filters.",
     preferredPosition: "bottom",
+  },
+  {
+    id: "guest-property",
+    anchorId: "tour-property-card",
+    title: "Explore properties",
+    description:
+      "Review verified photos, amenities, pricing and real host ratings.",
+    preferredPosition: "top",
   },
   {
     id: "guest-bookings",
     anchorId: "tour-guest-nav-bookings",
-    title: "View and manage your bookings",
+    title: "Book with confidence",
     description:
-      "Review your upcoming trips, active stays, and past reservation details at any time.",
+      "View and manage your upcoming reservations, check-ins and receipts.",
     preferredPosition: "top",
   },
   {
@@ -42,7 +51,7 @@ export const GUEST_TOUR_STEPS = [
     anchorId: "tour-guest-nav-saved",
     title: "Saved favorites ❤️",
     description:
-      "Bookmark properties you love to easily compare prices, check availability, and book later.",
+      "Save homes you love to compare rates and book whenever you're ready.",
     preferredPosition: "top",
   },
   {
@@ -50,7 +59,7 @@ export const GUEST_TOUR_STEPS = [
     anchorId: "tour-notifications-btn",
     title: "Stay updated 🔔",
     description:
-      "We'll keep you informed about bookings, verification updates, payments and important account activity.",
+      "Get real-time updates on bookings, payments, and account activity.",
     preferredPosition: "bottom",
   },
   {
@@ -58,7 +67,7 @@ export const GUEST_TOUR_STEPS = [
     anchorId: "tour-guest-nav-profile",
     title: "Your account",
     description:
-      "Manage your profile, identity verification, bookings, settings and other account information here.",
+      "Manage your profile, security settings, saved favorites, and preferences.",
     preferredPosition: "top",
   },
   {
@@ -67,10 +76,19 @@ export const GUEST_TOUR_STEPS = [
     isKycOnly: true, // Only shown if user has NOT completed KYC
     title: "Complete your verification",
     description:
-      "Your identity verification helps keep the LUNEST community safer.\n\nTap here to continue your verification.",
-    primaryButtonText: "Verify now",
+      "Your identity verification helps keep the LUNEST community safer.",
+    primaryButtonText: "Verify Now",
     secondaryButtonText: "Later",
     preferredPosition: "top",
+  },
+  {
+    id: "guest-finish",
+    type: "modal",
+    isFinish: true,
+    title: "You're ready to explore LUNEST 🚀",
+    description:
+      "Start finding and booking unique places to stay with confidence.",
+    primaryButtonText: "Start Exploring",
   },
 ];
 
@@ -80,16 +98,16 @@ export const HOST_TOUR_STEPS = [
     type: "modal",
     title: "Welcome to LUNEST Hosting 🏠",
     description:
-      "You're all set. Let us quickly show you how to manage your listings, reservations, and earnings.",
-    primaryButtonText: "Take a quick tour",
-    secondaryButtonText: "Skip",
+      "You're all set. Let's take a quick look around so you can get the most out of hosting on LUNEST.",
+    primaryButtonText: "Take the Tour",
+    secondaryButtonText: "Skip Tour",
   },
   {
     id: "host-dashboard",
     anchorId: "tour-host-nav-dashboard",
     title: "Your Host Hub",
     description:
-      "Track your overall hosting performance, upcoming guest check-ins, and key property activity.",
+      "Track your hosting performance, upcoming guest check-ins, and key activity.",
     preferredPosition: "top",
   },
   {
@@ -97,7 +115,7 @@ export const HOST_TOUR_STEPS = [
     anchorId: "tour-host-create-listing",
     title: "Add a property",
     description:
-      "Create and publish new listings with photos, amenities, nightly rates, and custom house rules.",
+      "Create and publish new listings with photos, amenities, and nightly rates.",
     preferredPosition: "bottom",
   },
   {
@@ -113,7 +131,7 @@ export const HOST_TOUR_STEPS = [
     anchorId: "tour-host-nav-bookings",
     title: "Guest reservations",
     description:
-      "Accept or decline booking requests, review guest details, and check reservation histories.",
+      "Review reservation requests, manage check-ins, and view guest details.",
     preferredPosition: "top",
   },
   {
@@ -121,15 +139,15 @@ export const HOST_TOUR_STEPS = [
     anchorId: "tour-host-nav-earnings",
     title: "Track your earnings 💰",
     description:
-      "Monitor your revenue, pending payouts, completed transactions, and payout bank accounts.",
+      "Monitor your revenue, payouts, transactions, and linked bank accounts.",
     preferredPosition: "top",
   },
   {
     id: "host-profile",
     anchorId: "tour-host-nav-profile",
-    title: "Host profile & settings",
+    title: "Host account & settings",
     description:
-      "Manage your host profile, bank accounts, payout preferences, and account security.",
+      "Manage your host profile, payout preferences, and account security.",
     preferredPosition: "top",
   },
   {
@@ -139,8 +157,17 @@ export const HOST_TOUR_STEPS = [
     title: "Complete your verification",
     description:
       "Host identity verification unlocks instant payouts and builds trust with prospective guests.",
-    primaryButtonText: "Verify now",
+    primaryButtonText: "Verify Now",
     secondaryButtonText: "Later",
     preferredPosition: "top",
+  },
+  {
+    id: "host-finish",
+    type: "modal",
+    isFinish: true,
+    title: "You're ready to host on LUNEST 🚀",
+    description:
+      "Start welcoming guests and managing your listings with ease.",
+    primaryButtonText: "Start Hosting",
   },
 ];

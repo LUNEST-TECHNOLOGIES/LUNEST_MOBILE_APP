@@ -104,8 +104,8 @@ export const PostTourKycModal = () => {
             {/* Benefits Feature Cards */}
             <View style={styles.benefitsList}>
               <View style={styles.benefitCard}>
-                <View style={[styles.benefitIconBox, { backgroundColor: "#EEF2FF" }]}>
-                  <Zap size={22} color="#192DFF" strokeWidth={2.2} />
+                <View style={styles.benefitIconBox}>
+                  <Zap size={22} color="#010135" strokeWidth={2.2} />
                 </View>
                 <View style={styles.benefitTextCol}>
                   <Text style={styles.benefitTitle}>Instant Reservations</Text>
@@ -116,8 +116,8 @@ export const PostTourKycModal = () => {
               </View>
 
               <View style={styles.benefitCard}>
-                <View style={[styles.benefitIconBox, { backgroundColor: "#EEF2FF" }]}>
-                  <Lock size={22} color="#192DFF" strokeWidth={2.2} />
+                <View style={styles.benefitIconBox}>
+                  <Lock size={22} color="#010135" strokeWidth={2.2} />
                 </View>
                 <View style={styles.benefitTextCol}>
                   <Text style={styles.benefitTitle}>Protected Payments</Text>
@@ -128,8 +128,8 @@ export const PostTourKycModal = () => {
               </View>
 
               <View style={styles.benefitCard}>
-                <View style={[styles.benefitIconBox, { backgroundColor: "#EEF2FF" }]}>
-                  <ShieldCheck size={22} color="#192DFF" strokeWidth={2.2} />
+                <View style={styles.benefitIconBox}>
+                  <ShieldCheck size={22} color="#010135" strokeWidth={2.2} />
                 </View>
                 <View style={styles.benefitTextCol}>
                   <Text style={styles.benefitTitle}>Verified Member Trust</Text>
@@ -139,6 +139,7 @@ export const PostTourKycModal = () => {
                 </View>
               </View>
             </View>
+
 
             {/* Micro reassurance notice */}
             <View style={styles.guaranteeBox}>
@@ -184,7 +185,7 @@ export const PostTourKycModal = () => {
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(10, 15, 30, 0.72)",
+    backgroundColor: "rgba(1, 1, 53, 0.45)",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -200,9 +201,9 @@ const styles = StyleSheet.create({
     maxHeight: 760,
     borderRadius: 28,
     alignSelf: "center",
-    shadowColor: "#000",
+    shadowColor: "#010135",
     shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.18,
     shadowRadius: 32,
     elevation: 20,
   },
@@ -213,7 +214,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   topBadgeContainer: {
-    backgroundColor: "#EEF2FF",
+    backgroundColor: "rgba(1, 1, 53, 0.08)",
     paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: 20,
@@ -221,7 +222,7 @@ const styles = StyleSheet.create({
   topBadgeText: {
     fontSize: 11,
     fontWeight: "700",
-    color: "#192DFF",
+    color: "#010135",
     letterSpacing: 0.8,
   },
   closeButton: {
@@ -252,7 +253,7 @@ const styles = StyleSheet.create({
     width: 104,
     height: 104,
     borderRadius: 52,
-    backgroundColor: "rgba(25, 45, 255, 0.12)",
+    backgroundColor: "rgba(1, 1, 53, 0.08)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -260,10 +261,10 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: "#192DFF",
+    backgroundColor: "#010135",
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#192DFF",
+    shadowColor: "#010135",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.35,
     shadowRadius: 16,
@@ -272,7 +273,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: "800",
-    color: "#111827",
+    color: "#010135",
     textAlign: "center",
     marginTop: 8,
     marginBottom: 8,
@@ -306,6 +307,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 12,
+    backgroundColor: "rgba(1, 1, 53, 0.06)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -324,10 +326,10 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
   guaranteeBox: {
-    backgroundColor: "#F0F4FF",
-    borderColor: "#D8E3FF",
+    backgroundColor: "rgba(1, 1, 53, 0.04)",
+    borderColor: "rgba(1, 1, 53, 0.12)",
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 14,
     paddingVertical: 10,
     paddingHorizontal: 14,
     width: "100%",
@@ -336,7 +338,7 @@ const styles = StyleSheet.create({
   guaranteeText: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#192DFF",
+    color: "#010135",
     textAlign: "center",
   },
 
@@ -346,14 +348,14 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   primaryButton: {
-    backgroundColor: "#192DFF",
+    backgroundColor: "#010135",
     height: 52,
-    borderRadius: 16,
+    borderRadius: 25,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 10,
-    shadowColor: "#192DFF",
+    shadowColor: "#010135",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.28,
     shadowRadius: 10,
@@ -365,7 +367,8 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
   },
   secondaryButton: {
-    height: 42,
+    height: 46,
+    borderRadius: 25,
     alignItems: "center",
     justifyContent: "center",
   },

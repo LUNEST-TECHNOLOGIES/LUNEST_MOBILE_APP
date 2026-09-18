@@ -90,7 +90,7 @@ class ConfigService {
       return this.cachedCloudFrontURL;
     }
     
-    const url = process.env.EXPO_PUBLIC_CLOUDFRONT_URL || 'https://d1eoci8rrogdfp.cloudfront.net';
+    const url = process.env.EXPO_PUBLIC_CLOUDFRONT_URL || 'https://dqubv15hbqsuo.cloudfront.net';
     this.cachedCloudFrontURL = url;
     return url;
   }

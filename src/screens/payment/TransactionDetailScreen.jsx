@@ -14,6 +14,7 @@ import { useRef, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
+    Image,
     Platform,
     Pressable,
     ScrollView,
@@ -574,12 +575,17 @@ const TransactionDetailScreen = () => {
       try {
         const asset = Asset.fromModule(logoImage);
         await asset.downloadAsync();
-        const logoBase64 = await FileSystem.readAsStringAsync(asset.localUri, {
-          encoding: FileSystem.EncodingType.Base64,
-        });
-        logoSrc = `data:image/png;base64,${logoBase64}`;
+        if (asset.localUri && FileSystem && typeof FileSystem.readAsStringAsync === 'function') {
+          const logoBase64 = await FileSystem.readAsStringAsync(asset.localUri, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+          logoSrc = `data:image/png;base64,${logoBase64}`;
+        }
       } catch (imgErr) {
-        console.warn("[PDF] Logo load error:", imgErr);
+        console.warn("[PDF] Local logo load error:", imgErr);
+      }
+      if (!logoSrc) {
+        logoSrc = "https://dqubv15hbqsuo.cloudfront.net/logo/LUNEST%20LOGO.png";
       }
 
       const htmlContent = `
@@ -828,6 +834,16 @@ const TransactionDetailScreen = () => {
           style={{ backgroundColor: "#FFFFFF" }}
         >
           <View style={styles.receiptCard}>
+            {/* LUNEST Brand Header for Image Receipt */}
+            <View style={styles.receiptBrandHeader}>
+              <Image
+                source={logoImage}
+                style={styles.receiptLogo}
+                resizeMode="contain"
+              />
+              <Text style={styles.receiptBrandTitle}>Official Receipt</Text>
+            </View>
+
             {/* Status Row */}
             <View style={styles.statusRow}>
               <Text style={styles.statusLabel}>Transaction Status</Text>
@@ -1502,6 +1518,24 @@ const styles = StyleSheet.create({
     shadowRadius: 36,
     elevation: 8,
     gap: 24,
+  },
+  receiptBrandHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingBottom: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1F5F9",
+  },
+  receiptLogo: {
+    height: 36,
+    width: 120,
+  },
+  receiptBrandTitle: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#010135",
+    letterSpacing: 0.5,
   },
   statusRow: {
     flexDirection: "row",

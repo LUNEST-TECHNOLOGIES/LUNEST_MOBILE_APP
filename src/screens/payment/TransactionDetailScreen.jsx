@@ -585,7 +585,7 @@ const TransactionDetailScreen = () => {
         console.warn("[PDF] Local logo load error:", imgErr);
       }
       if (!logoSrc) {
-        logoSrc = "https://dqubv15hbqsuo.cloudfront.net/logo/LUNEST%20LOGO.png";
+        logoSrc = "https://dqubv15hbqsuo.cloudfront.net/logo/lunest-main-logo.png";
       }
 
       const htmlContent = `
@@ -834,14 +834,36 @@ const TransactionDetailScreen = () => {
           style={{ backgroundColor: "#FFFFFF" }}
         >
           <View style={styles.receiptCard}>
-            {/* LUNEST Brand Header for Image Receipt */}
+            {/* LUNEST VERIFIED Watermark Stamp */}
+            <View style={styles.receiptStampContainer}>
+              <View style={styles.receiptStamp}>
+                <Text style={styles.receiptStampText}>LUNEST</Text>
+                <Text style={styles.receiptStampSubText}>VERIFIED</Text>
+              </View>
+            </View>
+
+            {/* Official Standard Receipt Header */}
             <View style={styles.receiptBrandHeader}>
-              <Image
-                source={logoImage}
-                style={styles.receiptLogo}
-                resizeMode="contain"
-              />
-              <Text style={styles.receiptBrandTitle}>Official Receipt</Text>
+              <View style={styles.receiptLogoContainer}>
+                <Image
+                  source={logoImage}
+                  style={styles.receiptLogo}
+                  resizeMode="contain"
+                />
+                <Text style={styles.receiptBrandSub}>TECHNOLOGIES</Text>
+              </View>
+
+              <View style={styles.receiptHeaderRight}>
+                <Text style={styles.receiptBrandTitle}>
+                  {transactionData.category === "BOOKING" ? "BOOKING RECEIPT" : "PAYMENT RECEIPT"}
+                </Text>
+                <Text style={styles.receiptDocRef}>
+                  REF: {transactionData.reference || `LNS-${(transactionData.transactionId || "").slice(-8).toUpperCase()}`}
+                </Text>
+                <Text style={styles.receiptDocDate}>
+                  DATE: {transactionData.date || new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
+                </Text>
+              </View>
             </View>
 
             {/* Status Row */}
@@ -1412,6 +1434,16 @@ const TransactionDetailScreen = () => {
                 </View>
               )}
             </View>
+
+            {/* Official Standard Receipt Footer for Image Receipt */}
+            <View style={styles.receiptStandardFooter}>
+              <Text style={styles.receiptFooterText}>
+                Official system-generated receipt issued by LUNEST Technologies.
+              </Text>
+              <Text style={styles.receiptFooterSecurity}>
+                Verified & Secured Escrow • {new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
+              </Text>
+            </View>
           </View>
         </Wrapper>
 
@@ -1518,24 +1550,103 @@ const styles = StyleSheet.create({
     shadowRadius: 36,
     elevation: 8,
     gap: 24,
+    position: "relative",
+    overflow: "hidden",
+  },
+  receiptStampContainer: {
+    position: "absolute",
+    top: 55,
+    right: 20,
+    zIndex: 0,
+    opacity: 0.10,
+    pointerEvents: "none",
+  },
+  receiptStamp: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 3,
+    borderColor: "#010135",
+    borderStyle: "dashed",
+    alignItems: "center",
+    justifyContent: "center",
+    transform: [{ rotate: "-15deg" }],
+  },
+  receiptStampText: {
+    fontSize: 11,
+    fontWeight: "900",
+    color: "#010135",
+    letterSpacing: 1.5,
+  },
+  receiptStampSubText: {
+    fontSize: 8,
+    fontWeight: "800",
+    color: "#010135",
+    letterSpacing: 1,
   },
   receiptBrandHeader: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     justifyContent: "space-between",
-    paddingBottom: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F1F5F9",
+    paddingBottom: 16,
+    borderBottomWidth: 2,
+    borderBottomColor: "#010135",
+  },
+  receiptLogoContainer: {
+    alignItems: "flex-start",
   },
   receiptLogo: {
-    height: 36,
-    width: 120,
+    height: 40,
+    width: 160,
+  },
+  receiptBrandSub: {
+    fontSize: 8,
+    fontWeight: "700",
+    color: "#64748B",
+    letterSpacing: 2,
+    marginTop: 2,
+    marginLeft: 2,
+  },
+  receiptHeaderRight: {
+    alignItems: "flex-end",
   },
   receiptBrandTitle: {
     fontSize: 12,
-    fontWeight: "700",
+    fontWeight: "800",
     color: "#010135",
     letterSpacing: 0.5,
+  },
+  receiptDocRef: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: "#64748B",
+    marginTop: 2,
+    fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
+  },
+  receiptDocDate: {
+    fontSize: 9,
+    fontWeight: "600",
+    color: "#64748B",
+    marginTop: 2,
+  },
+  receiptStandardFooter: {
+    marginTop: 10,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: "#E2E8F0",
+    alignItems: "center",
+    gap: 4,
+  },
+  receiptFooterText: {
+    fontSize: 10,
+    color: "#64748B",
+    textAlign: "center",
+  },
+  receiptFooterSecurity: {
+    fontSize: 9,
+    fontWeight: "700",
+    color: "#010135",
+    textAlign: "center",
   },
   statusRow: {
     flexDirection: "row",

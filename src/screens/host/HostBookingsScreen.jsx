@@ -1175,7 +1175,7 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
   bottomSpacer: {
-    height: 120,
+    height: 60,
   },
   // Loading State Styles
   loadingContainer: {

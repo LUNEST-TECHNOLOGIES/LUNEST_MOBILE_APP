@@ -355,14 +355,27 @@ const SavedScreen = () => {
       listing.location ||
       (listing.city ? `${listing.city}, ${listing.state || ""}`.trim() : "Location not specified");
 
-    const rawPrice =
-      (typeof listing.propertyPrice === "number" ? listing.propertyPrice : null) ??
-      listing.propertyPrice?.price ??
-      listing.propertyPrice?.amount ??
-      listing.price ??
-      listing.rent ??
-      listing.amount ??
-      0;
+    const extractPrice = (l) => {
+      if (!l) return 0;
+      const candidates = [
+        l.propertyPrice?.price,
+        l.propertyPrice?.amount,
+        l.price,
+        typeof l.propertyPrice === "number" ? l.propertyPrice : null,
+        l.rent,
+        l.amount,
+        l.basePrice,
+      ];
+      for (const candidate of candidates) {
+        if (candidate !== null && candidate !== undefined) {
+          const num = typeof candidate === "number" ? candidate : parseFloat(String(candidate).replace(/[^0-9.]/g, ""));
+          if (!isNaN(num) && num > 0) return num;
+        }
+      }
+      return 0;
+    };
+
+    const rawPrice = extractPrice(listing);
 
     const rawPeriod =
       listing.propertyPrice?.frequency ||

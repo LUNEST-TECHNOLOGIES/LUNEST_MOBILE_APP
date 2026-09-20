@@ -276,21 +276,41 @@ class ListingService {
           })
         : [];
 
-      const rawPrice =
-        (typeof listing.propertyPrice === "number" ? listing.propertyPrice : null) ??
-        listing.propertyPrice?.price ??
-        listing.price ??
-        listing.rent ??
-        0;
+      const extractPrice = (l) => {
+        const candidates = [
+          l.propertyPrice?.price,
+          l.propertyPrice?.amount,
+          l.price,
+          typeof l.propertyPrice === "number" ? l.propertyPrice : null,
+          l.rent,
+          l.amount,
+          l.basePrice,
+        ];
+        for (const candidate of candidates) {
+          if (candidate !== null && candidate !== undefined) {
+            const num = typeof candidate === "number" ? candidate : parseFloat(String(candidate).replace(/[^0-9.]/g, ""));
+            if (!isNaN(num) && num > 0) return num;
+          }
+        }
+        return 0;
+      };
+
+      const rawPrice = extractPrice(listing);
+      const rawPeriod =
+        listing.propertyPrice?.frequency ||
+        listing.pricingPeriod ||
+        listing.rentFrequency ||
+        listing.frequency ||
+        "per night";
 
       const recentEntry = {
         _id: String(id),
         id: String(id),
         propertyTitle: listing.propertyTitle || listing.propertyName || listing.title || "Accommodation",
         propertyName: listing.propertyName || listing.propertyTitle || listing.title || "Accommodation",
-        propertyPrice: listing.propertyPrice || { price: rawPrice, frequency: listing.pricingPeriod || "per night" },
+        propertyPrice: { price: rawPrice, frequency: rawPeriod },
         price: rawPrice,
-        pricingPeriod: listing.pricingPeriod || listing.propertyPrice?.frequency || "night",
+        pricingPeriod: rawPeriod,
         propertyImages: listing.propertyImages || listing.images || (listing.coverImage ? [listing.coverImage] : []),
         coverImage: listing.coverImage || listing.propertyImages?.[0] || null,
         propertyLocation: listing.propertyLocation || { fullAddress: listing.address || listing.location || "" },

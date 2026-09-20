@@ -173,16 +173,17 @@ const HostBottomNav = ({ activeTab: propActiveTab, onTabPress: propOnTabPress })
   const isSmallScreen = screenWidth < 380;
   const isShortScreen = screenHeight < 700;
 
-  const iconSize = isSmallScreen ? 20 : isTablet ? 26 : isShortScreen ? 22 : 24;
-  const fontSize = isSmallScreen ? 9.5 : isTablet ? 12 : isShortScreen ? 10 : 10.5;
-  const gapSize = isSmallScreen ? 1 : 2;
+  // Sleek, compact icon size so labels have maximum space and visual balance
+  const iconSize = isSmallScreen ? 16 : isTablet ? 22 : isShortScreen ? 17 : 18;
+  const fontSize = isSmallScreen ? 8.5 : isTablet ? 11 : isShortScreen ? 9 : 9.5;
+  const gapSize = 2;
 
   // Safe bottom offset for floating pill
   const floatingBottom = Platform.select({
-    ios: Math.max(insets.bottom, 14) + 6,
-    android: Math.max(insets.bottom, 10) + 8,
-    web: 20,
-    default: 16,
+    ios: Math.max(insets.bottom, 12) + 4,
+    android: Math.max(insets.bottom, 8) + 6,
+    web: 16,
+    default: 14,
   });
 
   return (
@@ -198,9 +199,9 @@ const HostBottomNav = ({ activeTab: propActiveTab, onTabPress: propOnTabPress })
       <View style={[styles.pillContainer, isTablet && styles.pillContainerTablet]}>
         {/* Background Blur */}
         <BlurView
-          intensity={Platform.OS === "ios" ? 85 : 100}
+          intensity={Platform.OS === "ios" ? 85 : 95}
           tint="light"
-          style={StyleSheet.absoluteFill}
+          style={[StyleSheet.absoluteFill, { borderRadius: 36 }]}
         />
         {/* Soft translucent fallback overlay */}
         <View style={[StyleSheet.absoluteFill, styles.bgOverlay]} />
@@ -230,7 +231,7 @@ const HostBottomNav = ({ activeTab: propActiveTab, onTabPress: propOnTabPress })
                 key={tab.key}
                 style={styles.tab}
                 onPress={() => handleTabPress(tab)}
-                hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+                hitSlop={{ top: 8, bottom: 8, left: 2, right: 2 }}
               >
                 {({ pressed }) => (
                   <View
@@ -245,7 +246,7 @@ const HostBottomNav = ({ activeTab: propActiveTab, onTabPress: propOnTabPress })
                       <View
                         style={[
                           styles.profileImageContainer,
-                          { width: iconSize, height: iconSize },
+                          { width: iconSize + 2, height: iconSize + 2 },
                           isActive && styles.profileImageActive,
                         ]}
                       >
@@ -253,7 +254,7 @@ const HostBottomNav = ({ activeTab: propActiveTab, onTabPress: propOnTabPress })
                           source={{ uri: resolvedAvatarUri }}
                           style={[
                             styles.profileImage,
-                            { width: iconSize - 2, height: iconSize - 2 },
+                            { width: iconSize, height: iconSize },
                           ]}
                           contentFit="cover"
                           cachePolicy="disk"
@@ -268,18 +269,20 @@ const HostBottomNav = ({ activeTab: propActiveTab, onTabPress: propOnTabPress })
                       />
                     )}
 
-                    {/* Label beneath every icon */}
+                    {/* Label beneath every icon - guaranteed 100% showing without abbreviation */}
                     <Text
                       style={[
                         styles.label,
                         {
                           fontSize,
                           color: textColor,
-                          fontWeight: isActive ? "700" : "500",
+                          fontWeight: isActive ? "600" : "500",
                           marginTop: gapSize,
                         },
                       ]}
                       numberOfLines={1}
+                      adjustsFontSizeToFit={true}
+                      minimumFontScale={0.75}
                     >
                       {tab.label}
                     </Text>
@@ -307,17 +310,12 @@ const HostBottomNav = ({ activeTab: propActiveTab, onTabPress: propOnTabPress })
 const styles = StyleSheet.create({
   floatingWrapper: {
     position: Platform.OS === "web" ? "fixed" : "absolute",
-    left: 16,
-    right: 16,
+    left: 14,
+    right: 14,
     zIndex: 1000,
     alignItems: "center",
     justifyContent: "center",
-    // Soft shadow
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
-    elevation: 12,
+    backgroundColor: "transparent",
   },
   pillContainer: {
     width: "100%",
@@ -326,19 +324,35 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     borderWidth: 1,
     borderColor: "rgba(0, 0, 0, 0.08)",
-    paddingVertical: 5,
-    paddingHorizontal: 6,
+    paddingVertical: 4,
+    paddingHorizontal: 4,
+    backgroundColor:
+      Platform.OS === "ios"
+        ? "rgba(255, 255, 255, 0.82)"
+        : "rgba(255, 255, 255, 0.92)",
+    // Shadow directly on pillContainer so it tightly follows the rounded pill shape
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.10,
+    shadowRadius: 12,
+    elevation: 8,
+    ...(Platform.OS === "web" && {
+      backdropFilter: "blur(20px)",
+      WebkitBackdropFilter: "blur(20px)",
+      WebkitMaskImage: "-webkit-radial-gradient(white, black)",
+    }),
   },
   pillContainerTablet: {
     maxWidth: 540,
-    paddingVertical: 7,
-    paddingHorizontal: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
   },
   bgOverlay: {
+    borderRadius: 36,
     backgroundColor:
       Platform.OS === "ios"
-        ? "rgba(255, 255, 255, 0.85)"
-        : "rgba(255, 255, 255, 0.96)",
+        ? "rgba(255, 255, 255, 0.70)"
+        : "rgba(255, 255, 255, 0.88)",
   },
   tabsRow: {
     flexDirection: "row",
@@ -350,29 +364,30 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 2,
+    paddingHorizontal: 1,
   },
   capsule: {
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 5,
-    paddingHorizontal: 6,
-    borderRadius: 20,
+    paddingVertical: 4,
+    paddingHorizontal: 2,
+    borderRadius: 18,
     width: "100%",
-    minHeight: 46,
+    minHeight: 42,
     borderWidth: 1,
     borderColor: "transparent",
     backgroundColor: "transparent",
   },
   capsuleActive: {
-    backgroundColor: "rgba(25, 45, 255, 0.10)",
-    borderColor: "rgba(25, 45, 255, 0.18)",
+    backgroundColor: "rgba(25, 45, 255, 0.09)",
+    borderColor: "rgba(25, 45, 255, 0.16)",
   },
   pressed: {
     opacity: 0.7,
   },
   label: {
     textAlign: "center",
+    letterSpacing: -0.25,
   },
   profileImageContainer: {
     borderRadius: 50,

@@ -147,6 +147,12 @@ const PersonalInfoEditScreen = () => {
     docTypeAbbrev: "NIN", // NIN, PASSPORT, DL, VOTER ID, etc.
     avatarUri: null,
     isVerified: false, // If true, name and NIN cannot be changed
+    nextOfKin: {
+      fullName: "",
+      relationship: "",
+      phoneNumber: "",
+      emailAddress: "",
+    },
     employment: {
       employerName: "",
       employerAddress: "",
@@ -164,8 +170,10 @@ const PersonalInfoEditScreen = () => {
       { value: userData.phone, weight: 15 },
       { value: userData.gender, weight: 10 },
       { value: userData.location, weight: 10 },
-      { value: userData.nin, weight: 15 },
+      { value: userData.nin, weight: 10 },
       { value: userData.avatarUri, weight: 5 },
+      { value: userData.nextOfKin.fullName, weight: 5 },
+      { value: userData.nextOfKin.phoneNumber, weight: 5 },
       { value: userData.employment.employerName, weight: 5 },
       { value: userData.employment.employerAddress, weight: 5 },
       { value: userData.employment.employerContact, weight: 5 },
@@ -333,6 +341,8 @@ const PersonalInfoEditScreen = () => {
           : serverAvatar;
       }
       
+      const serverNok = serverProfileResult?.data?.nextOfKin || savedProfile?.nextOfKin || {};
+
       // Authoritatively sync avatar with profileService so ProfileHeader and BottomNav match
       if (serverProfileResult?.data) {
         profileService.updateAvatar(resolvedServerAvatar).catch(err => console.warn('[PersonalInfoEdit] Error syncing avatar:', err));
@@ -353,6 +363,12 @@ const PersonalInfoEditScreen = () => {
           kycStatus: resolvedKycStatus,
           kycRejectionReason: resolvedRejectionReason,
           phoneVerified: !!serverProfileResult?.data?.phoneVerified || false,
+          nextOfKin: {
+            fullName: serverNok.fullName || savedProfile?.nextOfKin?.fullName || prev.nextOfKin?.fullName || "",
+            relationship: serverNok.relationship || savedProfile?.nextOfKin?.relationship || prev.nextOfKin?.relationship || "",
+            phoneNumber: serverNok.phoneNumber || savedProfile?.nextOfKin?.phoneNumber || prev.nextOfKin?.phoneNumber || "",
+            emailAddress: serverNok.emailAddress || savedProfile?.nextOfKin?.emailAddress || prev.nextOfKin?.emailAddress || "",
+          },
         }));
       } else if (
         authData ||
@@ -380,6 +396,12 @@ const PersonalInfoEditScreen = () => {
           kycStatus: resolvedKycStatus,
           kycRejectionReason: resolvedRejectionReason,
           phoneVerified: !!serverProfileResult?.data?.phoneVerified || false,
+          nextOfKin: {
+            fullName: serverNok.fullName || prev.nextOfKin?.fullName || "",
+            relationship: serverNok.relationship || prev.nextOfKin?.relationship || "",
+            phoneNumber: serverNok.phoneNumber || prev.nextOfKin?.phoneNumber || "",
+            emailAddress: serverNok.emailAddress || prev.nextOfKin?.emailAddress || "",
+          },
         }));
       }
 
@@ -503,6 +525,7 @@ const PersonalInfoEditScreen = () => {
         return "";
       case "phone":
       case "employerContact":
+      case "nokPhone":
         if (!value.trim()) return "Phone number is required";
         if (!/^[0-9+\-\s()]{10,15}$/.test(value.replace(/\s/g, "")))
           return "Please enter a valid phone number";
@@ -516,13 +539,24 @@ const PersonalInfoEditScreen = () => {
         if (!/^[0-9]{11}$/.test(value.trim()))
           return "NIN must be exactly 11 digits";
         return "";
+      case "nokFullName":
+        if (!value.trim()) return "Next of Kin name is required";
+        if (value.trim().length < 2) return "Name must be at least 2 characters";
+        return "";
+      case "nokRelationship":
+        if (!value.trim()) return "Relationship is required";
+        return "";
+      case "nokEmail":
+        if (value.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))
+          return "Please enter a valid email address";
+        return "";
       default:
         return "";
     }
   };
 
   // Open edit modal
-  const handleUpdate = (field, isEmployment = false) => {
+  const handleUpdate = (field, isEmployment = false, isNextOfKin = false) => {
     if ((field === "name" || field === "nin") && userData.isVerified) {
       showToast(`${field === 'nin' ? 'NIN' : 'Name'} cannot be changed for verified accounts.`, TOAST_TYPE.WARNING);
       return;
@@ -544,6 +578,10 @@ const PersonalInfoEditScreen = () => {
       employerName: "Employer Name",
       employerAddress: "Employer Address",
       employerContact: "Employer Contact",
+      nokFullName: "Next of Kin Full Name",
+      nokRelationship: "Relationship (e.g. Spouse, Sibling)",
+      nokPhone: "Next of Kin Phone Number",
+      nokEmail: "Next of Kin Email (Optional)",
     };
 
     const currentValues = {
@@ -555,10 +593,14 @@ const PersonalInfoEditScreen = () => {
       employerName: userData.employment.employerName,
       employerAddress: userData.employment.employerAddress,
       employerContact: userData.employment.employerContact,
+      nokFullName: userData.nextOfKin.fullName,
+      nokRelationship: userData.nextOfKin.relationship,
+      nokPhone: userData.nextOfKin.phoneNumber,
+      nokEmail: userData.nextOfKin.emailAddress,
     };
 
-    setEditField({ key: field, label: fieldLabels[field], isEmployment });
-    setEditValue(currentValues[field]);
+    setEditField({ key: field, label: fieldLabels[field] || field, isEmployment, isNextOfKin });
+    setEditValue(currentValues[field] || "");
     setEditError("");
     setShowEditModal(true);
   };
@@ -576,7 +618,33 @@ const PersonalInfoEditScreen = () => {
     try {
       let newUserData;
 
-      if (editField.isEmployment) {
+      if (editField.isNextOfKin) {
+        const nokKeyMap = {
+          nokFullName: "fullName",
+          nokRelationship: "relationship",
+          nokPhone: "phoneNumber",
+          nokEmail: "emailAddress",
+        };
+        const targetKey = nokKeyMap[editField.key] || editField.key;
+        const updatedNok = {
+          ...(userData.nextOfKin || {}),
+          [targetKey]: editValue.trim(),
+        };
+        newUserData = {
+          ...userData,
+          nextOfKin: updatedNok,
+        };
+
+        const serverResult = await authService.updateProfile({
+          nextOfKin: updatedNok,
+        });
+
+        if (!serverResult.success) {
+          setIsLoading(false);
+          showToast(serverResult.message || "Failed to save Next of Kin to server.", TOAST_TYPE.ERROR);
+          return;
+        }
+      } else if (editField.isEmployment) {
         // Update nested employment object
         newUserData = {
           ...userData,
@@ -651,10 +719,12 @@ const PersonalInfoEditScreen = () => {
   const getKeyboardType = (field) => {
     switch (field) {
       case "email":
+      case "nokEmail":
         return "email-address";
       case "phone":
       case "nin":
       case "employerContact":
+      case "nokPhone":
         return "phone-pad"; // Numeric keyboard for phone/NIN
       default:
         return "default";
@@ -1006,11 +1076,55 @@ const PersonalInfoEditScreen = () => {
             />
           </SectionCard>
 
+            {/* Next of Kin Section */}
+          <SectionCard title="Next of Kin">
+            <InfoRow
+              label={
+                userData.nextOfKin.fullName
+                  ? `Name: ${userData.nextOfKin.fullName}`
+                  : "Next of Kin Full Name"
+              }
+              actionText={userData.nextOfKin.fullName ? "Update" : "Add"}
+              onAction={() => handleUpdate("nokFullName", false, true)}
+              isEmpty={!userData.nextOfKin.fullName}
+            />
+            <InfoRow
+              label={
+                userData.nextOfKin.relationship
+                  ? `Relationship: ${userData.nextOfKin.relationship}`
+                  : "Relationship (e.g. Spouse, Sibling)"
+              }
+              actionText={userData.nextOfKin.relationship ? "Update" : "Add"}
+              onAction={() => handleUpdate("nokRelationship", false, true)}
+              isEmpty={!userData.nextOfKin.relationship}
+            />
+            <InfoRow
+              label={
+                userData.nextOfKin.phoneNumber
+                  ? `Phone: ${userData.nextOfKin.phoneNumber}`
+                  : "Next of Kin Phone Number"
+              }
+              actionText={userData.nextOfKin.phoneNumber ? "Update" : "Add"}
+              onAction={() => handleUpdate("nokPhone", false, true)}
+              isEmpty={!userData.nextOfKin.phoneNumber}
+            />
+            <InfoRow
+              label={
+                userData.nextOfKin.emailAddress
+                  ? `Email: ${userData.nextOfKin.emailAddress}`
+                  : "Next of Kin Email (Optional)"
+              }
+              actionText={userData.nextOfKin.emailAddress ? "Update" : "Add"}
+              onAction={() => handleUpdate("nokEmail", false, true)}
+              isEmpty={!userData.nextOfKin.emailAddress}
+            />
+          </SectionCard>
+
           {/* PWA Install Shortcut Section */}
           {showPwaInstall && (
             <SectionCard title="Application settings">
               <InfoRow
-                label="Add Lunest to Home Screen"
+                label="Add LUNEST to Home Screen"
                 actionText="Install"
                 onAction={handlePwaInstall}
                 isEmpty={false}

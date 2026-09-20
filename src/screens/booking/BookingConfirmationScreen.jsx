@@ -58,6 +58,7 @@ import authService from "../../services/authService";
 import bookingService from "../../services/bookingService";
 import configService from "../../services/configService";
 import paymentService from "../../services/paymentService";
+import messageService from "../../services/messageService";
 import { getUserData } from "../../services/userDataService";
 import { downloadFile, saveRefAsImage } from "../../utils/downloadUtils";
 import { resolveImageUrlSync } from "../../utils/imageUtils";
@@ -2068,6 +2069,29 @@ const BookingConfirmationScreen = () => {
                     <Text style={styles.detailValue}>{booking?.listing?.host?.fullName || "Host"}</Text>
                   </View>
                 </View>
+                <TouchableOpacity
+                  style={[styles.callHostBtn, { backgroundColor: "#192DFF", marginBottom: 10 }]}
+                  onPress={async () => {
+                    const targetListingId = booking?.listing?._id || booking?.listing;
+                    const bookingId = booking?._id;
+                    if (!targetListingId) {
+                      showToastMessage("Listing details not found", TOAST_TYPE.ERROR);
+                      return;
+                    }
+                    try {
+                      const conv = await messageService.startEnquiry({ listingId: targetListingId, bookingId });
+                      const cId = conv?._id || conv?.id;
+                      if (cId) router.push(`/conversation?id=${cId}`);
+                    } catch (err) {
+                      showToastMessage(err.message || "Failed to start conversation", TOAST_TYPE.ERROR);
+                    }
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="chatbubble-ellipses" size={20} color="#fff" />
+                  <Text style={styles.callHostBtnText}>Message Host</Text>
+                </TouchableOpacity>
+
                 <TouchableOpacity
                   style={styles.callHostBtn}
                   onPress={() => {

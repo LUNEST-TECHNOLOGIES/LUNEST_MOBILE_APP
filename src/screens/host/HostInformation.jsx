@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -18,6 +19,7 @@ import bookingService from "../../services/bookingService";
 import configService from "../../services/configService";
 import { fetchHostData } from "../../services/hostService";
 import listingService from "../../services/listingService";
+import messageService from "../../services/messageService";
 import { smartFormatPrice } from "../../utils/formatters";
 import { resolveImageUrlSync } from "../../utils/imageUtils";
 import Skeleton from "../../components/common/Skeleton";
@@ -80,6 +82,7 @@ const HostInformation = () => {
   const [hostData, setHostData] = useState(null);
   const [hostListings, setHostListings] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [messageLoading, setMessageLoading] = useState(false);
   const [baseURL, setBaseURL] = useState(configService.getBaseURLSync() || "https://api.lunest.app");
   const [hostCurrentAvatar, setHostCurrentAvatar] = useState(null);
   const [hostReviews, setHostReviews] = useState([]);
@@ -575,14 +578,33 @@ const HostInformation = () => {
       )}
 
       <Pressable
-        style={[styles.messageButton, { opacity: 0.5 }]}
-        onPress={() => {
-          // Message functionality is currently disabled
-          console.log("Message host functionality is currently disabled");
+        style={styles.messageButton}
+        onPress={async () => {
+          const targetListingId = listingId || hostListings?.[0]?._id;
+          if (!targetListingId) {
+            Alert.alert("Message Host", "No property listing available to start an inquiry with this host.");
+            return;
+          }
+          try {
+            setMessageLoading(true);
+            const conv = await messageService.startEnquiry({ listingId: targetListingId });
+            const cId = conv?._id || conv?.id;
+            if (cId) {
+              router.push(`/conversation?id=${cId}`);
+            }
+          } catch (err) {
+            Alert.alert("Message Host", err.message || "Failed to start conversation with host.");
+          } finally {
+            setMessageLoading(false);
+          }
         }}
-        disabled={true}
+        disabled={messageLoading}
       >
-        <Text style={styles.messageButtonText}>Message Host</Text>
+        {messageLoading ? (
+          <ActivityIndicator size="small" color="#FFFFFF" />
+        ) : (
+          <Text style={styles.messageButtonText}>Message Host</Text>
+        )}
       </Pressable>
     </SafeAreaView>
   );

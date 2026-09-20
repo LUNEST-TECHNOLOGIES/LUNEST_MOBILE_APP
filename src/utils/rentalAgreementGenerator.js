@@ -91,6 +91,10 @@ export const generateRentalAgreementHTML = ({
   const guestAddress = guest.address || "Registered Address on File";
   const guestIdType = guest.idType || "Government ID";
   const guestIdRef = guest.idNumber || "Verified KYC on File";
+  const guestNextOfKin = guest.nextOfKin || {};
+  const guestNextOfKinDisplay = guestNextOfKin.fullName
+    ? `${guestNextOfKin.fullName} (${guestNextOfKin.relationship || 'Next of Kin'}) – ${guestNextOfKin.phoneNumber || 'N/A'}`
+    : "Not Provided";
 
   // 4. Property Info
   const propertyTitle = listing.title || listing.propertyName || booking.propertyName || "Property Title";
@@ -182,6 +186,7 @@ export const generateRentalAgreementHTML = ({
   <div class="field-row"><span class="field-label">Telephone:</span> ${guestPhone}</div>
   <div class="field-row"><span class="field-label">Email:</span> ${guestEmail}</div>
   <div class="field-row"><span class="field-label">Government ID:</span> ${guestIdType} – ${guestIdRef}</div>
+  <div class="field-row"><span class="field-label">Next of Kin:</span> ${guestNextOfKinDisplay}</div>
   <p style="font-size: 10px; color: #666;">(Hereinafter referred to as “Guest” or “Tenant”)</p>
 
   <h3>1.3 Platform Operator</h3>

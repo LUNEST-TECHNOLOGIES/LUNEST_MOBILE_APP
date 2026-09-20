@@ -2247,7 +2247,7 @@ const styles = StyleSheet.create({
     gap: 15,
   },
   bottomSpacer: {
-    height: Platform.OS === "android" ? 180 : 120,
+    height: 60,
   },
 
   // Listing Card Styles

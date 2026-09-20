@@ -43,6 +43,7 @@ import CancelBookingModal from "../../components/modals/CancelBookingModal";
 import CautionDisputeModal from "../../components/modals/CautionDisputeModal";
 import ReviewFeedbackModal from "../../components/modals/ReviewFeedbackModal";
 import bookingService from "../../services/bookingService";
+import messageService from "../../services/messageService";
 import configService from "../../services/configService";
 import { downloadFile, saveRefAsImage } from "../../utils/downloadUtils";
 import { resolveImageUrlSync } from "../../utils/imageUtils";
@@ -1246,23 +1247,47 @@ const HostBookingDetailsScreen = () => {
               </View>
             </View>
             {!isCapturing && (
-              <Pressable
-                style={styles.viewProfileBtn}
-                onPress={() =>
-                  router.push({
-                    pathname: "/guest-information",
-                    params: {
-                      guestId: booking?.bookedBy?._id || params.bookedBy,
-                      guestName: guestName,
-                      guestAvatar: guestAvatar,
-                      isVerified: isVerified ? "true" : "false",
-                    },
-                  })
-                }
-              >
-                <Ionicons name="person-outline" size={16} color="#fff" />
-                <Text style={styles.viewProfileText}>View Profile</Text>
-              </Pressable>
+              <View style={{ flexDirection: "row", gap: 10, marginTop: 12 }}>
+                <Pressable
+                  style={[styles.viewProfileBtn, { flex: 1, marginTop: 0 }]}
+                  onPress={() =>
+                    router.push({
+                      pathname: "/guest-information",
+                      params: {
+                        guestId: booking?.bookedBy?._id || params.bookedBy,
+                        guestName: guestName,
+                        guestAvatar: guestAvatar,
+                        isVerified: isVerified ? "true" : "false",
+                      },
+                    })
+                  }
+                >
+                  <Ionicons name="person-outline" size={16} color="#fff" />
+                  <Text style={styles.viewProfileText}>View Profile</Text>
+                </Pressable>
+
+                <Pressable
+                  style={[styles.viewProfileBtn, { flex: 1, marginTop: 0, backgroundColor: "#192DFF" }]}
+                  onPress={async () => {
+                    const listingId = booking?.listing?._id || booking?.listing;
+                    const bookingId = booking?._id;
+                    if (!listingId) {
+                      Alert.alert("Message Guest", "Listing information not found for this booking.");
+                      return;
+                    }
+                    try {
+                      const conv = await messageService.startEnquiry({ listingId, bookingId });
+                      const cId = conv?._id || conv?.id;
+                      if (cId) router.push(`/conversation?id=${cId}`);
+                    } catch (err) {
+                      Alert.alert("Message Guest", err.message || "Failed to open conversation.");
+                    }
+                  }}
+                >
+                  <Ionicons name="chatbubble-ellipses-outline" size={16} color="#fff" />
+                  <Text style={styles.viewProfileText}>Message Guest</Text>
+                </Pressable>
+              </View>
             )}
           </View>
 

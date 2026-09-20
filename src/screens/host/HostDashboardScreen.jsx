@@ -469,7 +469,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   bottomSpacer: {
-    height: 100,
+    height: 60,
   },
   loadingContainer: {
     flex: 1,

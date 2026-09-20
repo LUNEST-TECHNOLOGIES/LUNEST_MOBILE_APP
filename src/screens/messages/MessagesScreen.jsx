@@ -222,7 +222,7 @@ export default function MessagesScreen() {
               </Text>
               <TouchableOpacity
                 style={styles.exploreBtn}
-                onPress={() => router.push("/(tabs)/explore")}
+                onPress={() => router.push("/(tabs)")}
               >
                 <Text style={styles.exploreBtnText}>Explore Properties</Text>
               </TouchableOpacity>

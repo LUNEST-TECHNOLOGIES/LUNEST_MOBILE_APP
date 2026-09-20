@@ -37,6 +37,7 @@ import { getAmenityIcon } from "../../utils/amenityIcons";
 import { formatAmenityLabel } from "../../utils/amenityUtils";
 import { fetchHostData } from "../../services/hostService";
 import listingService from "../../services/listingService";
+import messageService from "../../services/messageService";
 import { formatCurrency } from "../../utils/currency";
 import { resolveImageUrlSync } from "../../utils/imageUtils";
 
@@ -485,10 +486,21 @@ const FullDetailsScreen = () => {
     }
   };
 
-  const handleMessageHost = () => {
-    // Message functionality is currently disabled
-    // TODO: Enable when messaging feature is implemented
-    console.log("Message host functionality is currently disabled");
+  const handleMessageHost = async () => {
+    const targetListingId = listingId || listing?._id || listing?.id;
+    if (!targetListingId) {
+      Alert.alert("Message Host", "Property details are still loading. Please try again shortly.");
+      return;
+    }
+    try {
+      const conv = await messageService.startEnquiry({ listingId: targetListingId });
+      const cId = conv?._id || conv?.id;
+      if (cId) {
+        router.push(`/conversation?id=${cId}`);
+      }
+    } catch (err) {
+      Alert.alert("Message Host", err.message || "Failed to start conversation with host.");
+    }
   };
 
   // Get cover image from listing

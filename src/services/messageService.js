@@ -10,7 +10,7 @@ class MessageService {
    */
   async startEnquiry({ listingId, initialMessage, bookingId }) {
     try {
-      const response = await apiClient.post("/conversations/enquiry", {
+      const response = await apiClient.post("/v1/conversations/enquiry", {
         listingId,
         initialMessage,
         bookingId,
@@ -27,7 +27,7 @@ class MessageService {
    */
   async getConversations() {
     try {
-      const response = await apiClient.get("/conversations");
+      const response = await apiClient.get("/v1/conversations");
       return response?.body || response?.data || [];
     } catch (error) {
       console.error("[MessageService] getConversations error:", error);
@@ -41,7 +41,7 @@ class MessageService {
    */
   async getConversation(conversationId) {
     try {
-      const response = await apiClient.get(`/conversations/${conversationId}`);
+      const response = await apiClient.get(`/v1/conversations/${conversationId}`);
       return response?.body || response?.data || null;
     } catch (error) {
       console.error("[MessageService] getConversation error:", error);
@@ -55,7 +55,7 @@ class MessageService {
    */
   async getMessages(conversationId) {
     try {
-      const response = await apiClient.get(`/conversations/${conversationId}/messages`);
+      const response = await apiClient.get(`/v1/conversations/${conversationId}/messages`);
       return response?.body || response?.data || [];
     } catch (error) {
       console.error("[MessageService] getMessages error:", error);
@@ -72,7 +72,7 @@ class MessageService {
    */
   async sendMessage(conversationId, { content, clientMessageId }) {
     try {
-      const response = await apiClient.post(`/conversations/${conversationId}/messages`, {
+      const response = await apiClient.post(`/v1/conversations/${conversationId}/messages`, {
         content,
         clientMessageId,
       });
@@ -90,7 +90,7 @@ class MessageService {
    */
   async blockUser(conversationId, reason) {
     try {
-      const response = await apiClient.post(`/conversations/${conversationId}/block`, {
+      const response = await apiClient.post(`/v1/conversations/${conversationId}/block`, {
         reason,
       });
       return response?.body || response?.data || response;
@@ -106,7 +106,7 @@ class MessageService {
    */
   async unblockUser(conversationId) {
     try {
-      const response = await apiClient.post(`/conversations/${conversationId}/unblock`, {});
+      const response = await apiClient.post(`/v1/conversations/${conversationId}/unblock`, {});
       return response?.body || response?.data || response;
     } catch (error) {
       console.error("[MessageService] unblockUser error:", error);
@@ -121,7 +121,7 @@ class MessageService {
    */
   async toggleMute(conversationId, muted) {
     try {
-      const response = await apiClient.post(`/conversations/${conversationId}/mute`, {
+      const response = await apiClient.post(`/v1/conversations/${conversationId}/mute`, {
         muted,
       });
       return response?.body || response?.data || response;
@@ -141,7 +141,7 @@ class MessageService {
    */
   async report(conversationId, { messageId, reason, explanation }) {
     try {
-      const response = await apiClient.post(`/conversations/${conversationId}/report`, {
+      const response = await apiClient.post(`/v1/conversations/${conversationId}/report`, {
         messageId,
         reason,
         explanation,
@@ -159,7 +159,7 @@ class MessageService {
    */
   async deleteConversation(conversationId) {
     try {
-      const response = await apiClient.delete(`/conversations/${conversationId}`);
+      const response = await apiClient.delete(`/v1/conversations/${conversationId}`);
       return response?.body || response?.data || response;
     } catch (error) {
       console.error("[MessageService] deleteConversation error:", error);

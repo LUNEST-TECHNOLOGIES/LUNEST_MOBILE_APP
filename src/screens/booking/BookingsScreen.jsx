@@ -40,6 +40,7 @@ import BookingActionModal, { BOOKING_ACTION } from "../../components/modals/Book
 // Import booking service for API calls
 import bookingService from "../../services/bookingService";
 import configService from "../../services/configService";
+import messageService from "../../services/messageService";
 
 const BookingsScreen = () => {
   const { width: screenWidth } = useWindowDimensions();
@@ -611,12 +612,25 @@ const BookingsScreen = () => {
     setShowHostModal(true);
   };
 
-  const handleMessageHost = () => {
-    // Navigate to messages/chat with host
-    console.log("Opening chat with host for booking:", selectedBooking?.id);
-    setShowHostModal(false);
-    // TODO: Navigate to actual chat screen
-    // router.push(`/messages/${selectedBooking?.hostId}`);
+  const handleMessageHost = async () => {
+    const targetListingId = selectedBooking?.listingId;
+    const bookingId = selectedBooking?.id;
+    if (!targetListingId) {
+      Alert.alert("Message Host", "Listing details not found for this booking.");
+      setShowHostModal(false);
+      return;
+    }
+    try {
+      const conv = await messageService.startEnquiry({ listingId: targetListingId, bookingId });
+      const cId = conv?._id || conv?.id;
+      setShowHostModal(false);
+      if (cId) {
+        router.push(`/conversation?id=${cId}`);
+      }
+    } catch (err) {
+      Alert.alert("Message Host", err.message || "Failed to start conversation with host.");
+      setShowHostModal(false);
+    }
   };
 
   const filteredBookings = getBookingsForTab();

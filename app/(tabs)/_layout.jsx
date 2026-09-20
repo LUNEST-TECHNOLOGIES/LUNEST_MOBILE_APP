@@ -21,15 +21,21 @@ export default function TabLayout() {
   const { currentMode, isLoading, isSwitching, syncMode } = useUserMode();
 
   React.useEffect(() => {
-    if (pathname === "/" || pathname === "/index") {
+    if (!pathname) return;
+    if (
+      pathname === "/" ||
+      pathname === "/index" ||
+      pathname === "/(tabs)" ||
+      pathname === "/(tabs)/index"
+    ) {
       setActiveTab("home");
-    } else if (pathname === "/bookings") {
+    } else if (pathname === "/bookings" || pathname.includes("bookings")) {
       setActiveTab("bookings");
-    } else if (pathname === "/saved") {
+    } else if (pathname === "/saved" || pathname.includes("saved")) {
       setActiveTab("saved");
-    } else if (pathname === "/messages") {
+    } else if (pathname === "/messages" || pathname.includes("messages")) {
       setActiveTab("messages");
-    } else if (pathname === "/profile") {
+    } else if (pathname === "/profile" || pathname.includes("profile")) {
       setActiveTab("profile");
     }
   }, [pathname]);
@@ -45,19 +51,19 @@ export default function TabLayout() {
     setActiveTab(tabKey);
     const targetRoute =
       tabKey === "home"
-        ? "/"
+        ? "/(tabs)"
         : tabKey === "bookings"
-          ? "/bookings"
+          ? "/(tabs)/bookings"
           : tabKey === "saved"
-            ? "/saved"
+            ? "/(tabs)/saved"
             : tabKey === "messages"
-              ? "/messages"
+              ? "/(tabs)/messages"
               : tabKey === "profile"
-                ? "/profile"
+                ? "/(tabs)/profile"
                 : null;
 
     if (targetRoute && pathname !== targetRoute) {
-      router.push(targetRoute);
+      router.replace(targetRoute);
     }
   };
 

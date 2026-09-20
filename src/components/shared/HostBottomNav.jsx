@@ -65,7 +65,7 @@ const HOST_TABS = [
   },
 ];
 
-const HostBottomNav = () => {
+const HostBottomNav = ({ activeTab: propActiveTab, onTabPress: propOnTabPress }) => {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -120,7 +120,7 @@ const HostBottomNav = () => {
 
   // Reload avatar when navigating back to profile tab
   useEffect(() => {
-    if (pathname.includes("profile")) {
+    if (pathname && pathname.includes("profile")) {
       loadProfileAvatar();
     }
   }, [pathname]);
@@ -136,16 +136,21 @@ const HostBottomNav = () => {
 
   // Determine active tab based on current route
   const getActiveTab = () => {
+    if (propActiveTab) return propActiveTab;
+    const current = pathname || "";
     if (
-      pathname === "/(host-tabs)" ||
-      pathname === "/(host-tabs)/index" ||
-      pathname.endsWith("/index")
-    )
+      current === "/(host-tabs)" ||
+      current === "/(host-tabs)/index" ||
+      current.endsWith("/index")
+    ) {
       return "dashboard";
-    if (pathname.includes("bookings")) return "bookings";
-    if (pathname.includes("listings")) return "listings";
-    if (pathname.includes("messages")) return "messages";
-    if (pathname.includes("profile")) return "profile";
+    }
+    if (current.includes("bookings")) return "bookings";
+    if (current.includes("listings")) return "listings";
+    if (current.includes("calendar")) return "calendar";
+    if (current.includes("earnings")) return "earnings";
+    if (current.includes("messages")) return "messages";
+    if (current.includes("profile")) return "profile";
     return "dashboard";
   };
 
@@ -153,6 +158,10 @@ const HostBottomNav = () => {
 
   // Handle tab press navigation
   const handleTabPress = (tab) => {
+    if (propOnTabPress) {
+      propOnTabPress(tab.key);
+      return;
+    }
     if (activeTab !== tab.key) {
       router.replace(tab.route);
     }
@@ -163,17 +172,18 @@ const HostBottomNav = () => {
   const isSmallScreen = screenWidth < 380;
   const isShortScreen = screenHeight < 700;
 
-  const iconSize = isSmallScreen ? 22 : isTablet ? 30 : isShortScreen ? 24 : 28;
-  const fontSize = isSmallScreen ? 9 : isTablet ? 13 : isShortScreen ? 10 : 12;
-  const paddingTop = isShortScreen ? 8 : isTablet ? 14 : 12;
-  const paddingHorizontal = isTablet ? 24 : isSmallScreen ? 5 : 10;
-  const gapSize = isSmallScreen ? 2 : isTablet ? 5 : 4;
+  const iconSize = isSmallScreen ? 22 : isTablet ? 30 : isShortScreen ? 24 : 26;
+  const fontSize = isSmallScreen ? 10 : isTablet ? 13 : isShortScreen ? 10 : 11;
+  const paddingTop = isShortScreen ? 6 : isTablet ? 10 : 8;
+  const paddingHorizontal = isTablet ? 24 : isSmallScreen ? 4 : 8;
+  const gapSize = isSmallScreen ? 2 : isTablet ? 4 : 3;
 
   // Safe bottom padding - ensure it works on all devices
   const bottomPadding = Platform.select({
     ios: Math.max(insets.bottom, isTablet ? 16 : 8),
-    android: Math.max(insets.bottom, 12),
-    default: 10,
+    android: Math.max(insets.bottom, 10),
+    web: Math.max(insets.bottom, 10),
+    default: Math.max(insets.bottom, 8),
   });
 
   return (
@@ -191,7 +201,8 @@ const HostBottomNav = () => {
         {HOST_TABS.map((tab) => {
           const isActive = activeTab === tab.key;
           const IconComponent = tab.Icon;
-          const iconColor = isActive ? "#192DFF" : "#292929";
+          const iconColor = isActive ? "#192DFF" : "#6D6D6D";
+          const textColor = isActive ? "#192DFF" : "#6D6D6D";
           const isProfileTab = tab.key === "profile";
 
           const anchorId =
@@ -216,10 +227,20 @@ const HostBottomNav = () => {
                 <View
                   style={[
                     styles.tabContent,
-                    { gap: gapSize },
                     pressed && styles.pressed,
                   ]}
                 >
+                  {/* Small indicator line above the icon */}
+                  <View
+                    style={[
+                      styles.indicatorLine,
+                      isSmallScreen && styles.indicatorLineSmall,
+                      isTablet && styles.indicatorLineTablet,
+                      { backgroundColor: isActive ? "#192DFF" : "transparent" },
+                    ]}
+                  />
+
+                  {/* Tab Icon */}
                   {isProfileTab && resolvedAvatarUri ? (
                     <View
                       style={[
@@ -246,13 +267,16 @@ const HostBottomNav = () => {
                       color={iconColor}
                     />
                   )}
+
+                  {/* Label beneath every icon */}
                   <Text
                     style={[
                       styles.label,
                       {
                         fontSize,
-                        color: iconColor,
-                        fontWeight: isActive ? "600" : "500",
+                        color: textColor,
+                        fontWeight: isActive ? "700" : "500",
+                        marginTop: gapSize,
                       },
                     ]}
                     numberOfLines={1}
@@ -281,23 +305,27 @@ const HostBottomNav = () => {
 
 const styles = StyleSheet.create({
   container: {
-    position: "absolute",
+    position: Platform.OS === "web" ? "fixed" : "absolute",
     bottom: 0,
     left: 0,
     right: 0,
+    zIndex: 1000,
     backgroundColor: "#FFFFFF",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    borderTopWidth: 1,
+    borderTopColor: "#F3F4F6",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 10,
+    shadowOffset: { width: 0, height: -3 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 8,
   },
   tabsRow: {
     flexDirection: "row",
     justifyContent: "space-around",
     alignItems: "center",
+    width: "100%",
   },
   tabsRowTablet: {
     maxWidth: 600,
@@ -313,6 +341,23 @@ const styles = StyleSheet.create({
   tabContent: {
     alignItems: "center",
     justifyContent: "center",
+    width: "100%",
+  },
+  indicatorLine: {
+    width: 24,
+    height: 3,
+    borderRadius: 2,
+    marginBottom: 5,
+  },
+  indicatorLineSmall: {
+    width: 18,
+    height: 2.5,
+    marginBottom: 4,
+  },
+  indicatorLineTablet: {
+    width: 30,
+    height: 3.5,
+    marginBottom: 6,
   },
   pressed: {
     opacity: 0.7,
@@ -323,8 +368,8 @@ const styles = StyleSheet.create({
   profileImageContainer: {
     borderRadius: 50,
     overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "transparent",
+    borderWidth: 1.5,
+    borderColor: "#192DFF",
     alignItems: "center",
     justifyContent: "center",
   },

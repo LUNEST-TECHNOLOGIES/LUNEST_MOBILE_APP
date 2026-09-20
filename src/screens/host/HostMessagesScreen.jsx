@@ -40,6 +40,25 @@ const MessageIcon = ({ size = 60, color = "#CCCCCC" }) => (
   </Svg>
 );
 
+const DoubleTickIcon = ({ size = 15, color = "#9CA3AF" }) => (
+  <Svg width={size} height={size} viewBox="0 0 18 16" fill="none">
+    <Path
+      d="M1.5 8.5L4.5 11.5L10.5 4.5"
+      stroke={color}
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <Path
+      d="M6.5 8.5L9.5 11.5L15.5 4.5"
+      stroke={color}
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
 const HostMessagesScreen = () => {
   const router = useRouter();
   const [currentUserId, setCurrentUserId] = useState(null);
@@ -151,15 +170,28 @@ const HostMessagesScreen = () => {
           </Text>
 
           <View style={styles.bottomRow}>
-            <Text
-              style={[
-                styles.lastMessageText,
-                unread > 0 && styles.lastMessageUnread,
-              ]}
-              numberOfLines={1}
-            >
-              {item.lastMessage?.text || "No messages yet"}
-            </Text>
+            <View style={{ flex: 1, flexDirection: "row", alignItems: "center", marginRight: 8 }}>
+              {(() => {
+                const isLastMsgByMe = (item.lastMessage?.sender?._id || item.lastMessage?.sender)?.toString() === currentUserId?.toString();
+                if (!isLastMsgByMe || !item.lastMessage?.text) return null;
+                const isRead = (item.unreadCount?.guest || 0) === 0;
+                return (
+                  <View style={{ marginRight: 4 }}>
+                    <DoubleTickIcon size={14} color={isRead ? "#192DFF" : "#9CA3AF"} />
+                  </View>
+                );
+              })()}
+              <Text
+                style={[
+                  styles.lastMessageText,
+                  unread > 0 && styles.lastMessageUnread,
+                  { flex: 1 },
+                ]}
+                numberOfLines={1}
+              >
+                {item.lastMessage?.text || "No messages yet"}
+              </Text>
+            </View>
 
             {unread > 0 && (
               <View style={styles.unreadBadge}>

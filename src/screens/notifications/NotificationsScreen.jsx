@@ -52,6 +52,16 @@ const TYPE_TO_FILTER = {
   new_listing: "listings",
   host_application: "system",
   message: "system",
+  new_message: "system",
+  NEW_MESSAGE: "system",
+  SUPPORT_MESSAGE: "system",
+  support_message: "system",
+  POLICY_WARNING: "system",
+  policy_warning: "system",
+  ACCOUNT_ALERT: "system",
+  account_alert: "system",
+  SYSTEM_NOTICE: "system",
+  system_notice: "system",
   points_earned: "system",
   caution_fee_resolved: "bookings",
   caution_fee_disputed: "bookings",
@@ -81,6 +91,16 @@ const DEFAULT_IMAGES = {
   new_listing: DEFAULT_IMAGE,
   host_application: DEFAULT_IMAGE,
   message: DEFAULT_IMAGE,
+  new_message: DEFAULT_IMAGE,
+  NEW_MESSAGE: DEFAULT_IMAGE,
+  SUPPORT_MESSAGE: DEFAULT_IMAGE,
+  support_message: DEFAULT_IMAGE,
+  POLICY_WARNING: DEFAULT_IMAGE,
+  policy_warning: DEFAULT_IMAGE,
+  ACCOUNT_ALERT: DEFAULT_IMAGE,
+  account_alert: DEFAULT_IMAGE,
+  SYSTEM_NOTICE: DEFAULT_IMAGE,
+  system_notice: DEFAULT_IMAGE,
   points_earned: DEFAULT_IMAGE,
   caution_fee_resolved: DEFAULT_IMAGE,
   caution_fee_disputed: DEFAULT_IMAGE,
@@ -219,6 +239,25 @@ const NotificationsScreen = () => {
             ? JSON.parse(notification.payload)
             : notification.payload;
 
+        // If notification has a conversationId (e.g. NEW_MESSAGE, SUPPORT_MESSAGE), navigate directly into the chat!
+        if (payload.conversationId) {
+          router.push({
+            pathname: "/conversation",
+            params: {
+              id: payload.conversationId,
+              conversationId: payload.conversationId,
+              listingId: payload.listingId || undefined,
+            },
+          });
+          return;
+        }
+
+        // If policy warning or messaging restricted, route to support chat
+        if (payload.type === "MESSAGING_RESTRICTED" || notification.type === "ACCOUNT_ALERT") {
+          router.push("/support-chat");
+          return;
+        }
+
         // For host users with booking/listing notifications
         if (
           userType === "HOST" &&
@@ -267,6 +306,12 @@ const NotificationsScreen = () => {
       } catch (e) {
         console.log("[NotificationsScreen] Could not parse payload:", e);
       }
+    } else if (
+      notification.type === "NEW_MESSAGE" ||
+      notification.type === "message" ||
+      notification.type === "SUPPORT_MESSAGE"
+    ) {
+      router.push(userType === "HOST" ? "/(host-tabs)/messages" : "/(tabs)/messages");
     }
   };
 

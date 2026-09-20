@@ -13,6 +13,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import configService from "../../services/configService";
 import profileService from "../../services/profileService";
+import messageService from "../../services/messageService";
 import { resolveImageUrlSync } from "../../utils/imageUtils";
 
 // Import custom SVG icons
@@ -75,6 +76,30 @@ const HostBottomNav = ({ activeTab: propActiveTab, onTabPress: propOnTabPress })
   // Profile avatar state
   const [profileAvatarUri, setProfileAvatarUri] = useState(null);
   const [resolvedAvatarUri, setResolvedAvatarUri] = useState(null);
+  const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
+
+  // Poll unread messages count silently for host
+  useEffect(() => {
+    let isMounted = true;
+    const fetchUnread = async () => {
+      try {
+        const conversations = await messageService.getConversations();
+        if (isMounted && Array.isArray(conversations)) {
+          const total = conversations.reduce((acc, c) => acc + (c.unreadCount?.host || 0), 0);
+          setUnreadMessagesCount(total);
+        }
+      } catch (err) {
+        // silent
+      }
+    };
+
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 15000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [pathname]);
 
   // Load profile avatar on mount and listen for changes
   useEffect(() => {
@@ -262,11 +287,20 @@ const HostBottomNav = ({ activeTab: propActiveTab, onTabPress: propOnTabPress })
                         />
                       </View>
                     ) : (
-                      <IconComponent
-                        width={iconSize}
-                        height={iconSize}
-                        color={iconColor}
-                      />
+                      <View style={styles.iconWrapper}>
+                        <IconComponent
+                          width={iconSize}
+                          height={iconSize}
+                          color={iconColor}
+                        />
+                        {tab.key === "messages" && unreadMessagesCount > 0 && (
+                          <View style={styles.unreadBadge}>
+                            <Text style={styles.unreadBadgeText}>
+                              {unreadMessagesCount > 99 ? "99+" : unreadMessagesCount}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
                     )}
 
                     {/* Label beneath every icon - guaranteed 100% showing without abbreviation */}
@@ -403,6 +437,31 @@ const styles = StyleSheet.create({
   },
   profileImage: {
     borderRadius: 50,
+  },
+  iconWrapper: {
+    position: "relative",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  unreadBadge: {
+    position: "absolute",
+    top: -5,
+    right: -10,
+    backgroundColor: "#EF4444",
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 3,
+    borderWidth: 1.5,
+    borderColor: "#FFFFFF",
+  },
+  unreadBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 9,
+    fontWeight: "700",
+    lineHeight: 11,
   },
 });
 

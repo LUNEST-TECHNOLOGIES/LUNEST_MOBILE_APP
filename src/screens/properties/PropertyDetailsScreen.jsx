@@ -261,11 +261,12 @@ const formatAmenity = (amenity) => {
 const PropertyDetailsScreen = () => {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const rawId = params.listingId || params.id;
   const listingId =
-    typeof params.listingId === "string"
-      ? params.listingId
-      : Array.isArray(params.listingId)
-        ? params.listingId[0]
+    typeof rawId === "string"
+      ? rawId
+      : Array.isArray(rawId)
+        ? rawId[0]
         : null;
   const { width: screenWidth } = useWindowDimensions();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -709,10 +710,12 @@ const PropertyDetailsScreen = () => {
 
   // Transform API listing data (must handle null listing for useMemo safety)
   const propertyImages = useMemo(() => {
+    const fallbackImage = require("../../assets/images/no-image.png");
     if (!listing) {
       return [
         {
-          uri: require("../../assets/images/no-image.png"),
+          source: fallbackImage,
+          uri: null,
           type: "image",
         },
       ];
@@ -737,7 +740,8 @@ const PropertyDetailsScreen = () => {
 
     return processedImages.length > 0 ? processedImages : [
       {
-        uri: require("../../assets/images/no-image.png"),
+        source: fallbackImage,
+        uri: null,
         type: "image",
       },
     ];
@@ -1424,7 +1428,7 @@ const PropertyDetailsScreen = () => {
                 ) : (
                   <>
                     <Image
-                      source={{ uri: media.uri }}
+                      source={media.source || (typeof media.uri === 'number' ? media.uri : (typeof media.uri === 'string' && media.uri ? { uri: media.uri } : require("../../assets/images/no-image.png")))}
                       style={[
                         StyleSheet.absoluteFillObject,
                         { width: screenWidth, height: "100%" },

@@ -70,6 +70,37 @@ const InfoIcon = ({ size = 16, color = "#666" }) => (
   </Svg>
 );
 
+const SingleTickIcon = ({ size = 14, color = "rgba(255,255,255,0.7)" }) => (
+  <Svg width={size} height={size} viewBox="0 0 16 16" fill="none">
+    <Path
+      d="M3.5 8.5L6.5 11.5L12.5 4.5"
+      stroke={color}
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+const DoubleTickIcon = ({ size = 16, color = "rgba(255,255,255,0.7)" }) => (
+  <Svg width={size} height={size} viewBox="0 0 18 16" fill="none">
+    <Path
+      d="M1.5 8.5L4.5 11.5L10.5 4.5"
+      stroke={color}
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <Path
+      d="M6.5 8.5L9.5 11.5L15.5 4.5"
+      stroke={color}
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
 const REPORT_REASONS = [
   { key: "OFF_PLATFORM_PAYMENT", label: "Requested payment outside LUNEST" },
   { key: "CONTACT_SHARING", label: "Sharing external contact details" },
@@ -161,7 +192,7 @@ export default function ConversationScreen() {
       conversation: conversationId,
       sender: currentUserId,
       content,
-      status: "DELIVERED",
+      status: "SENT",
       createdAt: new Date().toISOString(),
       optimistic: true,
     };
@@ -269,10 +300,13 @@ export default function ConversationScreen() {
     conversation?.listing?.propertyName ||
     conversation?.listing?.title ||
     "Property Enquiry";
-  const listingImage =
+  const rawListingImg =
     conversation?.listing?.coverImage ||
     conversation?.listing?.propertyImages?.[0] ||
     null;
+  const listingImage = typeof rawListingImg === "string"
+    ? rawListingImg
+    : rawListingImg?.url || rawListingImg?.uri || null;
 
   const isBlocked = conversation?.status === "BLOCKED" || !!conversation?.blockedBy;
   const blockedByMe = conversation?.blockedBy?.toString() === currentUserId?.toString();
@@ -285,6 +319,14 @@ export default function ConversationScreen() {
     const isSupport = item.senderType === "SUPPORT" || item.isSupportMessage;
     const isBlockedMessage = item.status === "BLOCKED";
     const isPendingMessage = item.status === "PENDING_REVIEW";
+    const isRead =
+      item.status === "DELIVERED" &&
+      item.readBy &&
+      Array.isArray(item.readBy) &&
+      item.readBy.some((r) => {
+        const readerId = (r.user?._id || r.user)?.toString();
+        return readerId && readerId !== currentUserId?.toString();
+      });
 
     if (isSupport) {
       return (
@@ -352,6 +394,18 @@ export default function ConversationScreen() {
                   })
                 : ""}
             </Text>
+
+            {isMe && !isBlockedMessage && (
+              <View style={styles.tickContainer}>
+                {isRead ? (
+                  <DoubleTickIcon size={15} color="#38BDF8" />
+                ) : item.status === "DELIVERED" ? (
+                  <DoubleTickIcon size={15} color="rgba(255, 255, 255, 0.7)" />
+                ) : (
+                  <SingleTickIcon size={13} color="rgba(255, 255, 255, 0.65)" />
+                )}
+              </View>
+            )}
           </View>
         </View>
       </View>
@@ -374,9 +428,15 @@ export default function ConversationScreen() {
           style={styles.headerDetails}
           activeOpacity={0.8}
           onPress={() => {
-            const listId = conversation?.listing?._id || conversation?.listing;
+            const listId =
+              conversation?.listing?._id ||
+              conversation?.listing?.id ||
+              (typeof conversation?.listing === "string" ? conversation.listing : null);
             if (listId) {
-              router.push(`/property-details?id=${listId}`);
+              router.push({
+                pathname: "/property-details",
+                params: { listingId: String(listId), id: String(listId) },
+              });
             }
           }}
         >
@@ -813,7 +873,12 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
     alignItems: "center",
     marginTop: 4,
-    gap: 6,
+    gap: 4,
+  },
+  tickContainer: {
+    marginLeft: 2,
+    justifyContent: "center",
+    alignItems: "center",
   },
   timestampText: {
     fontSize: 10,

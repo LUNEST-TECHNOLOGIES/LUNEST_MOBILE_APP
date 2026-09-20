@@ -13,10 +13,12 @@ const hasEmbeddedTemporaryMediaUrl = (value) => /^https?:\/\/.*\/(?:blob:|data:|
 export const resolveImageUrl = async (path, baseUrl = null) => {
   if (!path || path === "null" || path === "undefined" || typeof path === 'number') return null;
 
-  let stringPath = typeof path === 'object' && (path?.url || path?.uri) ? (path.url || path.uri) : String(path);
+  let raw = typeof path === 'object' ? (path?.url || path?.uri || path?.path || path?.filename || null) : path;
+  if (!raw || typeof raw === 'number') return null;
+  let stringPath = typeof raw === 'string' ? raw : String(raw);
   
   // Reject paths that contain "undefined" or object representation after string conversion
-  if (stringPath === "undefined" || stringPath.includes("/undefined") || stringPath === "[object Object]" || stringPath === "null") {
+  if (!stringPath || stringPath === "undefined" || stringPath.includes("/undefined") || stringPath === "[object Object]" || stringPath === "null") {
     return null;
   }
 
@@ -74,10 +76,12 @@ export const resolveImageUrl = async (path, baseUrl = null) => {
 export const resolveImageUrlSync = (path, baseUrl) => {
   if (!path || path === "null" || path === "undefined" || typeof path === 'number') return null;
 
-  let stringPath = typeof path === 'object' && (path?.url || path?.uri) ? (path.url || path.uri) : String(path);
+  let raw = typeof path === 'object' ? (path?.url || path?.uri || path?.path || path?.filename || null) : path;
+  if (!raw || typeof raw === 'number') return null;
+  let stringPath = typeof raw === 'string' ? raw : String(raw);
   
   // Reject paths that contain "undefined" or object representation after string conversion
-  if (stringPath === "undefined" || stringPath.includes("/undefined") || stringPath === "[object Object]" || stringPath === "null") {
+  if (!stringPath || stringPath === "undefined" || stringPath.includes("/undefined") || stringPath === "[object Object]" || stringPath === "null") {
     return null;
   }
 

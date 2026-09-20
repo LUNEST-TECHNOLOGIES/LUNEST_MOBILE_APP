@@ -881,7 +881,7 @@ const FullDetailsScreen = () => {
             </View>
           ) : (
             <Image
-              source={{ uri: item.uri }}
+              source={item.source || (typeof item.uri === 'number' ? item.uri : (typeof item.uri === 'string' && item.uri ? { uri: item.uri } : require("../../assets/images/no-image.png")))}
               style={[StyleSheet.absoluteFillObject]}
               contentFit="cover"
               onError={(error) => handleImageError(index, error)}
@@ -894,6 +894,7 @@ const FullDetailsScreen = () => {
   );
 
   const renderMediaSlider = () => {
+    const fallbackImage = require("../../assets/images/no-image.png");
     const media =
       propertyData.propertyMedia && propertyData.propertyMedia.length > 0
         ? propertyData.propertyMedia
@@ -901,7 +902,8 @@ const FullDetailsScreen = () => {
           ? propertyData.propertyImages
           : [
               {
-                uri: require("../../assets/images/no-image.png"),
+                source: fallbackImage,
+                uri: null,
                 type: "image",
               },
             ];

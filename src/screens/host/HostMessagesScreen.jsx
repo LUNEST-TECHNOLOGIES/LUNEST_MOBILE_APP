@@ -115,8 +115,10 @@ const HostMessagesScreen = () => {
   });
 
   const renderConversationItem = ({ item }) => {
-    const isGuest = (item.guest?._id || item.guest)?.toString() === currentUserId?.toString();
-    const otherUser = isGuest ? item.host : item.guest;
+    const myId = currentUserId?.toString();
+    const hostId = (item.host?._id || item.host)?.toString();
+    const isHost = myId ? hostId === myId : true;
+    const otherUser = isHost ? item.guest : item.host;
     const otherName = otherUser?.fullName || "Guest";
 
     const listingTitle =
@@ -129,9 +131,15 @@ const HostMessagesScreen = () => {
       item.listing?.propertyImages?.[0] ||
       null;
 
-    const unread = isGuest
-      ? item.unreadCount?.guest || 0
-      : item.unreadCount?.host || 0;
+    // Use dynamically computed unread from backend or fallback to unreadCount
+    let unread = 0;
+    if (typeof item.unread === "number") {
+      unread = item.unread;
+    } else if (isHost) {
+      unread = Number(item.unreadCount?.host) || 0;
+    } else {
+      unread = Number(item.unreadCount?.guest) || 0;
+    }
 
     const lastMsgTime = item.lastMessage?.sentAt || item.updatedAt;
     const formattedTime = lastMsgTime
@@ -159,10 +167,15 @@ const HostMessagesScreen = () => {
 
         <View style={styles.content}>
           <View style={styles.topRow}>
-            <Text style={styles.name} numberOfLines={1}>
+            <Text
+              style={[styles.name, unread > 0 && styles.nameUnread]}
+              numberOfLines={1}
+            >
               {otherName}
             </Text>
-            <Text style={styles.timeText}>{formattedTime}</Text>
+            <Text style={[styles.timeText, unread > 0 && styles.timeTextUnread]}>
+              {formattedTime}
+            </Text>
           </View>
 
           <Text style={styles.propertyTitle} numberOfLines={1}>
@@ -174,10 +187,10 @@ const HostMessagesScreen = () => {
               {(() => {
                 const isLastMsgByMe = (item.lastMessage?.sender?._id || item.lastMessage?.sender)?.toString() === currentUserId?.toString();
                 if (!isLastMsgByMe || !item.lastMessage?.text) return null;
-                const isRead = (item.unreadCount?.guest || 0) === 0;
+                const isRead = unread === 0;
                 return (
                   <View style={{ marginRight: 4 }}>
-                    <DoubleTickIcon size={14} color={isRead ? "#192DFF" : "#9CA3AF"} />
+                    <DoubleTickIcon size={14} color={isRead ? "#0284C7" : "#9CA3AF"} />
                   </View>
                 );
               })()}
@@ -195,7 +208,9 @@ const HostMessagesScreen = () => {
 
             {unread > 0 && (
               <View style={styles.unreadBadge}>
-                <Text style={styles.unreadText}>{unread}</Text>
+                <Text style={styles.unreadText}>
+                  {unread > 99 ? "99+" : unread}
+                </Text>
               </View>
             )}
           </View>
@@ -366,23 +381,38 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 10,
   },
+  nameUnread: {
+    fontWeight: "700",
+    color: "#010135",
+  },
+  timeTextUnread: {
+    color: "#192DFF",
+    fontWeight: "600",
+  },
   lastMessageUnread: {
     color: "#010135",
     fontWeight: "600",
   },
   unreadBadge: {
     backgroundColor: "#192DFF",
-    minWidth: 20,
-    height: 20,
-    borderRadius: 10,
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
     paddingHorizontal: 6,
     justifyContent: "center",
     alignItems: "center",
+    marginLeft: 6,
+    shadowColor: "#192DFF",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 3,
+    elevation: 3,
   },
   unreadText: {
     color: "#FFFFFF",
     fontSize: 11,
-    fontWeight: "700",
+    fontWeight: "800",
+    textAlign: "center",
   },
   emptyContainer: {
     alignItems: "center",

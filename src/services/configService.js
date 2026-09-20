@@ -102,27 +102,29 @@ class ConfigService {
   async detectEnvironmentURL() {
     // For native platforms (iOS/Android) AND web, ALWAYS prioritize the .env variable
     const envURL = process.env.EXPO_PUBLIC_API_URL;
-    
-    // Feature: On web, if envURL is a LAN IP but we are on localhost, 
-    // we might prefer localhost:3000 to avoid PNA preflight issues 
-    // IF the user hasn't explicitly set a custom URL.
-    // For web development on localhost, ALWAYS prioritize localhost:3000 
-    // to avoid CORS and Private Network Access issues, even if .env says otherwise.
-    if (Platform.OS === "web") {
+
+    if (envURL) {
+      // If running web on localhost and envURL is a local LAN IP (e.g. 192.168.x),
+      // fallback to localhost:3000 to avoid browser Private Network Access (PNA) blocks.
+      // If envURL is a public domain (like https://api.lunest.app) or localhost, use it directly!
       const isCurrentHostLocal =
+        Platform.OS === "web" &&
         typeof window !== "undefined" &&
         (window.location.hostname === "localhost" ||
           window.location.hostname === "127.0.0.1");
 
-      if (isCurrentHostLocal) {
+      if (
+        isCurrentHostLocal &&
+        (envURL.includes("192.168.") ||
+          envURL.includes("10.") ||
+          envURL.includes("172."))
+      ) {
         console.log(
-          "🌐 [ConfigService] Web on localhost detected. Using http://localhost:3000 to prevent CORS issues."
+          "🌐 [ConfigService] Web on localhost detected with LAN IP in env. Using http://localhost:3000 to prevent PNA issues."
         );
         return "http://localhost:3000";
       }
-    }
 
-    if (envURL) {
       console.log(
         "📝 [ConfigService] Using env URL for",
         Platform.OS,

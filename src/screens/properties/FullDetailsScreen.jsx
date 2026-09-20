@@ -219,8 +219,17 @@ const FullDetailsScreen = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [baseURL, setBaseURL] = useState("");
-
   const [imageErrors, setImageErrors] = useState({});
+  const [currentUserId, setCurrentUserId] = useState(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const u = await getUserData();
+        if (u) setCurrentUserId(u._id || u.id);
+      } catch (_) {}
+    })();
+  }, []);
 
   // Helper for image URL resolution
   const convertImageUrl = (image) => {
@@ -486,7 +495,44 @@ const FullDetailsScreen = () => {
     }
   };
 
+  const hostResolvedId =
+    listing?.host?._id ||
+    listing?.hostInfo?._id ||
+    listing?.host?.id ||
+    (typeof listing?.host === "string" ? listing.host : null);
+
+  const isMyProperty = Boolean(
+    currentUserId && hostResolvedId && currentUserId.toString() === hostResolvedId.toString()
+  );
+
+  const handleHostPress = () => {
+    const hostId =
+      listing?.host?._id || listing?.hostInfo?._id || listing?.host?.id;
+    if (hostId) {
+      router.push({
+        pathname: "/host-information",
+        params: {
+          hostId: hostId,
+          hostName: propertyData?.host?.name,
+          hostEmail: propertyData?.host?.email,
+          hostUserType: propertyData?.host?.userType,
+          hostAvatar: listing?.hostInfo?.avatar || listing?.host?.avatar || "",
+          isVerified: propertyData?.host?.isVerified,
+        },
+      });
+    } else {
+      console.warn("[FullDetailsScreen] No host ID available for navigation");
+    }
+  };
+
   const handleMessageHost = async () => {
+    if (isMyProperty) {
+      Alert.alert(
+        "Your Listing",
+        "This is your own property listing. You cannot start a conversation with yourself."
+      );
+      return;
+    }
     const targetListingId = listingId || listing?._id || listing?.id;
     if (!targetListingId) {
       Alert.alert("Message Host", "Property details are still loading. Please try again shortly.");
@@ -1033,7 +1079,7 @@ const FullDetailsScreen = () => {
         : null;
 
     return (
-      <Pressable style={styles.hostSection} onPress={handleMessageHost}>
+      <Pressable style={styles.hostSection} onPress={handleHostPress}>
         <View style={styles.hostContent}>
           {hostAvatarUrl ? (
             <Image
@@ -1082,8 +1128,21 @@ const FullDetailsScreen = () => {
                 <CircleInfo2Icon width={18} height={18} color="#010135" />
               </Pressable>
             </View>
-            <Pressable style={styles.messageButton} onPress={handleMessageHost}>
-              <Text style={styles.messageButtonText}>Message</Text>
+            <Pressable
+              style={[
+                styles.messageButton,
+                isMyProperty && { backgroundColor: "#F1F5F9", borderColor: "#CBD5E1", borderWidth: 1 }
+              ]}
+              onPress={handleMessageHost}
+            >
+              <Text
+                style={[
+                  styles.messageButtonText,
+                  isMyProperty && { color: "#64748B" }
+                ]}
+              >
+                {isMyProperty ? "Your Listing" : "Message"}
+              </Text>
             </Pressable>
           </View>
         </View>

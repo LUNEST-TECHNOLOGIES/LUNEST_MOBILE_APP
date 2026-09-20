@@ -23,6 +23,7 @@ import messageService from "../../services/messageService";
 import { smartFormatPrice } from "../../utils/formatters";
 import { resolveImageUrlSync } from "../../utils/imageUtils";
 import Skeleton from "../../components/common/Skeleton";
+import { getUserData } from "../../services/userDataService";
 
 const HostInformation = () => {
   const router = useRouter();
@@ -86,6 +87,20 @@ const HostInformation = () => {
   const [baseURL, setBaseURL] = useState(configService.getBaseURLSync() || "https://api.lunest.app");
   const [hostCurrentAvatar, setHostCurrentAvatar] = useState(null);
   const [hostReviews, setHostReviews] = useState([]);
+  const [currentUserId, setCurrentUserId] = useState(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const u = await getUserData();
+        if (u) setCurrentUserId(u._id || u.id);
+      } catch (_) {}
+    })();
+  }, []);
+
+  const isSelfHost = Boolean(
+    currentUserId && hostId && currentUserId.toString() === hostId.toString()
+  );
 
   const handleGoBack = () => {
     if (router.canGoBack()) {
@@ -578,8 +593,15 @@ const HostInformation = () => {
       )}
 
       <Pressable
-        style={styles.messageButton}
+        style={[
+          styles.messageButton,
+          isSelfHost && { backgroundColor: "#F1F5F9", borderColor: "#CBD5E1", borderWidth: 1 }
+        ]}
         onPress={async () => {
+          if (isSelfHost) {
+            Alert.alert("Your Host Profile", "This is your own host profile.");
+            return;
+          }
           const targetListingId = listingId || hostListings?.[0]?._id;
           if (!targetListingId) {
             Alert.alert("Message Host", "No property listing available to start an inquiry with this host.");
@@ -603,7 +625,14 @@ const HostInformation = () => {
         {messageLoading ? (
           <ActivityIndicator size="small" color="#FFFFFF" />
         ) : (
-          <Text style={styles.messageButtonText}>Message Host</Text>
+          <Text
+            style={[
+              styles.messageButtonText,
+              isSelfHost && { color: "#64748B" }
+            ]}
+          >
+            {isSelfHost ? "Your Host Profile" : "Message Host"}
+          </Text>
         )}
       </Pressable>
     </SafeAreaView>

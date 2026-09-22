@@ -116,7 +116,8 @@ const AddFundsScreen = () => {
 
       if (verifyResult.status === "COMPLETED" || verifyResult.status === "success") {
         setLoading({ active: true, message: "Payment Successful!" });
-        showToast(`₦${(Number(amount) || 0).toLocaleString()} added to your wallet successfully!`, "success");
+        const fundedAmount = verifyResult.amount || Number(amount) || 0;
+        showToast(`₦${Number(fundedAmount).toLocaleString()} added to your wallet successfully!`, "success");
         
         // INSTANT UI UPDATE: Use the new balance returned from the server to update cache immediately
         if (verifyResult.newBalance !== undefined) {
@@ -508,7 +509,7 @@ const AddFundsScreen = () => {
           {/* Kora Fee Notice */}
           <View style={styles.feeNotice}>
             <Text style={styles.feeNoticeText}>
-              💡 A small processing fee (1.5%, max ₦2,000) is charged by Kora on the payment page. Fund the exact amount you need — the full amount you enter will be credited to your wallet.
+              💡 A 1.5% processing fee is added on the payment page. Fund the exact amount you need — the full amount you enter will be credited to your wallet.
             </Text>
           </View>
 

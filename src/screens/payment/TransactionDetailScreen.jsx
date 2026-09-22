@@ -607,9 +607,10 @@ const TransactionDetailScreen = () => {
               border: 1px solid #eee;
               font-size: 13px;
               color: #444;
+              word-break: break-all;
             }
-            .label { font-weight: 600; color: #666; width: 35%; background-color: #fcfcfc; text-transform: uppercase; font-size: 11px; }
-            .value { text-align: left; font-weight: 700; color: #010135; }
+            .label { font-weight: 600; color: #666; width: 35%; background-color: #fcfcfc; text-transform: uppercase; font-size: 11px; word-break: normal; }
+            .value { text-align: left; font-weight: 700; color: #010135; word-break: break-all; }
             .amount-row td { background-color: #f8f9ff; }
             .amount { font-size: 18px; font-weight: 800; color: #010135; }
             
@@ -652,6 +653,12 @@ const TransactionDetailScreen = () => {
               <td class="label">Transaction ID</td>
               <td class="value">${transactionData.transactionId}</td>
             </tr>
+            ${transactionData.reference ? `
+            <tr>
+              <td class="label">Reference</td>
+              <td class="value" style="font-family: monospace; font-size: 12px;">${transactionData.reference}</td>
+            </tr>
+            ` : ''}
             <tr>
               <td class="label">Type</td>
               <td class="value">${transactionData.transactionType}</td>
@@ -857,13 +864,17 @@ const TransactionDetailScreen = () => {
                 <Text style={styles.receiptBrandTitle}>
                   {transactionData.category === "BOOKING" ? "BOOKING RECEIPT" : "PAYMENT RECEIPT"}
                 </Text>
-                <Text style={styles.receiptDocRef}>
-                  REF: {transactionData.reference || `LNS-${(transactionData.transactionId || "").slice(-8).toUpperCase()}`}
-                </Text>
-                <Text style={styles.receiptDocDate}>
-                  DATE: {transactionData.date || new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
-                </Text>
               </View>
+            </View>
+
+            {/* REF & DATE — Full width row below header so they never truncate */}
+            <View style={styles.receiptRefDateRow}>
+              <Text style={styles.receiptDocRef} selectable>
+                REF: {transactionData.reference || `LNS-${(transactionData.transactionId || "").slice(-8).toUpperCase()}`}
+              </Text>
+              <Text style={styles.receiptDocDate}>
+                DATE: {transactionData.dateTime || transactionData.date || new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
+              </Text>
             </View>
 
             {/* Status Row */}
@@ -1078,12 +1089,12 @@ const TransactionDetailScreen = () => {
                 return null;
               })()}
 
-              {/* Payment Reference */}
+              {/* Payment Reference — full width so it never truncates */}
               {transactionData.reference ? (
-                <View style={styles.detailRow}>
+                <View style={styles.detailRowStacked}>
                   <Text style={styles.detailLabel}>Transaction Ref:</Text>
                   <View style={styles.referenceContainer}>
-                    <Text style={[styles.detailValue, styles.referenceText]} numberOfLines={1}>
+                    <Text style={[styles.detailValue, styles.referenceText]} selectable>
                       {transactionData.reference}
                     </Text>
                     {isCopied && (
@@ -1609,6 +1620,7 @@ const styles = StyleSheet.create({
   },
   receiptHeaderRight: {
     alignItems: "flex-end",
+    flexShrink: 1,
   },
   receiptBrandTitle: {
     fontSize: 12,
@@ -1616,18 +1628,22 @@ const styles = StyleSheet.create({
     color: "#010135",
     letterSpacing: 0.5,
   },
+  receiptRefDateRow: {
+    marginTop: 8,
+    paddingTop: 6,
+  },
   receiptDocRef: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: "600",
     color: "#64748B",
     marginTop: 2,
     fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
   },
   receiptDocDate: {
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: "600",
     color: "#64748B",
-    marginTop: 2,
+    marginTop: 4,
   },
   receiptStandardFooter: {
     marginTop: 10,
@@ -1695,6 +1711,11 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     gap: 8,
   },
+  detailRowStacked: {
+    flexDirection: "column",
+    paddingVertical: 4,
+    gap: 4,
+  },
   detailLabel: {
     fontSize: 14,
     fontWeight: "500",
@@ -1730,14 +1751,15 @@ const styles = StyleSheet.create({
   referenceContainer: {
     flexDirection: "row",
     alignItems: "center",
-    flex: 2,
-    justifyContent: "flex-end",
+    justifyContent: "flex-start",
     gap: 8,
+    flexWrap: "wrap",
   },
   referenceText: {
-    fontSize: 13,
+    fontSize: 12,
     color: "#666",
-    maxWidth: "80%",
+    fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
+    flexShrink: 1,
   },
   copyButton: {
     padding: 6,

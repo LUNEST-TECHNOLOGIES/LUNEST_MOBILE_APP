@@ -1,5 +1,5 @@
 // Service Worker for LUNEST Mobile PWA
-const CACHE_NAME = 'lunest-pwa-v6';
+const CACHE_NAME = 'lunest-pwa-v7';
 
 const ASSETS_TO_CACHE = [
   '/',

@@ -178,9 +178,9 @@ export default function PwaInstallPrompt() {
           <View style={styles.headerRow}>
             <View style={styles.appInfo}>
               <Image
-                source={require("../../../assets/images/app-logo.png")}
+                source={require("../../../assets/images/android-icon-foreground.png")}
                 style={styles.logoImage}
-                resizeMode="contain"
+                resizeMode="cover"
               />
               <View>
                 <Text style={styles.appTitle}>Install LUNEST</Text>

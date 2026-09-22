@@ -505,6 +505,13 @@ const AddFundsScreen = () => {
             </TouchableOpacity>
           </View>
 
+          {/* Kora Fee Notice */}
+          <View style={styles.feeNotice}>
+            <Text style={styles.feeNoticeText}>
+              💡 A small processing fee (1.5%, max ₦2,000) is charged by Kora on the payment page. Fund the exact amount you need — the full amount you enter will be credited to your wallet.
+            </Text>
+          </View>
+
           {/* Security Note */}
           <View style={styles.securityNote}>
             <Text style={styles.securityNoteText}>
@@ -723,6 +730,20 @@ const styles = StyleSheet.create({
     borderWidth: 6,
     borderColor: "#010135",
     backgroundColor: "#FFFFFF",
+  },
+  feeNotice: {
+    backgroundColor: "#FFF8E1",
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#FFE082",
+  },
+  feeNoticeText: {
+    fontSize: 12,
+    color: "#5D4037",
+    textAlign: "center",
+    lineHeight: 18,
   },
   securityNote: {
     backgroundColor: "#F0F9F0",

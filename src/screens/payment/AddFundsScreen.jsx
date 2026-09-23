@@ -509,7 +509,7 @@ const AddFundsScreen = () => {
           {/* Kora Fee Notice */}
           <View style={styles.feeNotice}>
             <Text style={styles.feeNoticeText}>
-              💡 A 1.5% processing fee is added on the payment page. Fund the exact amount you need — the full amount you enter will be credited to your wallet.
+              💡 Processing fees (e.g. 1.5% capped at ₦2,000 for cards, or ₦100 for bank transfer) are calculated and added directly on the payment page. The full amount you enter here will be credited to your wallet.
             </Text>
           </View>
 

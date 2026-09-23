@@ -1089,16 +1089,21 @@ const TransactionDetailScreen = () => {
                 return null;
               })()}
 
-              {/* Payment Reference — full width so it never truncates */}
+              {/* Payment Reference — fit to right hand of label */}
               {transactionData.reference ? (
-                <View style={styles.detailRowStacked}>
+                <View style={[styles.detailRow, { alignItems: 'center' }]}>
                   <Text style={styles.detailLabel}>Transaction Ref:</Text>
                   <View style={styles.referenceContainer}>
-                    <Text style={[styles.detailValue, styles.referenceText]} selectable>
+                    <Text 
+                      style={[styles.detailValue, styles.referenceText]} 
+                      selectable 
+                      numberOfLines={1}
+                      ellipsizeMode="middle"
+                    >
                       {transactionData.reference}
                     </Text>
                     {isCopied && (
-                      <Text style={{ fontSize: 10, color: '#2E7D32', fontWeight: '600', marginRight: 4 }}>Copied!</Text>
+                      <Text style={{ fontSize: 10, color: '#2E7D32', fontWeight: '600', marginRight: 2 }}>Copied!</Text>
                     )}
                     <Pressable
                       onPress={() => handleCopyReference(transactionData.reference)}
@@ -1751,14 +1756,16 @@ const styles = StyleSheet.create({
   referenceContainer: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "flex-start",
-    gap: 8,
-    flexWrap: "wrap",
+    justifyContent: "flex-end",
+    gap: 6,
+    flex: 2,
+    flexShrink: 1,
   },
   referenceText: {
     fontSize: 12,
     color: "#666",
     fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
+    textAlign: "right",
     flexShrink: 1,
   },
   copyButton: {

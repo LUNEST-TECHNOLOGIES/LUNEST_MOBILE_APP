@@ -93,7 +93,7 @@ const ProfileHeader = ({
 
   // Calculate distinct status flags for zero conflict
   const isPhoneProvided = !!phone && phone.trim().length > 0;
-  const isPhoneVerified = isPhoneProvided && (phoneVerified === true || verified === true);
+  const isPhoneVerified = isPhoneProvided && phoneVerified === true;
   const isNinProvided = !!nin && nin.trim().length > 0;
   const isIdentityVerified = verified === true || kycStatus === 'VERIFIED' || kycStatus === 'APPROVED';
   

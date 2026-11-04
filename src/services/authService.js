@@ -1708,9 +1708,10 @@ class AuthService {
 
   /**
    * Send OTP to phone number
-   * @param {string} phone - Phone number to send OTP to
+   * @param {string|object} phone - Phone number or object with { phone, countryCode }
+   * @param {string} [countryCode] - Optional country dial code (e.g. "+234", "+1", "+44")
    */
-  async sendPhoneOTP(phone) {
+  async sendPhoneOTP(phone, countryCode = "") {
     try {
       const token = await this.getToken();
       if (!token) {
@@ -1721,7 +1722,8 @@ class AuthService {
       }
 
       const phoneStr = typeof phone === 'object' ? (phone?.phone || phone?.phoneNumber || "") : (phone || "");
-      console.log("[AuthService] Sending OTP to phone:", phoneStr);
+      const explicitCode = typeof phone === 'object' ? (phone?.countryCode || countryCode || "") : (countryCode || "");
+      console.log("[AuthService] Sending OTP to phone:", phoneStr, "countryCode:", explicitCode);
 
       const response = await fetch(`${this.baseURL}/v1/kyc/verify-phone/send-otp`, {
         method: "POST",
@@ -1729,7 +1731,11 @@ class AuthService {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ phone: phoneStr, phoneNumber: phoneStr }),
+        body: JSON.stringify({
+          phone: phoneStr,
+          phoneNumber: phoneStr,
+          countryCode: explicitCode
+        }),
       });
 
       const data = await response.json();
@@ -1792,10 +1798,11 @@ class AuthService {
 
   /**
    * Verify OTP code for phone number
-   * @param {string} phone - Phone number
+   * @param {string|object} phone - Phone number or object with { phone, countryCode }
    * @param {string} otp - OTP code to verify
+   * @param {string} [countryCode] - Optional country dial code
    */
-  async verifyPhoneOTP(phone, otp) {
+  async verifyPhoneOTP(phone, otp, countryCode = "") {
     try {
       const token = await this.getToken();
       if (!token) {
@@ -1805,7 +1812,9 @@ class AuthService {
         };
       }
 
-      console.log("[AuthService] Verifying OTP for phone:", phone);
+      const phoneStr = typeof phone === 'object' ? (phone?.phone || phone?.phoneNumber || "") : (phone || "");
+      const explicitCode = typeof phone === 'object' ? (phone?.countryCode || countryCode || "") : (countryCode || "");
+      console.log("[AuthService] Verifying OTP for phone:", phoneStr, "countryCode:", explicitCode);
 
       const response = await fetch(`${this.baseURL}/v1/kyc/verify-phone/verify-otp`, {
         method: "POST",
@@ -1813,7 +1822,12 @@ class AuthService {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ phone, otp }),
+        body: JSON.stringify({
+          phone: phoneStr,
+          phoneNumber: phoneStr,
+          otp,
+          countryCode: explicitCode
+        }),
       });
 
       const data = await response.json();

@@ -970,7 +970,9 @@ const KYCVerificationScreen = () => {
                   {!!loadingMessage && <Text style={styles.verifyButtonSubtext}>{loadingMessage}</Text>}
                 </View>
               ) : (
-                <Text style={styles.verifyButtonText}>Verify KYC Identity</Text>
+                <Text style={styles.verifyButtonText}>
+                  {ninFetchedName ? "Confirm Verification" : "Verify KYC Identity"}
+                </Text>
               )}
             </TouchableOpacity>
           )}

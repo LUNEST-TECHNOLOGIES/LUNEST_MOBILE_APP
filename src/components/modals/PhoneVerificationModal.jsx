@@ -213,12 +213,14 @@ const PhoneVerificationModal = ({ visible, phone, onClose, onVerified }) => {
     }
   };
 
-  // Step 2: Verify OTP
-  const handleVerifyOTP = async () => {
-    if (otpCode.length < 4) {
+  // Step 2: Verify OTP (supports manual press or auto-verify upon entering 6th digit)
+  const handleVerifyOTP = async (overrideOtp) => {
+    const code = (typeof overrideOtp === 'string' ? overrideOtp : otpCode).trim();
+    if (code.length < 4) {
       setError('Please enter the 6-digit code received via SMS');
       return;
     }
+    if (isLoading) return;
 
     setIsLoading(true);
     setError('');
@@ -235,7 +237,7 @@ const PhoneVerificationModal = ({ visible, phone, onClose, onVerified }) => {
         countryCode: selectedCountry.code,
       };
 
-      const result = await authService.verifyPhoneOTP(payload, otpCode, selectedCountry.code);
+      const result = await authService.verifyPhoneOTP(payload, code, selectedCountry.code);
 
       if (result.success) {
         setStep('verified');
@@ -336,7 +338,7 @@ const PhoneVerificationModal = ({ visible, phone, onClose, onVerified }) => {
 
               <View style={styles.inputContainer}>
                 <Text style={styles.inputLabel}>Phone Number</Text>
-                <View style={styles.phoneInputRow}>
+                <View style={[styles.unifiedPhoneWrapper, error && styles.inputError]}>
                   {/* Country Selector Pill Button */}
                   <TouchableOpacity
                     style={styles.countryPickerButton}
@@ -349,9 +351,11 @@ const PhoneVerificationModal = ({ visible, phone, onClose, onVerified }) => {
                     <ChevronDownIcon size={14} color="#64748B" />
                   </TouchableOpacity>
 
+                  <View style={styles.inputDivider} />
+
                   {/* National Number Input */}
                   <TextInput
-                    style={[styles.phoneTextInput, error && styles.inputError]}
+                    style={styles.phoneTextInput}
                     value={phoneNumber}
                     onChangeText={(text) => {
                       setPhoneNumber(text);
@@ -363,6 +367,8 @@ const PhoneVerificationModal = ({ visible, phone, onClose, onVerified }) => {
                     maxLength={16}
                     editable={!isLoading}
                     autoFocus
+                    includeFontPadding={false}
+                    textAlignVertical="center"
                   />
                 </View>
                 {error ? <Text style={styles.errorText}>{error}</Text> : null}
@@ -443,6 +449,10 @@ const PhoneVerificationModal = ({ visible, phone, onClose, onVerified }) => {
                     const cleaned = text.replace(/[^0-9]/g, '').slice(0, 6);
                     setOtpCode(cleaned);
                     if (error) setError('');
+                    // Auto-verify as soon as the 6th digit is entered
+                    if (cleaned.length === 6) {
+                      handleVerifyOTP(cleaned);
+                    }
                   }}
                   keyboardType="number-pad"
                   maxLength={6}
@@ -618,21 +628,28 @@ const styles = StyleSheet.create({
     color: '#334155',
     marginBottom: 8,
   },
-  phoneInputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  countryPickerButton: {
+  unifiedPhoneWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F8FAFC',
     borderWidth: 1.5,
     borderColor: '#E2E8F0',
     borderRadius: 12,
-    paddingHorizontal: 10,
+    minHeight: 52,
+    overflow: 'hidden',
+  },
+  countryPickerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
     paddingVertical: 12,
-    gap: 6,
+    gap: 4,
+    flexShrink: 0,
+  },
+  inputDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: '#CBD5E1',
   },
   countryFlag: {
     fontSize: 18,
@@ -644,15 +661,13 @@ const styles = StyleSheet.create({
   },
   phoneTextInput: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 16,
+    paddingHorizontal: 12,
+    paddingVertical: Platform.OS === 'ios' ? 12 : 8,
+    fontSize: 15,
     color: '#0F172A',
     fontWeight: '500',
+    minWidth: 0,
+    backgroundColor: 'transparent',
   },
   inputError: {
     borderColor: '#EF4444',

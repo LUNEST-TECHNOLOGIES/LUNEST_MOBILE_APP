@@ -1,3 +1,4 @@
+import { useWebsiteAnalytics } from "../src/hooks/useWebsiteAnalytics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { useEffect, useRef, useState } from "react";
@@ -26,6 +27,7 @@ console.log(
 const ONBOARDING_KEY = "@lunest_onboarding_complete";
 
 export default function RootLayout() {
+  useWebsiteAnalytics();
   const [isLoading, setIsLoading] = useState(true);
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);

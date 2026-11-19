@@ -181,41 +181,6 @@ const Photos = () => {
     setInitialLoadDone(true);
   }, [draftData, draftId, initialLoadDone, paramsPhotos, currentDraftId]);
 
-  // Sync state if draftData arrives asynchronously after remote sync
-  useEffect(() => {
-    if (!draftData) return;
-
-    const rawVids = draftData.propertyVideos || draftData.videos || draftData.video;
-    if (rawVids) {
-      const vids = (Array.isArray(rawVids) ? rawVids : safeParseArray(rawVids))
-        .map((v) => (typeof v === "string" ? v : v?.url || v?.uri || v?.path || null))
-        .filter(Boolean);
-
-      if (vids.length > 0) {
-        setVideos((prev) => {
-          if (prev.length === 0) return vids.slice(0, 3);
-          const combined = Array.from(new Set([...prev, ...vids]));
-          return combined.slice(0, 3);
-        });
-      }
-    }
-
-    const rawPhotos = draftData.photos || draftData.propertyImages || draftData.images;
-    if (rawPhotos) {
-      const pList = (Array.isArray(rawPhotos) ? rawPhotos : safeParseArray(rawPhotos))
-        .map((p) => (typeof p === "string" ? p : p?.url || p?.uri || p?.path || null))
-        .filter(Boolean);
-
-      if (pList.length > 0) {
-        setPhotos((prev) => {
-          if (prev.length === 0) return pList.slice(0, 10);
-          const combined = Array.from(new Set([...prev, ...pList]));
-          return combined.slice(0, 10);
-        });
-      }
-    }
-  }, [draftData?.propertyVideos, draftData?.videos, draftData?.video, draftData?.photos, draftData?.propertyImages, draftData?.images]);
-
   // Subscribe to MediaUploadService background queue updates
   useEffect(() => {
     if (!currentDraftId) return;
@@ -480,7 +445,6 @@ const Photos = () => {
   const handleCancelConfirm = async () => {
     try {
       await saveDraftData({
-        ...draftData,
         photos: Array.isArray(photos) ? photos : safeParseArray(photos),
         video: videos,
         propertyVideos: videos,

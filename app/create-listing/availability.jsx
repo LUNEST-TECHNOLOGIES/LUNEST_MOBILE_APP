@@ -8,7 +8,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   X
 } from "lucide-react-native";
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -226,7 +226,6 @@ const Availability = () => {
       // Auto-save all availability fields when rules change
       const finalDraftId = (draftData && draftData.draftId) || draftId;
       saveDraftData({
-        ...draftData,
         instantBooking,
         minStay,
         maxStay,
@@ -246,35 +245,10 @@ const Availability = () => {
     });
   };
 
-  // Debounced save for text inputs
-  const debouncedSave = useCallback(
-    (text) => {
-      const timeoutId = setTimeout(() => {
-        saveDraftData({
-          ...draftData,
-          instantBooking,
-          minStay,
-          maxStay,
-          advanceNotice,
-          availableNow: availabilityStatus === "available",
-          availabilityStatus,
-          checkInTime,
-          checkOutTime,
-          houseRules: selectedRules,
-          regulations: selectedRules,
-          additionalRules: text,
-        });
-      }, 400);
-      return () => clearTimeout(timeoutId);
-    },
-    [draftData, instantBooking, minStay, maxStay, advanceNotice, availabilityStatus, checkInTime, checkOutTime, selectedRules, saveDraftData]
-  );
-
   // Auto-save function
   const updateAvailability = (updates) => {
     const finalDraftId = (draftData && draftData.draftId) || draftId;
     const finalUpdates = {
-      ...draftData,
       instantBooking: updates.instantBooking !== undefined ? updates.instantBooking : instantBooking,
       minStay: updates.minStay !== undefined ? updates.minStay : minStay,
       maxStay: updates.maxStay !== undefined ? updates.maxStay : maxStay,
@@ -311,7 +285,6 @@ const Availability = () => {
       const finalDraftId = (draftData && draftData.draftId) || draftId || draftListingService.generateDraftId();
 
       await saveDraftData({
-        ...draftData,
         instantBooking,
         minStay,
         maxStay,
@@ -346,7 +319,6 @@ const Availability = () => {
     const finalDraftId = (draftData && draftData.draftId) || draftId || draftListingService.generateDraftId();
 
     await saveDraftData({
-      ...draftData,
       instantBooking,
       minStay,
       maxStay,
@@ -377,7 +349,6 @@ const Availability = () => {
     const finalDraftId = (draftData && draftData.draftId) || draftId || draftListingService.generateDraftId();
 
     await saveDraftData({
-      ...draftData,
       instantBooking,
       minStay,
       maxStay,
@@ -593,7 +564,7 @@ const Availability = () => {
               value={additionalRules}
               onChangeText={(text) => {
                 setAdditionalRules(text);
-                debouncedSave(text);
+                saveDraftData({ additionalRules: text, currentStep: 8 }, { background: true });
               }}
             />
           </View>

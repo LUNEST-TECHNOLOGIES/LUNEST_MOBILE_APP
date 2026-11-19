@@ -20,7 +20,19 @@ const SYNC_DEBOUNCE_MS = 200; // Ultra-fast 200ms background sync
 // In-memory cache for the most recently saved/accessed draft to prevent race conditions during navigation
 const draftCache = new Map();
 
+let localSaveQueue = Promise.resolve();
+
 class DraftListingService {
+  saveDraft(listingData, options = {}) {
+    if (!listingData?.draftId) return this.persistDraft(listingData, options);
+    const snapshot = { ...draftCache.get(listingData.draftId), ...listingData };
+    // Make navigation see the edit immediately, before storage yields.
+    draftCache.set(snapshot.draftId, snapshot);
+    const save = localSaveQueue.catch(() => {}).then(() => this.persistDraft(snapshot, options));
+    localSaveQueue = save;
+    return save;
+  }
+
   /**
    * Get the user-specific drafts storage key
    * @returns {Promise<string>} The storage key for current user's drafts
@@ -104,7 +116,7 @@ class DraftListingService {
    * @param {Object} listingData - The listing data to save
    * @returns {Promise<string>} The draft ID
    */
-  async saveDraft(listingData, options = {}) {
+  async persistDraft(listingData, options = {}) {
     // Stage 1: Absolute defensive entry
     if (!listingData || typeof listingData !== 'object') {
       const errorMsg = "Invalid draft data: data is null or not an object";
@@ -181,7 +193,9 @@ class DraftListingService {
       }
       
       // Update in-memory cache with the final draft
-      draftCache.set(resolvedDraftId, finalDraftToSave);
+      if (draftCache.get(resolvedDraftId) === listingData) {
+        draftCache.set(resolvedDraftId, finalDraftToSave);
+      }
 
       await storageService.setItem(draftsKey, updatedDraftsList);
       console.log("💾 [DraftListingService] Local save complete:", resolvedDraftId);
@@ -263,26 +277,19 @@ class DraftListingService {
           nextDraft._id !== result.draft._id
         ) {
           try {
-            const draftsKey = await this.getDraftsKey();
-            const drafts = await this.getAllDrafts();
-            const existingIndex = drafts.findIndex(
-              (d) => d.draftId === nextDraft.draftId,
-            );
-            if (existingIndex >= 0) {
-              // Store the MongoDB _id but preserve the local draftId for routing continuity
-              const updatedDraft = {
-                ...drafts[existingIndex],
-                _id: result.draft._id,
-                // Ensure synchronization of any fields updated by server (like defaults)
-                ...(result.draft.propertyName ? { propertyName: result.draft.propertyName } : {}),
-              };
-              drafts[existingIndex] = updatedDraft;
-              await storageService.setItem(draftsKey, drafts);
-              console.log(
-                "🔄 Local draft appended with MongoDB ID:",
-                result.draft._id,
-              );
-            }
+            const appendId = localSaveQueue.catch(() => {}).then(async () => {
+              const draftsKey = await this.getDraftsKey();
+              const drafts = await this.getAllDrafts();
+              const index = drafts.findIndex(d => d.draftId === nextDraft.draftId);
+              if (index >= 0) {
+                drafts[index] = { ...drafts[index], _id: result.draft._id };
+                await storageService.setItem(draftsKey, drafts);
+              }
+              const latest = draftCache.get(nextDraft.draftId);
+              if (latest) draftCache.set(nextDraft.draftId, { ...latest, _id: result.draft._id });
+            });
+            localSaveQueue = appendId;
+            await appendId;
           } catch (storageError) {
             console.log(
               "⚠️ Could not update local draft with MongoDB ID:",
@@ -714,7 +721,7 @@ class DraftListingService {
       cautionFee: params.cautionFee !== undefined ? params.cautionFee : (params.securityDeposit || ""),
       cleaningFee: params.cleaningFee || "",
       serviceCharge: params.serviceCharge || "",
-      acceptRefund: params.acceptRefund !== undefined ? params.acceptRefund : true,
+      acceptRefund: params.acceptRefund === true || params.acceptRefund === "true" ? true : params.acceptRefund === false || params.acceptRefund === "false" ? false : null,
       // Step 8
       instantBooking: params.instantBooking || "false",
       minStay: params.minStay || "1",

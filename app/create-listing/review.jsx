@@ -294,7 +294,7 @@ const Review = () => {
     // Priority: draftData.photos -> draftData.images -> baseData.photos -> baseData.images
     const draftPhotos = safeParseArray(activeDraft.photos || activeDraft.images);
     const paramPhotos = safeParseArray(baseData.photos || baseData.images);
-    const finalPhotos = draftPhotos.length > 0 ? draftPhotos : paramPhotos;
+    const finalPhotos = activeDraft.photos !== undefined || activeDraft.images !== undefined ? draftPhotos : paramPhotos;
 
     console.log('📂 [Review] Aggregating data for display:', {
       source: draftData ? 'local-cache' : 'nav-params',
@@ -308,14 +308,14 @@ const Review = () => {
       photos: finalPhotos,
       images: finalPhotos,
       // Ensure specific fields have consistent fallbacks
-      propertyTitle: activeDraft.propertyTitle || activeDraft.propertyName || baseData.propertyTitle || baseData.propertyName || "Untitled",
+      propertyTitle: activeDraft.propertyTitle ?? activeDraft.propertyName ?? baseData.propertyTitle ?? baseData.propertyName ?? "",
       intent: (activeDraft.intent || baseData.intent || "rent").toLowerCase(),
       checkInTime: activeDraft.checkInTime || baseData.checkInTime || "02:00 PM",
       checkOutTime: activeDraft.checkOutTime || baseData.checkOutTime || "11:00 AM",
       houseRules: activeDraft.houseRules || activeDraft.regulations || baseData.houseRules || baseData.regulations || [],
       regulations: activeDraft.regulations || activeDraft.houseRules || baseData.regulations || baseData.houseRules || [],
-      additionalRules: activeDraft.additionalRules || baseData.additionalRules || "",
-      termsAgreed: activeDraft.termsAgreed !== undefined ? activeDraft.termsAgreed : (baseData.termsAgreed !== undefined ? baseData.termsAgreed : true)
+      additionalRules: activeDraft.additionalRules ?? baseData.additionalRules ?? "",
+      termsAgreed: activeDraft.termsAgreed !== undefined ? activeDraft.termsAgreed : (baseData.termsAgreed !== undefined ? baseData.termsAgreed : false)
     });
   }, [draftData, draftId]); // Re-run whenever draftData arrives or updates
 
@@ -511,11 +511,44 @@ const Review = () => {
     });
   };
 
+  const validateSubmission = () => {
+    const title = mergedData.propertyTitle ?? mergedData.propertyName ?? "";
+    const description = mergedData.propertyHighlight ?? mergedData.description ?? "";
+    const price = Number(String(mergedData.price ?? "").replace(/,/g, ""));
+    if (!String(title).trim() || String(description).trim().length < 10 || !mergedData.rentalPurpose || !mergedData.furnishing || !mergedData.titleType) {
+      toastService.showError("Complete the required Property Details before submitting.");
+      return false;
+    }
+    if (!String(mergedData.address ?? "").trim() || !String(mergedData.city ?? "").trim()) {
+      toastService.showError("Complete the property address and city in Location.");
+      return false;
+    }
+    if (!Number.isFinite(price) || price <= 0 || (mergedData.intent !== "sale" && !mergedData.pricingPeriod)) {
+      toastService.showError("Enter a valid price and pricing period in Pricing.");
+      return false;
+    }
+    if (photos.length < 3) {
+      toastService.showError("Add at least three property photos before submitting.");
+      return false;
+    }
+    if (mergedData.intent !== "sale" && typeof mergedData.acceptRefund !== "boolean") {
+      toastService.showError("Select a cancellation and refund policy in Pricing before submitting.");
+      return false;
+    }
+    if (mergedData.termsAgreed !== true && mergedData.termsAgreed !== "true") {
+      toastService.showError("Please agree to the listing terms before submitting.");
+      return false;
+    }
+    return true;
+  };
+
   const handleSubmit = async () => {
+    if (!validateSubmission()) return;
     setShowSubmitModal(true);
   };
 
   const handleSubmitConfirmed = async () => {
+    if (!validateSubmission()) return;
     setShowSubmitModal(false);
     setIsSubmitting(true);
     console.log(
@@ -696,8 +729,8 @@ const Review = () => {
         propertyVideos: propertyVideos || [],
         price: parsePrice(mergedData.price),
         pricingPeriod: mergedData.pricingPeriod || "night",
-        securityDeposit: parsePrice(mergedData.securityDeposit || mergedData.cautionFee),
-        cautionFee: parsePrice(mergedData.cautionFee || mergedData.securityDeposit),
+        securityDeposit: parsePrice(mergedData.securityDeposit ?? mergedData.cautionFee),
+        cautionFee: parsePrice(mergedData.securityDeposit ?? mergedData.cautionFee),
         serviceCharge: parsePrice(mergedData.serviceCharge),
         cleaningFee: parsePrice(mergedData.cleaningFee),
         instantBooking:
@@ -718,7 +751,7 @@ const Review = () => {
         totalSquareFootage: mergedData.totalSquareFootage || "",
         usageType: mergedData.usageType || "",
         title: mergedData.propertyTitle || mergedData.propertyName || "Listing",
-        acceptRefund: mergedData.acceptRefund !== false, // Explicitly pass the refund policy
+        acceptRefund: mergedData.acceptRefund,
         status: "PENDING",
         draftId: draftId,
       };
@@ -1089,7 +1122,7 @@ const Review = () => {
           {mergedData.intent?.toLowerCase() !== "sale" && (
             <SummaryRow
               label="Refund Policy"
-              value={mergedData.acceptRefund !== false ? "Standard (Refundable)" : "No Refund (Immediate Credit)"}
+              value={mergedData.acceptRefund === true ? "Standard (Refundable)" : mergedData.acceptRefund === false ? "No Refund" : "Selection required"}
             />
           )}
 

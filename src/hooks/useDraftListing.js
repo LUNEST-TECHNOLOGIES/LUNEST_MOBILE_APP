@@ -29,7 +29,7 @@ const ensureDraftAppStateSubscription = () => {
 
     for (const draft of latestDrafts.values()) {
       console.log('📱 [useDraftListing] App backgrounded/closed - syncing current draft state');
-      draftListingService.saveDraft(draft, { syncImmediately: true }).catch((error) => {
+      draftListingService.saveDraft(draftListingService.getDraftSync(draft.draftId) || draft, { syncImmediately: true }).catch((error) => {
         console.warn('[useDraftListing] Auto-save failed on background:', error.message);
       });
     }
@@ -55,6 +55,9 @@ export const useDraftListing = () => {
   const [isLoadingDraft, setIsLoadingDraft] = useState(false);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [draftError, setDraftError] = useState(null);
+  const draftDataRef = useRef(null);
+  draftDataRef.current = draftData;
+  const saveRevision = useRef(0);
   const registrationId = useRef(Symbol('draft-registration'));
 
   useEffect(() => {
@@ -83,7 +86,9 @@ export const useDraftListing = () => {
 
     try {
       console.log('📂 [useDraftListing] Loading draft:', draftId);
+      const revision = saveRevision.current;
       const draft = await draftListingService.getDraft(draftId);
+      if (revision !== saveRevision.current) return draftDataRef.current;
       
       if (draft) {
         console.log('✅ [useDraftListing] Draft loaded successfully');
@@ -113,9 +118,10 @@ export const useDraftListing = () => {
       setIsSavingDraft(true);
     }
 
+    const revision = ++saveRevision.current;
     try {
       // If we have draftId in updates, use it
-      const draftId = updates?.draftId || draftData?.draftId || params.draftId;
+      const draftId = updates?.draftId || draftDataRef.current?.draftId || params.draftId;
       
       if (!draftId) {
         console.error('❌ [useDraftListing] No draftId provided in updates or params');
@@ -126,7 +132,7 @@ export const useDraftListing = () => {
       // CRITICAL: We merge with draftListingService cache first to prevent wiping out data
       // if the local draftData state hasn't finished loading yet during navigation
       const latestFromCache = draftListingService.getDraftSync(draftId);
-      const baseData = latestFromCache || draftData || {};
+      const baseData = latestFromCache || draftDataRef.current || {};
 
       const updatedDraft = {
         ...baseData,
@@ -138,19 +144,22 @@ export const useDraftListing = () => {
       console.log('💾 [useDraftListing] Saving draft:', draftId, options.background ? '(background)' : '(foreground)');
       
       // Update local state IMMEDIATELY for perfect consistency during rapid navigation
+      draftDataRef.current = updatedDraft;
       setDraftData(updatedDraft);
+      draftRegistrations.set(registrationId.current, { draft: updatedDraft });
 
       // Call service with options (e.g. syncImmediately)
-      const savingPromise = draftListingService.saveDraft(updatedDraft, options);
+      const savingPromise = draftListingService.saveDraft({ ...updates, draftId }, options);
       
       // If background, we don't await the promise for the UI state update
       if (options.background) {
         savingPromise.then(saved => {
-          if (saved) {
+          if (saved && revision === saveRevision.current) {
             // Re-sync with service-resolved version (might have updated timestamps/_ids)
             setDraftData(saved);
           }
         }).catch(err => {
+          setDraftError(err.message);
           console.warn('⚠️ [useDraftListing] Background save failed:', err.message);
         });
         return true; 
@@ -161,7 +170,7 @@ export const useDraftListing = () => {
       
       // If the service returned a draft (which might have a new draftId or _id), use it
       const finalDraft = savedDraft || updatedDraft;
-      setDraftData(finalDraft);
+      if (revision === saveRevision.current) setDraftData(finalDraft);
       console.log('✅ [useDraftListing] Draft saved successfully');
       return true;
     } catch (error) {
@@ -173,7 +182,7 @@ export const useDraftListing = () => {
         setIsSavingDraft(false);
       }
     }
-  }, [draftData, params.draftId]);
+  }, [params.draftId]);
 
   // Update draft field without saving immediately
   const updateDraftField = useCallback((fieldName, fieldValue) => {

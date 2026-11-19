@@ -78,7 +78,6 @@ const TermsAgreement = () => {
     // Optimized: Immediate background save when toggled
     const finalDraftId = (draftData && draftData.draftId) || draftId;
     saveDraftData({
-      ...draftData,
       termsAgreed: newValue,
       currentStep: 8,
       draftId: finalDraftId,
@@ -113,7 +112,6 @@ const TermsAgreement = () => {
       const finalDraftId = (draftData && draftData.draftId) || draftId || draftListingService.generateDraftId();
       
       await saveDraftData({
-        ...draftData,
         termsAgreed,
         currentStep: 9,
         draftId: finalDraftId,
@@ -138,7 +136,6 @@ const TermsAgreement = () => {
     const finalDraftId = (draftData && draftData.draftId) || draftId;
 
     await saveDraftData({
-      ...draftData,
       termsAgreed,
       currentStep: 8,
       draftId: finalDraftId,
@@ -159,7 +156,6 @@ const TermsAgreement = () => {
     const finalDraftId = (draftData && draftData.draftId) || draftId || draftListingService.generateDraftId();
 
     await saveDraftData({
-      ...draftData,
       termsAgreed: true,
       currentStep: 9,
       draftId: finalDraftId,

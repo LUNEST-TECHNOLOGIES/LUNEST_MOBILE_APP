@@ -1,3 +1,4 @@
+import * as LegacyFileSystem from "expo-file-system/legacy";
 /**
  * Listing Service
  * Handles all listing-related API calls
@@ -1325,119 +1326,6 @@ class ListingService {
    * @param {Function} onProgress - Progress callback
    * @returns {Promise<Object>} Response with video URLs
    */
-  async uploadVideos(videoUris, onProgress = null) {
-    console.log("[ListingService] Uploading videos...", videoUris && videoUris.length);
-
-    if (!videoUris || videoUris.length === 0) {
-      return { success: true, message: "No videos to upload", videos: [] };
-    }
-
-    try {
-      const token = await authService.getToken();
-      if (!token) return { success: false, message: "Authentication required", error: "NO_TOKEN" };
-
-      const formData = new FormData();
-      let videoCount = 0;
-
-      for (let i = 0; i < videoUris.length; i++) {
-        const uri = videoUris[i];
-        if (!uri) continue;
-
-        if (Platform.OS === "web") {
-          try {
-            let blob;
-            if (uri.startsWith("data:")) {
-              const parts = uri.split(",");
-              const mimeMatch = parts[0].match(/:(.*?);/);
-              const mimeType = mimeMatch ? mimeMatch[1] : "video/mp4";
-              const base64Data = parts[1];
-              const byteCharacters = atob(base64Data);
-              const byteNumbers = new Array(byteCharacters.length);
-              for (let j = 0; j < byteCharacters.length; j++) byteNumbers[j] = byteCharacters.charCodeAt(j);
-              blob = new Blob([new Uint8Array(byteNumbers)], { type: mimeType });
-            } else {
-              const resp = await fetch(uri);
-              blob = await resp.blob();
-            }
-
-            formData.append("videos", blob, `video_${i}.mp4`);
-            videoCount++;
-          } catch (err) {
-            console.error("[ListingService] Error preparing web video:", err);
-            continue;
-          }
-        } else {
-          const filename = uri.split("/").pop() || `video_${i}.mp4`;
-          const extension = filename.split(".").pop() || "mp4";
-          formData.append("videos", {
-            uri: uri,
-            type: "video/mp4",
-            name: `video_${i}.${extension}`,
-          });
-          videoCount++;
-        }
-      }
-
-      if (videoCount === 0) {
-        return { success: false, message: "No valid videos to upload", videos: [] };
-      }
-
-      const cleanBase = (await configService.getBaseURL()).replace(/\/$/, "");
-      const uploadUrl = cleanBase.endsWith("/v1") ? `${cleanBase}/listings/upload-videos` : `${cleanBase}/v1/listings/upload-videos`;
-
-      const apiResponse = await new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open("POST", uploadUrl, true);
-        xhr.setRequestHeader("Authorization", "Bearer " + token);
-
-        if (xhr.upload && onProgress) {
-          xhr.upload.onprogress = (e) => {
-            if (e.lengthComputable) {
-              const pct = Math.round((e.loaded / e.total) * 100);
-              onProgress(pct);
-            }
-          };
-        }
-
-        xhr.onload = () => {
-          if (xhr.status >= 200 && xhr.status < 300) {
-            try {
-              resolve(JSON.parse(xhr.responseText));
-            } catch (e) {
-              resolve({});
-            }
-          } else {
-            reject(new Error(`Upload failed with status ${xhr.status}`));
-          }
-        };
-        xhr.onerror = () => reject(new Error("Network error during video upload"));
-        xhr.send(formData);
-      });
-
-      const uploadedVideos = apiResponse?.body?.videos || apiResponse?.videos || [];
-      const durableVideos = uploadedVideos.filter((video) => {
-        const url = typeof video === "string" ? video : video?.url || video?.location || video?.storagePath || video?.path;
-        return typeof url === "string" && /^https?:\/\//i.test(url) && !/(?:^|\/)(?:blob:|data:|file:|content:)/i.test(url);
-      });
-
-      if (durableVideos.length === 0) {
-        return { success: false, message: "The server did not return a durable video URL", videos: [] };
-      }
-
-      console.log("[ListingService] Videos uploaded successfully:", durableVideos.length);
-      return { success: true, message: "Videos uploaded successfully", videos: durableVideos };
-    } catch (error) {
-      console.error("[ListingService] Error uploading videos:", error);
-      return { success: false, message: error.message || "Failed to upload video" };
-    }
-  }
-
-  /**
-   * Upload photos for a listing
-   * @param {string} listingId - The listing ID
-   * @param {Array} photos - Array of photo URIs
-   * @returns {Promise<Object>} Response
-   */
   async uploadListingPhotos(listingId, photos) {
     console.log("[ListingService] Uploading photos for listing:", listingId);
     if (!photos || photos.length === 0) return { success: true, photos: [] };
@@ -1587,20 +1475,10 @@ class ListingService {
 
       // 3. Map/Align Pricing Structure with full sanitization
       const priceVal = toNum(draftData.price ?? draftData.propertyPrice?.price ?? 0);
-      // Find whichever field has an actual positive value so 0 defaults don't overwrite user inputs
-      const candidateCaution = [
-        uiDeposit,
-        uiCaution,
-        draftData.securityDeposit,
-        draftData.cautionFee,
-        draftData.propertyPrice?.securityDeposit,
-        draftData.propertyPrice?.cautionFee,
-      ].find((v) => {
-        if (v === undefined || v === null || v === "") return false;
-        const num = toNum(v);
-        return num > 0;
-      });
-      const cautionVal = candidateCaution !== undefined ? toNum(candidateCaution) : 0;
+      const periodVal = String(uiPeriod ?? draftData.propertyPrice?.frequency ?? "night").replace(/^per\s+/, "");
+      const cautionVal = toNum(uiDeposit ?? uiCaution ?? draftData.propertyPrice?.securityDeposit ?? draftData.propertyPrice?.cautionFee ?? 0);
+      payload.propertyName = draftData.propertyTitle ?? draftData.propertyName ?? "";
+      payload.description = propertyHighlight ?? draftData.description ?? "";
       const serviceVal = toNum(uiService ?? draftData.serviceCharge ?? draftData.propertyPrice?.serviceCharge ?? 0);
       const cleaningVal = toNum(draftData.cleaningFee ?? 0);
 
@@ -1610,9 +1488,9 @@ class ListingService {
       payload.securityDeposit = cautionVal;
       payload.serviceCharge = serviceVal;
       payload.cleaningFee = cleaningVal;
-      payload.acceptRefund = draftData.acceptRefund !== undefined ? Boolean(draftData.acceptRefund) : true;
+      payload.acceptRefund = typeof draftData.acceptRefund === "boolean" ? draftData.acceptRefund : null;
       payload.currentStep = toNum(draftData.currentStep) || 1;
-      payload.termsAgreed = Boolean(draftData.termsAgreed);
+      payload.termsAgreed = draftData.termsAgreed === true || draftData.termsAgreed === "true";
       
       // Ensure propertyPrice object exists for model compatibility
       payload.propertyPrice = {
@@ -1621,7 +1499,7 @@ class ListingService {
         securityDeposit: cautionVal,
         serviceCharge: serviceVal,
         currency: draftData.currency || "NGN",
-        frequency: `per ${periodVal.replace(/^per\s+/, "")}`, // "night" -> "per night"
+        frequency: `per ${periodVal.replace(/^per\s+/, "") || "night"}`, // "night" -> "per night"
       };
 
       payload.bedrooms = toNum(payload.bedrooms);
@@ -1801,7 +1679,7 @@ class ListingService {
           .filter(Boolean);
 
         const priceVal = d.price !== undefined && d.price !== null ? Number(d.price) : (d.propertyPrice?.price ? Number(d.propertyPrice.price) : 0);
-        const periodVal = d.pricingPeriod || (d.propertyPrice?.frequency ? String(d.propertyPrice.frequency).replace(/^per\s+/, "") : "night");
+        const periodVal = d.pricingPeriod ?? (d.propertyPrice?.frequency ? String(d.propertyPrice.frequency).replace(/^per\s+/, "") : "night");
         const candidateCaution = [
           d.securityDeposit,
           d.cautionFee,
@@ -1828,7 +1706,7 @@ class ListingService {
           securityDeposit: cautionVal,
           serviceCharge: serviceVal,
           cleaningFee: cleaningVal,
-          acceptRefund: d.acceptRefund !== undefined ? Boolean(d.acceptRefund) : true,
+          acceptRefund: typeof d.acceptRefund === "boolean" ? d.acceptRefund : null,
           propertyTitle: d.propertyTitle || d.propertyName || "",
           propertyName: d.propertyName || d.propertyTitle || "",
           propertyHighlight: d.description || d.propertyHighlight || "",

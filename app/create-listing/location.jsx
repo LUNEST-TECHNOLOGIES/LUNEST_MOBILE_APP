@@ -11,7 +11,6 @@ import {
   Trash2 
 } from "lucide-react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import debounce from "lodash.debounce";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -120,20 +119,21 @@ const Location = () => {
     "Nasarawa", "Niger", "Ogun", "Ondo", "Osun", "Oyo",
     "Plateau", "Rivers", "Sokoto", "Taraba", "Yobe", "Zamfara", "FCT",
   ];
-  // Debounce the draft save to prevent input lag
-  const debouncedSaveDraft = useCallback(
-    debounce((data) => {
-      saveDraftData(data);
-    }, 1000),
+  // Save locally on every edit; the service debounces remote synchronization.
+  const saveDraftInBackground = useCallback(
+    (data) => saveDraftData(data, { background: true }),
     [saveDraftData]
   );
 
-  // Load draft data on mount and on remote sync
+  const hydratedDraft = useRef(null);
+
+  // Restore once per draft; saves must never replace the active editor.
   useEffect(() => {
     let timeoutId;
-    if (!draftData) return;
+    if (!draftData || hydratedDraft.current === draftData.draftId) return;
+    hydratedDraft.current = draftData.draftId;
 
-    const savedAddress = draftData.address || draftData.propertyLocation?.fullAddress || "";
+    const savedAddress = draftData.address ?? draftData.propertyLocation?.fullAddress ?? "";
     if (savedAddress) setAddress(savedAddress);
     if (draftData.city) setCity(draftData.city);
     if (draftData.state) setState(draftData.state);
@@ -213,7 +213,7 @@ const Location = () => {
       setPropertyCoords({ lat: updates.latitude, lon: updates.longitude });
     }
 
-    debouncedSaveDraft(finalUpdates);
+    saveDraftInBackground(finalUpdates);
   };
 
   // Geocode an address string using Google Geocoding API with Nominatim Fallback
@@ -471,7 +471,7 @@ const Location = () => {
     const newLandmarks = [...landmarks];
     newLandmarks[index] = value;
     setLandmarks(newLandmarks);
-    debouncedSaveDraft({
+    saveDraftInBackground({
       landmarks: JSON.stringify(newLandmarks),
       currentStep: 4,
     });
@@ -563,7 +563,7 @@ const Location = () => {
 
   const handleNext = () => {
     if (address.trim() && city.trim()) {
-      const finalDraftId =
+        const finalDraftId =
         (draftData && draftData.draftId) ||
         draftId ||
         draftListingService.generateDraftId();

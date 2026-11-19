@@ -16,7 +16,6 @@ import {
   MapPin
 } from "lucide-react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import debounce from "lodash.debounce";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
     Dimensions,
@@ -47,6 +46,7 @@ const TITLE_TYPE_OPTIONS = [
   "C of O (Certificate of Occupancy)",
   "Governor's Consent",
   "Deed of Assignment",
+  "Power of Attorney",
   "Registered Survey",
   "R of O (Right of Occupancy)",
   "Land Receipt",
@@ -95,7 +95,11 @@ const Counter = ({
           styles.counterButton,
           value <= min && styles.counterButtonDisabled,
         ]}
-        onPress={onDecrement}
+        onPress={() => { if (value > min) onDecrement(); }}
+        accessibilityRole="button"
+        accessibilityLabel={`Decrease ${label.replace(/\s*\*$/, "")}`}
+        accessibilityState={{ disabled: value <= min }}
+        hitSlop={8}
         disabled={value <= min}
       >
         <Minus size={16} color={value <= min ? "#CCCCCC" : "#000000"} />
@@ -108,7 +112,11 @@ const Counter = ({
           styles.counterButton,
           value >= max && styles.counterButtonDisabled,
         ]}
-        onPress={onIncrement}
+        onPress={() => { if (value < max) onIncrement(); }}
+        accessibilityRole="button"
+        accessibilityLabel={`Increase ${label.replace(/\s*\*$/, "")}`}
+        accessibilityState={{ disabled: value >= max }}
+        hitSlop={8}
         disabled={value >= max}
       >
         <Plus size={16} color={value >= max ? "#CCCCCC" : "#000000"} />
@@ -193,13 +201,18 @@ const PropertyDetails = () => {
 
   const RENTAL_PURPOSE_OPTIONS = PURPOSE_SECTIONS.flatMap(s => s.options);
 
-  // Load draft data on mount and on remote hydration
+  const hydratedDraft = useRef(null);
+
+  // Restore once per draft; saves must never replace the active editor.
   useEffect(() => {
-    if (!draftData && Object.keys(params).length === 0) return;
+    if (draftId && !draftData) return;
+    const hydrationKey = draftId || "new";
+    if (hydratedDraft.current === hydrationKey) return;
+    hydratedDraft.current = hydrationKey;
     const data = draftData || {};
 
     if (data.propertyTitle || data.propertyName || params.propertyTitle) {
-      setPropertyTitle(data.propertyTitle || data.propertyName || params.propertyTitle || "");
+      setPropertyTitle(data.propertyTitle ?? data.propertyName ?? params.propertyTitle ?? "");
     }
     if (data.rentalPurpose || data.purposeOfRent || data.purpose || params.rentalPurpose) {
       setRentalPurpose(data.rentalPurpose || data.purposeOfRent || data.purpose || params.rentalPurpose || null);
@@ -220,13 +233,13 @@ const PropertyDetails = () => {
       setTitleType(data.titleType || params.titleType || "");
     }
     if (data.propertyHighlight || data.description || params.propertyHighlight) {
-      setPropertyHighlight(data.propertyHighlight || data.description || params.propertyHighlight || "");
+      setPropertyHighlight(data.propertyHighlight ?? data.description ?? params.propertyHighlight ?? "");
     }
     if (data.roomSizes !== undefined || params.roomSizes !== undefined) {
-      setRoomSizes(Array.isArray(data.roomSizes) ? data.roomSizes.join(", ") : (data.roomSizes || params.roomSizes || ""));
+      setRoomSizes(Array.isArray(data.roomSizes) ? data.roomSizes.join(", ") : String(data.roomSizes ?? params.roomSizes ?? ""));
     }
     if (data.totalSquareFootage !== undefined || params.totalSquareFootage !== undefined) {
-      setTotalSquareFootage(data.totalSquareFootage || params.totalSquareFootage || "");
+      setTotalSquareFootage(String(data.totalSquareFootage ?? params.totalSquareFootage ?? ""));
     }
     if (data.usageType !== undefined || params.usageType !== undefined) {
       setUsageType(data.usageType || params.usageType || "");
@@ -240,46 +253,24 @@ const PropertyDetails = () => {
     if (data.workspaces !== undefined || params.workspaces !== undefined) {
       setWorkspaces(Number(data.workspaces ?? params.workspaces ?? 0));
     }
-  }, [draftData, params]);
+  }, [draftData, params, draftId]);
 
-  // Debounce the draft save to prevent input lag
-  const debouncedSaveDraft = useCallback(
-    debounce((data) => {
-      saveDraftData(data);
-    }, 1000),
+  // Save locally on every edit; the service debounces remote synchronization.
+  const saveDraftInBackground = useCallback(
+    (data) => saveDraftData(data, { background: true }),
     [saveDraftData]
   );
 
   // Auto-save function
   const updatePropertyDetails = (updates) => {
-    const currentPurpose = updates.rentalPurpose !== undefined ? updates.rentalPurpose : (rentalPurpose || null);
-    const finalUpdates = {
-      propertyTitle: updates.propertyTitle !== undefined ? updates.propertyTitle : propertyTitle,
-      rentalPurpose: currentPurpose,
-      purposeOfRent: currentPurpose,
-      furnishing:
-        updates.furnishing !== undefined ? updates.furnishing : furnishing,
-      bedrooms: updates.bedrooms !== undefined ? updates.bedrooms : bedrooms,
-      bathrooms:
-        updates.bathrooms !== undefined ? updates.bathrooms : bathrooms,
-      guestCapacity:
-        updates.guestCapacity !== undefined
-          ? updates.guestCapacity
-          : guestCapacity,
-      titleType:
-        updates.titleType !== undefined ? updates.titleType : titleType,
-      propertyHighlight:
-        updates.propertyHighlight !== undefined
-          ? updates.propertyHighlight
-          : propertyHighlight,
-      roomSizes: updates.roomSizes !== undefined ? (typeof updates.roomSizes === 'string' ? updates.roomSizes.split(",").map(s => s.trim()).filter(s => s) : updates.roomSizes) : roomSizes.split(",").map(s => s.trim()).filter(s => s),
-      totalSquareFootage: updates.totalSquareFootage !== undefined ? updates.totalSquareFootage : totalSquareFootage,
-      usageType: updates.usageType !== undefined ? updates.usageType : usageType,
-      sittingRooms: updates.sittingRooms !== undefined ? updates.sittingRooms : sittingRooms,
-      lounges: updates.lounges !== undefined ? updates.lounges : lounges,
-      workspaces: updates.workspaces !== undefined ? updates.workspaces : workspaces,
-      currentStep: 3,
-    };
+    const finalUpdates = { ...updates, currentStep: 3 };
+    if (updates.rentalPurpose !== undefined) finalUpdates.purposeOfRent = updates.rentalPurpose;
+    if (updates.roomSizes !== undefined) {
+      finalUpdates.roomSizes = typeof updates.roomSizes === "string"
+        ? updates.roomSizes.split(",").map(value => value.trim()).filter(Boolean)
+        : updates.roomSizes;
+    }
+
 
     if (updates.propertyTitle !== undefined) setPropertyTitle(updates.propertyTitle);
     if (updates.rentalPurpose !== undefined) setRentalPurpose(updates.rentalPurpose);
@@ -296,7 +287,15 @@ const PropertyDetails = () => {
     if (updates.lounges !== undefined) setLounges(updates.lounges);
     if (updates.workspaces !== undefined) setWorkspaces(updates.workspaces);
 
-    debouncedSaveDraft(finalUpdates);
+    saveDraftInBackground(finalUpdates);
+  };
+
+  const counterValues = useRef({});
+  counterValues.current = { bedrooms, bathrooms, guestCapacity, sittingRooms, lounges, workspaces };
+  const changeCounter = (field, delta) => {
+    const next = Math.max(0, Math.min(20, (Number(counterValues.current[field]) || 0) + delta));
+    counterValues.current[field] = next;
+    updatePropertyDetails({ [field]: next });
   };
 
   const handleClose = () => {
@@ -414,6 +413,10 @@ const PropertyDetails = () => {
     }
     if (!propertyHighlight || propertyHighlight.trim().length < 10) {
       toastService.showError("Please enter a description (at least 10 characters).");
+      return;
+    }
+    if (!rentalPurpose) {
+      toastService.showError("Please select the rental purpose.");
       return;
     }
     // Note: Guest capacity is optional
@@ -651,9 +654,9 @@ const PropertyDetails = () => {
         <Counter
           label={`Bedrooms / Rooms ${isResidentialPurpose ? "*" : ""}`}
           value={bedrooms}
-          onIncrement={() => updatePropertyDetails({ bedrooms: bedrooms + 1 })}
+          onIncrement={() => changeCounter("bedrooms", 1)}
           onDecrement={() =>
-            updatePropertyDetails({ bedrooms: Math.max(0, bedrooms - 1) })
+            changeCounter("bedrooms", -1)
           }
           min={0}
         />
@@ -661,10 +664,10 @@ const PropertyDetails = () => {
           label={`Bathrooms / Toilets ${isResidentialPurpose ? "*" : ""}`}
           value={bathrooms}
           onIncrement={() =>
-            updatePropertyDetails({ bathrooms: bathrooms + 1 })
+            changeCounter("bathrooms", 1)
           }
           onDecrement={() =>
-            updatePropertyDetails({ bathrooms: Math.max(0, bathrooms - 1) })
+            changeCounter("bathrooms", -1)
           }
           min={0}
         />
@@ -673,8 +676,8 @@ const PropertyDetails = () => {
           <Counter
             label="Workspaces"
             value={workspaces}
-            onIncrement={() => updatePropertyDetails({ workspaces: workspaces + 1 })}
-            onDecrement={() => updatePropertyDetails({ workspaces: Math.max(0, workspaces - 1) })}
+            onIncrement={() => changeCounter("workspaces", 1)}
+            onDecrement={() => changeCounter("workspaces", -1)}
             min={0}
           />
         )}
@@ -682,16 +685,16 @@ const PropertyDetails = () => {
         <Counter
           label="Sitting Rooms"
           value={sittingRooms}
-          onIncrement={() => updatePropertyDetails({ sittingRooms: sittingRooms + 1 })}
-          onDecrement={() => updatePropertyDetails({ sittingRooms: Math.max(0, sittingRooms - 1) })}
+          onIncrement={() => changeCounter("sittingRooms", 1)}
+          onDecrement={() => changeCounter("sittingRooms", -1)}
           min={0}
         />
 
         <Counter
           label="Lounges"
           value={lounges}
-          onIncrement={() => updatePropertyDetails({ lounges: lounges + 1 })}
-          onDecrement={() => updatePropertyDetails({ lounges: Math.max(0, lounges - 1) })}
+          onIncrement={() => changeCounter("lounges", 1)}
+          onDecrement={() => changeCounter("lounges", -1)}
           min={0}
         />
 
@@ -699,12 +702,10 @@ const PropertyDetails = () => {
           label="Guest Capacity"
           value={guestCapacity}
           onIncrement={() =>
-            updatePropertyDetails({ guestCapacity: guestCapacity + 1 })
+            changeCounter("guestCapacity", 1)
           }
           onDecrement={() =>
-            updatePropertyDetails({
-              guestCapacity: Math.max(0, guestCapacity - 1),
-            })
+            changeCounter("guestCapacity", -1)
           }
           min={0}
         />
@@ -1116,9 +1117,9 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   counterButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: "#F5F5F5",
     justifyContent: "center",
     alignItems: "center",

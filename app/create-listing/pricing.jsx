@@ -89,11 +89,12 @@ const Pricing = () => {
     });
     return unsubscribe;
   }, []);
-  const hasInitialized = useRef(false);
+  const hydratedDraft = useRef(null);
 
   // Load draft data on mount and when draftData changes or hydrates remotely
   useEffect(() => {
-    if (!draftData) return;
+    if (!draftData || hydratedDraft.current === draftData.draftId) return;
+    hydratedDraft.current = draftData.draftId;
     console.log('✅ [Pricing] Initializing/Restoring from draft:', draftData.draftId);
     
     const cleanNumStr = (val) => {
@@ -102,34 +103,26 @@ const Pricing = () => {
       return clean && !isNaN(Number(clean)) && Number(clean) > 0 ? clean : "";
     };
 
-    const rawPrice = draftData.price || draftData.propertyPrice?.price;
+    const rawPrice = draftData.price ?? draftData.propertyPrice?.price;
     const priceValue = cleanNumStr(rawPrice);
 
-    // Prioritize whichever field has an actual positive value
-    const candidateCaution = [
-      draftData.securityDeposit,
-      draftData.cautionFee,
-      draftData.propertyPrice?.securityDeposit,
-      draftData.propertyPrice?.cautionFee,
-    ].find((v) => {
-      if (v === undefined || v === null || v === "") return false;
-      const clean = String(v).replace(/[^0-9.]/g, "");
-      return clean !== "" && !isNaN(Number(clean)) && Number(clean) > 0;
-    });
-
-    const securityValue = candidateCaution !== undefined ? cleanNumStr(candidateCaution) : "";
+    // An explicitly cleared deposit takes precedence over legacy aliases.
+    const securityValue = cleanNumStr(
+      draftData.securityDeposit ?? draftData.cautionFee ??
+      draftData.propertyPrice?.securityDeposit ?? draftData.propertyPrice?.cautionFee
+    );
     const serviceValue = cleanNumStr(draftData.serviceCharge);
     const periodValue = draftData.pricingPeriod || (draftData.propertyPrice?.frequency ? String(draftData.propertyPrice.frequency).replace(/^per\s+/, "") : "") || "";
 
     if (priceValue) {
-      if (isSaleMode) setSalePrice(formatPrice(priceValue));
-      else setPrice(formatPrice(priceValue));
+      if (isSaleMode) setSalePrice(priceValue);
+      else setPrice(priceValue);
     }
     
     if (periodValue) setSelectedPeriod(periodValue);
-    if (securityValue) setSecurityDeposit(formatPrice(securityValue));
-    if (serviceValue) setServiceCharge(formatPrice(serviceValue));
-    if (draftData.acceptRefund !== undefined) setAcceptRefund(draftData.acceptRefund);
+    if (securityValue) setSecurityDeposit(securityValue);
+    if (serviceValue) setServiceCharge(serviceValue);
+    setAcceptRefund(typeof draftData.acceptRefund === "boolean" ? draftData.acceptRefund : null);
   }, [draftData, effectiveIntent, isSaleMode]);
 
 
@@ -141,7 +134,7 @@ const Pricing = () => {
         : securityDeposit;
 
     const finalUpdates = {
-      price: updates.price !== undefined ? updates.price : price,
+      price: updates.price !== undefined ? updates.price : (isSaleMode ? salePrice : price),
       pricingPeriod:
         updates.pricingPeriod !== undefined
           ? updates.pricingPeriod
@@ -191,13 +184,12 @@ const Pricing = () => {
         draftListingService.generateDraftId();
 
       await saveDraftData({
-        ...draftData,
         price: isSaleMode ? salePrice : price,
         pricingPeriod: selectedPeriod,
         securityDeposit,
         cautionFee: securityDeposit,
         serviceCharge,
-        acceptRefund: acceptRefund === null ? true : acceptRefund, // Default to true if not selected yet during save-on-close
+        acceptRefund,
         currentStep: 7,
         draftId: finalDraftId,
       });
@@ -226,8 +218,7 @@ const Pricing = () => {
 
     // OPTIMIZATION: Trigger save in background and navigate immediately
     await saveDraftData({
-      ...draftData,
-      price: isSaleMode ? salePrice : price,
+      price: isSaleMode ? salePrice : (isSaleMode ? salePrice : price),
       pricingPeriod: selectedPeriod,
       securityDeposit,
       cautionFee: securityDeposit,
@@ -257,6 +248,15 @@ const Pricing = () => {
       return;
     }
 
+    if (!isSaleMode && typeof acceptRefund !== "boolean") {
+      toastService.showError("Please select a cancellation and refund policy.");
+      return;
+    }
+    if (Number(priceValue.replace(/,/g, "")) <= 0) {
+      toastService.showError("Please enter a price greater than zero.");
+      return;
+    }
+
     const finalDraftId =
       (draftData && draftData.draftId) ||
       draftId ||
@@ -280,22 +280,14 @@ const Pricing = () => {
     });
   };
 
-  const formatPrice = (value) => {
-    // Ensure value is a string before calling replace
-    const strValue = value !== undefined && value !== null ? String(value) : "";
-    const numericValue = strValue.replace(/[^0-9]/g, "");
-    return numericValue.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  };
-
-  const handlePriceChange = (value, isSale = false) => {
-    const formatted = formatPrice(value);
-    updatePricing({ price: formatted });
+  const handlePriceChange = (value) => {
+    updatePricing({ price: value.replace(/[^0-9]/g, "") });
   };
 
   const isValid =
     isSaleMode
-      ? salePrice.length > 0
-      : price.length > 0 && selectedPeriod.length > 0 && acceptRefund !== null;
+      ? Number(salePrice.replace(/,/g, "")) > 0
+      : Number(price.replace(/,/g, "")) > 0 && selectedPeriod.length > 0 && typeof acceptRefund === "boolean";
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
@@ -390,7 +382,7 @@ const Pricing = () => {
                   placeholderTextColor="#999999"
                   value={securityDeposit}
                   onChangeText={(v) =>
-                    updatePricing({ securityDeposit: formatPrice(v) })
+                    updatePricing({ securityDeposit: v.replace(/[^0-9]/g, "") })
                   }
                   keyboardType="number-pad"
                 />
@@ -414,7 +406,7 @@ const Pricing = () => {
                   placeholderTextColor="#999999"
                   value={serviceCharge}
                   onChangeText={(v) =>
-                    updatePricing({ serviceCharge: formatPrice(v) })
+                    updatePricing({ serviceCharge: v.replace(/[^0-9]/g, "") })
                   }
                   keyboardType="number-pad"
                 />
@@ -442,6 +434,8 @@ const Pricing = () => {
                     styles.policyItem,
                     acceptRefund && styles.policyItemSelected
                   ]}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: acceptRefund === true }}
                   onPress={() => updatePricing({ acceptRefund: true })}
                 >
                   <View style={[styles.radio, acceptRefund && styles.radioSelected]}>
@@ -452,7 +446,7 @@ const Pricing = () => {
                       Accept Standard Policy (Recommended)
                     </Text>
                     <Text style={styles.policyDescription}>
-                      Allows guests to cancel per Lunest's standard refund timeline. Your earnings are safely held in escrow until the check-in date.
+                      Allows guests to cancel per LUNEST&apos;s standard refund timeline. Your earnings are safely held in escrow until the check-in date.
                     </Text>
                   </View>
                 </Pressable>
@@ -460,15 +454,17 @@ const Pricing = () => {
                 <Pressable
                   style={[
                     styles.policyItem,
-                    !acceptRefund && styles.policyItemSelected
+                    acceptRefund === false && styles.policyItemSelected
                   ]}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: acceptRefund === false }}
                   onPress={() => updatePricing({ acceptRefund: false })}
                 >
-                  <View style={[styles.radio, !acceptRefund && styles.radioSelected]}>
-                    {!acceptRefund && <View style={styles.radioInner} />}
+                  <View style={[styles.radio, acceptRefund === false && styles.radioSelected]}>
+                    {acceptRefund === false && <View style={styles.radioInner} />}
                   </View>
                   <View style={styles.policyContent}>
-                    <Text style={[styles.policyTitle, !acceptRefund && styles.policyTitleSelected]}>
+                    <Text style={[styles.policyTitle, acceptRefund === false && styles.policyTitleSelected]}>
                       No Refund / 2-Hour Buffer Credit
                     </Text>
                     <Text style={styles.policyDescription}>
@@ -479,11 +475,13 @@ const Pricing = () => {
               </View>
 
               {/* Policy Warning */}
-              <View style={[styles.noticeContainer, !acceptRefund && { backgroundColor: '#FFF5F5', borderLeftColor: '#EF4444' }]}>
-                <Text style={[styles.noticeText, !acceptRefund && { color: '#9B2C2C' }]}>
-                  {acceptRefund 
-                    ? "💡 Pro-Tip: Flexible policies often lead to 25% higher booking rates as guests feel more secure."
-                    : "⚠️ Note: Host earnings will be credited immediately to your wallet. Guests will see this as a 'Non-Refundable' listing."}
+              <View style={[styles.noticeContainer, acceptRefund === false && { backgroundColor: '#FFF5F5', borderLeftColor: '#EF4444' }]}>
+                <Text style={[styles.noticeText, acceptRefund === false && { color: '#9B2C2C' }]}>
+                  {acceptRefund === null
+                    ? "Choose a policy to continue. Your selection will be shown to guests before booking."
+                    : acceptRefund
+                      ? "Guests can request refunds under the standard cancellation policy."
+                      : "Guests will see this as a non-refundable listing. Earnings follow the check-in release rules above."}
                 </Text>
               </View>
             </View>

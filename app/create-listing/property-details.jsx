@@ -536,6 +536,7 @@ const PropertyDetails = () => {
                 placeholder="E.g 2 Bedroom Apartment in Lekki"
                 placeholderTextColor="#656565"
                 value={propertyTitle}
+                maxLength={200}
                 onChangeText={(text) => {
                   updatePropertyDetails({ propertyTitle: text });
                 }}
@@ -607,11 +608,8 @@ const PropertyDetails = () => {
                 placeholder="Write a full description here..."
                 placeholderTextColor="#7C7C7C"
                 value={propertyHighlight}
-                onChangeText={(text) => {
-                  if (text.length <= MAX_HIGHLIGHT_LENGTH) {
-                    updatePropertyDetails({ propertyHighlight: text });
-                  }
-                }}
+                maxLength={MAX_HIGHLIGHT_LENGTH}
+                onChangeText={(text) => updatePropertyDetails({ propertyHighlight: text })}
                 multiline
                 textAlignVertical="top"
               />

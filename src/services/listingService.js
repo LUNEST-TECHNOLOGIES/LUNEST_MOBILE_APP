@@ -1504,7 +1504,7 @@ class ListingService {
 
       payload.bedrooms = toNum(payload.bedrooms);
       payload.bathrooms = toNum(payload.bathrooms);
-      payload.guests = toNum(payload.guests || guestCapacity);
+      payload.guests = toNum(guestCapacity ?? payload.guests);
       payload.sittingRooms = toNum(draftData.sittingRooms);
       payload.lounges = toNum(draftData.lounges);
       payload.workspaces = toNum(draftData.workspaces);
@@ -1711,7 +1711,7 @@ class ListingService {
           propertyName: d.propertyName || d.propertyTitle || "",
           propertyHighlight: d.description || d.propertyHighlight || "",
           description: d.description || d.propertyHighlight || "",
-          guestCapacity: d.guests || d.guestCapacity || 0,
+          guestCapacity: d.guests ?? d.guestCapacity ?? 0,
           guests: d.guests || d.guestCapacity || 0,
           bedrooms: d.bedrooms || 0,
           bathrooms: d.bathrooms || 0,

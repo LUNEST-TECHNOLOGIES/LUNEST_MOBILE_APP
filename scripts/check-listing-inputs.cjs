@@ -81,3 +81,9 @@ for(const value of ['Updated rules','Updated','','New rules']) {
  tree=availability.render();tree=availability.render();assert.equal(availability.find(tree,n=>n.type==='TextInput')[0].props.value,value);
 }
 console.log('PASS: business fields, all pricing/deposit/service-charge fields and additional-rule typing/deletion.');
+
+const longDescription=harness('app/create-listing/property-details.jsx',{draftId:'test',propertyHighlight:'a'.repeat(700)});
+longDescription.render();tree=longDescription.render();
+longDescription.find(tree,n=>n.type==='TextInput'&&n.props.multiline)[0].props.onChangeText('a'.repeat(699));
+tree=longDescription.render();assert.equal(longDescription.find(tree,n=>n.type==='TextInput'&&n.props.multiline)[0].props.value.length,699);
+console.log('PASS: existing overlong descriptions can be shortened without blocking deletion.');

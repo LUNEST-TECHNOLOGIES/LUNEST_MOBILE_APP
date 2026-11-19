@@ -14,7 +14,7 @@ function load(path, dependencies) {
  const auth = {getToken:async()=> 'token',getUserData:async()=> ({id:'host'})};
  const listing = load('src/services/listingService.js', {'react-native':{Platform:{OS:'web'}},'./authService':auth,'./apiClient':api,'../utils/amenityUtils':{formatAmenitiesList:()=>[]}});
  for (const policy of [null,false,true]) {
-  const result=await listing.saveDraftToDatabase({draftId:'draft-test',propertyTitle:'Edited title',propertyHighlight:'Edited description',price:'125,000',pricingPeriod:'month',securityDeposit:'',cautionFee:'',propertyPrice:{securityDeposit:5000},acceptRefund:policy});
+  const result=await listing.saveDraftToDatabase({draftId:'draft-test',propertyTitle:'Edited title',propertyHighlight:'Edited description',price:'125,000',pricingPeriod:'month',securityDeposit:'',cautionFee:'',propertyPrice:{securityDeposit:5000},acceptRefund:policy,guestCapacity:0,guests:4});
   assert.equal(result.success,true,result.message);
   assert.equal(payload.propertyName,'Edited title');
   assert.equal(payload.description,'Edited description');
@@ -22,6 +22,7 @@ function load(path, dependencies) {
   assert.equal(payload.propertyPrice.frequency,'per month');
   assert.equal(payload.securityDeposit,0);
   assert.equal(payload.acceptRefund,policy);
+  assert.equal(payload.guests,0);
  }
  let stored=[];
  const storage={getItem:async()=>structuredClone(stored),setItem:async(_key,value)=>{await new Promise(resolve=>setTimeout(resolve,5));stored=structuredClone(value);}};

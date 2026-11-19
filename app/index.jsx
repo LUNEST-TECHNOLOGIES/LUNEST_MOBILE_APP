@@ -1,3 +1,4 @@
+import BootScreen from "../src/components/common/BootScreen";
 /**
  * Root Index
  * Entry point that redirects to the appropriate screen based on auth status
@@ -6,7 +7,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter, useRootNavigationState } from "expo-router";
 import { useEffect } from "react";
-import { ActivityIndicator, Platform, View } from "react-native";
+import { Platform } from "react-native";
 import authService from "../src/services/authService";
 import storageService from "../src/services/storageService";
 
@@ -87,17 +88,5 @@ export default function Index() {
     }
   };
 
-  // Show loading while determining route
-  return (
-    <View
-      style={{
-        flex: 1,
-        justifyContent: "center",
-        alignItems: "center",
-        backgroundColor: "#FFFFFF",
-      }}
-    >
-      <ActivityIndicator size="large" color="#010135" />
-    </View>
-  );
+  return <BootScreen />;
 }

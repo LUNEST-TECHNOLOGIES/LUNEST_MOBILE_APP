@@ -1,8 +1,9 @@
+import BootScreen from "../src/components/common/BootScreen";
+import { withStartupTimeout } from "../src/utils/startup";
 import { useWebsiteAnalytics } from "../src/hooks/useWebsiteAnalytics";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Alert, View } from "react-native";
+import { Alert, Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AccountStatusProvider, UserModeProvider, ProductTourProvider } from "../src/context";
@@ -24,13 +25,11 @@ console.log(
   process.env.EXPO_PUBLIC_API_TIMEOUT,
 );
 
-const ONBOARDING_KEY = "@lunest_onboarding_complete";
-
 export default function RootLayout() {
   useWebsiteAnalytics();
   const [isLoading, setIsLoading] = useState(true);
-  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [startupError, setStartupError] = useState(false);
+  const startupPromise = useRef(null);
   const wasAuthenticated = useRef(false); // Track if user was previously logged in
   const router = useRouter();
   const segments = useSegments();
@@ -40,6 +39,7 @@ export default function RootLayout() {
 
   // Check onboarding and auth status on app launch
   useEffect(() => {
+    if (Platform.OS === "web") document.getElementById("lunest-web-boot")?.remove();
     checkAppStatus();
   }, []);
 
@@ -96,24 +96,25 @@ export default function RootLayout() {
   }, [isLoading, segments]);
 
   const checkAppStatus = async () => {
+    setStartupError(false);
     try {
-      // 1. Run dynamic URL detection and config initializations concurrently to speed up launch
-      await Promise.all([
-        apiClient.initialize(),
-        authService.initialize()
-      ]);
-
-      // 2. Auth check
-      const loggedIn = await authService.isLoggedIn();
-      setIsAuthenticated(loggedIn);
-
-      // 3. Check onboarding status
-      const onboardingStatus = await AsyncStorage.getItem(ONBOARDING_KEY);
-      setHasCompletedOnboarding(onboardingStatus === "true");
+      if (!startupPromise.current) {
+        const pending = (async () => {
+          await Promise.all([apiClient.initialize(), authService.initialize()]);
+          await authService.isLoggedIn();
+        })();
+        startupPromise.current = pending;
+        pending.then(() => {
+          // A slow refresh may still finish after the recovery message appears.
+          setStartupError(false);
+          setIsLoading(false);
+        }).finally(() => { if (startupPromise.current === pending) startupPromise.current = null; }).catch(() => {});
+      }
+      await withStartupTimeout(startupPromise.current);
+      setIsLoading(false);
     } catch (error) {
       console.error("Error checking app status:", error);
-    } finally {
-      setIsLoading(false);
+      setStartupError(true);
     }
   };
 
@@ -126,16 +127,7 @@ export default function RootLayout() {
               <SafeAreaProvider>
                 <OfflineBanner />
                 {isLoading ? (
-                  <View
-                    style={{
-                      flex: 1,
-                      justifyContent: "center",
-                      alignItems: "center",
-                      backgroundColor: "#FFFFFF",
-                    }}
-                  >
-                    <ActivityIndicator size="large" color="#192DFF" />
-                  </View>
+                  <BootScreen error={startupError} onRetry={checkAppStatus} />
                 ) : (
                   <ProductTourProvider>
                     <Stack

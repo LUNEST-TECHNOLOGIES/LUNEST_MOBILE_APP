@@ -1,3 +1,4 @@
+import { bootLogo } from "../src/constants/bootLogo";
 import { ScrollViewStyleReset } from 'expo-router/html';
 
 /**
@@ -44,7 +45,7 @@ export default function Root({ children }) {
               // Global safety guard: silence non-fatal Service Worker / script load rejection errors
               window.addEventListener('unhandledrejection', function(event) {
                 var reason = (event && event.reason) ? (event.reason.message || String(event.reason)) : '';
-                if (reason.indexOf('sw.js') !== -1 || reason.indexOf('ServiceWorker') !== -1 || reason.indexOf('Script load failed') !== -1) {
+                if (reason.indexOf('sw.js') !== -1 || reason.indexOf('ServiceWorker') !== -1) {
                   event.preventDefault();
                   console.warn('🛡️ [LUNEST PWA] Suppressed non-critical worker/script load event:', reason);
                 }
@@ -130,12 +131,37 @@ export default function Root({ children }) {
         {/* Inline CSS styling fixes for PWA full-height viewport on mobile */}
         <style dangerouslySetInnerHTML={{ __html: responsiveBackground }} />
       </head>
-      <body>{children}</body>
+      <body>
+        <div id="lunest-web-boot" role="status" aria-live="polite">
+          <div className="lunest-boot-logo"><img src={bootLogo} alt="LUNEST" width="220" height="48" /></div>
+          <div className="lunest-boot-spinner" aria-hidden="true" />
+          <p id="lunest-boot-message">Getting things ready…</p>
+          <button id="lunest-boot-retry" type="button" hidden>Reload app</button>
+        </div>
+        {children}
+        <script dangerouslySetInnerHTML={{ __html: bootRecovery }} />
+      </body>
     </html>
   );
 }
 
 const responsiveBackground = `
+#lunest-web-boot {
+  position: fixed; inset: 0; z-index: 2147483000; display: flex;
+  flex-direction: column; align-items: center; justify-content: center; gap: 24px;
+  padding: 24px; box-sizing: border-box; color: #dce6ff;
+  background: radial-gradient(ellipse at top, #123f83 0%, #010135 65%);
+  font-family: system-ui, -apple-system, sans-serif; text-align: center;
+}
+.lunest-boot-logo { background: white; padding: 22px 24px; border-radius: 20px; max-width: 100%; box-sizing: border-box; }
+.lunest-boot-logo img { display: block; width: 220px; max-width: 100%; height: auto; }
+.lunest-boot-spinner { width: 32px; height: 32px; border: 3px solid #ffffff40; border-top-color: white; border-radius: 50%; animation: lunest-spin .8s linear infinite; }
+#lunest-boot-message { font-size: 14px; line-height: 22px; max-width: 310px; margin: 0; }
+#lunest-boot-retry { border: 0; border-radius: 24px; padding: 13px 28px; background: white; color: #010135; font-size: 14px; font-weight: 600; cursor: pointer; }
+#lunest-boot-retry[hidden] { display: none; }
+@keyframes lunest-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .lunest-boot-spinner { animation-duration: 2s; } }
+
 html, body, #root {
   width: 100%;
   height: 100%;
@@ -146,4 +172,33 @@ html, body, #root {
   -webkit-touch-callout: none;
   user-select: none;
 }
+`;
+
+const bootRecovery = `
+(function() {
+  function showRecovery() {
+    var message = document.getElementById('lunest-boot-message');
+    var button = document.getElementById('lunest-boot-retry');
+    if (message) message.textContent = 'Taking longer than usual. Check your connection or reload the app.';
+    if (button) button.hidden = false;
+  }
+  setTimeout(showRecovery, 15000);
+  window.addEventListener('error', function(event) {
+    if (event.target && event.target.tagName === 'SCRIPT') showRecovery();
+  }, true);
+  var button = document.getElementById('lunest-boot-retry');
+  if (button) button.addEventListener('click', async function() {
+    button.disabled = true;
+    try {
+      if ('caches' in window) {
+        var names = await caches.keys();
+        await Promise.allSettled(names.filter(function(name) { return name.indexOf('lunest-pwa-') === 0; }).map(function(name) { return caches.delete(name); }));
+      }
+      if ('serviceWorker' in navigator) {
+        var registrations = await navigator.serviceWorker.getRegistrations();
+        await Promise.allSettled(registrations.filter(function(registration) { return registration.scope === location.origin + '/'; }).map(function(registration) { return registration.unregister(); }));
+      }
+    } finally { location.reload(); }
+  });
+})();
 `;

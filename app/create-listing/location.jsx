@@ -177,31 +177,27 @@ const Location = () => {
     };
   }, [draftData]);
 
+  const locationTouched = useRef({});
+  const latestLocation = useRef({});
+  latestLocation.current = { address, city, state, country };
+
   // Auto-save function
   const updateLocation = (updates) => {
-    const currentLat = updates.latitude !== undefined ? updates.latitude : (propertyCoords?.lat || (draftData && draftData.latitude) || 0);
-    const currentLon = updates.longitude !== undefined ? updates.longitude : (propertyCoords?.lon || (draftData && draftData.longitude) || 0);
+    Object.keys(updates).forEach(field => { locationTouched.current[field] = true; });
+    const invalidatesCoordinates = ['address', 'city', 'state', 'country'].some(field => updates[field] !== undefined)
+      && updates.latitude === undefined && updates.longitude === undefined;
+    if (invalidatesCoordinates) setPropertyCoords(null);
+    const currentLat = updates.latitude !== undefined ? updates.latitude : (invalidatesCoordinates ? 0 : (propertyCoords?.lat || (draftData && draftData.latitude) || 0));
+    const currentLon = updates.longitude !== undefined ? updates.longitude : (invalidatesCoordinates ? 0 : (propertyCoords?.lon || (draftData && draftData.longitude) || 0));
     const finalAddress = updates.address !== undefined ? updates.address : address;
 
-    const finalUpdates = {
-      address: finalAddress,
-      city: updates.city !== undefined ? updates.city : city,
-      state: updates.state !== undefined ? updates.state : state,
-      country: updates.country !== undefined ? updates.country : country,
-      postalCode:
-        updates.postalCode !== undefined ? updates.postalCode : postalCode,
-      landmarks:
-        updates.landmarks !== undefined
-          ? JSON.stringify(updates.landmarks.filter((l) => l.trim()))
-          : JSON.stringify(landmarks.filter((l) => l.trim())),
-      latitude: currentLat,
-      longitude: currentLon,
-      propertyLocation: {
-        coordinates: [currentLat, currentLon],
-        fullAddress: finalAddress,
-      },
-      currentStep: 4,
-    };
+    const finalUpdates = { ...updates, currentStep: 4 };
+    if (updates.landmarks !== undefined) finalUpdates.landmarks = JSON.stringify(updates.landmarks);
+    if (invalidatesCoordinates) { finalUpdates.latitude = 0; finalUpdates.longitude = 0; }
+    if (invalidatesCoordinates || updates.address !== undefined || updates.latitude !== undefined || updates.longitude !== undefined) {
+      finalUpdates.propertyLocation = { coordinates: [currentLat, currentLon], fullAddress: finalAddress };
+    }
+
 
     if (updates.address !== undefined) setAddress(updates.address);
     if (updates.city !== undefined) setCity(updates.city);
@@ -222,6 +218,10 @@ const Location = () => {
       // Build a comprehensive query string
       const fullQuery = [query, city, state, country].filter(v => v && v.trim()).join(', ');
       const q = encodeURIComponent(fullQuery);
+      const isCurrentQuery = () => {
+        const latest = latestLocation.current;
+        return latest.address === query && latest.city === city && latest.state === state && latest.country === country;
+      };
       
       const apiKey = APP_CONFIG.GOOGLE_MAPS_API_KEY;
       let geocoded = false;
@@ -232,6 +232,7 @@ const Location = () => {
           const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${q}&key=${apiKey}`;
           const res = await fetch(url);
           const data = await res.json();
+          if (!isCurrentQuery()) return;
           if (data.status === 'OK' && data.results.length > 0) {
             const result = data.results[0];
             const loc = result.geometry.location;
@@ -253,16 +254,16 @@ const Location = () => {
                 extractedCountry = comp.long_name;
             });
 
-            if (extractedCity) setCity(extractedCity);
-            if (extractedState) setState(extractedState);
-            if (extractedCountry) setCountry(extractedCountry);
+            if (extractedCity && !locationTouched.current.city) setCity(extractedCity);
+            if (extractedState && !locationTouched.current.state) setState(extractedState);
+            if (extractedCountry && !locationTouched.current.country) setCountry(extractedCountry);
 
             saveDraftData({ 
               latitude: loc.lat, 
               longitude: loc.lng, 
-              city: extractedCity || city,
-              state: extractedState || state,
-              country: extractedCountry || country,
+              city: locationTouched.current.city ? city : extractedCity || city,
+              state: locationTouched.current.state ? state : extractedState || state,
+              country: locationTouched.current.country ? country : extractedCountry || country,
               currentStep: 4 
             });
 
@@ -293,6 +294,7 @@ const Location = () => {
             }
           });
           const osmResults = await osmRes.json();
+          if (!isCurrentQuery()) return;
           if (Array.isArray(osmResults) && osmResults.length > 0) {
             const first = osmResults[0];
             const lat = parseFloat(first.lat);
@@ -305,16 +307,16 @@ const Location = () => {
             const extractedState = addr.state || addr.state_district || "";
             const extractedCountry = addr.country || "Nigeria";
 
-            if (extractedCity) setCity(extractedCity);
-            if (extractedState) setState(extractedState);
-            if (extractedCountry) setCountry(extractedCountry);
+            if (extractedCity && !locationTouched.current.city) setCity(extractedCity);
+            if (extractedState && !locationTouched.current.state) setState(extractedState);
+            if (extractedCountry && !locationTouched.current.country) setCountry(extractedCountry);
 
             saveDraftData({ 
               latitude: lat, 
               longitude: lon, 
-              city: extractedCity || city,
-              state: extractedState || state,
-              country: extractedCountry || country,
+              city: locationTouched.current.city ? city : extractedCity || city,
+              state: locationTouched.current.state ? state : extractedState || state,
+              country: locationTouched.current.country ? country : extractedCountry || country,
               currentStep: 4 
             });
 
@@ -524,7 +526,7 @@ const Location = () => {
   };
 
   // Validation - require at least address and city
-  const isValid = address.trim().length > 0 && city.trim().length > 0;
+  const isValid = address.trim().length > 0 && city.trim().length > 0 && state.trim().length > 0;
 
   const handleBack = async () => {
     const finalDraftId =
@@ -562,7 +564,7 @@ const Location = () => {
   };
 
   const handleNext = () => {
-    if (address.trim() && city.trim()) {
+    if (address.trim() && city.trim() && state.trim()) {
         const finalDraftId =
         (draftData && draftData.draftId) ||
         draftId ||
@@ -596,7 +598,7 @@ const Location = () => {
         params: { draftId: finalDraftId },
       });
     } else {
-      toastService.showError("Please enter address and city.");
+      toastService.showError("Please enter address, city, and state.");
     }
   };
 

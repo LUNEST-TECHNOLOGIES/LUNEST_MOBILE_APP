@@ -519,8 +519,8 @@ const Review = () => {
       toastService.showError("Complete the required Property Details before submitting.");
       return false;
     }
-    if (!String(mergedData.address ?? "").trim() || !String(mergedData.city ?? "").trim()) {
-      toastService.showError("Complete the property address and city in Location.");
+    if (!String(mergedData.address ?? "").trim() || !String(mergedData.city ?? "").trim() || !String(mergedData.state ?? "").trim()) {
+      toastService.showError("Complete the property address, city, and state in Location.");
       return false;
     }
     if (!Number.isFinite(price) || price <= 0 || (mergedData.intent !== "sale" && !mergedData.pricingPeriod)) {

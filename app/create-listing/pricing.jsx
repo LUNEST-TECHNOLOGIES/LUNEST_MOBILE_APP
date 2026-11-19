@@ -128,29 +128,9 @@ const Pricing = () => {
 
   // Auto-save function
   const updatePricing = (updates) => {
-    const depositVal =
-      updates.securityDeposit !== undefined
-        ? updates.securityDeposit
-        : securityDeposit;
+    const finalUpdates = { ...updates, currentStep: 7 };
+    if (updates.securityDeposit !== undefined) finalUpdates.cautionFee = updates.securityDeposit;
 
-    const finalUpdates = {
-      price: updates.price !== undefined ? updates.price : (isSaleMode ? salePrice : price),
-      pricingPeriod:
-        updates.pricingPeriod !== undefined
-          ? updates.pricingPeriod
-          : selectedPeriod,
-      securityDeposit: depositVal,
-      cautionFee: depositVal,
-      serviceCharge:
-        updates.serviceCharge !== undefined
-          ? updates.serviceCharge
-          : serviceCharge,
-      acceptRefund:
-        updates.acceptRefund !== undefined
-          ? updates.acceptRefund
-          : acceptRefund,
-      currentStep: 7,
-    };
 
     if (updates.price !== undefined) {
       if (isSaleMode) {

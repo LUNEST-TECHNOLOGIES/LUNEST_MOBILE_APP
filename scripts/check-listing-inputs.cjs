@@ -10,7 +10,7 @@ function harness(file, draft) {
  const rn={TextInput:'TextInput',View:'View',Text:'Text',Pressable:'Pressable',ScrollView:'ScrollView',Platform:{OS:'web'},Dimensions:{get:()=>({width:390,height:844})},StyleSheet:{create:v=>v}};
  const output={};
  const code=babel.transformSync(fs.readFileSync(file,'utf8') + (file.includes('property-details') ? '\nexport const testTitleOptions = TITLE_TYPE_OPTIONS;' : ''),{configFile:false,babelrc:false,plugins:[require('@babel/plugin-transform-modules-commonjs'),[require('@babel/plugin-transform-react-jsx'),{runtime:'automatic'}]]}).code;
- vm.runInNewContext(code,{exports:output,console:{log(){},warn(){},error(){}},setTimeout,clearTimeout,require(name){if(name.includes('appConfig'))return {APP_CONFIG:{GOOGLE_MAPS_API_KEY:''}};if(name==='react')return react;if(name==='react/jsx-runtime')return{jsx,jsxs:jsx};if(name==='react-native')return rn;if(name==='expo-router')return{useRouter:()=>({}),useLocalSearchParams:()=>({draftId:'test'})};if(name.includes('useDraftListing'))return{__esModule:true,default:()=>({draftData:draft,saveDraftData:save,draftId:'test'}),useDraftListing:()=>({draftData:draft,saveDraftData:save,draftId:'test'})};return{__esModule:true,default:{subscribe:()=>()=>{},generateDraftId:()=> 'test'},...rn};}});
+ vm.runInNewContext(code,{exports:output,console:{log(){},warn(){},error(){}},setTimeout,clearTimeout,require(name){if(name.includes('constants/styles'))return Object.fromEntries(['baseStyles','footerStyles','headerStyles','infoBoxStyles','progressStyles','scrollStyles','textStyles','toggleStyles'].map(key=>[key,{}]));if(name.includes('constants/theme'))return {COLORS:{}};if(name.includes('appConfig'))return {APP_CONFIG:{GOOGLE_MAPS_API_KEY:''}};if(name==='react')return react;if(name==='react/jsx-runtime')return{jsx,jsxs:jsx};if(name==='react-native')return rn;if(name==='expo-router')return{useRouter:()=>({}),useLocalSearchParams:()=>({draftId:'test'})};if(name.includes('useDraftListing'))return{__esModule:true,default:()=>({draftData:draft,saveDraftData:save,draftId:'test'}),useDraftListing:()=>({draftData:draft,saveDraftData:save,draftId:'test'})};return{__esModule:true,default:{subscribe:()=>()=>{},generateDraftId:()=> 'test'},...rn};}});
  const render=()=>{cursor=0;effects=[];const tree=output.default();effects.forEach(fn=>fn());return tree;};
  const find=(tree,predicate)=>{const found=[];const visit=node=>{if(!node||typeof node!=='object')return;if(predicate(node))found.push(node);const children=node.props?.children;for(const child of Array.isArray(children)?children:[children]){if(Array.isArray(child))child.forEach(visit);else visit(child);}};visit(tree);return found;};
  return{render,find,saves,titleOptions:output.testTitleOptions};
@@ -59,3 +59,25 @@ for (const purpose of ['Residential', 'Commercial']) {
  }
 }
 console.log('PASS: Power of Attorney option, all six counters, repeated taps, 0–20 bounds and disabled controls.');
+
+const commercial=harness('app/create-listing/property-details.jsx',{draftId:'test',rentalPurpose:'Commercial'});
+commercial.render();tree=commercial.render();
+for(const placeholder of ['E.g 5000 sq ft','E.g Retail, Factory, Farming']) {
+ for(const value of ['New text','New','','Replacement']) {
+  commercial.find(tree,n=>n.type==='TextInput'&&n.props.placeholder===placeholder)[0].props.onChangeText(value);
+  tree=commercial.render();tree=commercial.render();assert.equal(commercial.find(tree,n=>n.type==='TextInput'&&n.props.placeholder===placeholder)[0].props.value,value);
+ }
+}
+for(let index=0;index<pricing.find(tree=pricing.render(),n=>n.type==='TextInput').length;index++) {
+ for(const value of ['125000','125','','500']) {
+  pricing.find(tree,n=>n.type==='TextInput')[index].props.onChangeText(value);
+  tree=pricing.render();tree=pricing.render();assert.equal(pricing.find(tree,n=>n.type==='TextInput')[index].props.value,value);
+ }
+}
+const availability=harness('app/create-listing/availability.jsx',{draftId:'test',additionalRules:'Original rules'});
+availability.render();tree=availability.render();
+for(const value of ['Updated rules','Updated','','New rules']) {
+ availability.find(tree,n=>n.type==='TextInput')[0].props.onChangeText(value);
+ tree=availability.render();tree=availability.render();assert.equal(availability.find(tree,n=>n.type==='TextInput')[0].props.value,value);
+}
+console.log('PASS: business fields, all pricing/deposit/service-charge fields and additional-rule typing/deletion.');

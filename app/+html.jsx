@@ -88,14 +88,22 @@ export default function Root({ children }) {
                       console.warn('⚠️ [LUNEST PWA] ServiceWorker registration deferred:', err && err.message ? err.message : err);
                     });
 
-                    // Reload once when the new service worker takes control
+                    // Keep the active input's keyboard/caret intact while an update arrives.
                     var refreshing = false;
+                    var pendingReload = false;
+                    function applyPendingUpdate() {
+                      if (!pendingReload || refreshing) return;
+                      var active = document.activeElement;
+                      if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) return;
+                      refreshing = true;
+                      window.location.reload();
+                    }
                     navigator.serviceWorker.addEventListener('controllerchange', function() {
-                      if (!refreshing) {
-                        refreshing = true;
-                        console.log('🚀 [LUNEST PWA] Service worker updated. Reloading for latest version...');
-                        window.location.reload();
-                      }
+                      pendingReload = true;
+                      applyPendingUpdate();
+                    });
+                    document.addEventListener('focusout', function() {
+                      if (pendingReload) setTimeout(applyPendingUpdate, 1000);
                     });
 
                     // Check for updates when user returns to app safely

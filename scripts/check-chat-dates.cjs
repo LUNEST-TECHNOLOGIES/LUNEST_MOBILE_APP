@@ -1,0 +1,32 @@
+const fs = require('node:fs');
+const vm = require('node:vm');
+const assert = require('node:assert/strict');
+const babel = require('@babel/core');
+const output = {};
+vm.runInNewContext(babel.transformSync(fs.readFileSync('src/utils/chatDateTime.js','utf8'), {
+  configFile:false,babelrc:false,plugins:[require('@babel/plugin-transform-modules-commonjs')],
+}).code,{exports:output,Date,Number});
+const {getMessageTimestamp,getConversationTimestamp,formatChatDate,formatChatTime,buildChatTimeline}=output;
+process.env.TZ='Africa/Lagos';
+assert.equal(formatChatDate('2026-11-19T23:30:00Z'),'20 Nov 2026');
+assert.equal(formatChatTime('2026-11-19T23:30:00Z'),'12:30 AM');
+assert.equal(formatChatTime('2026-11-19T13:05:00Z'),'02:05 PM');
+assert.equal(formatChatDate(null),'Date unavailable');
+assert.equal(formatChatTime('bad timestamp'),'Time unavailable');
+assert.equal(getMessageTimestamp({createdAt:'bad',sentAt:'2026-11-19T13:05:00Z'}).toISOString(),'2026-11-19T13:05:00.000Z');
+assert.equal(getMessageTimestamp({updatedAt:'2026-11-19T13:05:00Z'}),null);
+assert.equal(getConversationTimestamp({lastMessage:{sentAt:'2026-11-19T13:05:00Z'},updatedAt:'2026-11-20T13:05:00Z'}).toISOString(),'2026-11-19T13:05:00.000Z');
+assert.equal(getConversationTimestamp({createdAt:'2026-11-18T13:05:00Z'}).toISOString(),'2026-11-18T13:05:00.000Z');
+const messages=[{_id:'a',createdAt:'2026-11-19T22:59:00Z'},{_id:'b',senderType:'SUPPORT',createdAt:'2026-11-19T23:01:00Z'},{_id:'c',createdAt:'2026-11-19T23:30:00Z'}];
+let rows=buildChatTimeline(messages);
+assert.deepEqual(Array.from(rows.filter(row=>row.timelineType==='date'),row=>row.label),['19 Nov 2026','20 Nov 2026']);
+assert.equal(rows.filter(row=>row.timelineType==='message').length,3);
+assert.equal(new Set(rows.map(row=>row._id)).size,rows.length);
+assert.deepEqual(Array.from(buildChatTimeline(messages),row=>row._id),Array.from(rows,row=>row._id));
+process.env.TZ='UTC';
+assert.equal(buildChatTimeline(messages).filter(row=>row.timelineType==='date').length,1);
+process.env.TZ='America/New_York';
+assert.equal(formatChatDate('2026-11-20T01:00:00Z'),'19 Nov 2026');
+assert.equal(buildChatTimeline([]).length,0);
+assert.equal(buildChatTimeline([{_id:'missing'}])[0].label,'Date unavailable');
+console.log('PASS: message/conversation dates, 12-hour times, local midnight grouping, multiple timezones, support messages, missing dates and stable row keys.');

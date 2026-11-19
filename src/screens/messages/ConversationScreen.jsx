@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from "react";
+import { buildChatTimeline, getMessageTimestamp, formatChatTime, formatChatDateTime } from "../../utils/chatDateTime";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   View,
   Text,
@@ -314,7 +315,13 @@ export default function ConversationScreen() {
     (p) => (p.user?._id || p.user)?.toString() === currentUserId?.toString()
   )?.muted;
 
+  const timeline = useMemo(() => buildChatTimeline(messages), [messages]);
+
   const renderMessageItem = ({ item }) => {
+    if (item.timelineType === "date") {
+      return <View style={styles.dateSeparator}><Text style={styles.dateSeparatorText}>{item.label}</Text></View>;
+    }
+    const timestamp = getMessageTimestamp(item);
     const isMe = (item.sender?._id || item.sender)?.toString() === currentUserId?.toString();
     const isSupport = item.senderType === "SUPPORT" || item.isSupportMessage;
     const isBlockedMessage = item.status === "BLOCKED";
@@ -336,8 +343,8 @@ export default function ConversationScreen() {
             <Text style={styles.supportBadgeText}>LUNEST Support</Text>
           </View>
           <Text style={styles.supportMessageContent}>{item.content}</Text>
-          <Text style={styles.supportTimeText}>
-            {item.createdAt ? new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+          <Text style={styles.supportTimeText} accessibilityLabel={formatChatDateTime(timestamp)}>
+            {formatChatTime(timestamp)}
           </Text>
         </View>
       );
@@ -382,17 +389,13 @@ export default function ConversationScreen() {
               <Text style={styles.statusPendingBadge}>Reviewing...</Text>
             )}
             <Text
+              accessibilityLabel={formatChatDateTime(timestamp)}
               style={[
                 styles.timestampText,
                 isMe ? styles.timestampMe : styles.timestampOther,
               ]}
             >
-              {item.createdAt
-                ? new Date(item.createdAt).toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })
-                : ""}
+              {formatChatTime(timestamp)}
             </Text>
 
             {isMe && !isBlockedMessage && (
@@ -489,8 +492,8 @@ export default function ConversationScreen() {
         ) : (
           <FlatList
             ref={flatListRef}
-            data={messages}
-            keyExtractor={(item) => item._id || Math.random().toString()}
+            data={timeline}
+            keyExtractor={(item) => item._id}
             renderItem={renderMessageItem}
             contentContainerStyle={styles.messageList}
             onContentSizeChange={() =>
@@ -720,6 +723,8 @@ export default function ConversationScreen() {
 }
 
 const styles = StyleSheet.create({
+  dateSeparator: { alignItems: "center", marginVertical: 12 },
+  dateSeparatorText: { fontSize: 12, fontWeight: "500", color: "#4B5563", backgroundColor: "#F3F4F6", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 6 },
   container: {
     flex: 1,
     backgroundColor: "#FFFFFF",
@@ -881,13 +886,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   timestampText: {
-    fontSize: 10,
+    fontSize: 11,
   },
   timestampMe: {
     color: "rgba(255, 255, 255, 0.65)",
   },
   timestampOther: {
-    color: "#9CA3AF",
+    color: "#4B5563",
   },
   statusPendingBadge: {
     fontSize: 10,
@@ -921,8 +926,8 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   supportTimeText: {
-    fontSize: 10,
-    color: "#6B7280",
+    fontSize: 11,
+    color: "#4B5563",
     textAlign: "right",
     marginTop: 4,
   },

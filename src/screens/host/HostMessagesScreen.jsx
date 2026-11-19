@@ -1,3 +1,4 @@
+import { getConversationTimestamp, formatChatDate, formatChatTime, formatChatDateTime } from "../../utils/chatDateTime";
 import React, { useState, useEffect, useCallback } from "react";
 import {
   StyleSheet,
@@ -141,13 +142,7 @@ const HostMessagesScreen = () => {
       unread = Number(item.unreadCount?.guest) || 0;
     }
 
-    const lastMsgTime = item.lastMessage?.sentAt || item.updatedAt;
-    const formattedTime = lastMsgTime
-      ? new Date(lastMsgTime).toLocaleDateString([], {
-          month: "short",
-          day: "numeric",
-        })
-      : "";
+    const lastMsgTime = getConversationTimestamp(item);
 
     return (
       <TouchableOpacity
@@ -173,9 +168,10 @@ const HostMessagesScreen = () => {
             >
               {otherName}
             </Text>
-            <Text style={[styles.timeText, unread > 0 && styles.timeTextUnread]}>
-              {formattedTime}
-            </Text>
+            <View style={styles.timeContainer} accessibilityLabel={formatChatDateTime(lastMsgTime)}>
+              <Text style={[styles.timeText, unread > 0 && styles.timeTextUnread]}>{formatChatDate(lastMsgTime)}</Text>
+              <Text style={[styles.timeText, unread > 0 && styles.timeTextUnread]}>{formatChatTime(lastMsgTime)}</Text>
+            </View>
           </View>
 
           <Text style={styles.propertyTitle} numberOfLines={1}>
@@ -360,9 +356,14 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 8,
   },
+  timeContainer: {
+    alignItems: "flex-end",
+    flexShrink: 0,
+    gap: 2,
+  },
   timeText: {
     fontSize: 11,
-    color: "#9CA3AF",
+    color: "#6B7280",
   },
   propertyTitle: {
     fontSize: 12,

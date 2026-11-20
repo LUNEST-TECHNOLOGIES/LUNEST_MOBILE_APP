@@ -859,6 +859,7 @@ const HostListingsScreen = () => {
   const [sortOrder, setSortOrder] = useState("newest");
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [listingToDelete, setListingToDelete] = useState(null);
+  const [hiddenDraftIds, setHiddenDraftIds] = useState([]);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [showEditConfirmModal, setShowEditConfirmModal] = useState(false);
   const [listingToEdit, setListingToEdit] = useState(null);
@@ -909,7 +910,7 @@ const HostListingsScreen = () => {
 
   const loadDrafts = async () => {
     try {
-      setDraftListings([]); // Clear current drafts state to ensure we're not seeing stale data during fetch
+
       // Sync drafts from backend (solves cross-device drafts issue)
       const drafts = await draftListingService.mergeWithRemoteDrafts();
       // Ensure drafts is an array
@@ -1085,7 +1086,7 @@ const HostListingsScreen = () => {
     }
   });
 
-  const allListings = Array.from(allListingsMap.values());
+  const allListings = Array.from(allListingsMap.values()).filter(item => !hiddenDraftIds.includes(item.id) && !hiddenDraftIds.includes(item.draftData?._id));
 
   // Filter listings based on selected tab - defensive check for allListings
   // Exclude REJECTED and SUSPENDED listings from displaying for the host
@@ -1709,12 +1710,20 @@ const HostListingsScreen = () => {
     
     try {
       if (target.isDraft) {
-        await draftListingService.deleteDraft(target.id);
-        setToastMessage("Draft deleted successfully");
-        setShowToast(true);
-        await loadDrafts(); // Refresh local drafts
-        // We also invalidate server listings just in case it was a server-synced draft
-        queryClient?.invalidateQueries({ queryKey: ['hostListings'] });
+        const ids = [target.id, target.draftData?._id].filter(Boolean);
+        setHiddenDraftIds(prev => [...prev, ...ids]);
+        setShowDeleteModal(false);
+        try {
+          await draftListingService.deleteDraft(target.id);
+          await queryClient.cancelQueries({ queryKey: ['hostListings'] });
+          queryClient.setQueryData(['hostListings'], rows => rows?.filter(row => !ids.includes(row.id)));
+          setDraftListings(rows => rows.filter(row => !ids.includes(row.id) && !ids.includes(row.draftData?._id)));
+          setToastMessage("Draft deleted");
+          setShowToast(true);
+        } catch (error) {
+          setHiddenDraftIds(prev => prev.filter(id => !ids.includes(id)));
+          throw error;
+        }
       } else {
         console.log("Delete published listing:", target.id);
         const result = await listingService.deleteListing(target.id);
@@ -1739,7 +1748,7 @@ const HostListingsScreen = () => {
       }
     } catch (error) {
       console.error("Error deleting listing:", error);
-      setToastMessage("Error deleting listing");
+      setToastMessage(error.message || "Could not delete the listing.");
       setShowToast(true);
     } finally {
       setDeleteLoading(false);

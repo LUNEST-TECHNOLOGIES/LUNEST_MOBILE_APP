@@ -1,5 +1,5 @@
 import LocationSelectionModal from "../../src/components/create-listing/LocationSelectionModal";
-import { NIGERIA_STATES, normalizeState, getLgas, normalizeLga, isLocationComplete, locationPatch, selectedPlacePatch, fullPropertyAddress } from "../../src/utils/listingLocation";
+import { NIGERIA_STATES, normalizeCountry, normalizeState, getLgas, normalizeLga, isLocationComplete, locationPatch, selectedPlacePatch, fullPropertyAddress } from "../../src/utils/listingLocation";
 import { requestPlaces } from "../../src/services/placesService";
 /**
  * Create Listing - Step 4: Location
@@ -137,7 +137,7 @@ const Location = () => {
     setLga(normalizeLga(draftData.state,draftData.lga) || (draftData.country !== 'Nigeria' ? draftData.lga || '' : ''));
     if (draftData.city) setCity(draftData.city);
     if (draftData.state) setState(normalizeState(draftData.state,draftData.country || 'Nigeria'));
-    if (draftData.country) setCountry(draftData.country);
+    if (draftData.country) setCountry(normalizeCountry(draftData.country));
     if (draftData.postalCode) setPostalCode(draftData.postalCode);
 
 
@@ -284,7 +284,7 @@ const Location = () => {
         setCity(addr.city || city);
         setState(addr.region || state);
         setPostalCode(addr.postalCode || postalCode);
-        setCountry(addr.country || "Nigeria");
+        setCountry(normalizeCountry(addr.country));
         setPropertyCoords({ lat, lon });
         
         // Sync the search input text

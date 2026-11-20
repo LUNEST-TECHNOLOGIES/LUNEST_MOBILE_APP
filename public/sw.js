@@ -44,7 +44,7 @@ self.addEventListener('install', event => event.waitUntil((async () => {
         try {
           const response = await networkWithDeadline(new Request(new URL(path, self.location.origin), {cache:'reload'}), 20000);
           if (response.ok && (!path.endsWith('.js') || !response.headers.get('content-type')?.includes('text/html'))) {
-            if (await optionalCache(cache.put(path, response), false) === false) complete = false;
+            if (await optionalCache(cache.put(path, response), false, 20000) === false) complete = false;
           } else { complete = false; }
         } catch { complete = false; }
       }
@@ -55,7 +55,7 @@ self.addEventListener('install', event => event.waitUntil((async () => {
         const home = await networkWithDeadline(new Request(self.location.origin+'/',{cache:'reload'}),15000);
         const markup = await home.clone().text();
         const matchingBundle = PRECACHE_URLS.some(path => path.endsWith('.js') && markup.includes(path));
-        if (home.ok && matchingBundle && await optionalCache(cache.put('/',home),false) !== false) {
+        if (home.ok && matchingBundle && await optionalCache(cache.put('/',home),false,5000) !== false) {
           await optionalCache(cache.put(READY_KEY,new Response('ready')));
         }
       } catch { /* Previous complete releases remain available. */ }
@@ -99,7 +99,9 @@ self.addEventListener('fetch', event => {
       }
       return response;
     };
-    const saved = await cachedAsset(cache, request, {ignoreSearch:navigation});
+    // An older release's deep-link HTML must never outrank this release's shell.
+    const currentShell = navigation && cache && await optionalCache(cache.match('/'));
+    const saved = navigation ? currentShell : await cachedAsset(cache, request);
     if (versionedAsset && saved && !saved.headers.get('content-type')?.includes('text/html')) return saved;
     if (versionedAsset && saved) event.waitUntil(optionalCache(cache?.delete(request)));
     if (navigation && saved && !url.searchParams.has('__lunest_recover')) {
@@ -109,7 +111,7 @@ self.addEventListener('fetch', event => {
     try { return await refresh(); }
     catch {
       if (navigation) {
-        const home = saved || await cachedAsset(cache, '/');
+        const home = saved || await cachedAsset(cache, '/') || await cachedAsset(cache, request, {ignoreSearch:true});
         if (home) return home;
         return new Response(OFFLINE_HTML, {status:503,headers:{'Content-Type':'text/html; charset=utf-8'}});
       }

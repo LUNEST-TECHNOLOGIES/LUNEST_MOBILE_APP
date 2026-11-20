@@ -54,7 +54,7 @@ export default function Root({ children }) {
               if ('serviceWorker' in navigator && window.location.protocol !== 'file:') {
                 (function registerAppWorker() {
                   try {
-                    navigator.serviceWorker.register('/sw.js').then(function(registration) {
+                    navigator.serviceWorker.register('/sw.js', {updateViaCache:'none'}).then(function(registration) {
                       console.log('✅ [LUNEST PWA] ServiceWorker registered with scope:', registration.scope);
                       
                       // Trigger check for updates safely

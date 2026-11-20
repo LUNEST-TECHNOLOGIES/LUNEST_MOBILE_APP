@@ -14,6 +14,8 @@ const DRAFTS_KEY_PREFIX = "listingDrafts_";
 
 // Track which drafts are currently being synced to prevent duplicates
 const syncingDrafts = new Set();
+const activeSyncs = new Map();
+let deletionVersion = 0;
 const pendingSyncs = new Map();
 const syncTimers = new Map();
 const SYNC_DEBOUNCE_MS = 200; // Ultra-fast 200ms background sync
@@ -240,7 +242,16 @@ class DraftListingService {
    * @param {Object} draftData - The draft data to sync
    * @returns {Promise<void>}
    */
-  async syncToDatabase(draftData) {
+  syncToDatabase(draftData) {
+    const existing = activeSyncs.get(draftData.draftId);
+    const started = this.runDatabaseSync(draftData);
+    if (existing) return existing;
+    const finished = started.finally(() => activeSyncs.delete(draftData.draftId));
+    activeSyncs.set(draftData.draftId, finished);
+    return finished;
+  }
+
+  async runDatabaseSync(draftData) {
     const scheduledTimer = syncTimers.get(draftData.draftId);
     if (scheduledTimer) {
       clearTimeout(scheduledTimer);
@@ -333,6 +344,7 @@ class DraftListingService {
    */
   async mergeWithRemoteDrafts() {
     try {
+      const version = deletionVersion;
       const localDrafts = await this.getAllDrafts();
       const remoteResult = await listingService.fetchDraftsFromDatabase();
 
@@ -419,6 +431,7 @@ class DraftListingService {
 
       // Save merged drafts locally - use user-specific key
       const draftsKey = await this.getDraftsKey();
+      if (version !== deletionVersion) return this.getAllDrafts();
       await storageService.setItem(draftsKey, mergedDrafts);
       console.log(
         "✅ Merged",
@@ -565,32 +578,30 @@ class DraftListingService {
    */
   async deleteDraft(draftId, localOnly = false) {
     try {
-      // Delete locally first - use user-specific key
       const draftsKey = await this.getDraftsKey();
-      const drafts = await this.getAllDrafts();
-
-      const targetDraft = drafts.find((d) => d.draftId === draftId);
-      
-      // Only delete from backend if draft has been synced (has _id)
-      // Local-only drafts (without _id) don't exist on backend
-      const backendIdToDelete = targetDraft?._id;
-
-      const filteredDrafts = drafts.filter((d) => 
-        d.draftId !== draftId && 
-        d._id !== draftId &&
-        !(d._id && d._id === draftId.replace('edit_', ''))
-      );
-      await storageService.setItem(draftsKey, filteredDrafts);
-      console.log("💾 Draft deleted locally:", draftId);
-
-      // Delete from database only if it was synced (has _id) and not localOnly
-      if (backendIdToDelete && !localOnly) {
-        listingService.deleteDraftFromDatabase(backendIdToDelete).catch((err) => {
-          console.log("⚠️ Could not delete draft from database:", err.message);
-        });
-      } else {
-        console.log("📝 Draft was local-only or delete was localOnly, no backend deletion needed");
+      await localSaveQueue;
+      const serverId = draftId.replace(/^remote_/, '');
+      const matches = d => d.draftId === draftId || d._id === serverId;
+      let draft = (await this.getAllDrafts()).find(matches);
+      const localId = draft?.draftId || draftId;
+      clearTimeout(syncTimers.get(localId));
+      syncTimers.delete(localId);
+      pendingSyncs.delete(localId);
+      await activeSyncs.get(localId);
+      draft = (await this.getAllDrafts()).find(matches) || draft;
+      const backendId = draft?._id || (/^[a-f0-9]{24}$/i.test(serverId) ? serverId : null);
+      if (backendId && !localOnly && !draft?.editingListingId && !localId.startsWith('edit_')) {
+        const result = await listingService.deleteDraftFromDatabase(backendId);
+        if (!result.success) throw new Error(result.message || 'Could not delete this draft.');
       }
+      const remove = localSaveQueue.catch(() => {}).then(async () => {
+        deletionVersion++;
+        const drafts = (await storageService.getItem(draftsKey)) || [];
+        await storageService.setItem(draftsKey, drafts.filter(d => !matches(d) && d.draftId !== localId));
+        for (const id of [localId, draftId, backendId]) draftCache.delete(id);
+      });
+      localSaveQueue = remove;
+      await remove;
     } catch (error) {
       console.error("Error deleting draft:", error);
       throw error;
@@ -621,7 +632,7 @@ class DraftListingService {
           `🧹 Found matching draft for listing ${listingId}, deleting:`,
           draftToDelete.draftId,
         );
-        await this.deleteDraft(draftToDelete.draftId);
+        await this.deleteDraft(draftToDelete.draftId, true);
       }
     } catch (error) {
       console.error("Error deleting draft by listing ID:", error);

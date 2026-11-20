@@ -176,11 +176,7 @@ const PhoneVerificationModal = ({ visible, phone, onClose, onVerified }) => {
         setTimeout(() => otpInputRef.current?.focus(), 300);
       } else {
         if (result.retryAfter) { resendUntil.current = Date.now() + result.retryAfter * 1000; setResendTimer(result.retryAfter); }
-        const rawMsg = result.message || '';
-        const isFundingOrGatewayError = /fund|balance|insufficient|termii|gateway|provider|credit|sms/i.test(rawMsg);
-        setError(isFundingOrGatewayError || !rawMsg
-          ? 'Unable to send SMS verification code. Please try again in a few moments.'
-          : rawMsg);
+        setError(result.message || 'Could not request a code. Please try again.');
       }
     } catch (err) {
       if (session !== sessionRef.current) return;

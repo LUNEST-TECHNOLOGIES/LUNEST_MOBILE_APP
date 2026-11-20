@@ -1,8 +1,12 @@
 import statesAndLgas from '../data/nigeria-lgas.json';
 export const NIGERIA_STATES = Object.keys(statesAndLgas).sort();
 const key = value => String(value || '').toLowerCase().replace(/state|local government area|local government|area council|\blga\b/g,'').replace(/[^a-z0-9]/g,'');
+export function normalizeCountry(value) {
+  const country = String(value || '').trim();
+  return /^(nigeria|ng|nga)$/i.test(country) || !country ? 'Nigeria' : country;
+}
 export function normalizeState(value, country = 'Nigeria') {
-  if (country !== 'Nigeria') return String(value || '').trim();
+  if (normalizeCountry(country) !== 'Nigeria') return String(value || '').trim();
   const input = key(value);
   if (['fct','abuja','abujafct','federalcapitalterritory','federalcapitalterritoryabuja'].includes(input)) return 'FCT';
   if (input === 'nassarawa') return 'Nasarawa';
@@ -16,10 +20,10 @@ export function normalizeLga(state, value) {
 }
 export function isLocationComplete(location) {
   return !!(String(location.address||'').trim() && String(location.city||'').trim() && String(location.state||'').trim()
-    && (location.country !== 'Nigeria' || (normalizeState(location.state) && normalizeLga(location.state,location.lga))));
+    && (normalizeCountry(location.country) !== 'Nigeria' || (normalizeState(location.state) && normalizeLga(location.state,location.lga))));
 }
 export function locationPatch(current, updates) {
-  const next = {...current,...updates};
+  const next = {...current,...updates, country:normalizeCountry(updates.country ?? current.country)};
   if (updates.country !== undefined && updates.country !== current.country) {
     next.state = updates.state ?? ''; next.lga = updates.lga ?? '';
   }
@@ -31,7 +35,7 @@ export function locationPatch(current, updates) {
 export function selectedPlacePatch(data, details, current) {
   const components = details?.address_components || [];
   const find = type => components.find(component => component.types?.includes(type))?.long_name || '';
-  const country = find('country') || current.country || 'Nigeria';
+  const country = normalizeCountry(find('country') || current.country);
   const state = normalizeState(find('administrative_area_level_1') || current.state,country);
   const lga = country === 'Nigeria' ? normalizeLga(state,find('administrative_area_level_2') || find('administrative_area_level_3')) : find('administrative_area_level_2');
   const patch = {address:data?.description || details?.formatted_address || current.address,

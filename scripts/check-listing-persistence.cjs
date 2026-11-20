@@ -26,7 +26,10 @@ function load(path, dependencies) {
  }
  let stored=[];
  const storage={getItem:async()=>structuredClone(stored),setItem:async(_key,value)=>{await new Promise(resolve=>setTimeout(resolve,5));stored=structuredClone(value);}};
- const drafts=load('src/services/draftListingService.js',{'./authService':auth,'./storageService':storage,'./logService':{logInfo(){},logError(){}}});
+ let allowDelete=false;
+ const sentDeletes=[];
+ const draftApi={deleteDraftFromDatabase:async id=>{sentDeletes.push(id);return {success:allowDelete,message:'Could not reach listing service'};}};
+ const drafts=load('src/services/draftListingService.js',{'./listingService':draftApi,'./authService':auth,'./storageService':storage,'./logService':{logInfo(){},logError(){}}});
  drafts.scheduleDatabaseSync=async()=>{};
  const first=drafts.saveDraft({draftId:'test',propertyTitle:'Typing',city:'Lagos'});
  const second=drafts.saveDraft({draftId:'test',propertyTitle:'',roomSizes:[],acceptRefund:false});
@@ -36,5 +39,16 @@ function load(path, dependencies) {
  assert.equal(stored.length,2);
  const draft=stored.find(item=>item.draftId==='test');
  assert.equal(draft.propertyTitle,'');assert.equal(draft.city,'Lagos');assert.equal(draft.acceptRefund,false);
+ const serverId='123456789012345678901234';
+ stored[0]._id=serverId;
+ await assert.rejects(drafts.deleteDraft(serverId),/Could not reach/);
+ assert.equal(stored.length,2,'Failed deletion keeps the draft');
+ allowDelete=true;
+ await drafts.deleteDraft(serverId);
+ assert.deepEqual(sentDeletes,[serverId,serverId]);
+ assert.equal(stored.length,1);
+ await drafts.deleteDraft(stored[0].draftId);
+ assert.equal(stored.length,0);
+ assert.equal(sentDeletes.length,2,'Local-only deletion avoids the network');
  console.log('PASS: pricing/title/description API mapping, all refund states, cleared fees, immediate cache, serialized multi-draft persistence.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

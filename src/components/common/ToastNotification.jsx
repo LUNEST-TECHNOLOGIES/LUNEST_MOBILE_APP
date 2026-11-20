@@ -168,7 +168,7 @@ const ToastNotification = ({
   const config = getConfig(type);
 
   return (
-    <Animated.View 
+    <Animated.View pointerEvents="none"
       style={[
         styles.container,
         {

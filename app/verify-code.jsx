@@ -12,9 +12,9 @@ export default function VerifyCode() {
     const flow = params.flow || 'reset'; // 'registration' or 'reset'
     
     const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState('');
-    const [resendTimer, setResendTimer] = useState(60);
-    const [canResend, setCanResend] = useState(false);
+    const [error, setError] = useState(params.delivery === 'FAILED' ? (params.deliveryMessage || 'Your account is saved, but the code could not be sent. Tap Resend code to try again.') : '');
+    const [resendTimer, setResendTimer] = useState(params.delivery === 'FAILED' ? 0 : 60);
+    const [canResend, setCanResend] = useState(params.delivery === 'FAILED');
     const [toast, setToast] = useState({ visible: false, message: '', type: 'success' });
 
     // Countdown timer for resend

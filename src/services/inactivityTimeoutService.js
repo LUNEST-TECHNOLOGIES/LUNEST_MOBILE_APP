@@ -4,8 +4,7 @@
  * Tracks: app foreground/background state, user interactions
  */
 
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { AppState } from "react-native";
+import { AppState, Platform } from "react-native";
 
 class InactivityTimeoutService {
   constructor() {
@@ -29,6 +28,7 @@ class InactivityTimeoutService {
    * @param {Function} onWarning - Callback function before logout (optional)
    */
   async initialize(onLogout, onWarning = null) {
+    this.destroy();
     console.log("[InactivityTimeoutService] Initializing...");
     this.onLogout = onLogout;
     this.onWarning = onWarning;
@@ -41,6 +41,10 @@ class InactivityTimeoutService {
       this.handleAppStateChange.bind(this),
     );
 
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      this.activityListener = () => this.recordUserActivity();
+      for (const event of ['pointerdown','keydown','touchstart','scroll']) window.addEventListener(event,this.activityListener,{passive:true});
+    }
     // Start inactivity timer
     this.resetInactivityTimer();
 
@@ -53,6 +57,10 @@ class InactivityTimeoutService {
   destroy() {
     console.log("[InactivityTimeoutService] Destroying...");
     this.isEnabled = false;
+    if (this.activityListener && typeof window !== 'undefined') {
+      for (const event of ['pointerdown','keydown','touchstart','scroll']) window.removeEventListener(event,this.activityListener);
+      this.activityListener = null;
+    }
 
     if (this.inactivityTimer) {
       clearTimeout(this.inactivityTimer);
@@ -165,14 +173,10 @@ class InactivityTimeoutService {
     this.isEnabled = false;
     this.clearTimers();
 
-    // Clear tokens from storage
-    await AsyncStorage.removeItem("authToken");
-    await AsyncStorage.removeItem("refreshToken");
-    await AsyncStorage.removeItem("userData");
-
-    if (this.onLogout) {
-      this.onLogout();
-    }
+    // The auth service owns secure token storage and navigation. Plain AsyncStorage
+    // removals leave the web UI and encrypted session in conflicting states.
+    if (this.onLogout) await this.onLogout();
+    this.destroy();
   }
 
   /**

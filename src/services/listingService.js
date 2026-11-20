@@ -1733,6 +1733,8 @@ class ListingService {
           regulations: d.regulations || d.houseRules || [],
           additionalRules: d.additionalRules || "",
           address: d.address || d.propertyLocation?.fullAddress || "",
+          addressLine2: d.addressLine2 || "",
+          lga: d.lga || "",
           city: d.city || "",
           state: d.state || "",
           country: d.country || "Nigeria",

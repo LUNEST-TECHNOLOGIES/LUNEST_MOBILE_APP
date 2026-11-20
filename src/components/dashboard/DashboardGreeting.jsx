@@ -22,6 +22,7 @@ const ArrowUpIcon = ({ size = 10, color = "#FFFFFF" }) => (
 const DashboardGreeting = ({
   userName = "User",
   planType = "Basic Plan",
+  showingSaved = false,
   lastUpdated = null
 }) => {
   // Get greeting based on time of day
@@ -46,7 +47,7 @@ const DashboardGreeting = ({
         </Text>
         {lastUpdated && (
           <Text style={{ fontSize: 10, color: "#2E7D32", fontWeight: "600", marginTop: 2 }}>
-            ● LIVE · {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            ● {showingSaved ? 'SAVED' : 'UPDATED'} · {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </Text>
         )}
       </View>

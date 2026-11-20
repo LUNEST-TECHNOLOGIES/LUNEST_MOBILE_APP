@@ -157,7 +157,7 @@ const LoginScreen = ({ onBack, onSignup, onForgotPassword, onLoginSuccess }) => 
                 pathname: '/verify-code',
                 params: { 
                   email: unverifiedEmail,
-                  flow: 'registration'
+                  flow: 'registration', delivery: result.data?.data?.emailDeliveryStatus || result.data?.emailDeliveryStatus || 'ACCEPTED'
                 }
               });
             }, 2000);

@@ -1,0 +1,20 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict'),babel=require('@babel/core');
+const data=require('../src/data/nigeria-lgas.json');const out={};
+const source=babel.transformSync(fs.readFileSync('src/utils/listingLocation.js','utf8'),{configFile:false,babelrc:false,plugins:[require('@babel/plugin-transform-modules-commonjs')]}).code;
+vm.runInNewContext(source,{exports:out,require:()=>data});
+assert.equal(Object.keys(data).length,37);assert.equal(Object.values(data).reduce((n,v)=>n+v.length,0),774);
+assert.equal(out.getLgas('Lagos').length,20);assert.equal(out.getLgas('FCT').length,6);
+assert.equal(out.normalizeState('Federal Capital Territory'),'FCT');assert.equal(out.normalizeState('Lagos State'),'Lagos');
+assert.equal(out.normalizeLga('FCT','Abuja Municipal Area Council'),'Abuja Municipal');
+assert.equal(out.normalizeLga('FCT','AMAC'),'Abuja Municipal');
+const current={address:'12 Sample Street',addressLine2:'Flat 2',state:'Lagos',lga:'Ikeja',city:'Lagos',country:'Nigeria'};
+let patch=out.locationPatch(current,{state:'Oyo'});assert.equal(patch.lga,'');assert.equal(patch.state,'Oyo');
+patch=out.locationPatch(current,{addressLine2:''});assert.equal(patch.lga,'Ikeja');
+assert.equal(out.isLocationComplete(current),true);assert.equal(out.isLocationComplete({...current,lga:'Bwari'}),false);
+assert.equal(out.isLocationComplete({...current,lga:''}),false);
+const details={geometry:{location:{lat:9.03,lng:7.49}},address_components:[{long_name:'Federal Capital Territory',types:['administrative_area_level_1']},{long_name:'Municipal Area Council',types:['administrative_area_level_2']},{long_name:'Abuja',types:['locality']},{long_name:'Nigeria',types:['country']}]};
+patch=out.selectedPlacePatch({description:'Garki, Abuja'},details,current);assert.equal(patch.address,'Garki, Abuja');assert.equal(patch.state,'FCT');assert.equal(patch.lga,'Abuja Municipal');assert.equal(patch.latitude,9.03);
+patch=out.selectedPlacePatch({description:'Chosen address'},null,current);assert.equal(patch.address,'Chosen address');assert.equal(patch.state,'Lagos');
+assert.equal(out.fullPropertyAddress('12 Sample Street','Flat 2'),'12 Sample Street, Flat 2');
+for(const file of ['src/services/draftListingService.js','src/services/listingService.js','app/create-listing/review.jsx']){const code=fs.readFileSync(file,'utf8');assert.match(code,/addressLine2:/);assert.match(code,/lga:/);}
+console.log('PASS: 37 states/774 LGAs, dependent reset, FCT aliases, invalid pair rejection, selected-address details/fallback, second line and draft/edit/review mappings.');

@@ -1,3 +1,6 @@
+import { navigateToLogin } from "../utils/navigationUtils";
+import toastService from "./toastService";
+import { isDeviceOffline, reportNetworkFailure, reportNetworkSuccess } from "./connectionService";
 /**
  * Auth Service - Secure Authentication Module
  * Handles user authentication (login, signup, logout)
@@ -50,7 +53,7 @@ const SECURITY_CONFIG = {
   LOCKOUT_DURATION_MS: 15 * 60 * 1000, // 15 minutes
   TOKEN_REFRESH_THRESHOLD_MS: 5 * 60 * 1000, // Refresh 5 mins before expiry
   MIN_PASSWORD_LENGTH: 8,
-  REQUEST_TIMEOUT_MS: 60000, // 60 seconds for network requests
+  REQUEST_TIMEOUT_MS: 20000, // 60 seconds for network requests
 };
 
 // ============================================
@@ -167,8 +170,7 @@ class AuthService {
   constructor() {
     this.baseURL = API_BASE_URL;
     this.timeout =
-      parseInt(process.env.EXPO_PUBLIC_API_TIMEOUT, 10) ||
-      SECURITY_CONFIG.REQUEST_TIMEOUT_MS;
+      Math.min(parseInt(process.env.EXPO_PUBLIC_API_TIMEOUT, 10) || SECURITY_CONFIG.REQUEST_TIMEOUT_MS, 20000);
     this._tokenRefreshPromise = null;
   }
 
@@ -369,7 +371,8 @@ class AuthService {
    * Simplified version without AbortController for better React Native compatibility
    */
   async _secureRequest(endpoint, options = {}, retryCount = 0) {
-    const MAX_RETRIES = 2;
+    const MAX_RETRIES = 0;
+    if (isDeviceOffline()) throw new Error('You’re offline. Reconnect to continue.');
 
     // Debug logging
     console.log("=== API REQUEST DEBUG ===");
@@ -402,24 +405,18 @@ class AuthService {
         headers["Content-Type"] = "application/json";
       }
 
-      let timeoutId;
-      const timeoutPromise = new Promise((_, reject) => {
-        timeoutId = setTimeout(() => {
-          const duration = Date.now() - startTime;
-          console.log("⏱️ Request timeout after", duration, "ms");
-          reject(new Error("AbortError")); // Simulate AbortError for consistency
-        }, this.timeout);
-      });
-
-      // Use Promise.race for timeout - more compatible with React Native
-      const response = await Promise.race([
-        fetch(endpoint, {
-          ...options,
-          headers,
-        }),
-        timeoutPromise,
-      ]);
-      clearTimeout(timeoutId);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), options.timeout || this.timeout);
+      let response;
+      try {
+        const received = await fetch(endpoint, {...options, headers, signal:controller.signal});
+        const body = await received.json().catch(error => {
+          if (error.name === 'AbortError') throw error;
+          return {};
+        });
+        response = {ok:received.ok, status:received.status, json:async () => body};
+        reportNetworkSuccess();
+      } finally { clearTimeout(timeoutId); }
 
       const duration = Date.now() - startTime;
       console.log("✅ Response received in:", duration, "ms");
@@ -477,7 +474,8 @@ class AuthService {
       console.log("Error message:", error.message);
 
       // Handle timeouts
-      if (error.message === "AbortError" || error.message.includes("timed out")) {
+      if (error.name === "AbortError" || error.message === "AbortError" || error.message.includes("timed out")) {
+        reportNetworkFailure();
         console.log("🚫 Request timeout of", this.timeout, "ms exceeded");
         if (retryCount < MAX_RETRIES) {
           console.log(`🔄 Retrying due to timeout (${retryCount + 1}/3)...`);
@@ -489,12 +487,14 @@ class AuthService {
 
       // Handle network changes / failures
       if (
+        error.message === "Failed to fetch" ||
         error.message === "Network request failed" ||
         error.message.includes("Network") ||
         error.message.includes("network changed") ||
         error.message.includes("ERR_NETWORK_CHANGED") ||
         error.message.includes("ECONNREFUSED")
       ) {
+        reportNetworkFailure();
         console.log("📡 [AuthService] Network error/change detected:", error.message);
 
         if (retryCount < MAX_RETRIES) {
@@ -697,16 +697,12 @@ class AuthService {
       // Initialize inactivity timeout
       try {
         const onWarning = () => {
-          Alert.alert(
-            "Session Expiring",
-            "Your session will expire due to inactivity in 1 minute. Any unsaved changes will be lost.",
-            [{ text: "OK" }],
-          );
+          toastService.showWarning('Your session will expire in one minute. Tap or continue using the app to stay signed in.');
         };
 
         const onLogout = async () => {
-          await this._clearTokens();
-          await storageService.removeItem(STORAGE_KEYS.USER_DATA);
+          await this.logout();
+          navigateToLogin();
         };
 
         await inactivityTimeoutService.initialize(onLogout, onWarning);
@@ -976,68 +972,40 @@ class AuthService {
    * Logout user and clear all auth data
    */
   async logout() {
-    try {
-      // Stop inactivity timeout
-      inactivityTimeoutService.destroy();
-
-      // Optionally notify server of logout
-      const token = await this.getToken();
-      if (token) {
-        try {
-          await this._secureRequest(`${this.baseURL}/v1/users/logout`, {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          });
-        } catch {
-          // Continue logout even if server call fails
-        }
-      }
-
-      // Clear all auth data
-      await this._clearTokens();
-      await storageService.removeItem(STORAGE_KEYS.USER_DATA);
-
-      return { success: true };
-    } catch (error) {
-      console.error("Logout error:", error);
-      // Still try to clear local data
-      inactivityTimeoutService.destroy();
-      await this._clearTokens();
-      await storageService.removeItem(STORAGE_KEYS.USER_DATA);
-      return { success: true };
+    inactivityTimeoutService.destroy();
+    const token = await secureStorageService.getSecureItem(SECURE_KEYS.AUTH_TOKEN);
+    await this._clearTokens();
+    await setUserDataShared(null);
+    const { clearOfflineQueries } = require('../lib/offlineQueries');
+    await clearOfflineQueries();
+    if (token && !isDeviceOffline()) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 3000);
+      fetch(`${this.baseURL}/v1/users/logout`, {method:'POST', headers:{Authorization:`Bearer ${token}`}, signal:controller.signal})
+        .catch(() => {}).finally(() => clearTimeout(timer));
     }
+    return {success:true};
   }
 
   /**
    * Check if user is currently logged in with valid token
    */
+  // Local access is for reopening previously saved screens. It never authorizes server actions.
+  async hasLocalSession() {
+    const token = await secureStorageService.getSecureItem(SECURE_KEYS.AUTH_TOKEN);
+    const user = await getUserDataShared();
+    return !!(token && this._validateTokenFormat(token) && (user?.id || user?._id));
+  }
+
   async isLoggedIn() {
     try {
-      const token = await secureStorageService.getSecureItem(
-        SECURE_KEYS.AUTH_TOKEN,
-      );
-      if (!token) return false;
-
-      // Validate token format
-      if (!this._validateTokenFormat(token)) {
-        await this._clearTokens();
-        return false;
-      }
-
-      // Check if token is expired
-      const isExpired = await this._isTokenExpired();
-      if (isExpired) {
-        // Try to refresh token
-        const refreshed = await this.refreshToken();
-        return refreshed;
-      }
-
-      return true;
-    } catch (error) {
-      return false;
-    }
+      if (!await this.hasLocalSession()) return false;
+      if (!await this._isTokenExpired()) return true;
+      if (isDeviceOffline()) return true;
+      const refreshed = await this.refreshToken();
+      // A network outage does not sign the user out of their saved screens.
+      return refreshed || await this.hasLocalSession();
+    } catch { return false; }
   }
 
   /**
@@ -1048,7 +1016,7 @@ class AuthService {
       // Check if token needs refresh
       const isExpired = await this._isTokenExpired();
       if (isExpired) {
-        await this.refreshToken();
+        if (isDeviceOffline() || !await this.refreshToken()) return null;
       }
 
       return await secureStorageService.getSecureItem(SECURE_KEYS.AUTH_TOKEN);
@@ -1100,16 +1068,25 @@ class AuthService {
         console.log("[AuthService] Attempting token refresh...");
 
         // Refresh endpoint doesn't need Authorization header - just the refresh token in body
-        const response = await fetch(`${this.baseURL}/v1/users/refresh`, {
+        if (isDeviceOffline()) return false;
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 6000);
+        let response;
+        try {
+          response = await fetch(`${this.baseURL}/v1/users/refresh`, {
+          signal: controller.signal,
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             Accept: "application/json",
           },
           body: JSON.stringify({ refreshToken }),
-        });
-
-
+          });
+          // Include body download in the deadline too.
+          const data = await response.json();
+          response = { ok: response.ok, status: response.status, json: async () => data };
+          reportNetworkSuccess();
+        } finally { clearTimeout(timer); }
 
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
@@ -1147,12 +1124,13 @@ class AuthService {
           console.warn("[AuthService] Clearing tokens due to definitive auth failure:", error.status);
           await this._clearTokens();
           try {
-            await storageService.removeItem(STORAGE_KEYS.USER_DATA);
+            await setUserDataShared(null);
             console.log("[AuthService] Auth state and user data cleared");
           } catch (storageError) {
             console.error("[AuthService] Failed to clear user data:", storageError);
           }
         } else {
+          reportNetworkFailure();
           console.log("[AuthService] Refresh failed due to non-auth error (e.g. network). Keeping tokens.");
         }
 
@@ -1239,6 +1217,9 @@ class AuthService {
         },
       );
 
+      if (token !== await secureStorageService.getSecureItem(SECURE_KEYS.AUTH_TOKEN)) {
+        return {success:false, data:null, message:'Session changed'};
+      }
       // Update local storage with fresh data (syncing ID number, KYC status, and verification state)
       if (response.body) {
         await this.setUserData(response.body);

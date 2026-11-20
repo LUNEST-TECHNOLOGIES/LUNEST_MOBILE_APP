@@ -24,7 +24,7 @@ async function scenario(user, saved = null, path = '/') {
       if (name === 'react') return react;
       if (name === 'react-native') return { Platform: { OS: 'web' } };
       if (name.includes('async-storage')) return { setItem: async () => {}, removeItem: async () => {} };
-      if (name.includes('authService')) return { getUserData: async () => liveUser, isLoggedIn: async () => !!liveUser, fetchProfile: async () => ({ data: profile }) };
+      if (name.includes('authService')) return { getUserData: async () => liveUser, hasLocalSession: async () => !!liveUser, fetchProfile: async () => ({ data: profile }) };
       if (name.includes('storageService')) return { getUserItem: async () => saved, setUserItem: async (...args) => { writes.push(args); } };
       // Requests intentionally never settle: they must not keep the switch locked.
       return { __esModule: true, default: new Proxy({}, { get: () => () => new Promise(() => {}) }) };

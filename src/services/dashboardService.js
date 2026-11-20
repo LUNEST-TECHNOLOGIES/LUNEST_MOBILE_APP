@@ -29,6 +29,8 @@ class DashboardService {
         };
       }
 
+      const owner = await authService.getUserData();
+      const ownerId = String(owner?.id || owner?._id || '');
       // Fetch all host-specific data in parallel for performance
       const [statsResult, listingsResult, bookingsResult, userProfileResult, notificationsResult] = await Promise.allSettled([
         apiClient.get("/v1/notifications/host/dashboard-stats", { silent: true }),
@@ -38,6 +40,13 @@ class DashboardService {
         apiClient.get("/v1/notifications?targetUserType=HOST&limit=15", { silent: true }),
       ]);
 
+      const currentOwner = await authService.getUserData();
+      if (ownerId !== String(currentOwner?.id || currentOwner?._id || '') ||
+          statsResult.status !== 'fulfilled' || statsResult.value?.success === false ||
+          listingsResult.status !== 'fulfilled' || !listingsResult.value?.success ||
+          bookingsResult.status !== 'fulfilled' || !bookingsResult.value?.success) {
+        return {success:false,message:'Connection interrupted. Your saved dashboard remains available.'};
+      }
       // Handle results gracefully with strict unpacking and multi-layer fallbacks
       const rawStats = statsResult.status === 'fulfilled' ? statsResult.value : null;
       const stats = rawStats?.body || rawStats?.data?.body || rawStats?.data || rawStats || {};
@@ -52,7 +61,7 @@ class DashboardService {
         ? rawBookings
         : (Array.isArray(rawBookings?.bookings) ? rawBookings.bookings : (Array.isArray(rawBookings?.data) ? rawBookings.data : []));
 
-      const userProfile = userProfileResult.status === 'fulfilled' ? (userProfileResult.value?.data || userProfileResult.value?.body || userProfileResult.value || {}) : {};
+      const userProfile = userProfileResult.status === 'fulfilled' ? (userProfileResult.value?.data || userProfileResult.value?.body || owner || {}) : owner || {};
 
       const rawNotifs = notificationsResult.status === 'fulfilled' ? notificationsResult.value : null;
       const notifications = Array.isArray(rawNotifs?.data?.notifications)

@@ -25,12 +25,12 @@ export default function Index() {
   const checkAndRedirect = async () => {
     try {
       // Check if user is logged in
-      const isLoggedIn = await authService.isLoggedIn();
+      const isLoggedIn = await authService.hasLocalSession();
 
       if (isLoggedIn) {
         // Determine target route based on saved user mode
         const userData = await authService.getUserData();
-        const userId = userData?.id || userData?.email;
+        const userId = userData?.id || userData?._id || userData?.emailAddress || userData?.email;
         let targetRoute = "/(tabs)"; // Default to guest mode
 
         if (userId) {
@@ -52,11 +52,11 @@ export default function Index() {
 
             if (savedMode === "HOST") {
               // Only redirect to host tabs if the user actually has host privileges
-              const isHost = 
+              const isHost = userData?.hostApplicationStatus !== 'REVOKED' && (
                 userData?.userType === "HOST" || 
                 userData?.userType === "ADMIN" || 
                 userData?.userType === "SUPERADMIN" ||
-                userData?.hostApplicationStatus === "APPROVED";
+                userData?.hostApplicationStatus === "APPROVED");
                 
               if (isHost) {
                 targetRoute = "/(host-tabs)";

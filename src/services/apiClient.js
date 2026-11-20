@@ -1,3 +1,4 @@
+import { isDeviceOffline, reportNetworkFailure, reportNetworkSuccess } from "./connectionService";
 /**
  * API Client Service
  * Cross-platform HTTP client for REST API calls
@@ -32,9 +33,7 @@ const detectAPIURL = () => {
 class APIClient {
   constructor() {
     this.baseURL = detectAPIURL();
-    this.timeout = process.env.EXPO_PUBLIC_API_TIMEOUT
-      ? parseInt(process.env.EXPO_PUBLIC_API_TIMEOUT)
-      : 90000; // Increased default timeout to 90s for heavy booking ops
+    this.timeout = Math.min(parseInt(process.env.EXPO_PUBLIC_API_TIMEOUT, 10) || 15000, 20000); // Increased default timeout to 90s for heavy booking ops
     this.headers = {
       "Content-Type": "application/json",
       Accept: "application/json",
@@ -185,6 +184,7 @@ class APIClient {
         return false;
     }
 
+    if (isDeviceOffline()) return true;
     if (Platform.OS === 'web') {
       // Direct navigator check for web is fastest
       if (typeof navigator !== 'undefined' && !navigator.onLine) {
@@ -193,7 +193,8 @@ class APIClient {
     }
 
     try {
-      const state = await NetInfo.fetch();
+      let timer;
+      const state = await Promise.race([NetInfo.fetch(),new Promise(resolve => {timer=setTimeout(()=>resolve({isConnected:true}),750);})]).finally(()=>clearTimeout(timer));
       // On native, isInternetReachable is a more accurate indicator of real connectivity
       // than isConnected (which just means connected to a router/cell tower)
       if (state.isInternetReachable === false) {
@@ -220,20 +221,20 @@ class APIClient {
       throw error;
     }
 
-    const maxRetries = options.retries !== undefined ? options.retries : (options.method === 'GET' ? 3 : 0);
+    const maxRetries = options.retries !== undefined ? options.retries : 0;
     const retryDelay = options.retryDelay || 2000;
 
     try {
-      let timeoutId;
-      const timeoutPromise = new Promise((_, reject) => {
-        timeoutId = setTimeout(() => reject(new Error("Request timeout")), this.timeout);
-      });
-
-      const response = await Promise.race([
-        fetch(url, options),
-        timeoutPromise,
-      ]);
-      clearTimeout(timeoutId);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), options.timeout || this.timeout);
+      let response;
+      try {
+        const received = await fetch(url, {...options,signal:controller.signal});
+        const text = await received.text();
+        response = {ok:received.ok,status:received.status,headers:received.headers,
+          json:async () => JSON.parse(text), text:async () => text};
+        reportNetworkSuccess();
+      } finally { clearTimeout(timeoutId); }
 
       // Handle Rate Limiting (429) - Automatic Retry
       if (response.status === 429 && attempt <= maxRetries) {
@@ -249,10 +250,13 @@ class APIClient {
         // Global 401 handler: redirect to login
         if (response.status === 401) {
           console.warn("[APIClient] 401 Unauthorized - redirecting to login...");
-          if (typeof navigateToLogin === "function") {
-            await secureStorageService.removeSecureItem(AUTH_TOKEN_KEY);
-            navigateToLogin();
+          const auth = require('./authService').default;
+          const refreshed = await auth.refreshToken();
+          if (refreshed && !options._authRetried) {
+            const token = await auth.getToken();
+            return this._fetchWithRetry(url, {...options,_authRetried:true,headers:{...options.headers,Authorization:`Bearer ${token}`}}, attempt, silent);
           }
+          if (!await auth.hasLocalSession() && typeof navigateToLogin === 'function') navigateToLogin();
         }
 
         const error = this._createError(errorResponse, response.status);
@@ -261,6 +265,7 @@ class APIClient {
 
       return await this.parseResponse(response);
     } catch (error) {
+      if (!error.status) reportNetworkFailure();
       // Retry on network errors too (timeout, connection failed)
       if (attempt <= maxRetries && (error.message.includes("timeout") || error.message === "Failed to fetch")) {
         const backoff = retryDelay * Math.pow(2, attempt - 1);

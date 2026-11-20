@@ -12,7 +12,9 @@ export const queryClient = new QueryClient({
       // Cache for 24 hours (for persistence)
       gcTime: 1000 * 60 * 60 * 24,
       // Auto-retry once on failure
-      retry: 1,
+      retry: false,
+      networkMode: "always",
+      refetchOnReconnect: true,
       // Refetch on focus (screen visit)
       refetchOnWindowFocus: true,
       // Smooth loading transition

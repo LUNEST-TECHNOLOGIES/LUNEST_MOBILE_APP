@@ -1,3 +1,5 @@
+import { queryClient } from "../../lib/queryClient";
+import { isDeviceOffline } from "../../services/connectionService";
 /**
  * Host Dashboard Screen
  * Main screen for hosts showing overview of their listings and bookings
@@ -59,14 +61,16 @@ const HostDashboardScreen = () => {
   );
 
   // Loading and refresh state
-  const [loading, setLoading] = useState(true);
+  const savedDashboard = queryClient.getQueryData(['hostDashboardSnapshot']);
+  const [loading, setLoading] = useState(!savedDashboard);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(null);
-  const [lastUpdated, setLastUpdated] = useState(new Date());
+  const [lastUpdated, setLastUpdated] = useState(() => new Date(queryClient.getQueryState(['hostDashboardSnapshot'])?.dataUpdatedAt || Date.now()));
+  const [showingSaved, setShowingSaved] = useState(!!savedDashboard);
 
   // Dashboard data state - initialized with defaults
-  const [dashboardData, setDashboardData] = useState({
+  const [dashboardData, setDashboardData] = useState(savedDashboard || {
     location: "Getting location...",
     notificationCount: 0,
     userName: "Host",
@@ -130,7 +134,8 @@ const HostDashboardScreen = () => {
    */
   const fetchDashboardData = async (showLoader = true) => {
     try {
-      if (showLoader) setLoading(true);
+      if (showLoader && !queryClient.getQueryData(['hostDashboardSnapshot'])) setLoading(true);
+      if (isDeviceOffline()) { setLoading(false); return; }
       setError(null);
 
       console.log(
@@ -139,6 +144,8 @@ const HostDashboardScreen = () => {
       const result = await dashboardService.fetchHostDashboard();
 
       if (result.success && result.data) {
+        queryClient.setQueryData(['hostDashboardSnapshot'], result.data);
+        setShowingSaved(false);
         setDashboardData((prev) => ({
           ...prev,
           ...result.data,
@@ -168,7 +175,7 @@ const HostDashboardScreen = () => {
     const checkAuth = async () => {
       try {
         console.log("🔐 [HostDashboard] Checking authentication...");
-        const isLoggedIn = await authService.isLoggedIn();
+        const isLoggedIn = await authService.hasLocalSession();
         console.log("🔐 [HostDashboard] Is logged in:", isLoggedIn);
 
         if (!isLoggedIn) {
@@ -364,6 +371,7 @@ const HostDashboardScreen = () => {
             userName={dashboardData.userName}
             planType={dashboardData.plan}
             lastUpdated={lastUpdated}
+            showingSaved={showingSaved}
           />
         </View>
 

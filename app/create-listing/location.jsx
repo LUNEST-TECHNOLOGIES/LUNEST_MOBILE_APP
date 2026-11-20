@@ -1,3 +1,6 @@
+import LocationSelectionModal from "../../src/components/create-listing/LocationSelectionModal";
+import { NIGERIA_STATES, normalizeState, getLgas, normalizeLga, isLocationComplete, locationPatch, selectedPlacePatch, fullPropertyAddress } from "../../src/utils/listingLocation";
+import { requestPlaces } from "../../src/services/placesService";
 /**
  * Create Listing - Step 4: Location
  * Enter property address and location
@@ -78,6 +81,9 @@ const Location = () => {
 
   // Initialize from draft
   const [address, setAddress] = useState("");
+  const [addressLine2, setAddressLine2] = useState("");
+  const [lga, setLga] = useState("");
+  const [showLgaModal, setShowLgaModal] = useState(false);
   const [city, setCity] = useState("");
   const [state, setState] = useState("");
   const [country, setCountry] = useState("Nigeria");
@@ -111,14 +117,6 @@ const Location = () => {
     "United Kingdom",
     "United States",
   ];
-  const nigeriaStates = [
-    "Abia", "Adamawa", "Akwa Ibom", "Anambra", "Bauchi", "Bayelsa",
-    "Benue", "Borno", "Cross River", "Delta", "Ebonyi", "Edo",
-    "Ekiti", "Enugu", "Gombe", "Imo", "Jigawa", "Kaduna",
-    "Kano", "Katsina", "Kebbi", "Kogi", "Kwara", "Lagos",
-    "Nasarawa", "Niger", "Ogun", "Ondo", "Osun", "Oyo",
-    "Plateau", "Rivers", "Sokoto", "Taraba", "Yobe", "Zamfara", "FCT",
-  ];
   // Save locally on every edit; the service debounces remote synchronization.
   const saveDraftInBackground = useCallback(
     (data) => saveDraftData(data, { background: true }),
@@ -135,17 +133,13 @@ const Location = () => {
 
     const savedAddress = draftData.address ?? draftData.propertyLocation?.fullAddress ?? "";
     if (savedAddress) setAddress(savedAddress);
+    setAddressLine2(draftData.addressLine2 || '');
+    setLga(normalizeLga(draftData.state,draftData.lga) || (draftData.country !== 'Nigeria' ? draftData.lga || '' : ''));
     if (draftData.city) setCity(draftData.city);
-    if (draftData.state) setState(draftData.state);
+    if (draftData.state) setState(normalizeState(draftData.state,draftData.country || 'Nigeria'));
     if (draftData.country) setCountry(draftData.country);
     if (draftData.postalCode) setPostalCode(draftData.postalCode);
 
-    // Use a small timeout to ensure the ref is available
-    timeoutId = setTimeout(() => {
-      if (googlePlacesRef.current && savedAddress) {
-        googlePlacesRef.current.setAddressText(savedAddress);
-      }
-    }, 500);
 
     let parsedLandmarks = [""];
     if (draftData.landmarks) {
@@ -179,27 +173,31 @@ const Location = () => {
 
   const locationTouched = useRef({});
   const latestLocation = useRef({});
-  latestLocation.current = { address, city, state, country };
+  latestLocation.current = { address, addressLine2, city, state, lga, country, postalCode };
 
   // Auto-save function
   const updateLocation = (updates) => {
-    Object.keys(updates).forEach(field => { locationTouched.current[field] = true; });
-    const invalidatesCoordinates = ['address', 'city', 'state', 'country'].some(field => updates[field] !== undefined)
+    const editedFields = Object.keys(updates);
+    editedFields.forEach(field => { locationTouched.current[field] = true; });
+    updates = locationPatch(latestLocation.current, updates);
+    const invalidatesCoordinates = ['address', 'city', 'state', 'lga', 'country'].some(field => editedFields.includes(field))
       && updates.latitude === undefined && updates.longitude === undefined;
     if (invalidatesCoordinates) setPropertyCoords(null);
-    const currentLat = updates.latitude !== undefined ? updates.latitude : (invalidatesCoordinates ? 0 : (propertyCoords?.lat || (draftData && draftData.latitude) || 0));
-    const currentLon = updates.longitude !== undefined ? updates.longitude : (invalidatesCoordinates ? 0 : (propertyCoords?.lon || (draftData && draftData.longitude) || 0));
+    const currentLat = updates.latitude !== undefined ? updates.latitude : (invalidatesCoordinates ? 0 : (propertyCoords?.lat ?? 0));
+    const currentLon = updates.longitude !== undefined ? updates.longitude : (invalidatesCoordinates ? 0 : (propertyCoords?.lon ?? 0));
     const finalAddress = updates.address !== undefined ? updates.address : address;
 
     const finalUpdates = { ...updates, currentStep: 4 };
     if (updates.landmarks !== undefined) finalUpdates.landmarks = JSON.stringify(updates.landmarks);
     if (invalidatesCoordinates) { finalUpdates.latitude = 0; finalUpdates.longitude = 0; }
-    if (invalidatesCoordinates || updates.address !== undefined || updates.latitude !== undefined || updates.longitude !== undefined) {
-      finalUpdates.propertyLocation = { coordinates: [currentLat, currentLon], fullAddress: finalAddress };
+    if (invalidatesCoordinates || updates.addressLine2 !== undefined || updates.address !== undefined || updates.latitude !== undefined || updates.longitude !== undefined) {
+      finalUpdates.propertyLocation = { coordinates: [currentLat, currentLon], fullAddress: fullPropertyAddress(finalAddress, updates.addressLine2 ?? addressLine2) };
     }
 
 
     if (updates.address !== undefined) setAddress(updates.address);
+    if (updates.addressLine2 !== undefined) setAddressLine2(updates.addressLine2);
+    if (updates.lga !== undefined) setLga(updates.lga);
     if (updates.city !== undefined) setCity(updates.city);
     if (updates.state !== undefined) setState(updates.state);
     if (updates.country !== undefined) setCountry(updates.country);
@@ -212,148 +210,26 @@ const Location = () => {
     saveDraftInBackground(finalUpdates);
   };
 
-  // Geocode an address string using Google Geocoding API with Nominatim Fallback
-  const geocodeAddress = useCallback(async (query) => {
-    try {
-      // Build a comprehensive query string
-      const fullQuery = [query, city, state, country].filter(v => v && v.trim()).join(', ');
-      const q = encodeURIComponent(fullQuery);
-      const isCurrentQuery = () => {
-        const latest = latestLocation.current;
-        return latest.address === query && latest.city === city && latest.state === state && latest.country === country;
-      };
-      
-      const apiKey = APP_CONFIG.GOOGLE_MAPS_API_KEY;
-      let geocoded = false;
-
-      // 1. Try Google Maps API if configured
-      if (apiKey && apiKey !== 'YOUR_GOOGLE_MAPS_API_KEY') {
-        try {
-          const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${q}&key=${apiKey}`;
-          const res = await fetch(url);
-          const data = await res.json();
-          if (!isCurrentQuery()) return;
-          if (data.status === 'OK' && data.results.length > 0) {
-            const result = data.results[0];
-            const loc = result.geometry.location;
-            const newCoords = { lat: loc.lat, lon: loc.lng };
-            setPropertyCoords(newCoords);
-            
-            // Extract components to smart-fill fields
-            let extractedCity = "";
-            let extractedState = "";
-            let extractedCountry = "";
-            
-            result.address_components.forEach((comp) => {
-              const types = comp.types;
-              if (types.includes("locality") || types.includes("sublocality"))
-                extractedCity = comp.long_name;
-              if (types.includes("administrative_area_level_1"))
-                extractedState = comp.long_name;
-              if (types.includes("country"))
-                extractedCountry = comp.long_name;
-            });
-
-            if (extractedCity && !locationTouched.current.city) setCity(extractedCity);
-            if (extractedState && !locationTouched.current.state) setState(extractedState);
-            if (extractedCountry && !locationTouched.current.country) setCountry(extractedCountry);
-
-            saveDraftData({ 
-              latitude: loc.lat, 
-              longitude: loc.lng, 
-              city: locationTouched.current.city ? city : extractedCity || city,
-              state: locationTouched.current.state ? state : extractedState || state,
-              country: locationTouched.current.country ? country : extractedCountry || country,
-              currentStep: 4 
-            });
-
-            // Animate map to new location
-            if (mapRef.current) {
-              mapRef.current.animateToRegion({
-                latitude: loc.lat,
-                longitude: loc.lng,
-                latitudeDelta: 0.005,
-                longitudeDelta: 0.005,
-              }, 1000);
-            }
-            geocoded = true;
-          }
-        } catch (gErr) {
-          console.warn('Google geocode error, falling back to OSM:', gErr);
-        }
-      }
-
-      // 2. Fallback to OpenStreetMap (Nominatim) search if Google didn't succeed
-      if (!geocoded) {
-        try {
-          const osmUrl = `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${q}&limit=1&addressdetails=1`;
-          const osmRes = await fetch(osmUrl, {
-            headers: {
-              'User-Agent': 'LUNEST-App/1.0',
-              'Accept': 'application/json',
-            }
-          });
-          const osmResults = await osmRes.json();
-          if (!isCurrentQuery()) return;
-          if (Array.isArray(osmResults) && osmResults.length > 0) {
-            const first = osmResults[0];
-            const lat = parseFloat(first.lat);
-            const lon = parseFloat(first.lon);
-            const newCoords = { lat, lon };
-            setPropertyCoords(newCoords);
-
-            const addr = first.address || {};
-            const extractedCity = addr.city || addr.town || addr.village || addr.suburb || "";
-            const extractedState = addr.state || addr.state_district || "";
-            const extractedCountry = addr.country || "Nigeria";
-
-            if (extractedCity && !locationTouched.current.city) setCity(extractedCity);
-            if (extractedState && !locationTouched.current.state) setState(extractedState);
-            if (extractedCountry && !locationTouched.current.country) setCountry(extractedCountry);
-
-            saveDraftData({ 
-              latitude: lat, 
-              longitude: lon, 
-              city: locationTouched.current.city ? city : extractedCity || city,
-              state: locationTouched.current.state ? state : extractedState || state,
-              country: locationTouched.current.country ? country : extractedCountry || country,
-              currentStep: 4 
-            });
-
-            if (mapRef.current) {
-              mapRef.current.animateToRegion({
-                latitude: lat,
-                longitude: lon,
-                latitudeDelta: 0.005,
-                longitudeDelta: 0.005,
-              }, 1000);
-            }
-          }
-        } catch (osmErr) {
-          console.warn('OSM geocode error:', osmErr);
-        }
-      }
-    } catch (e) {
-      console.warn('Geocode failed:', e);
-    }
-  }, [city, state, country, saveDraftData]);
-
-  // Auto-geocode when address changes (debounced 1.5s)
+  // Geocode through the bounded server proxy. Stale responses cannot change a newer edit.
+  const geocodeVersion = useRef(0);
   useEffect(() => {
-    if (geocodeTimerRef.current) clearTimeout(geocodeTimerRef.current);
-    if (address && address.trim().length >= 5) {
-      geocodeTimerRef.current = setTimeout(() => {
-        geocodeAddress(address);
-      }, 1500);
-    }
-    return () => {
-      if (geocodeTimerRef.current) clearTimeout(geocodeTimerRef.current);
-    };
-  }, [address, geocodeAddress]);
-
-
-
-
+    const version = ++geocodeVersion.current;
+    clearTimeout(geocodeTimerRef.current);
+    if (address.trim().length < 5 || propertyCoords) return;
+    const controller = new AbortController();
+    const snapshot = {...latestLocation.current};
+    geocodeTimerRef.current = setTimeout(async () => {
+      try {
+        const data = await requestPlaces('geocode',{address:[snapshot.address,snapshot.city,snapshot.lga,snapshot.state,snapshot.country].filter(Boolean).join(', ')},controller.signal);
+        if (version !== geocodeVersion.current || !data.results?.[0]) return;
+        const patch = selectedPlacePatch({description:snapshot.address},data.results[0],snapshot);
+        // Explicit city/state/LGA choices always win over reverse-geocoder suggestions.
+        for (const field of ['city','state','lga','country']) if (locationTouched.current[field]) patch[field]=latestLocation.current[field];
+        updateLocation(patch);
+      } catch { /* Manual address and state/LGA selection remain available. */ }
+    },1500);
+    return () => {clearTimeout(geocodeTimerRef.current);controller.abort();};
+  },[address,city,state,lga,country,propertyCoords]);
 
 
   const handleUseCurrentLocation = async () => {
@@ -420,7 +296,8 @@ const Location = () => {
         updateLocation({
           address: finalAddress,
           city: addr.city || city,
-          state: addr.region || state,
+          state: normalizeState(addr.region || state,addr.country || 'Nigeria'),
+          lga: normalizeLga(addr.region || state,addr.subregion || addr.district || ''),
           postalCode: addr.postalCode || postalCode,
           country: addr.country || "Nigeria",
           latitude: lat,
@@ -490,11 +367,13 @@ const Location = () => {
         draftId ||
         draftListingService.generateDraftId();
       
-      const lat = propertyCoords?.lat || (draftData && draftData.latitude) || 0;
-      const lon = propertyCoords?.lon || (draftData && draftData.longitude) || 0;
+      const lat = propertyCoords?.lat ?? 0;
+      const lon = propertyCoords?.lon ?? 0;
 
       const savePayload = {
         address,
+        addressLine2,
+        lga,
         city,
         state,
         country,
@@ -504,7 +383,7 @@ const Location = () => {
         longitude: lon,
         propertyLocation: {
           coordinates: [lat, lon],
-          fullAddress: address,
+          fullAddress: fullPropertyAddress(address,addressLine2),
         },
         currentStep: 4,
         draftId: finalDraftId,
@@ -526,7 +405,7 @@ const Location = () => {
   };
 
   // Validation - require at least address and city
-  const isValid = address.trim().length > 0 && city.trim().length > 0 && state.trim().length > 0;
+  const isValid = isLocationComplete({address,city,state,lga,country});
 
   const handleBack = async () => {
     const finalDraftId =
@@ -534,11 +413,13 @@ const Location = () => {
       draftId ||
       draftListingService.generateDraftId();
 
-    const lat = propertyCoords?.lat || (draftData && draftData.latitude) || 0;
-    const lon = propertyCoords?.lon || (draftData && draftData.longitude) || 0;
+    const lat = propertyCoords?.lat ?? 0;
+    const lon = propertyCoords?.lon ?? 0;
 
     const savePayload = {
       address,
+      addressLine2,
+      lga,
       city,
       state,
       country,
@@ -548,7 +429,7 @@ const Location = () => {
       longitude: lon,
       propertyLocation: {
         coordinates: [lat, lon],
-        fullAddress: address,
+        fullAddress: fullPropertyAddress(address,addressLine2),
       },
       currentStep: 4,
       draftId: finalDraftId,
@@ -564,17 +445,19 @@ const Location = () => {
   };
 
   const handleNext = () => {
-    if (address.trim() && city.trim() && state.trim()) {
+    if (isValid) {
         const finalDraftId =
         (draftData && draftData.draftId) ||
         draftId ||
         draftListingService.generateDraftId();
 
-      const lat = propertyCoords?.lat || (draftData && draftData.latitude) || 0;
-      const lon = propertyCoords?.lon || (draftData && draftData.longitude) || 0;
+      const lat = propertyCoords?.lat ?? 0;
+      const lon = propertyCoords?.lon ?? 0;
 
       const savePayload = {
         address,
+        addressLine2,
+        lga,
         city,
         state,
         country,
@@ -584,7 +467,7 @@ const Location = () => {
         longitude: lon,
         propertyLocation: {
           coordinates: [lat, lon],
-          fullAddress: address,
+          fullAddress: fullPropertyAddress(address,addressLine2),
         },
         currentStep: 4,
         draftId: finalDraftId,
@@ -598,7 +481,7 @@ const Location = () => {
         params: { draftId: finalDraftId },
       });
     } else {
-      toastService.showError("Please enter address, city, and state.");
+      toastService.showError("Enter the property address, city, state, and a valid LGA.");
     }
   };
 
@@ -661,7 +544,7 @@ const Location = () => {
 
               {/* Address Input - Search and Manual Entry */}
               <View style={{ marginBottom: 20, zIndex: 10 }}>
-                <Text style={styles.inputLabel}>Property Address *</Text>
+                <Text style={styles.inputLabel}>Property address line 1 *</Text>
                 
                 <View style={styles.addressSearchContainer}>
                   <GooglePlacesAutocomplete
@@ -669,74 +552,14 @@ const Location = () => {
                     placeholder="Search for your address..."
                     fetchDetails={true}
                     onPress={(data, details = null) => {
-                    if (details) {
-                      const { lat, lng } = details.geometry.location;
-                      setPropertyCoords({ lat: lat, lon: lng });
-                      const components = details.address_components;
-                      let streetNumber = "";
-                      let route = "";
-                      let extractedCity = "";
-                      let extractedState = "";
-                      let extractedPostalCode = "";
-                      let extractedCountry = "";
-
-                      components.forEach((comp) => {
-                        const types = comp.types;
-                        if (types.includes("street_number"))
-                          streetNumber = comp.long_name;
-                        if (types.includes("route")) route = comp.long_name;
-                        if (
-                          types.includes("locality") ||
-                          types.includes("sublocality")
-                        )
-                          extractedCity = comp.long_name;
-                        if (types.includes("administrative_area_level_1"))
-                          extractedState = comp.long_name;
-                        if (types.includes("postal_code"))
-                          extractedPostalCode = comp.long_name;
-                        if (types.includes("country"))
-                          extractedCountry = comp.long_name;
-                      });
-
-                      const fullStreet = `${streetNumber} ${route}`.trim();
-                      const finalAddress = data.description || fullStreet;
-
-                      setAddress(finalAddress);
-                      setCity(extractedCity || city);
-                      setState(extractedState || state);
-                      setPostalCode(extractedPostalCode || postalCode);
-                      setCountry(extractedCountry || country);
-
-                      updateLocation({
-                        address: finalAddress,
-                        city: extractedCity || city,
-                        state: extractedState || state,
-                        postalCode: extractedPostalCode || postalCode,
-                        country: extractedCountry || country,
-                        latitude: lat,
-                        longitude: lng,
-                      });
-
-                      if (mapRef.current) {
-                        mapRef.current.animateToRegion(
-                          {
-                            latitude: lat,
-                            longitude: lng,
-                            latitudeDelta: 0.005,
-                            longitudeDelta: 0.005,
-                          },
-                          1000,
-                        );
-                      }
-                    } else {
-                      setAddress(data.description);
-                      updateLocation({ address: data.description });
-                    }
-                  }}
+                      geocodeVersion.current++;
+                      clearTimeout(geocodeTimerRef.current);
+                      updateLocation(selectedPlacePatch(data,details,latestLocation.current));
+                    }}
                   query={{
                     key: APP_CONFIG.GOOGLE_MAPS_API_KEY,
                     language: "en",
-                    components: country === "Nigeria" ? "country:ng" : undefined,
+                    components: `country:${({'Nigeria':'ng','Ghana':'gh','Kenya':'ke','United Kingdom':'gb','United States':'us'})[country] || 'ng'}`,
                   }}
                   nearbyPlacesAPI="GooglePlacesSearch"
                   onFail={(error) => {
@@ -753,13 +576,8 @@ const Location = () => {
                     numberOfLines: 1,
                     clearButtonMode: 'while-editing',
                     returnKeyType: 'search',
-                    onBlur: () => {
-                      const text = googlePlacesRef.current?.getAddressText();
-                      if (text) {
-                        setAddress(text);
-                        updateLocation({ address: text });
-                      }
-                    }
+                    value: address,
+                    onChangeText: text => updateLocation({address:text}),
                   }}
                   enablePoweredByContainer={false}
                   keyboardShouldPersistTaps="always"
@@ -853,6 +671,11 @@ const Location = () => {
               </View>
             </View>
 
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Address line 2</Text>
+          <TextInput accessibilityLabel="Address line 2" style={styles.textInput} placeholder="Apartment, suite, floor or building (optional)" placeholderTextColor="#999999" value={addressLine2} onChangeText={text=>updateLocation({addressLine2:text})} />
+        </View>
+
         {/* City and State Row */}
         <View style={styles.inputRow}>
           <View style={[styles.inputGroup, { flex: 1 }]}>
@@ -867,15 +690,15 @@ const Location = () => {
           </View>
           <View style={[styles.inputGroup, { flex: 1 }]}>
             <Text style={styles.inputLabel}>State *</Text>
-            <Pressable
-              style={[styles.textInput, styles.countryPicker]}
-              onPress={() => setShowStateModal(true)}
-            >
-              <Text style={{ color: state ? "#000000" : "#999999" }}>
-                {state || "Select State"}
-              </Text>
-            </Pressable>
+            {country === 'Nigeria' ? <Pressable accessibilityRole="button" accessibilityLabel={`State: ${state || 'Select state'}`} style={[styles.textInput,styles.countryPicker]} onPress={()=>setShowStateModal(true)}><Text style={{color:state?'#000000':'#999999'}}>{state || 'Select state'}</Text></Pressable>
+              : <TextInput accessibilityLabel="State or region" style={styles.textInput} value={state} onChangeText={text=>updateLocation({state:text})} placeholder="Enter state or region" />}
           </View>
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>{country === 'Nigeria' ? 'Local government area (LGA) *' : 'District / local authority'}</Text>
+          {country === 'Nigeria' ? <Pressable accessibilityRole="button" accessibilityLabel={`Local government area: ${lga || 'Select LGA'}`} accessibilityState={{disabled:!state}} disabled={!state} style={[styles.textInput,styles.countryPicker,!state&&{opacity:.55}]} onPress={()=>setShowLgaModal(true)}><Text style={{color:lga?'#000000':'#999999'}}>{lga || (state?'Select LGA':'Select a state first')}</Text></Pressable>
+            : <TextInput accessibilityLabel="District or local authority" style={styles.textInput} value={lga} onChangeText={text=>updateLocation({lga:text})} placeholder="Optional" />}
         </View>
 
         {/* Country and Postal Code Row */}
@@ -998,7 +821,7 @@ const Location = () => {
                     key={c}
                     style={{ paddingVertical: 12 }}
                     onPress={() => {
-                      setCountry(c);
+                      updateLocation({country:c});
                       setShowCountryModal(false);
                     }}
                   >
@@ -1010,38 +833,9 @@ const Location = () => {
           </Pressable>
         </Modal>
 
-        {/* State selection modal */}
-        <Modal visible={showStateModal} transparent animationType="slide">
-          <Pressable
-            style={styles.deleteModalOverlay}
-            onPress={() => setShowStateModal(false)}
-          >
-            <Pressable
-              style={[styles.countryModalContainer, { maxHeight: 400 }]}
-              onPress={(e) => e.stopPropagation()}
-            >
-              <ScrollView style={{ padding: 16 }} nestedScrollEnabled>
-                {nigeriaStates.map((s) => (
-                  <Pressable
-                    key={s}
-                    style={{
-                      paddingVertical: 12,
-                      backgroundColor: state === s ? "#F0F0FF" : "transparent",
-                      paddingHorizontal: 8,
-                      borderRadius: 6,
-                    }}
-                    onPress={() => {
-                      updateLocation({ state: s });
-                      setShowStateModal(false);
-                    }}
-                  >
-                    <Text style={{ fontSize: 16, fontWeight: state === s ? "700" : "400" }}>{s}</Text>
-                  </Pressable>
-                ))}
-              </ScrollView>
-            </Pressable>
-          </Pressable>
-        </Modal>
+        <LocationSelectionModal visible={showStateModal} title="Select state" options={NIGERIA_STATES} value={state} onClose={()=>setShowStateModal(false)} onSelect={value=>{updateLocation({state:value});setShowStateModal(false);}} />
+        <LocationSelectionModal visible={showLgaModal} title={`Select LGA${state ? ' in '+state : ''}`} options={getLgas(state)} value={lga} onClose={()=>setShowLgaModal(false)} onSelect={value=>{updateLocation({lga:value});setShowLgaModal(false);}} />
+
 
       </ScrollView>
       </KeyboardAvoidingView>

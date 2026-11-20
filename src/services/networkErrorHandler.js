@@ -158,16 +158,7 @@ class NetworkErrorHandler {
      * Get platform-specific error message with helpful guidance
      */
     static getPlatformErrorMessage(baseMessage) {
-        switch (Platform.OS) {
-            case "ios":
-                return this.getIOSErrorMessage(baseMessage);
-            case "android":
-                return this.getAndroidErrorMessage(baseMessage);
-            case "web":
-                return this.getWebErrorMessage(baseMessage);
-            default:
-                return baseMessage;
-        }
+        return baseMessage;
     }
 
     /**

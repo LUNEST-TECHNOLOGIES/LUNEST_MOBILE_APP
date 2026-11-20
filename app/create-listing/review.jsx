@@ -1,3 +1,4 @@
+import { isLocationComplete } from "../../src/utils/listingLocation";
 /**
  * Create Listing - Step 9: Review
  * Review all listing details before submission
@@ -519,8 +520,8 @@ const Review = () => {
       toastService.showError("Complete the required Property Details before submitting.");
       return false;
     }
-    if (!String(mergedData.address ?? "").trim() || !String(mergedData.city ?? "").trim() || !String(mergedData.state ?? "").trim()) {
-      toastService.showError("Complete the property address, city, and state in Location.");
+    if (!isLocationComplete({...mergedData,country:mergedData.country || 'Nigeria'})) {
+      toastService.showError("Complete the property address, city, state, and LGA in Location.");
       return false;
     }
     if (!Number.isFinite(price) || price <= 0 || (mergedData.intent !== "sale" && !mergedData.pricingPeriod)) {
@@ -719,6 +720,8 @@ const Review = () => {
         description:
           mergedData.propertyHighlight || mergedData.description || "",
         address: mergedData.address || "",
+        addressLine2: mergedData.addressLine2 || "",
+        lga: mergedData.lga || "",
         city: mergedData.city || "",
         state: mergedData.state || "",
         country: mergedData.country || "Nigeria",
@@ -1045,6 +1048,8 @@ const Review = () => {
         <View style={styles.section}>
           <Text style={styles.subsectionTitle}>Location</Text>
           <SummaryRow label="Address" value={mergedData.address || "N/A"} />
+          {!!mergedData.addressLine2 && <SummaryRow label="Address line 2" value={mergedData.addressLine2} />}
+          {!!mergedData.lga && <SummaryRow label="LGA" value={mergedData.lga} />}
           <SummaryRow label="City" value={mergedData.city || "N/A"} />
           <SummaryRow label="State" value={mergedData.state || "N/A"} />
           <SummaryRow label="Country" value={mergedData.country || "Nigeria"} />

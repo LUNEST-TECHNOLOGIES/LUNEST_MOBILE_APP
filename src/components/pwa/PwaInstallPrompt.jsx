@@ -5,7 +5,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   Platform,
-  Modal,
   Image
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
@@ -166,13 +165,8 @@ export default function PwaInstallPrompt() {
   if (!isVisible) return null;
 
   return (
-    <Modal
-      transparent
-      animationType="slide"
-      visible={isVisible}
-      onRequestClose={handleDismiss}
-    >
-      <View style={styles.overlay}>
+    <View pointerEvents="box-none" style={[StyleSheet.absoluteFillObject,{zIndex:9000}]}>
+      <View pointerEvents="box-none" style={styles.overlay}>
         <View style={styles.bannerContainer}>
           {/* Header */}
           <View style={styles.headerRow}>
@@ -225,7 +219,7 @@ export default function PwaInstallPrompt() {
           </TouchableOpacity>
         </View>
       </View>
-    </Modal>
+    </View>
   );
 }
 
@@ -233,7 +227,7 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    backgroundColor: 'transparent',
   },
   bannerContainer: {
     backgroundColor: '#FFFFFF',

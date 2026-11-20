@@ -48,7 +48,7 @@ export const UserModeProvider = ({ children }) => {
     const version = ++generation.current;
     const local = await authService.getUserData();
     const id = identity(local);
-    const loggedIn = await authService.isLoggedIn();
+    const loggedIn = await authService.hasLocalSession();
     if (version !== generation.current) return false;
     if (!loggedIn || !id) {
       userRef.current = null;
@@ -61,7 +61,23 @@ export const UserModeProvider = ({ children }) => {
     }
     const changedAccount = userRef.current !== id;
     userRef.current = id;
-    const response = await bounded(authService.fetchProfile(), 5000);
+    // Restore cached mode immediately. Revalidate privileges without blocking the screen.
+    const response = null;
+    if (!restore) {
+      const fresh = await bounded(authService.fetchProfile(), 5000);
+      if (fresh?.data) Object.assign(local, fresh.data);
+    } else {
+      bounded(authService.fetchProfile(), 6000).then(fresh => {
+        if (version !== generation.current || !fresh?.data) return;
+        const allowed = canHost(fresh.data);
+        hostRef.current = allowed;
+        setIsHost(allowed);
+        if (!allowed && modeRef.current === USER_MODES.HOST) {
+          modeRef.current = USER_MODES.GUEST;
+          setMode(USER_MODES.GUEST);
+        }
+      });
+    }
     if (version !== generation.current) return false;
     const allowed = canHost(response?.data || local);
     hostRef.current = allowed;

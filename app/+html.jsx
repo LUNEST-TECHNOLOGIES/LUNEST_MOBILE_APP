@@ -182,24 +182,18 @@ const bootRecovery = `
     if (message) message.textContent = 'Taking longer than usual. Check your connection or reload the app.';
     if (button) button.hidden = false;
   }
-  setTimeout(showRecovery, 12000);
+  setTimeout(showRecovery, 7000);
   window.addEventListener('error', function(event) {
     if (event.target && event.target.tagName === 'SCRIPT') showRecovery();
   }, true);
   var button = document.getElementById('lunest-boot-retry');
   if (button) button.addEventListener('click', async function() {
     button.disabled = true;
-    var cleanup = (async function() {
-      try {
-        if ('caches' in window) {
-          var names = await caches.keys();
-          await Promise.allSettled(names.filter(function(name) { return name.indexOf('lunest-pwa-') === 0; }).map(function(name) { return caches.delete(name); }));
-        }
-      } catch (_) {}
-    })();
-    // A locked cache cannot hold the recovery button forever.
-    await Promise.race([cleanup, new Promise(function(resolve) { setTimeout(resolve, 800); })]);
-    location.reload();
+    // Preserve saved assets and drafts. A forced navigation bypasses stale HTML,
+    // while the worker can still open the saved shell if the connection is down.
+    var url = new URL(location.href);
+    url.searchParams.set('__lunest_recover', Date.now());
+    location.replace(url.href);
   });
 })();
 `;

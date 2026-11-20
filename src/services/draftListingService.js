@@ -696,6 +696,8 @@ class DraftListingService {
       usageType: params.usageType || "",
       // Step 4
       address: params.address || "",
+      addressLine2: params.addressLine2 || "",
+      lga: params.lga || "",
       city: params.city || "",
       state: params.state || "",
       country: params.country || "Nigeria",

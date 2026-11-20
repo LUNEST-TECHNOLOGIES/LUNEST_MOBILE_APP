@@ -1,3 +1,5 @@
+import inactivityTimeoutService from "../src/services/inactivityTimeoutService";
+import { restoreOfflineQueries } from "../src/lib/offlineQueries";
 import BootScreen from "../src/components/common/BootScreen";
 import { withStartupTimeout } from "../src/utils/startup";
 import { useWebsiteAnalytics } from "../src/hooks/useWebsiteAnalytics";
@@ -63,7 +65,8 @@ export default function RootLayout() {
 
     // Re-check auth status when navigating to tabs
     const checkAndNavigate = async () => {
-      const loggedIn = await authService.isLoggedIn();
+      await restoreOfflineQueries();
+      const loggedIn = await authService.hasLocalSession();
 
       if (loggedIn) {
         // User is logged in - go to home if on auth/onboarding screens
@@ -101,7 +104,7 @@ export default function RootLayout() {
       if (!startupPromise.current) {
         const pending = (async () => {
           await Promise.all([apiClient.initialize(), authService.initialize()]);
-          await authService.isLoggedIn();
+          await restoreOfflineQueries();
         })();
         startupPromise.current = pending;
         pending.then(() => {
@@ -114,12 +117,13 @@ export default function RootLayout() {
       setIsLoading(false);
     } catch (error) {
       console.error("Error checking app status:", error);
+      startupPromise.current = null;
       setStartupError(true);
     }
   };
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={{ flex: 1 }} onTouchStart={() => inactivityTimeoutService.recordUserActivity()}>
       <QueryClientProvider client={queryClient}>
         <ErrorBoundary>
           <UserModeProvider>

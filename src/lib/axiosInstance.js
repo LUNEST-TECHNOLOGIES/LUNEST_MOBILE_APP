@@ -1,3 +1,4 @@
+import { isDeviceOffline, reportNetworkFailure, reportNetworkSuccess } from "../services/connectionService";
 import axios from "axios";
 import authService from "../services/authService";
 import configService from "../services/configService";
@@ -13,7 +14,7 @@ import { navigateToLogin } from "../utils/navigationUtils";
  * 3. Standardized Error Handling
  */
 const axiosInstance = axios.create({
-  timeout: 60000,
+  timeout: 15000,
   headers: {
     "Content-Type": "application/json",
     Accept: "application/json",
@@ -23,6 +24,7 @@ const axiosInstance = axios.create({
 // Request Interceptor: Inject Auth Token
 axiosInstance.interceptors.request.use(
   async (config) => {
+    if (isDeviceOffline()) throw new Error('You’re offline. Reconnect to continue.');
     // Dynamically set baseURL if not already set
     if (!config.baseURL) {
       try {
@@ -53,9 +55,10 @@ let isRedirectingToLogin = false;
 
 // Response Interceptor: Standard Error Handling with Automatic Token Refresh
 axiosInstance.interceptors.response.use(
-  (response) => response,
+  (response) => { reportNetworkSuccess(); return response; },
   async (error) => {
     const status = error.response?.status;
+    if (!error.response) reportNetworkFailure();
     const originalRequest = error.config;
     const url = originalRequest?.url || 'unknown';
 
@@ -79,7 +82,12 @@ axiosInstance.interceptors.response.use(
         console.error("[Axios] Token refresh failed during 401 retry:", refreshErr?.message || refreshErr);
       }
 
-      // Refresh failed or token permanently invalid — clear session and redirect to Login
+      // A failed network refresh is not proof that the saved session was revoked.
+      if (await authService.hasLocalSession()) {
+        reportNetworkFailure();
+        return Promise.reject(new Error('Connection interrupted. Your saved session is still available.'));
+      }
+      // The server explicitly rejected refresh credentials.
       isRedirectingToLogin = true;
       console.warn("[Axios] Token refresh failed — clearing session and redirecting to Login");
 

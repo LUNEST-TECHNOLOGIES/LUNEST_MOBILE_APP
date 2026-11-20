@@ -186,7 +186,9 @@ const SignupScreen = ({ onBack, onLogin, onSignupSuccess }) => {
                 pathname: "/verify-code",
                 params: { 
                   email: email,
-                  flow: 'registration' // Specify this is for registration
+                  flow: 'registration',
+                  delivery: responseData.emailDeliveryStatus || 'ACCEPTED',
+                  deliveryMessage: responseData.message || ''
                 }
               });
             }, 1000);

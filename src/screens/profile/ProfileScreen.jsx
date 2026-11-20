@@ -83,17 +83,11 @@ const ProfileScreen = ({ isHostMode: isHostModeProp = false }) => {
     isRefetching: refreshingProfile
   } = useQuery({
     queryKey: ["userProfile"],
-    queryFn: async () => {
-      const response = await axiosInstance.get("/v1/users/profile");
+    queryFn: async ({ signal }) => {
+      const response = await axiosInstance.get("/v1/users/profile", { signal });
       return response.data.body || response.data;
     },
   });
-
-  useFocusEffect(
-    useCallback(() => {
-      refetchProfile();
-    }, [refetchProfile])
-  );
 
   const { 
     data: walletInfo, 
@@ -318,15 +312,6 @@ const ProfileScreen = ({ isHostMode: isHostModeProp = false }) => {
       },
     },
     {
-      id: "notification",
-      icon: "notification",
-      title: "Notification Settings",
-      badge: { text: "Coming Soon", type: "info" },
-      onPress: () => {
-        console.log("Notification Settings");
-      },
-    },
-    {
       id: "privacy",
       icon: "privacy",
       title: "Privacy & Sharing",
@@ -542,6 +527,8 @@ const ProfileScreen = ({ isHostMode: isHostModeProp = false }) => {
             phone={profileData?.phoneNumber || profileData?.phone || ""}
             nin={profileData?.nin || ""}
             isHostMode={isInHostMode}
+            phoneVerified={profileData?.phoneVerified}
+            kycStatus={profileData?.kycStatus}
             emailVerified={profileData?.emailVerified}
             verified={isVerified}
             avatarUri={profileData?.avatar}

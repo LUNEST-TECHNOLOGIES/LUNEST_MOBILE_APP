@@ -676,37 +676,22 @@ const PropertyDetailsScreen = () => {
     handleRefresh();
   };
 
+  const savingBookmark = useRef(false);
   const handleToggleBookmark = async () => {
+    if (savingBookmark.current) return;
+    savingBookmark.current = true;
+    const previous = isBookmarked;
+    setIsBookmarked(!previous);
     try {
-      console.log("[PropertyDetailsScreen] Toggling bookmark:", {
-        listingId,
-        currentState: isBookmarked,
-        bookmarkId,
-      });
-
-      const result = await bookmarkService.toggleBookmark(
-        listingId,
-        isBookmarked,
-        bookmarkId,
-      );
-
-      if (result.success) {
-        const newStatus = !isBookmarked;
-        setIsBookmarked(newStatus);
-
-        if (result.action === "added") {
-          showToast("Added to your saved properties");
-          // Fetch the new bookmark to get its ID
-          const bookmarkStatus =
-            await bookmarkService.isListingBookmarked(listingId);
-          setBookmarkId(bookmarkStatus.bookmarkId);
-        } else {
-          showToast("Removed from saved properties", TOAST_TYPE.INFO);
-          setBookmarkId(null);
-        }
-      }
+      const result = await bookmarkService.toggleBookmark(listingId, previous, bookmarkId);
+      if (!result.success) throw new Error(result.message || "Could not update saved properties");
+      setBookmarkId(previous ? null : result.bookmarkId);
+      showToast(previous ? "Removed from saved properties" : "Added to your saved properties");
     } catch (error) {
-      console.error("[PropertyDetailsScreen] Error toggling bookmark:", error);
+      setIsBookmarked(previous);
+      showToast(error.message, TOAST_TYPE.ERROR);
+    } finally {
+      savingBookmark.current = false;
     }
   };
 
@@ -887,20 +872,10 @@ const PropertyDetailsScreen = () => {
         ? listing.amenities
         : []
       ).map(formatAmenity),
+      additionalRules: Array.isArray(listing?.additionalRules) ? listing.additionalRules.join("\n") : listing?.additionalRules || "",
       regulations: (() => {
         const houseRulesLabels = convertHouseRulesToLabels(listing.houseRules);
-        const additionalRulesArray = listing.additionalRules
-          ? typeof listing.additionalRules === "string"
-            ? listing.additionalRules
-              .split(/[,\n]/)
-              .map((r) => r.trim())
-              .filter(Boolean)
-            : Array.isArray(listing.additionalRules)
-              ? listing.additionalRules
-                .map((r) => String(r || "").trim())
-                .filter(Boolean)
-              : [String(listing.additionalRules)]
-          : [];
+
 
         const regulationsArray = Array.isArray(listing.regulations)
           ? listing.regulations
@@ -910,7 +885,6 @@ const PropertyDetailsScreen = () => {
 
         const allRules = [
           ...houseRulesLabels,
-          ...additionalRulesArray,
           ...regulationsArray,
         ];
         return [...new Set(allRules)].filter((r) => r && r.trim());
@@ -1298,7 +1272,7 @@ const PropertyDetailsScreen = () => {
           propertyName: propertyData.title,
           price: listing.propertyPrice?.price || listing.price || 0,
           pricingPeriod: listing.pricingPeriod || listing.propertyPrice?.frequency || "night",
-          regulations: JSON.stringify(propertyData.regulations),
+          regulations: JSON.stringify([...propertyData.regulations, ...(propertyData.additionalRules ? [propertyData.additionalRules] : [])]),
           maxGuests: listing.guests || 10,
           bedrooms: listing.bedrooms || 0,
           bathrooms: listing.bathrooms || 0,
@@ -1618,6 +1592,7 @@ const PropertyDetailsScreen = () => {
                 </Text>
               </View>
             ))}
+          {!!propertyData.additionalRules && <Text selectable style={[styles.regulationText, Platform.OS === "web" && {whiteSpace:"pre-wrap"}]}>{propertyData.additionalRules}</Text>}
         </View>
       </View>
     );

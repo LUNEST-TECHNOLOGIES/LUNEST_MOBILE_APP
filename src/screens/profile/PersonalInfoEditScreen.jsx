@@ -21,6 +21,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Circle, Path } from "react-native-svg";
 import PhoneVerificationModal from "../../components/modals/PhoneVerificationModal";
 import ToastNotification, { TOAST_TYPE } from "../../components/common/ToastNotification";
+import { queryClient } from "../../lib/queryClient";
 import authService from "../../services/authService";
 import profileService from "../../services/profileService";
 
@@ -362,7 +363,8 @@ const PersonalInfoEditScreen = () => {
           isVerified: isServerVerified,
           kycStatus: resolvedKycStatus,
           kycRejectionReason: resolvedRejectionReason,
-          phoneVerified: !!serverProfileResult?.data?.phoneVerified || false,
+          emailVerified: serverProfileResult?.data?.emailVerified ?? authData?.emailVerified ?? false,
+          phoneVerified: serverProfileResult?.data?.phoneVerified ?? authData?.phoneVerified ?? false,
           nextOfKin: {
             fullName: serverNok.fullName || savedProfile?.nextOfKin?.fullName || prev.nextOfKin?.fullName || "",
             relationship: serverNok.relationship || savedProfile?.nextOfKin?.relationship || prev.nextOfKin?.relationship || "",
@@ -395,7 +397,8 @@ const PersonalInfoEditScreen = () => {
           isVerified: isServerVerified,
           kycStatus: resolvedKycStatus,
           kycRejectionReason: resolvedRejectionReason,
-          phoneVerified: !!serverProfileResult?.data?.phoneVerified || false,
+          emailVerified: serverProfileResult?.data?.emailVerified ?? authData?.emailVerified ?? false,
+          phoneVerified: serverProfileResult?.data?.phoneVerified ?? authData?.phoneVerified ?? false,
           nextOfKin: {
             fullName: serverNok.fullName || prev.nextOfKin?.fullName || "",
             relationship: serverNok.relationship || prev.nextOfKin?.relationship || "",
@@ -939,7 +942,7 @@ const PersonalInfoEditScreen = () => {
               disabled={!!userData.email}
               isEmpty={!userData.email}
               showVerification={!!userData.email}
-              isVerified={!!userData.email}
+              isVerified={userData.emailVerified === true}
             />
             <InfoRow
               label={userData.phone ? `Phone: ${userData.phone}` : "Phone Number"}
@@ -1060,19 +1063,6 @@ const PersonalInfoEditScreen = () => {
               actionText={userData.employment.employerContact ? "Update" : "Add"}
               onAction={() => handleUpdate("employerContact", true)}
               isEmpty={!userData.employment.employerContact}
-            />
-            {/* CAC and Business ID verification coming soon */}
-            <InfoRow
-              label="CAC verification"
-              showVerification
-              isVerified={userData.employment.cacVerified}
-              isComingSoon={true}
-            />
-            <InfoRow
-              label="Business ID"
-              showVerification
-              isVerified={userData.employment.businessIdVerified}
-              isComingSoon={true}
             />
           </SectionCard>
 
@@ -1218,7 +1208,7 @@ const PersonalInfoEditScreen = () => {
           setShowPhoneVerificationModal(false);
           setPendingPhoneUpdate(null);
         }}
-        onVerified={(verifiedData) => {
+        onVerified={async (verifiedData) => {
           console.log("[PersonalInfoEdit] Phone verified:", verifiedData);
           // Update local state with verified phone data
           setUserData((prev) => ({
@@ -1226,8 +1216,12 @@ const PersonalInfoEditScreen = () => {
             phone: verifiedData.phone,
             phoneVerified: true,
           }));
-          // Refresh profile data to get latest from server
-          loadProfileData();
+          await queryClient.cancelQueries({ queryKey: ["userProfile"], exact: true });
+          queryClient.setQueryData(["userProfile"], previous => previous && ({
+            ...previous, phoneNumber: verifiedData.phone, phoneVerified: true
+          }));
+          queryClient.invalidateQueries({ queryKey: ["userProfile"], exact: true });
+
         }}
       />
 

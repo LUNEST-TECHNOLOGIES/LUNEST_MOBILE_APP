@@ -805,24 +805,14 @@ const FullDetailsScreen = () => {
       propertyMedia: getPropertyMedia(),
       features: getFeatures(),
       amenities: (listing?.amenities || []).map(formatAmenity),
+      additionalRules: Array.isArray(listing?.additionalRules) ? listing.additionalRules.join("\n") : listing?.additionalRules || "",
       regulations: (() => {
         // Converted house rules and additional rules
         const houseRulesLabels = convertHouseRulesToLabels(listing?.houseRules);
 
-        const additionalRulesArray = listing?.additionalRules
-          ? typeof listing.additionalRules === "string"
-            ? listing.additionalRules
-                .split(",")
-                .map((rule) => rule.trim())
-                .filter((rule) => rule)
-            : Array.isArray(listing.additionalRules)
-              ? listing.additionalRules
-                  .map((rule) => String(rule || "").trim())
-                  .filter((rule) => rule)
-              : [String(listing.additionalRules)]
-          : [];
 
-        return [...houseRulesLabels, ...additionalRulesArray].filter(
+
+        return houseRulesLabels.filter(
           (rule) => rule && rule.trim(),
         );
       })(),
@@ -1025,7 +1015,7 @@ const FullDetailsScreen = () => {
   };
 
   const renderRegulationsSection = () => {
-    if (!propertyData.regulations || propertyData.regulations.length === 0)
+    if (!propertyData.additionalRules && !propertyData.regulations?.length)
       return null;
 
     return (
@@ -1042,6 +1032,7 @@ const FullDetailsScreen = () => {
               <Text style={styles.regulationText}>{regulation}</Text>
             </View>
           ))}
+          {!!propertyData.additionalRules && <Text selectable style={[styles.regulationText, Platform.OS === "web" && {whiteSpace:"pre-wrap"}]}>{propertyData.additionalRules}</Text>}
         </View>
       </View>
     );

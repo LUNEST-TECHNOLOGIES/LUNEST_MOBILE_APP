@@ -1325,7 +1325,7 @@ const Review = () => {
                 <Text style={styles.additionalRulesLabel}>
                   Additional Rules:
                 </Text>
-                <Text style={styles.additionalRulesText}>
+                <Text style={[styles.additionalRulesText, Platform.OS === "web" && {whiteSpace:"pre-wrap"}]}>
                   {String(mergedData.additionalRules || "")}
                 </Text>
               </View>

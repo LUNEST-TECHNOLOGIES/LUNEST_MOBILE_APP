@@ -208,12 +208,7 @@ const SelectListingIntent = () => {
             selected={selectedIntent === 'rent'}
             onPress={() => updateIntent('rent')}
           />
-          <IntentOption
-            title="For Sale"
-            selected={selectedIntent === 'sale'}
-            onPress={() => updateIntent('sale')}
-            comingSoon={true}
-          />
+          {selectedIntent === 'sale' && <IntentOption title="For Sale" selected onPress={() => {}} />}
         </View>
       </View>
 

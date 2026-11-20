@@ -585,6 +585,18 @@ class ListingService {
    * Fetch all public listings (for guest browsing)
    * @returns {Promise<Array>} Array of all public listings
    */
+  async hydrateListingIds(values) {
+    const ids = [...new Set(values.filter(value => typeof value === 'string' && /^[a-f0-9]{24}$/i.test(value)))];
+    const records = new Map();
+    for (let start = 0; start < ids.length; start += 100) {
+      const batch = ids.slice(start, start + 100);
+      const result = await this.fetchAllListings({ listingIds: batch, page: 1, limit: batch.length });
+      if (!result.success) throw new Error(result.message);
+      for (const listing of result.listings) records.set(listing._id || listing.id, listing);
+    }
+    return values.map(value => typeof value === 'string' ? records.get(value) : value);
+  }
+
   async fetchAllListings(filters = {}) {
     console.log("[ListingService] Fetching all public listings...");
     try {
@@ -1528,7 +1540,7 @@ class ListingService {
       }
       if (draftData.checkInTime) payload.checkInTime = draftData.checkInTime;
       if (draftData.checkOutTime) payload.checkOutTime = draftData.checkOutTime;
-      if (draftData.additionalRules) payload.additionalRules = draftData.additionalRules;
+      if (typeof draftData.additionalRules === "string") payload.additionalRules = draftData.additionalRules;
       if (draftData.regulations || draftData.houseRules) {
         payload.regulations = Array.isArray(draftData.regulations) 
           ? draftData.regulations 
@@ -1564,7 +1576,7 @@ class ListingService {
       // 6. Explicit Availability & Rules mapping
       if (draftData.checkInTime) payload.checkInTime = draftData.checkInTime;
       if (draftData.checkOutTime) payload.checkOutTime = draftData.checkOutTime;
-      if (draftData.additionalRules) payload.additionalRules = draftData.additionalRules;
+
 
       // Special case for houseRules - some frontends send as array, backend might expect string
       if (Array.isArray(payload.houseRules)) {

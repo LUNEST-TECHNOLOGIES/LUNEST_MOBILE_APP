@@ -1294,9 +1294,15 @@ class AuthService {
         },
       );
 
-      // Update local storage with updated data
-      if (response.body) {
-        await this.setUserData(response.body);
+      // Merge confirmed edits into the profile currently displayed for this account.
+      if (response.body && token === await secureStorageService.getSecureItem(SECURE_KEYS.AUTH_TOKEN)) {
+        const { queryClient } = require("../lib/queryClient");
+        await queryClient.cancelQueries({queryKey:["userProfile"], exact:true});
+        queryClient.setQueryData(["userProfile"], previous => {
+          if (!previous || String(previous.id || previous._id) !== String(response.body.id || response.body._id)) return previous;
+          return {...previous, ...response.body};
+        });
+        await this.setUserData({...await this.getUserData(), ...response.body});
 
         // Sync avatar with profile service if updated
         const avatarUrl = ImageUtils.resolveImageUrlSync(response.body.avatar, this.baseURL);

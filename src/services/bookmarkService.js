@@ -177,7 +177,7 @@ class BookmarkService {
 
       const existingStatus = await this.isListingBookmarked(listingId);
       if (existingStatus.isBookmarked) {
-        return { success: true, message: "Property already saved" };
+        return { success: true, bookmarkId: existingStatus.bookmarkId, message: "Property already saved" };
       }
 
       const response = await fetch(
@@ -191,29 +191,6 @@ class BookmarkService {
           body: JSON.stringify({ listing: listingId }),
         },
       );
-
-      if (!response.ok) {
-        if (response.status === 404) {
-          const bookmarks = await this.getLocalBookmarks();
-          const existingLocal = bookmarks.find(function (b) {
-            return (
-              b.listing === listingId ||
-              (b.listing && b.listing._id === listingId)
-            );
-          });
-          if (existingLocal) {
-            return { success: true, message: "Property already saved" };
-          }
-          const newBookmark = {
-            _id: "local_" + Date.now(),
-            listing: listingId,
-            createdAt: new Date().toISOString(),
-          };
-          bookmarks.push(newBookmark);
-          await this.saveLocalBookmarks(bookmarks);
-          return { success: true, message: "Property saved successfully" };
-        }
-      }
 
       const result = await response.json();
 
@@ -240,7 +217,7 @@ class BookmarkService {
           await this.saveLocalBookmarks(bookmarks);
         }
         return {
-          success: true,
+          success: true, bookmarkId: existingLocal?._id || bookmarkId,
           message: result.message || "Property saved successfully",
         };
       }
@@ -251,23 +228,7 @@ class BookmarkService {
       };
     } catch (error) {
       console.error("[BookmarkService] Error creating bookmark:", error);
-      const bookmarks = await this.getLocalBookmarks();
-      const existingLocal = bookmarks.find(function (b) {
-        return (
-          b.listing === listingId || (b.listing && b.listing._id === listingId)
-        );
-      });
-      if (existingLocal) {
-        return { success: true, message: "Property already saved" };
-      }
-      const newBookmark = {
-        _id: "local_" + Date.now(),
-        listing: listingId,
-        createdAt: new Date().toISOString(),
-      };
-      bookmarks.push(newBookmark);
-      await this.saveLocalBookmarks(bookmarks);
-      return { success: true, message: "Property saved successfully" };
+      return { success: false, message: "Could not save this property. Please try again." };
     }
   }
 
@@ -322,12 +283,7 @@ class BookmarkService {
       };
     } catch (error) {
       console.error("[BookmarkService] Error deleting bookmark:", error);
-      const bookmarks = await this.getLocalBookmarks();
-      const filtered = bookmarks.filter(function (b) {
-        return b._id !== bookmarkId;
-      });
-      await this.saveLocalBookmarks(filtered);
-      return { success: true, message: "Property removed from saved" };
+      return { success: false, message: "Could not remove this property. Please try again." };
     }
   }
 

@@ -1,5 +1,5 @@
 import { Bed, Droplets, Heart, LayoutGrid, MapPin, PlayCircle } from "lucide-react-native";
-import { Image } from "expo-image";
+import Image from "./ListingImage";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import {
   Dimensions,
@@ -62,7 +62,8 @@ const PropertyListingCard = ({
   onFavoritePress,
 }) => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [favorite, setFavorite] = useState(isFavorite);
+  const [localFavorite, setLocalFavorite] = useState(isFavorite);
+  const favorite = onFavoritePress ? isFavorite : localFavorite;
   const [containerWidth, setContainerWidth] = useState(SCREEN_WIDTH - 40);
   const scrollViewRef = useRef(null);
   
@@ -70,7 +71,7 @@ const PropertyListingCard = ({
 
   // Sync isFavorite prop changes to state
   useEffect(() => {
-    setFavorite(isFavorite);
+    setLocalFavorite(isFavorite);
   }, [isFavorite]);
 
   // Handle container layout to get actual width
@@ -101,7 +102,7 @@ const PropertyListingCard = ({
 
   const handleFavoritePress = (e) => {
     e.stopPropagation();
-    setFavorite(!favorite);
+    if (!onFavoritePress) setLocalFavorite(!favorite);
     if (onFavoritePress) {
       onFavoritePress(id, !favorite);
     }

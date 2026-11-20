@@ -57,80 +57,12 @@ const SavedScreen = () => {
       const result = await bookmarkService.fetchBookmarks(options || {});
       const bms = result.success ? result.bookmarks : [];
 
-      // Hydrate any bookmarks where the listing is just a string (ID)
-      const unpopulatedListingIds = bms
-        .map((b) => b.listing)
-        .filter((l) => typeof l === "string");
-
-      if (unpopulatedListingIds.length > 0) {
-        try {
-          console.log("[SavedScreen] Hydrating bookmarks with string listing IDs:", unpopulatedListingIds);
-          const populatedListings = await Promise.allSettled(
-            unpopulatedListingIds.map(async (id) => {
-              try {
-                const res = await listingService.fetchListingById(id);
-                // If listing no longer exists (deleted/inactive), return null
-                return res.success && res.listing ? res.listing : null;
-              } catch (e) {
-                // Property was deleted or doesn't exist — silently skip
-                console.log(`[SavedScreen] Listing ${id} no longer exists, removing from saved`);
-                return null;
-              }
-            })
-          );
-
-          const validListings = populatedListings
-            .filter((r) => r.status === 'fulfilled' && r.value)
-            .map((r) => r.value);
-
-          // Auto-remove bookmarks pointing to deleted properties
-          const deletedIds = unpopulatedListingIds.filter(
-            (id) => !validListings.find((l) => l._id === id || l.id === id)
-          );
-          if (deletedIds.length > 0) {
-            console.log("[SavedScreen] Cleaning up bookmarks for deleted listings:", deletedIds);
-            // Remove stale bookmarks in the background (non-blocking)
-            deletedIds.forEach((deletedId) => {
-              const staleBookmark = bms.find((b) => b.listing === deletedId);
-              if (staleBookmark?._id) {
-                bookmarkService.deleteBookmark(staleBookmark._id).catch(() => {});
-              }
-            });
-          }
-
-          return bms
-            .map((b) => {
-              if (typeof b.listing === "string") {
-                const found = validListings.find(
-                  (l) => l && (l._id === b.listing || l.id === b.listing)
-                );
-                if (found) {
-                  b.listing = found;
-                } else {
-                  // Listing doesn't exist anymore — mark for removal
-                  return null;
-                }
-              }
-              return b;
-            })
-            .filter((b) => b && b.listing && typeof b.listing === "object");
-        } catch (err) {
-          console.error("[SavedScreen] Failed to hydrate bookmarks:", err);
-        }
-      }
-
-      // Filter out bookmarks where listing was deleted (populated but empty/null)
-      // Ensure all listings have both id and _id defined for UI compatibility
-      return bms
-        .map((b) => {
-          if (b && b.listing && typeof b.listing === "object") {
-            if (!b.listing._id && b.listing.id) b.listing._id = b.listing.id;
-            if (!b.listing.id && b.listing._id) b.listing.id = b.listing._id;
-          }
-          return b;
-        })
-        .filter((b) => b && b.listing && typeof b.listing === "object" && (b.listing._id || b.listing.id)
-          && (b.listing.propertyTitle || b.listing.propertyName || b.listing.title || b.listing._id));
+      const listings = await listingService.hydrateListingIds(bms.map(bookmark => bookmark.listing));
+      return bms.flatMap((bookmark, i) => {
+        const listing = listings[i];
+        if (!listing || !(listing._id || listing.id)) return [];
+        return [{ ...bookmark, listing: { ...listing, id: listing.id || listing._id, _id: listing._id || listing.id } }];
+      });
     },
     staleTime: 0,
     refetchOnMount: true,
@@ -146,40 +78,10 @@ const SavedScreen = () => {
       const result = await listingService.fetchRecentlyViewed();
       const listings = result.success ? result.listings : [];
 
-      // Hydrate any recently viewed items that are just string IDs
-      const unpopulatedIds = listings.filter((l) => typeof l === "string");
-      if (unpopulatedIds.length > 0) {
-        try {
-          console.log("[SavedScreen] Hydrating recently viewed string IDs:", unpopulatedIds);
-          const populated = await Promise.all(
-            unpopulatedIds.map(async (id) => {
-              const res = await listingService.fetchListingById(id);
-              return res.success ? res.listing : null;
-            })
-          );
-          return listings
-            .map((l) => {
-              if (typeof l === "string") {
-                return populated.find((p) => p && (p._id === l || p.id === l));
-              }
-              return l;
-            })
-            .filter((l) => l && typeof l === "object");
-        } catch (err) {
-          console.error("[SavedScreen] Failed to hydrate recently viewed:", err);
-        }
-      }
-
-      // Ensure all listings have both id and _id defined for UI compatibility
-      return listings
-        .map((l) => {
-          if (l && typeof l === "object") {
-            if (!l._id && l.id) l._id = l.id;
-            if (!l.id && l._id) l.id = l._id;
-          }
-          return l;
-        })
-        .filter((l) => l && typeof l === "object" && (l._id || l.id));
+      const hydrated = await listingService.hydrateListingIds(listings);
+      return hydrated.filter(listing => listing && (listing.id || listing._id)).map(listing => ({
+        ...listing, id: listing.id || listing._id, _id: listing._id || listing.id
+      }));
     },
     enabled: activeTab === "recent",
   });

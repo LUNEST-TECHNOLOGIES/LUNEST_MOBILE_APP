@@ -2,6 +2,8 @@
  * LoginSecurityScreen - Manage password and account deactivation
  */
 import { Ionicons } from "@expo/vector-icons";
+import apiClient from "../../services/apiClient";
+import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
@@ -32,6 +34,26 @@ const BackIcon = ({ size = 24, color = "black" }) => (
 
 const LoginSecurityScreen = () => {
   const router = useRouter();
+  const queryClient = useQueryClient();
+  const [confirmDeletion, setConfirmDeletion] = useState(false);
+  const [requestingDeletion, setRequestingDeletion] = useState(false);
+  const [deletionRequested, setDeletionRequested] = useState(() => !!queryClient.getQueryData(["userProfile"])?.deletionRequestedAt);
+  const requestDeletion = async () => {
+    if (requestingDeletion) return;
+    setRequestingDeletion(true);
+    try {
+      const result = await apiClient.post("/v1/users/request-account-deletion", { confirm: true });
+      if (!result.success || !result.body?.deletionRequestedAt) throw new Error("Could not record the request.");
+      setDeletionRequested(true);
+      await queryClient.cancelQueries({queryKey:["userProfile"]});
+      queryClient.setQueryData(["userProfile"], previous => previous && ({...previous, deletionRequestedAt:result.body.deletionRequestedAt}));
+      setConfirmDeletion(false);
+      showToast("Your account deletion request was recorded.");
+    } catch (error) {
+      setConfirmDeletion(false);
+      showToast(error.message || "Could not record the request. Please try again.", "error");
+    } finally { setRequestingDeletion(false); }
+  };
   const {
     isAccountActive,
     isLoading,
@@ -127,6 +149,12 @@ const LoginSecurityScreen = () => {
       color: "#010135",
       onPress: () => router.push("/withdrawal-pin"),
     },
+    {
+      id: "delete-account", icon: "trash-outline", color: "#B70808",
+      title: deletionRequested ? "Account deletion requested" : "Delete My Account",
+      subtitle: deletionRequested ? "Awaiting administrator review" : "Request permanent deletion of your account and personal data",
+      onPress: () => deletionRequested ? showToast("Your request is awaiting administrator review.") : setConfirmDeletion(true),
+    },
     isAccountActive
       ? {
           id: "deactivate-account",
@@ -157,6 +185,16 @@ const LoginSecurityScreen = () => {
         duration={3000}
       />
 
+      <Modal visible={confirmDeletion} transparent animationType="fade" onRequestClose={() => !requestingDeletion && setConfirmDeletion(false)}>
+        <View style={{flex:1, backgroundColor:"rgba(0,0,0,.45)",justifyContent:"center",padding:24}}>
+          <View style={{backgroundColor:"white",borderRadius:18,padding:24,maxWidth:480,width:"100%",alignSelf:"center",gap:16}}>
+            <Text accessibilityRole="header" style={{fontSize:21,fontWeight:"700"}}>Request permanent deletion?</Text>
+            <Text>LUNEST Support will receive your request. Compliance reviews what can be erased, and Engineering carries out approved deletions. You can continue using your account while the request is pending.</Text>
+            <Pressable accessibilityRole="button" disabled={requestingDeletion} onPress={requestDeletion} style={{padding:14,backgroundColor:"#A01724",borderRadius:10}}><Text style={{color:"white",textAlign:"center"}}>{requestingDeletion ? "Submitting…" : "Request account deletion"}</Text></Pressable>
+            <Pressable accessibilityRole="button" disabled={requestingDeletion} onPress={()=>setConfirmDeletion(false)} style={{padding:12}}><Text style={{textAlign:"center"}}>Cancel</Text></Pressable>
+          </View>
+        </View>
+      </Modal>
       {/* Header */}
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} style={styles.backButton}>

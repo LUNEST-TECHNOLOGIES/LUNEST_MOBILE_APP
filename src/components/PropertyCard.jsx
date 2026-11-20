@@ -7,7 +7,7 @@ import {
   Text,
   View,
 } from "react-native";
-import { Image } from "expo-image";
+import Image from "./shared/ListingImage";
 import configService from "../services/configService";
 import { resolveImageUrlSync } from "../utils/imageUtils";
 import { getAmenityIcon } from "../utils/amenityIcons";
@@ -53,12 +53,13 @@ const PropertyCard = ({
   onPress,
   onFavoritePress,
 }) => {
-  const [favorite, setFavorite] = useState(isFavorite);
+  const [localFavorite, setLocalFavorite] = useState(isFavorite);
+  const favorite = onFavoritePress ? isFavorite : localFavorite;
   const [imageError, setImageError] = useState(false);
 
   // Sync internal state with prop when it changes (e.g., from bookmarkMap updates)
   useEffect(() => {
-    setFavorite(isFavorite);
+    setLocalFavorite(isFavorite);
   }, [isFavorite]);
 
   useEffect(() => {
@@ -90,7 +91,7 @@ const PropertyCard = ({
   };
 
   const handleFavoritePress = () => {
-    setFavorite(!favorite);
+    if (!onFavoritePress) setLocalFavorite(!favorite);
     if (onFavoritePress) {
       onFavoritePress(id, !favorite);
     }

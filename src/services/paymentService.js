@@ -94,21 +94,16 @@ class PaymentService {
    * @returns {Promise<Array<{name: string, code: string}>>}
    */
   async getBanks() {
-    try {
-      console.log("[PaymentService] Fetching banks");
-
-      const response = await apiClient.get("/v1/payments/banks");
-
-      if (response.success) {
-        console.log("[PaymentService] Banks fetched:", response.body.length);
-        return response.body;
-      } else {
-        throw new Error(response.message || "Failed to fetch banks");
-      }
-    } catch (error) {
-      console.error("[PaymentService] Get banks error:", error);
-      throw error;
+    if (this.bankDirectory && Date.now() < this.bankDirectoryExpires) return this.bankDirectory;
+    if (!this.bankDirectoryRequest) {
+      this.bankDirectoryRequest = apiClient.get("/v1/payments/banks").then(response => {
+        if (!response.success || !Array.isArray(response.body)) throw new Error(response.message || "Failed to fetch banks");
+        this.bankDirectory = response.body;
+        this.bankDirectoryExpires = Date.now() + 6 * 60 * 60 * 1000;
+        return this.bankDirectory;
+      }).finally(() => { this.bankDirectoryRequest = null; });
     }
+    return this.bankDirectoryRequest;
   }
 
   /**

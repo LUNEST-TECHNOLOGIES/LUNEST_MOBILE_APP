@@ -305,7 +305,7 @@ const TopPicksSection = ({
           // Check bookmark status from bookmarkMap prop
           const bookmarkStatus = bookmarkMap[listing.id];
           const isFavorite =
-            bookmarkStatus?.isBookmarked || listing.isFavorite || false;
+            bookmarkStatus?.isBookmarked ?? listing.isFavorite ?? false;
 
           // Debug log
           console.log("[TopPicksSection] Rendering PropertyCard:", {

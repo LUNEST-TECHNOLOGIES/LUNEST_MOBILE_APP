@@ -260,7 +260,7 @@ const LandlordRequestForm = () => {
       if (!result.canceled) {
         if (type === 'property') {
           const newImages = result.assets.map(asset => asset.uri);
-          setPropertyImages(prev => [...prev, ...newImages].slice(0, 10)); // Max 10 images
+          setPropertyImages(prev => [...prev, ...newImages].slice(0, 15)); // Max 15 images
         } else if (type === 'auth') {
           setAuthorizationLetter(result.assets[0].uri);
         } else if (type === 'landlord') {

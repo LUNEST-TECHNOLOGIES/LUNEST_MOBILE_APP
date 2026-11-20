@@ -37,6 +37,8 @@ import draftListingService from "../../src/services/draftListingService";
 import mediaUploadService from "../../src/services/mediaUploadService";
 import toastService from "../../src/services/toastService";
 
+const MAX_PROPERTY_PHOTOS = 15;
+
 // Fallback for ActivityIndicator
 const RNActivityIndicator = ActivityIndicator;
 
@@ -175,7 +177,7 @@ const Photos = () => {
       }
     });
 
-    setPhotos(validPhotos.slice(0, 10));
+    setPhotos(validPhotos.slice(0, MAX_PROPERTY_PHOTOS));
     setVideos(loadedVideos.slice(0, 3));
 
     setInitialLoadDone(true);
@@ -218,12 +220,12 @@ const Photos = () => {
                 return updated;
               }
               if (!prev.includes(task.serverUrl)) {
-                return [...prev, task.serverUrl].slice(0, 10);
+                return [...prev, task.serverUrl].slice(0, MAX_PROPERTY_PHOTOS);
               }
               return prev;
             }
             if (!prev.includes(task.localUri) && (!task.serverUrl || !prev.includes(task.serverUrl))) {
-              return [...prev, task.localUri].slice(0, 10);
+              return [...prev, task.localUri].slice(0, MAX_PROPERTY_PHOTOS);
             }
             return prev;
           });
@@ -293,9 +295,9 @@ const Photos = () => {
       }
     }
 
-    const remainingSlots = Math.max(0, 10 - (photos ? photos.length : 0));
+    const remainingSlots = Math.max(0, MAX_PROPERTY_PHOTOS - (photos ? photos.length : 0));
     if (remainingSlots <= 0) {
-      toastService.showError("Maximum 10 photos allowed.");
+      toastService.showError(`Maximum ${MAX_PROPERTY_PHOTOS} photos allowed.`);
       return;
     }
 
@@ -303,7 +305,7 @@ const Photos = () => {
       mediaTypes: ["images"],
       allowsMultipleSelection: true,
       quality: 0.8,
-      selectionLimit: Math.min(10, remainingSlots),
+      selectionLimit: Math.min(MAX_PROPERTY_PHOTOS, remainingSlots),
       base64: Platform.OS === "web",
     });
 
@@ -312,7 +314,7 @@ const Photos = () => {
 
       // Immediately add local preview URIs so user sees them right away
       const newLocalUris = selectedAssets.map((a) => a.uri);
-      const updatedPhotos = [...photos, ...newLocalUris].slice(0, 10);
+      const updatedPhotos = [...photos, ...newLocalUris].slice(0, MAX_PROPERTY_PHOTOS);
       setPhotos(updatedPhotos);
 
       // Enqueue to background MediaUploadService
@@ -545,7 +547,7 @@ const Photos = () => {
         {/* Photos Section */}
         <Text style={styles.sectionTitle}>Add photos of your property</Text>
         <Text style={styles.subtitle}>
-          Upload at least 3 photos (max 10) <Text style={styles.requiredText}>*Required</Text>
+          Upload at least 3 photos (max {MAX_PROPERTY_PHOTOS}) <Text style={styles.requiredText}>*Required</Text>
         </Text>
 
         {/* Photos Grid & Upload Area */}
@@ -622,7 +624,7 @@ const Photos = () => {
               );
             })}
 
-            {displayPhotos.length < 10 && (
+            {displayPhotos.length < MAX_PROPERTY_PHOTOS && (
               <Pressable style={styles.addMoreButton} onPress={pickImage}>
                 <Plus size={24} color="#010135" strokeWidth={2} />
                 <Text style={styles.addMoreText}>Add More</Text>
@@ -631,7 +633,7 @@ const Photos = () => {
           </View>
         )}
 
-        <Text style={styles.photoCount}>{displayPhotos.length}/10 photos selected</Text>
+        <Text style={styles.photoCount}>{displayPhotos.length}/{MAX_PROPERTY_PHOTOS} photos selected</Text>
 
         {/* Video Section */}
         <View style={styles.videoSection}>

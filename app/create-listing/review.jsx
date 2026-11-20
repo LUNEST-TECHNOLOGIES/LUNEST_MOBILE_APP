@@ -682,12 +682,12 @@ const Review = () => {
 
       // ...existing code...
 
-      // Limit images to prevent backend rejection (max 20 URLs)
-      if (propertyImages.length > 20) {
+      // Keep the submitted photo list within the listing photo limit.
+      if (propertyImages.length > 15) {
         console.warn(
-          `[Review] Limiting images from ${propertyImages.length} to 20`,
+          `[Review] Limiting images from ${propertyImages.length} to 15`,
         );
-        propertyImages = propertyImages.slice(0, 20);
+        propertyImages = propertyImages.slice(0, 15);
       }
 
       // Step 2: Build listing data with image URLs

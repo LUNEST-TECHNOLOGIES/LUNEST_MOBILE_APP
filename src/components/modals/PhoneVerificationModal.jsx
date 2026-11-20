@@ -1,6 +1,11 @@
+import { cleanVerificationCode, isCompleteVerificationCode, normalizeVerificationPhone, parseVerificationPhone } from '../../utils/phoneVerification';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
+    KeyboardAvoidingView,
+    ScrollView,
+    useWindowDimensions,
     FlatList,
     Modal,
     Platform,
@@ -28,6 +33,7 @@ const COUNTRY_CODES = [
   { code: '+49', dial: '49', flag: '🇩🇪', name: 'Germany' },
   { code: '+33', dial: '33', flag: '🇫🇷', name: 'France' },
   { code: '+353', dial: '353', flag: '🇮🇪', name: 'Ireland' },
+  { code: '', dial: '', flag: '🌍', name: 'Other country (enter full + number)' },
 ];
 
 /**
@@ -94,80 +100,50 @@ const PhoneVerificationModal = ({ visible, phone, onClose, onVerified }) => {
   const [maskedPhone, setMaskedPhone] = useState('');
   const otpInputRef = useRef(null);
 
-  // Initialize and parse passed phone prop
-  useEffect(() => {
-    if (visible) {
-      setStep('phone');
-      setOtpCode('');
-      setIsLoading(false);
-      setError('');
-      setResendTimer(0);
-      setMaskedPhone('');
-      setShowCountryModal(false);
+  const busyRef = useRef(false);
+  const sessionRef = useRef(0);
+  const closeTimerRef = useRef(null);
+  const resendUntil = useRef(0);
+  const challengePhone = useRef(null);
+  const initialPhone = useRef(phone);
+  initialPhone.current = phone;
+  const { height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
 
-      if (phone) {
-        let raw = String(phone).replace(/[\s\-()]/g, '');
-        // Check if phone starts with a known country dial code
-        const matched = COUNTRY_CODES.find((c) => raw.startsWith(c.code) || raw.startsWith(c.dial));
-        if (matched) {
-          setSelectedCountry(matched);
-          let national = raw;
-          if (national.startsWith(matched.code)) {
-            national = national.slice(matched.code.length);
-          } else if (national.startsWith(matched.dial)) {
-            national = national.slice(matched.dial.length);
-          }
-          setPhoneNumber(national);
-        } else {
-          setSelectedCountry(COUNTRY_CODES[0]);
-          setPhoneNumber(raw);
-        }
-      } else {
-        setSelectedCountry(COUNTRY_CODES[0]);
-        setPhoneNumber('');
-      }
-    }
-  }, [visible, phone]);
+  useEffect(() => {
+    sessionRef.current += 1;
+    busyRef.current = false;
+    clearTimeout(closeTimerRef.current);
+    if (!visible) return;
+    const parsed = parseVerificationPhone(initialPhone.current, COUNTRY_CODES);
+    setSelectedCountry(parsed.country); setPhoneNumber(parsed.number);
+    setStep('phone'); setOtpCode(''); setIsLoading(false); setError('');
+    setResendTimer(0); resendUntil.current = 0; setMaskedPhone(''); setShowCountryModal(false);
+    challengePhone.current = null;
+    return () => { sessionRef.current += 1; clearTimeout(closeTimerRef.current); };
+  }, [visible]);
 
   // Resend timer countdown
   useEffect(() => {
-    if (resendTimer > 0) {
-      const timer = setTimeout(() => setResendTimer(resendTimer - 1), 1000);
+    if (visible && resendTimer > 0) {
+      const timer = setTimeout(() => setResendTimer(Math.max(0, Math.ceil((resendUntil.current - Date.now()) / 1000))), 1000);
       return () => clearTimeout(timer);
     }
-  }, [resendTimer]);
+  }, [resendTimer, visible]);
 
-  // Validate phone input based on selected country
-  const validatePhone = (number, country) => {
-    const cleaned = number.replace(/[\s\-()+]/g, '');
-    if (country.dial === '234') {
-      // For Nigeria: 10 digits without leading zero, or 11 digits starting with 0
-      if (cleaned.startsWith('0')) {
-        return cleaned.length === 11;
-      }
-      return cleaned.length === 10;
-    }
-    // Foreign numbers: between 7 and 15 digits
-    return cleaned.length >= 7 && cleaned.length <= 15;
-  };
-
-  // Format phone number for display
+  const validatePhone = (number, country) => !!normalizeVerificationPhone(number, country);
   const formatPhoneForDisplay = (number, country) => {
-    let cleaned = number.replace(/[\s\-()]/g, '');
-    if (country.dial === '234' && cleaned.startsWith('0')) {
-      cleaned = cleaned.slice(1);
-    }
-    const full = `${country.code} ${cleaned}`;
-    if (full.length > 7) {
-      return full.slice(0, 8) + ' **** ' + full.slice(-3);
-    }
-    return full;
+    const full = normalizeVerificationPhone(number, country) || String(number);
+    return full.slice(0, 5) + ' •••• ' + full.slice(-3);
   };
 
   // Step 1: Send OTP
   const handleSendOTP = async () => {
+    if (busyRef.current) return;
     if (!validatePhone(phoneNumber, selectedCountry)) {
-      if (selectedCountry.dial === '234') {
+      if (phoneNumber.trim().startsWith('+') || !selectedCountry.dial) {
+        setError('Enter a valid international phone number with its country code.');
+      } else if (selectedCountry.dial === '234') {
         setError('Please enter a valid 10 or 11-digit Nigerian number (e.g., 08012345678 or 8012345678)');
       } else {
         setError(`Please enter a valid phone number for ${selectedCountry.name}`);
@@ -175,15 +151,13 @@ const PhoneVerificationModal = ({ visible, phone, onClose, onVerified }) => {
       return;
     }
 
+    busyRef.current = true;
+    const session = sessionRef.current;
     setIsLoading(true);
     setError('');
 
     try {
-      let cleanedPhone = phoneNumber.replace(/[\s\-()]/g, '');
-      // If Nigeria and starts with 0, strip leading 0 for API
-      if (selectedCountry.dial === '234' && cleanedPhone.startsWith('0')) {
-        cleanedPhone = cleanedPhone.slice(1);
-      }
+      const cleanedPhone = challengePhone.current || normalizeVerificationPhone(phoneNumber, selectedCountry);
 
       const payload = {
         phone: cleanedPhone,
@@ -192,13 +166,16 @@ const PhoneVerificationModal = ({ visible, phone, onClose, onVerified }) => {
       };
 
       const result = await authService.sendPhoneOTP(payload, selectedCountry.code);
+      if (session !== sessionRef.current) return;
 
       if (result.success) {
+        challengePhone.current = cleanedPhone;
         setStep('otp');
         setMaskedPhone(result.data?.maskedPhone || formatPhoneForDisplay(phoneNumber, selectedCountry));
-        setResendTimer(60);
+        resendUntil.current = Date.now() + 60000; setResendTimer(60);
         setTimeout(() => otpInputRef.current?.focus(), 300);
       } else {
+        if (result.retryAfter) { resendUntil.current = Date.now() + result.retryAfter * 1000; setResendTimer(result.retryAfter); }
         const rawMsg = result.message || '';
         const isFundingOrGatewayError = /fund|balance|insufficient|termii|gateway|provider|credit|sms/i.test(rawMsg);
         setError(isFundingOrGatewayError || !rawMsg
@@ -206,30 +183,30 @@ const PhoneVerificationModal = ({ visible, phone, onClose, onVerified }) => {
           : rawMsg);
       }
     } catch (err) {
+      if (session !== sessionRef.current) return;
       console.error('[PhoneVerification] Send OTP error:', err);
       setError('Unable to send verification code. Please check your connection and try again.');
     } finally {
-      setIsLoading(false);
+      if (session === sessionRef.current) { busyRef.current = false; setIsLoading(false); }
     }
   };
 
   // Step 2: Verify OTP (supports manual press or auto-verify upon entering 6th digit)
   const handleVerifyOTP = async (overrideOtp) => {
     const code = (typeof overrideOtp === 'string' ? overrideOtp : otpCode).trim();
-    if (code.length < 4) {
+    if (!isCompleteVerificationCode(code)) {
       setError('Please enter the 6-digit code received via SMS');
       return;
     }
-    if (isLoading) return;
+    if (busyRef.current) return;
 
+    busyRef.current = true;
+    const session = sessionRef.current;
     setIsLoading(true);
     setError('');
 
     try {
-      let cleanedPhone = phoneNumber.replace(/[\s\-()]/g, '');
-      if (selectedCountry.dial === '234' && cleanedPhone.startsWith('0')) {
-        cleanedPhone = cleanedPhone.slice(1);
-      }
+      const cleanedPhone = challengePhone.current || normalizeVerificationPhone(phoneNumber, selectedCountry);
 
       const payload = {
         phone: cleanedPhone,
@@ -238,18 +215,20 @@ const PhoneVerificationModal = ({ visible, phone, onClose, onVerified }) => {
       };
 
       const result = await authService.verifyPhoneOTP(payload, code, selectedCountry.code);
+      if (session !== sessionRef.current) return;
 
       if (result.success) {
         setStep('verified');
         if (onVerified) {
-          onVerified({
+          try { onVerified({
             phone: result.data?.phone || cleanedPhone,
             countryCode: selectedCountry.code,
             data: result.data,
-          });
+          }); } catch (callbackError) { console.warn('Phone verified; profile refresh will retry.', callbackError); }
         }
-        setTimeout(() => onClose(), 2000);
+        closeTimerRef.current = setTimeout(() => onClose(), 1500);
       } else {
+        if (result.retryAfter) { resendUntil.current = Date.now() + result.retryAfter * 1000; setResendTimer(result.retryAfter); }
         const rawMsg = result.message || '';
         const isFundingOrGatewayError = /fund|balance|insufficient|termii|gateway|provider|credit/i.test(rawMsg);
         setError(isFundingOrGatewayError || !rawMsg
@@ -259,24 +238,24 @@ const PhoneVerificationModal = ({ visible, phone, onClose, onVerified }) => {
         setTimeout(() => otpInputRef.current?.focus(), 200);
       }
     } catch (err) {
+      if (session !== sessionRef.current) return;
       console.error('[PhoneVerification] Verify OTP error:', err);
       setError('An error occurred during verification. Please try again.');
       setOtpCode('');
     } finally {
-      setIsLoading(false);
+      if (session === sessionRef.current) { busyRef.current = false; setIsLoading(false); }
     }
   };
 
   // Resend OTP
   const handleResendOTP = async () => {
-    if (resendTimer > 0 || isLoading) return;
+    if (resendTimer > 0 || busyRef.current) return;
+    busyRef.current = true;
+    const session = sessionRef.current;
     setIsLoading(true);
     setError('');
     try {
-      let cleanedPhone = phoneNumber.replace(/[\s\-()]/g, '');
-      if (selectedCountry.dial === '234' && cleanedPhone.startsWith('0')) {
-        cleanedPhone = cleanedPhone.slice(1);
-      }
+      const cleanedPhone = challengePhone.current || normalizeVerificationPhone(phoneNumber, selectedCountry);
 
       const payload = {
         phone: cleanedPhone,
@@ -286,11 +265,13 @@ const PhoneVerificationModal = ({ visible, phone, onClose, onVerified }) => {
       };
 
       const result = await authService.sendPhoneOTP(payload, selectedCountry.code);
+      if (session !== sessionRef.current) return;
       if (result.success) {
-        setResendTimer(60);
+        resendUntil.current = Date.now() + 60000; setResendTimer(60);
         setOtpCode('');
         setTimeout(() => otpInputRef.current?.focus(), 200);
       } else {
+        if (result.retryAfter) { resendUntil.current = Date.now() + result.retryAfter * 1000; setResendTimer(result.retryAfter); }
         const rawMsg = result.message || '';
         const isFundingOrGatewayError = /fund|balance|insufficient|termii|gateway|provider|credit|sms/i.test(rawMsg);
         setError(isFundingOrGatewayError || !rawMsg
@@ -298,9 +279,10 @@ const PhoneVerificationModal = ({ visible, phone, onClose, onVerified }) => {
           : rawMsg);
       }
     } catch (err) {
+      if (session !== sessionRef.current) return;
       setError('Unable to resend OTP at this time. Please try again.');
     } finally {
-      setIsLoading(false);
+      if (session === sessionRef.current) { busyRef.current = false; setIsLoading(false); }
     }
   };
 
@@ -315,8 +297,8 @@ const PhoneVerificationModal = ({ visible, phone, onClose, onVerified }) => {
       animationType="fade"
       onRequestClose={handleClose}
     >
-      <View style={styles.overlay}>
-        <View style={styles.container}>
+      <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{flexGrow:1,justifyContent:'center',alignItems:'center'}} style={{width:'100%',maxHeight:height-insets.top-insets.bottom-32}}><View style={styles.container}>
           {/* Header */}
           <View style={styles.header}>
             <Text style={styles.title}>
@@ -361,10 +343,10 @@ const PhoneVerificationModal = ({ visible, phone, onClose, onVerified }) => {
                       setPhoneNumber(text);
                       if (error) setError('');
                     }}
-                    placeholder={selectedCountry.dial === '234' ? 'e.g. 09034525963' : 'Phone number'}
+                    placeholder={!selectedCountry.dial ? '+ country code and number' : selectedCountry.dial === '234' ? '08012345678' : 'Phone number'}
                     placeholderTextColor="#94A3B8"
                     keyboardType="phone-pad"
-                    maxLength={16}
+                    maxLength={24}
                     editable={!isLoading}
                     autoFocus
                     includeFontPadding={false}
@@ -378,8 +360,8 @@ const PhoneVerificationModal = ({ visible, phone, onClose, onVerified }) => {
                 <Text style={styles.infoTitle}>Verification Details</Text>
                 <Text style={styles.infoText}>
                   • Nigerian numbers accept 080... or 80... formats{'\n'}
-                  • Foreign country codes supported for international guests{'\n'}
-                  • Code is valid for 10 minutes (max 3 trials per 24 hours){'\n'}
+                  • Select a country or enter a full international + number{'\n'}
+                  • Code is valid for 10 minutes (up to 3 code requests per 24 hours){'\n'}
                   • SMS sender may appear as <Text style={styles.boldText}>OE Alert</Text> or <Text style={styles.boldText}>PVTAlert</Text>
                 </Text>
               </View>
@@ -446,7 +428,7 @@ const PhoneVerificationModal = ({ visible, phone, onClose, onVerified }) => {
                   style={styles.hiddenOtpInput}
                   value={otpCode}
                   onChangeText={(text) => {
-                    const cleaned = text.replace(/[^0-9]/g, '').slice(0, 6);
+                    const cleaned = cleanVerificationCode(text);
                     setOtpCode(cleaned);
                     if (error) setError('');
                     // Auto-verify as soon as the 6th digit is entered
@@ -454,10 +436,11 @@ const PhoneVerificationModal = ({ visible, phone, onClose, onVerified }) => {
                       handleVerifyOTP(cleaned);
                     }
                   }}
+                  accessibilityLabel="Six-digit verification code"
                   keyboardType="number-pad"
                   maxLength={6}
                   textContentType="oneTimeCode"
-                  autoComplete="one-time-code"
+                  autoComplete={Platform.OS === "android" ? "sms-otp" : "one-time-code"}
                   editable={!isLoading}
                   autoFocus
                 />
@@ -470,9 +453,9 @@ const PhoneVerificationModal = ({ visible, phone, onClose, onVerified }) => {
               </Text>
 
               <TouchableOpacity
-                style={[styles.primaryButton, (isLoading || otpCode.length < 4) && styles.primaryButtonDisabled]}
+                style={[styles.primaryButton, (isLoading || otpCode.length !== 6) && styles.primaryButtonDisabled]}
                 onPress={handleVerifyOTP}
-                disabled={isLoading || otpCode.length < 4}
+                disabled={isLoading || otpCode.length !== 6}
               >
                 {isLoading ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
@@ -489,7 +472,7 @@ const PhoneVerificationModal = ({ visible, phone, onClose, onVerified }) => {
                 ) : (
                   <TouchableOpacity onPress={handleResendOTP} disabled={isLoading}>
                     <Text style={[styles.resendText, isLoading && styles.resendTextDisabled]}>
-                      Didn't receive the SMS? Resend Code
+                      Didn&apos;t receive the SMS? Resend Code
                     </Text>
                   </TouchableOpacity>
                 )}
@@ -498,6 +481,7 @@ const PhoneVerificationModal = ({ visible, phone, onClose, onVerified }) => {
               <TouchableOpacity
                 style={styles.secondaryButton}
                 onPress={() => {
+                  challengePhone.current = null;
                   setStep('phone');
                   setOtpCode('');
                   setError('');
@@ -515,15 +499,15 @@ const PhoneVerificationModal = ({ visible, phone, onClose, onVerified }) => {
               <SuccessCheckIcon size={76} />
               <Text style={styles.successText}>Phone Number Verified</Text>
               <Text style={styles.phoneText}>
-                {selectedCountry.code} {phoneNumber}
+                {challengePhone.current || normalizeVerificationPhone(phoneNumber, selectedCountry)}
               </Text>
               <Text style={styles.successSubtext}>
                 Your phone is now verified and active for bookings and account security.
               </Text>
             </View>
           )}
-        </View>
-      </View>
+        </View></ScrollView>
+      </KeyboardAvoidingView>
 
       {/* Country Selection Modal */}
       <Modal
@@ -746,9 +730,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 6,
   },
   otpBox: {
-    width: 44,
+    flex: 1,
+    minWidth: 0,
+    maxWidth: 44,
     height: 52,
     borderRadius: 10,
     backgroundColor: '#F8FAFC',

@@ -1,382 +1,64 @@
-import { useRouter } from "expo-router";
-import { ArrowRight, Lock, ShieldCheck, X, Zap } from "lucide-react-native";
-import React from "react";
-import {
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  useWindowDimensions,
-  View,
-} from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useProductTour } from "../../context/ProductTourContext";
+import { useRouter } from 'expo-router';
+import { ArrowRight, Check, ShieldCheck, X } from 'lucide-react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useProductTour } from '../../context/ProductTourContext';
 
-/**
- * PostTourKycModal Component
- * Full-screen notice shown immediately after the tour concludes for unverified users.
- * Prompts user to complete their identity verification for the full LUNEST experience.
- */
 export const PostTourKycModal = () => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
-  const { showPostTourKycModal, dismissKycModal, isForbiddenRoute } =
-    useProductTour();
-
-  if (!showPostTourKycModal || isForbiddenRoute) {
-    return null;
-  }
-
-  const handleVerifyKyc = () => {
-    dismissKycModal();
-    router.push("/kyc-verification");
-  };
-
-  const handleClose = () => {
-    dismissKycModal();
-  };
-
-
-  const isTablet = screenWidth >= 768;
-
-  return (
-    <Modal
-      visible={showPostTourKycModal}
-      transparent
-      animationType="fade"
-      statusBarTranslucent
-      onRequestClose={handleClose}
-    >
-      <View style={styles.modalOverlay}>
-        <View
-          style={[
-            styles.modalContent,
-            isTablet && styles.modalContentTablet,
-            {
-              paddingTop: Math.max(insets.top, 24) + 12,
-              paddingBottom: Math.max(insets.bottom, 20) + 12,
-            },
-          ]}
-        >
-          {/* Top Close Icon */}
-          <View style={styles.topBar}>
-            <View style={styles.topBadgeContainer}>
-              <Text style={styles.topBadgeText}>ONE MORE STEP</Text>
-            </View>
-            <Pressable
-              onPress={handleClose}
-              style={({ pressed }) => [
-                styles.closeButton,
-                pressed && styles.buttonPressed,
-              ]}
-              hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
-              accessibilityLabel="Close verification prompt"
-              accessibilityRole="button"
-            >
-              <X size={20} color="#1F2937" strokeWidth={2.4} />
-            </Pressable>
+  const { height } = useWindowDimensions();
+  const { showPostTourKycModal, dismissKycModal, isForbiddenRoute } = useProductTour();
+  if (!showPostTourKycModal || isForbiddenRoute) return null;
+  const close = () => dismissKycModal();
+  const verify = () => { dismissKycModal(); router.push('/kyc-verification'); };
+  return <Modal visible transparent animationType="fade" statusBarTranslucent onRequestClose={close}>
+    <View style={[styles.overlay, { paddingTop: Math.max(insets.top, 20), paddingBottom: Math.max(insets.bottom, 20) }]}>
+      <View style={[styles.card, { maxHeight: height - Math.max(insets.top, 20) - Math.max(insets.bottom, 20) }]} accessibilityViewIsModal>
+        <View style={styles.header}>
+          <Text style={styles.brand}>LUNEST</Text>
+          <Pressable onPress={close} accessibilityRole="button" accessibilityLabel="Close verification prompt" style={styles.close}><X size={20} color="#596174" /></Pressable>
+        </View>
+        <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent} showsVerticalScrollIndicator={false}>
+          <View style={styles.icon}><ShieldCheck size={34} color="#286DE5" strokeWidth={1.8} /></View>
+          <Text style={styles.eyebrow}>IDENTITY VERIFICATION</Text>
+          <Text style={styles.title}>A trusted profile starts with you</Text>
+          <Text style={styles.description}>Verify your identity to access bookings and help keep the LUNEST community secure.</Text>
+          <View style={styles.benefits}>
+            <View style={styles.benefit}><Check size={18} color="#286DE5" /><Text style={styles.benefitText}>Build trust with hosts and guests</Text></View>
+            <View style={styles.benefit}><Check size={18} color="#286DE5" /><Text style={styles.benefitText}>Complete the checks required for booking</Text></View>
           </View>
-
-          <ScrollView
-            style={styles.scrollBody}
-            contentContainerStyle={styles.scrollBodyContent}
-            showsVerticalScrollIndicator={false}
-          >
-            {/* Visual Icon Illustration */}
-            <View style={styles.illustrationWrapper}>
-              <View style={styles.outerGlowCircle}>
-                <View style={styles.innerShieldCircle}>
-                  <ShieldCheck size={48} color="#FFFFFF" strokeWidth={2.2} />
-                </View>
-              </View>
-            </View>
-
-            {/* Headline & Subtitle */}
-            <Text style={styles.title}>Unlock the Full LUNEST Experience</Text>
-            <Text style={styles.subtitle}>
-              Verify your identity to enjoy seamless bookings, secure payments,
-              and trusted stays across the entire LUNEST community.
-            </Text>
-
-            {/* Benefits Feature Cards */}
-            <View style={styles.benefitsList}>
-              <View style={styles.benefitCard}>
-                <View style={styles.benefitIconBox}>
-                  <Zap size={22} color="#010135" strokeWidth={2.2} />
-                </View>
-                <View style={styles.benefitTextCol}>
-                  <Text style={styles.benefitTitle}>Instant Reservations</Text>
-                  <Text style={styles.benefitDesc}>
-                    Book verified apartments and luxury homes immediately without delays.
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.benefitCard}>
-                <View style={styles.benefitIconBox}>
-                  <Lock size={22} color="#010135" strokeWidth={2.2} />
-                </View>
-                <View style={styles.benefitTextCol}>
-                  <Text style={styles.benefitTitle}>Protected Payments</Text>
-                  <Text style={styles.benefitDesc}>
-                    Enjoy full LUNEST bank-grade security on transactions and caution deposits.
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.benefitCard}>
-                <View style={styles.benefitIconBox}>
-                  <ShieldCheck size={22} color="#010135" strokeWidth={2.2} />
-                </View>
-                <View style={styles.benefitTextCol}>
-                  <Text style={styles.benefitTitle}>Verified Member Trust</Text>
-                  <Text style={styles.benefitDesc}>
-                    Unlock a verified badge on your profile to build instant trust with hosts.
-                  </Text>
-                </View>
-              </View>
-            </View>
-
-
-            {/* Micro reassurance notice */}
-            <View style={styles.guaranteeBox}>
-              <Text style={styles.guaranteeText}>
-                🔒 Takes less than 2 minutes with automated NIN / vNIN verification.
-              </Text>
-            </View>
-          </ScrollView>
-
-
-          {/* Action Buttons Fixed at Bottom */}
-          <View style={styles.actionsContainer}>
-            <Pressable
-              style={({ pressed }) => [
-                styles.primaryButton,
-                pressed && styles.buttonPressed,
-              ]}
-              onPress={handleVerifyKyc}
-              accessibilityRole="button"
-            >
-              <ShieldCheck size={20} color="#FFFFFF" strokeWidth={2.2} />
-              <Text style={styles.primaryButtonText}>Verify KYC</Text>
-              <ArrowRight size={18} color="#FFFFFF" strokeWidth={2.2} />
-            </Pressable>
-
-            <Pressable
-              style={({ pressed }) => [
-                styles.secondaryButton,
-                pressed && styles.buttonPressed,
-              ]}
-              onPress={handleClose}
-              accessibilityRole="button"
-            >
-              <Text style={styles.secondaryButtonText}>I&apos;ll do this later</Text>
-            </Pressable>
-          </View>
+          <Text style={styles.note}>Have your identity document ready. You can follow the verification steps at your own pace.</Text>
+        </ScrollView>
+        <View style={styles.actions}>
+          <Pressable onPress={verify} accessibilityRole="button" style={({ pressed }) => [styles.primary, pressed && styles.pressed]}><Text style={styles.primaryText}>Verify my identity</Text><ArrowRight size={18} color="#FFFFFF" /></Pressable>
+          <Pressable onPress={close} accessibilityRole="button" style={({ pressed }) => [styles.secondary, pressed && styles.pressed]}><Text style={styles.secondaryText}>Maybe later</Text></Pressable>
         </View>
       </View>
-    </Modal>
-  );
+    </View>
+  </Modal>;
 };
-
 const styles = StyleSheet.create({
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(1, 1, 53, 0.45)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  modalContent: {
-    flex: 1,
-    width: "100%",
-    backgroundColor: "#FFFFFF",
-    paddingHorizontal: 24,
-    justifyContent: "space-between",
-  },
-  modalContentTablet: {
-    maxWidth: 520,
-    maxHeight: 760,
-    borderRadius: 28,
-    alignSelf: "center",
-    shadowColor: "#010135",
-    shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 0.18,
-    shadowRadius: 32,
-    elevation: 20,
-  },
-  topBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 8,
-  },
-  topBadgeContainer: {
-    backgroundColor: "rgba(1, 1, 53, 0.08)",
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 20,
-  },
-  topBadgeText: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#010135",
-    letterSpacing: 0.8,
-  },
-  closeButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: "#F3F4F6",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  buttonPressed: {
-    opacity: 0.8,
-    transform: [{ scale: 0.98 }],
-  },
-  scrollBody: {
-    flex: 1,
-  },
-  scrollBodyContent: {
-    paddingVertical: 12,
-    alignItems: "center",
-  },
-  illustrationWrapper: {
-    marginVertical: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  outerGlowCircle: {
-    width: 104,
-    height: 104,
-    borderRadius: 52,
-    backgroundColor: "rgba(1, 1, 53, 0.08)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  innerShieldCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: "#010135",
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#010135",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.35,
-    shadowRadius: 16,
-    elevation: 10,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: "800",
-    color: "#010135",
-    textAlign: "center",
-    marginTop: 8,
-    marginBottom: 8,
-    lineHeight: 30,
-  },
-  subtitle: {
-    fontSize: 14,
-    fontWeight: "400",
-    color: "#6B7280",
-    textAlign: "center",
-    lineHeight: 20,
-    paddingHorizontal: 10,
-    marginBottom: 20,
-  },
-  benefitsList: {
-    width: "100%",
-    gap: 12,
-    marginBottom: 16,
-  },
-  benefitCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#F9FAFB",
-    padding: 14,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    gap: 14,
-  },
-  benefitIconBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: "rgba(1, 1, 53, 0.06)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  benefitTextCol: {
-    flex: 1,
-  },
-  benefitTitle: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#1F2937",
-    marginBottom: 2,
-  },
-  benefitDesc: {
-    fontSize: 12,
-    color: "#6B7280",
-    lineHeight: 16,
-  },
-  guaranteeBox: {
-    backgroundColor: "rgba(1, 1, 53, 0.04)",
-    borderColor: "rgba(1, 1, 53, 0.12)",
-    borderWidth: 1,
-    borderRadius: 14,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    width: "100%",
-    alignItems: "center",
-  },
-  guaranteeText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#010135",
-    textAlign: "center",
-  },
-
-  actionsContainer: {
-    width: "100%",
-    paddingTop: 12,
-    gap: 8,
-  },
-  primaryButton: {
-    backgroundColor: "#010135",
-    height: 52,
-    borderRadius: 25,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-    shadowColor: "#010135",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.28,
-    shadowRadius: 10,
-    elevation: 4,
-  },
-  primaryButtonText: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#FFFFFF",
-  },
-  secondaryButton: {
-    height: 46,
-    borderRadius: 25,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  secondaryButtonText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#6B7280",
-  },
+  overlay: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20, backgroundColor: 'rgba(1,1,53,0.42)' },
+  card: { width: '100%', maxWidth: 440, backgroundColor: '#FFFFFF', borderRadius: 28, overflow: 'hidden', shadowColor: '#010135', shadowOpacity: 0.16, shadowRadius: 32, shadowOffset: { width: 0, height: 16 }, elevation: 16 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingLeft: 26, paddingRight: 14, paddingTop: 14 },
+  brand: { color: '#010135', fontSize: 13, letterSpacing: 3, fontWeight: '800' },
+  close: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  body: { flexShrink: 1 },
+  bodyContent: { paddingHorizontal: 26, paddingTop: 10, paddingBottom: 22 },
+  icon: { width: 68, height: 68, borderRadius: 22, backgroundColor: '#EEF4FF', alignItems: 'center', justifyContent: 'center', marginBottom: 22 },
+  eyebrow: { color: '#286DE5', fontSize: 10, fontWeight: '700', letterSpacing: 1.5, marginBottom: 10 },
+  title: { color: '#010135', fontSize: 27, lineHeight: 34, fontWeight: '700', marginBottom: 12 },
+  description: { color: '#596174', fontSize: 14, lineHeight: 22 },
+  benefits: { gap: 14, marginTop: 24, paddingVertical: 20, borderTopWidth: 1, borderBottomWidth: 1, borderColor: '#EDF0F5' },
+  benefit: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  benefitText: { flex: 1, color: '#26304A', fontSize: 13, lineHeight: 19 },
+  note: { color: '#6B7280', fontSize: 12, lineHeight: 19, marginTop: 18 },
+  actions: { paddingHorizontal: 26, paddingBottom: 18, gap: 6, backgroundColor: '#FFFFFF' },
+  primary: { minHeight: 52, borderRadius: 16, backgroundColor: '#010135', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 18, gap: 12 },
+  primaryText: { color: '#FFFFFF', fontSize: 15, fontWeight: '600' },
+  secondary: { minHeight: 46, justifyContent: 'center', alignItems: 'center' },
+  secondaryText: { color: '#596174', fontSize: 14, fontWeight: '500' },
+  pressed: { opacity: 0.8 },
 });
-
 export default PostTourKycModal;

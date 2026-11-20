@@ -52,7 +52,7 @@ export default function Root({ children }) {
               });
 
               if ('serviceWorker' in navigator && window.location.protocol !== 'file:') {
-                window.addEventListener('load', function() {
+                (function registerAppWorker() {
                   try {
                     navigator.serviceWorker.register('/sw.js').then(function(registration) {
                       console.log('✅ [LUNEST PWA] ServiceWorker registered with scope:', registration.scope);
@@ -122,7 +122,7 @@ export default function Root({ children }) {
                   } catch (e) {
                     console.warn('⚠️ [LUNEST PWA] Service worker init error:', e);
                   }
-                });
+                })();
               }
             `,
           }}
@@ -153,7 +153,7 @@ const responsiveBackground = `
   background: radial-gradient(ellipse at top, #123f83 0%, #010135 65%);
   font-family: system-ui, -apple-system, sans-serif; text-align: center;
 }
-.lunest-boot-logo { background: white; padding: 22px 24px; border-radius: 20px; max-width: 100%; box-sizing: border-box; }
+.lunest-boot-logo { padding: 12px 0; max-width: 100%; box-sizing: border-box; }
 .lunest-boot-logo img { display: block; width: 220px; max-width: 100%; height: auto; }
 .lunest-boot-spinner { width: 32px; height: 32px; border: 3px solid #ffffff40; border-top-color: white; border-radius: 50%; animation: lunest-spin .8s linear infinite; }
 #lunest-boot-message { font-size: 14px; line-height: 22px; max-width: 310px; margin: 0; }
@@ -182,23 +182,24 @@ const bootRecovery = `
     if (message) message.textContent = 'Taking longer than usual. Check your connection or reload the app.';
     if (button) button.hidden = false;
   }
-  setTimeout(showRecovery, 15000);
+  setTimeout(showRecovery, 12000);
   window.addEventListener('error', function(event) {
     if (event.target && event.target.tagName === 'SCRIPT') showRecovery();
   }, true);
   var button = document.getElementById('lunest-boot-retry');
   if (button) button.addEventListener('click', async function() {
     button.disabled = true;
-    try {
-      if ('caches' in window) {
-        var names = await caches.keys();
-        await Promise.allSettled(names.filter(function(name) { return name.indexOf('lunest-pwa-') === 0; }).map(function(name) { return caches.delete(name); }));
-      }
-      if ('serviceWorker' in navigator) {
-        var registrations = await navigator.serviceWorker.getRegistrations();
-        await Promise.allSettled(registrations.filter(function(registration) { return registration.scope === location.origin + '/'; }).map(function(registration) { return registration.unregister(); }));
-      }
-    } finally { location.reload(); }
+    var cleanup = (async function() {
+      try {
+        if ('caches' in window) {
+          var names = await caches.keys();
+          await Promise.allSettled(names.filter(function(name) { return name.indexOf('lunest-pwa-') === 0; }).map(function(name) { return caches.delete(name); }));
+        }
+      } catch (_) {}
+    })();
+    // A locked cache cannot hold the recovery button forever.
+    await Promise.race([cleanup, new Promise(function(resolve) { setTimeout(resolve, 800); })]);
+    location.reload();
   });
 })();
 `;

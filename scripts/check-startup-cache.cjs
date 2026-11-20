@@ -18,9 +18,11 @@ const cache = {
  async delete(request) { return entries.delete(key(request)); },
 };
 const cacheNames=['lunest-pwa-v7','lunest-pwa-v8','unrelated-cache'];
+let claims=0;
+const cacheAPI={keys:async()=>cacheNames,delete:async name=>deleted.push(name),open:async()=>cache};
 vm.runInNewContext(fs.readFileSync('public/sw.js','utf8'),{
- self:{location:{origin:'https://home.lunest.app'},addEventListener:(event,fn)=>{listeners[event]=fn;},skipWaiting:async()=>{},clients:{claim:async()=>{}}},
- caches:{keys:async()=>cacheNames,delete:async name=>deleted.push(name),open:async()=>cache},
+ self:{location:{origin:'https://home.lunest.app'},addEventListener:(event,fn)=>{listeners[event]=fn;},skipWaiting:async()=>{},clients:{claim:async()=>claims++}},
+ caches:cacheAPI,
  fetch:async(...args)=>{networkCalls++;return network(...args);},URL,Response,AbortController,
  setTimeout:fn=>setTimeout(fn,2),clearTimeout,
 });
@@ -46,6 +48,19 @@ async function request(path,mode='cors') {
  assert.equal((await request('/_expo/wrong.js')).status,503);assert.equal(entries.has('https://home.lunest.app/_expo/wrong.js'),false);
  entries.set('https://home.lunest.app/_expo/bad-cached.js',new Response('<html>stale</html>',{headers:{'content-type':'text/html'}}));
  assert.equal((await request('/_expo/bad-cached.js')).status,503);assert.equal(entries.has('https://home.lunest.app/_expo/bad-cached.js'),false);
+ // Cache Storage itself can hang or reject. Neither can block asset delivery or activation.
+ network=async()=>new Response('network works',{headers:{'content-type':'application/javascript'}});
+ cacheAPI.open=()=>new Promise(()=>{});
+ assert.equal(await (await request('/_expo/cache-locked.js')).text(),'network works');
+ cacheAPI.open=async()=>{throw new Error('cache denied');};
+ assert.equal(await (await request('/_expo/cache-denied.js')).text(),'network works');
+ cacheAPI.open=async()=>cache;
+ const match=cache.match;cache.match=()=>new Promise(()=>{});
+ assert.equal(await (await request('/_expo/cache-read-locked.js')).text(),'network works');
+ cache.match=match;
+ cacheAPI.keys=()=>new Promise(()=>{});
+ let stalledActivation;listeners.activate({waitUntil:promise=>{stalledActivation=promise;}});
+ await stalledActivation;assert.ok(claims>=2);
  const output={};vm.runInNewContext(babel.transformSync(fs.readFileSync('src/utils/startup.js','utf8'),{configFile:false,babelrc:false,plugins:[require('@babel/plugin-transform-modules-commonjs')]}).code,{exports:output,Promise,setTimeout,clearTimeout,Error});
  assert.equal(await output.withStartupTimeout(Promise.resolve('ready'),10),'ready');
  await assert.rejects(output.withStartupTimeout(new Promise(()=>{}),5),/taking longer/);
@@ -60,6 +75,8 @@ async function request(path,mode='cors') {
  location:{origin:'https://home.lunest.app',reload:()=>reloads++},setTimeout:fn=>fn(),Promise,
  });
  assert.equal(button.hidden,false);await button.click();
- assert.deepEqual(purged,['lunest-pwa-old']);assert.deepEqual(unregistered,['root']);assert.equal(reloads,1);
+ assert.deepEqual(purged,['lunest-pwa-old']);assert.deepEqual(unregistered,[]);assert.equal(reloads,1);
+ assert.ok(html.includes('(function registerAppWorker()'));
+ assert.ok(!html.includes("window.addEventListener('load', function()"));
  console.log('PASS: warm asset cache bypasses network; stale caches clear selectively; stalled/offline navigation recovers; HTML cannot poison script cache; startup/recovery is bounded and preserves app data.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

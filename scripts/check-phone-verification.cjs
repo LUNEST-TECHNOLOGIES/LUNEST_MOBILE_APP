@@ -1,0 +1,14 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict'),babel=require('@babel/core');
+const output={};vm.runInNewContext(babel.transformSync(fs.readFileSync('src/utils/phoneVerification.js','utf8'),{configFile:false,babelrc:false,plugins:[require('@babel/plugin-transform-modules-commonjs')]}).code,{exports:output});
+const {normalizeVerificationPhone:normalize,isCompleteVerificationCode:complete,cleanVerificationCode:clean,parseVerificationPhone:parse}=output;
+const NG={dial:'234'},US={dial:'1'},UK={dial:'44'};
+for(const input of ['08012345678','8012345678','2348012345678','+234 801 234 5678','+23408012345678']) assert.equal(normalize(input,NG),'+2348012345678');
+assert.equal(normalize('4155552671',US),'+14155552671');
+assert.equal(normalize('07911123456',UK),'+447911123456');
+assert.equal(normalize('+39 06 12345678',{dial:''}),'+390612345678');
+assert.equal(normalize('+65 81234567',{dial:''}),'+6581234567');
+for(const input of ['','abc8012345678','123','+1234567890123456'])assert.equal(normalize(input,NG),null);
+assert.equal(clean('12 34-56'),'123456');assert.equal(complete('1234'),false);assert.equal(complete('123456'),true);
+const countries=[{dial:'234',code:'+234'},{dial:'1',code:'+1'},{dial:'44',code:'+44'},{dial:'',code:''}];
+assert.equal(parse('08012345678',countries).number,'08012345678');assert.equal(parse('+447911123456',countries).country.dial,'44');assert.equal(parse('+6581234567',countries).country.dial,'');
+console.log('PASS: local/international numbers, trunk zeroes, complete/pasted OTPs and stored phone parsing.');

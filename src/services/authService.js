@@ -1711,169 +1711,58 @@ class AuthService {
    * @param {string|object} phone - Phone number or object with { phone, countryCode }
    * @param {string} [countryCode] - Optional country dial code (e.g. "+234", "+1", "+44")
    */
+  async _phoneVerificationRequest(path, payload) {
+    const controller = new AbortController();
+    let timer;
+    const deadline = new Promise((_, reject) => {
+      timer = setTimeout(() => { controller.abort(); reject(new Error("The request took too long. Please check your connection and try again.")); }, 20000);
+    });
+    try {
+      return await Promise.race([(async () => {
+        const token = await this.getToken();
+        if (controller.signal.aborted) throw new Error("Request timed out");
+        if (!token) return { success: false, message: "Please log in again to verify your phone." };
+        const response = await fetch(`${this.baseURL}/v1/kyc/verify-phone/${path}`, {
+          method: "POST", signal: controller.signal,
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = await response.json().catch(() => null);
+        if (response.status === 401) {
+          await this._clearTokens();
+          return { success: false, message: "Your session expired. Please log in again." };
+        }
+        if (response.ok && data?.success === true) {
+          return { success: true, data: data.data || data.body || data, message: data.message };
+        }
+        const message = typeof data?.message === "string" ? data.message : "Verification is temporarily unavailable. Please try again.";
+        return { success: false, status: response.status, retryAfter: Number(response.headers?.get('Retry-After')) || 0,
+          message: /fund|balance|insufficient|termii|gateway|provider|credit/i.test(message) ? "SMS verification is temporarily unavailable. Please try again later." : message };
+      })(), deadline]);
+    } catch (error) {
+      return { success: false, message: error.name === "AbortError" ? "Request timed out. Please try again." : error.message || "Please check your connection and try again." };
+    } finally { clearTimeout(timer); }
+  }
+
   async sendPhoneOTP(phone, countryCode = "") {
-    try {
-      const token = await this.getToken();
-      if (!token) {
-        return {
-          success: false,
-          message: "Authentication required. Please log in.",
-        };
-      }
-
-      const phoneStr = typeof phone === 'object' ? (phone?.phone || phone?.phoneNumber || "") : (phone || "");
-      const explicitCode = typeof phone === 'object' ? (phone?.countryCode || countryCode || "") : (countryCode || "");
-      console.log("[AuthService] Sending OTP to phone:", phoneStr, "countryCode:", explicitCode);
-
-      const response = await fetch(`${this.baseURL}/v1/kyc/verify-phone/send-otp`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          phone: phoneStr,
-          phoneNumber: phoneStr,
-          countryCode: explicitCode
-        }),
-      });
-
-      const data = await response.json();
-      console.log("[AuthService] Send OTP response:", data);
-
-      if (response.status === 401) {
-        console.warn("[AuthService] 401 Unauthorized during sendPhoneOTP - logging out...");
-        await this._clearTokens();
-        try {
-          const { navigateToLogin } = require("../utils/navigationUtils");
-          navigateToLogin();
-        } catch (e) {
-          console.error("Navigation error:", e);
-        }
-        return {
-          success: false,
-          message: "Session expired. Please log in again.",
-        };
-      }
-
-      if (response.ok && (data.success || data.status === "success")) {
-        return {
-          success: true,
-          data: data.data || data,
-          message: data.message || "OTP sent successfully",
-        };
-      }
-
-      // Handle specific error cases
-      if (response.status === 409) {
-        return {
-          success: false,
-          message: "This phone number is already verified by another account",
-        };
-      }
-
-      const rawMsg = data?.message || data?.error || "";
-      const isInternalProviderMsg = /fund|balance|insufficient|termii|gateway|provider|credit|sms provider/i.test(rawMsg);
-      const friendlyMsg = isInternalProviderMsg || !rawMsg
-        ? "Unable to send SMS verification code at this time. Please try again in a few moments."
-        : rawMsg;
-
-      return {
-        success: false,
-        message: friendlyMsg,
-      };
-    } catch (error) {
-      console.error("[AuthService] sendPhoneOTP error:", error);
-      const rawErrorMsg = error?.message || "";
-      const isInternalProviderMsg = /fund|balance|insufficient|termii|gateway|provider|credit|sms provider/i.test(rawErrorMsg);
-      const friendlyMsg = isInternalProviderMsg || !rawErrorMsg
-        ? "Unable to send SMS verification code. Please check your connection and try again."
-        : rawErrorMsg;
-      return {
-        success: false,
-        message: friendlyMsg,
-      };
-    }
+    const payload = typeof phone === "object" ? phone : { phone };
+    return this._phoneVerificationRequest('send-otp', {
+      phone: payload.phone || payload.phoneNumber || "", countryCode: payload.countryCode || countryCode,
+      resend: payload.resend === true,
+    });
   }
 
-  /**
-   * Verify OTP code for phone number
-   * @param {string|object} phone - Phone number or object with { phone, countryCode }
-   * @param {string} otp - OTP code to verify
-   * @param {string} [countryCode] - Optional country dial code
-   */
   async verifyPhoneOTP(phone, otp, countryCode = "") {
-    try {
-      const token = await this.getToken();
-      if (!token) {
-        return {
-          success: false,
-          message: "Authentication required. Please log in.",
-        };
-      }
-
-      const phoneStr = typeof phone === 'object' ? (phone?.phone || phone?.phoneNumber || "") : (phone || "");
-      const explicitCode = typeof phone === 'object' ? (phone?.countryCode || countryCode || "") : (countryCode || "");
-      console.log("[AuthService] Verifying OTP for phone:", phoneStr, "countryCode:", explicitCode);
-
-      const response = await fetch(`${this.baseURL}/v1/kyc/verify-phone/verify-otp`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          phone: phoneStr,
-          phoneNumber: phoneStr,
-          otp,
-          countryCode: explicitCode
-        }),
-      });
-
-      const data = await response.json();
-      console.log("[AuthService] Verify OTP response:", data);
-
-      if (response.status === 401) {
-        console.warn("[AuthService] 401 Unauthorized during verifyPhoneOTP - logging out...");
-        await this._clearTokens();
-        try {
-          const { navigateToLogin } = require("../utils/navigationUtils");
-          navigateToLogin();
-        } catch (e) {
-          console.error("Navigation error:", e);
-        }
-        return {
-          success: false,
-          message: "Session expired. Please log in again.",
-        };
-      }
-
-      if (response.ok && (data.success || data.status === "success" || data.status === "VERIFIED")) {
-        return {
-          success: true,
-          data: data.data || data,
-          message: data.message || "Phone verified successfully",
-        };
-      }
-
-      const rawMsg = data?.message || data?.error || "";
-      const isInternalProviderMsg = /fund|balance|insufficient|termii|gateway|provider|credit/i.test(rawMsg);
-      const friendlyMsg = isInternalProviderMsg || !rawMsg
-        ? "Invalid verification code. Please check and try again."
-        : rawMsg;
-
-      return {
-        success: false,
-        message: friendlyMsg,
-      };
-    } catch (error) {
-      console.error("[AuthService] verifyPhoneOTP error:", error);
-      return {
-        success: false,
-        message: error?.message || "Failed to verify OTP. Please try again.",
-      };
+    if (!/^\d{6}$/.test(String(otp))) return { success: false, message: "Enter the complete six-digit code." };
+    const payload = typeof phone === "object" ? phone : { phone };
+    const result = await this._phoneVerificationRequest('verify-otp', { phone: payload.phone || payload.phoneNumber || "", countryCode: payload.countryCode || countryCode, otp });
+    if (result.success) {
+      const current = await this.getUserData();
+      await this.setUserData({ ...current, phoneNumber: result.data.phone, phone: result.data.phone, phoneVerified: true, phoneVerifiedAt: new Date().toISOString() });
     }
+    return result;
   }
+
 }
 
 const authService = new AuthService();

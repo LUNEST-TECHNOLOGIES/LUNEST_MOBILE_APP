@@ -41,6 +41,7 @@ const PropertyCard = ({
   title = "",
   location = "",
   price = 0,
+  pricingPeriod = "night",
   currency = "₦",
   rating = null, // Default to null for unrated properties
   isFavorite = false,
@@ -109,6 +110,15 @@ const PropertyCard = ({
     }
     return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
   };
+
+  const periodLabel = (() => {
+    const period = String(pricingPeriod || "night").trim().toLowerCase();
+    if (period.includes("year") || period.includes("annual")) return "/year";
+    if (period.includes("month")) return "/month";
+    if (period.includes("week")) return "/week";
+    if (period.includes("day")) return "/day";
+    return "/night";
+  })();
 
   return (
     <Pressable
@@ -216,7 +226,7 @@ const PropertyCard = ({
           <Text style={styles.price}>
             {currency}
             {formatPrice(price)}
-            <Text style={styles.perNight}>/night</Text>
+            <Text style={styles.perNight}>{periodLabel}</Text>
           </Text>
 
           <PropertyRating

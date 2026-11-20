@@ -9,8 +9,9 @@
 
 import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import {
+  AppState,
   ActivityIndicator,
   RefreshControl,
   SafeAreaView,
@@ -230,7 +231,7 @@ const EmptyState = ({ onViewListings }) => (
     <EmptyBookingIcon size={128} />
     <Text style={styles.emptyTitle}>No Bookings Yet</Text>
     <Text style={styles.emptySubtext}>
-      You'll see all your rental requests and tenant bookings here once guests
+      You&apos;ll see all your rental requests and tenant bookings here once guests
       start reaching out.
     </Text>
     <TouchableOpacity
@@ -274,6 +275,7 @@ const HostBookingsScreen = () => {
 
   // API state for host's bookings (only this host's property bookings)
   const [bookings, setBookings] = useState([]);
+  const fetchBookingsRef = useRef(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
@@ -487,6 +489,8 @@ const HostBookingsScreen = () => {
     }
   };
 
+  fetchBookingsRef.current = fetchBookings;
+
   /**
    * Format date range for display
    */
@@ -516,9 +520,11 @@ const HostBookingsScreen = () => {
   // Fetch bookings on mount and when screen comes into focus
   useFocusEffect(
     useCallback(() => {
+      let active = true;
       const checkAuthAndFetch = async () => {
         const token =
           await require("../../services/authService").default.getToken();
+        if (!active) return;
         if (!token) {
           setError("You are not authenticated. Please log in again.");
           setLoading(false);
@@ -526,9 +532,25 @@ const HostBookingsScreen = () => {
           // router.replace("/login");
           return;
         }
-        fetchBookings();
+        fetchBookingsRef.current?.();
       };
       checkAuthAndFetch();
+      const refreshTimer = setInterval(() => fetchBookingsRef.current?.(false), 10000);
+      const appStateSubscription = AppState.addEventListener("change", (state) => {
+        if (state === "active") fetchBookingsRef.current?.(false);
+      });
+      const handleVisible = () => {
+        if (document.visibilityState === "visible") fetchBookingsRef.current?.(false);
+      };
+      if (typeof document !== "undefined") document.addEventListener("visibilitychange", handleVisible);
+      if (typeof window !== "undefined") window.addEventListener("focus", handleVisible);
+      return () => {
+        active = false;
+        clearInterval(refreshTimer);
+        appStateSubscription.remove();
+        if (typeof document !== "undefined") document.removeEventListener("visibilitychange", handleVisible);
+        if (typeof window !== "undefined") window.removeEventListener("focus", handleVisible);
+      };
     }, []),
   );
 
@@ -644,7 +666,7 @@ const HostBookingsScreen = () => {
 
     setIsActionLoading(true);
     const newStatus =
-      actionType === BOOKING_ACTION.CONFIRM ? "CONFIRMED" : "CANCELED";
+      actionType === BOOKING_ACTION.CONFIRM ? "CONFIRMED" : "CANCELLED";
 
     try {
       const result = await bookingService.updateBookingStatus(
@@ -670,6 +692,11 @@ const HostBookingsScreen = () => {
           );
         }
         // Refresh bookings list
+        setBookings((current) => current.map((booking) =>
+          String(booking.id) === String(actionBooking.id)
+            ? { ...booking, status: newStatus, cancelledAt: newStatus === "CANCELLED" ? new Date().toISOString() : booking.cancelledAt }
+            : booking,
+        ));
         fetchBookings(false);
       } else {
         showToastMessage(

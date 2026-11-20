@@ -320,6 +320,7 @@ const PropertyDetailsScreen = () => {
     queryKey: ["listing", listingId],
     staleTime: 0, // Ensure we always fetch fresh data on navigation
     refetchOnMount: true,
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       console.log(`[PropertyDetailsScreen] Fetching listing: ${listingId}`);
 

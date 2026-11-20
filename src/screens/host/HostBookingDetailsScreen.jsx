@@ -559,7 +559,7 @@ const HostBookingDetailsScreen = () => {
   const handleActionConfirmed = async () => {
     setIsActionLoading(true);
     const newStatus =
-      actionType === BOOKING_ACTION.CONFIRM ? "CONFIRMED" : "CANCELED";
+      actionType === BOOKING_ACTION.CONFIRM ? "CONFIRMED" : "CANCELLED";
 
     try {
       const result = await bookingService.updateBookingStatus(
@@ -571,11 +571,17 @@ const HostBookingDetailsScreen = () => {
       setIsActionLoading(false);
 
       if (result.success) {
-        Alert.alert(
-          "Success",
-          `Booking ${actionType === BOOKING_ACTION.CONFIRM ? "confirmed" : "cancelled"} successfully!`,
-          [{ text: "OK", onPress: onRefresh }],
+        setBooking((current) => ({
+          ...current,
+          ...(result.booking || {}),
+          status: newStatus,
+          ...(newStatus === "CANCELLED" ? { cancelledAt: new Date().toISOString() } : {}),
+        }));
+        showToastMessage(
+          `Booking ${actionType === BOOKING_ACTION.CONFIRM ? "confirmed" : "cancelled"} successfully.`,
+          TOAST_TYPE.SUCCESS,
         );
+        onRefresh();
       } else {
         Alert.alert("Error", result.message || "Failed to update booking");
       }
@@ -602,6 +608,7 @@ const HostBookingDetailsScreen = () => {
         setShowCancelModal(false);
         // Update local status immediately for real-time feel
         setBooking(prev => ({ ...prev, status: "CANCELLED" }));
+        onRefresh();
 
         setSuccessModalConfig({
           title: "Booking Cancelled",

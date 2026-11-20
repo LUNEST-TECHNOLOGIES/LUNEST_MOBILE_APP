@@ -30,6 +30,7 @@ import bookingService from "../../services/bookingService";
 import configService from "../../services/configService";
 import listingService from "../../services/listingService";
 import paymentService from "../../services/paymentService";
+import inactivityTimeoutService from "../../services/inactivityTimeoutService";
 import profileService from "../../services/profileService";
 import { getUserData } from "../../services/userDataService";
 import * as ImageUtils from "../../utils/imageUtils";
@@ -1085,6 +1086,7 @@ const BookingSummary = () => {
 
           // Single unified browser open — same for iOS and Android
           let browserResult = { type: "dismissed" };
+          inactivityTimeoutService.suspendForExternalFlow();
           try {
             browserResult = await WebBrowser.openAuthSessionAsync(
               authUrl,
@@ -1092,6 +1094,8 @@ const BookingSummary = () => {
             );
           } catch (browserErr) {
             console.warn("[BookingSummary] openAuthSessionAsync error:", browserErr);
+          } finally {
+            inactivityTimeoutService.resumeAfterExternalFlow();
           }
 
           // Clear pending ref — routing directly to callback screen now
@@ -1102,7 +1106,11 @@ const BookingSummary = () => {
             pathname: "/payment-callback",
             params: {
               reference: paymentResult.reference,
-              status: browserResult.type === "success" ? "success" : "pending",
+              status: browserResult.type === "success"
+                ? "success"
+                : ["cancel", "dismiss", "dismissed"].includes(String(browserResult.type || "").toLowerCase())
+                  ? "cancelled"
+                  : "pending",
               type: "booking_payment",
               bookingId: bId,
               amount: displayTotal.toString(),

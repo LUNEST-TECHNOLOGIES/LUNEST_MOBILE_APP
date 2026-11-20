@@ -4,6 +4,7 @@ import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  AppState,
   ActivityIndicator,
   RefreshControl,
   StyleSheet,
@@ -67,6 +68,7 @@ const HomeScreen = () => {
   const queryClient = useQueryClient();
   const { triggerHaptic } = usePremiumUI();
   const lastNotificationFetchTimeRef = useRef(0);
+  const refreshAvailabilityRef = useRef(null);
   const isForcedRefreshRef = useRef(false);
   const NOTIF_COOLDOWN = 60000; // 1 minute
 
@@ -157,6 +159,38 @@ const HomeScreen = () => {
 
       // Refresh notification count silently
       fetchNotificationCount();
+    }, []),
+  );
+
+  // Listing availability is changed by the backend only after a booking is
+  // confirmed and restored after cancellation. Refresh while Home is visible
+  // because this API currently has no client-facing socket stream.
+  useFocusEffect(
+    useCallback(() => {
+      const refreshAvailability = () => refreshAvailabilityRef.current?.();
+      const timer = setInterval(refreshAvailability, 10000);
+      const subscription = AppState.addEventListener("change", (state) => {
+        if (state === "active") refreshAvailability();
+      });
+      const handleVisible = () => {
+        if (document.visibilityState === "visible") refreshAvailability();
+      };
+      if (typeof document !== "undefined") {
+        document.addEventListener("visibilitychange", handleVisible);
+      }
+      if (typeof window !== "undefined") {
+        window.addEventListener("focus", refreshAvailability);
+      }
+      return () => {
+        clearInterval(timer);
+        subscription.remove();
+        if (typeof document !== "undefined") {
+          document.removeEventListener("visibilitychange", handleVisible);
+        }
+        if (typeof window !== "undefined") {
+          window.removeEventListener("focus", refreshAvailability);
+        }
+      };
     }, []),
   );
 
@@ -310,6 +344,9 @@ const HomeScreen = () => {
       // Build filter for location-based listings with improved location matching
       let filters = {
         status: { $in: ["AVAILABLE", "BOOKED"] },
+        // Availability changes immediately after payment confirmation/cancellation;
+        // do not serve a stale search-cache copy for the Home Top Picks cards.
+        refresh: true,
       };
 
       // Add location filter only if cityOrRegion is provided
@@ -411,11 +448,13 @@ const HomeScreen = () => {
               if (curr === "USD" || curr === "usd") return "$";
               return "₦";
             })(),
-            pricingPeriod: listing.pricingPeriod || listing.propertyPrice?.pricingPeriod || "night",
+            pricingPeriod: listing.propertyPrice?.frequency || listing.propertyPrice?.pricingPeriod || listing.pricingPeriod || listing.priceUnit || listing.rentalPeriod || listing.rentFrequency || listing.frequency || "night",
             price: listing.price || listing.propertyPrice?.price || 0,
             rating: listing.averageRating || listing.rating || null,
             bedrooms: listing.bedrooms || 0,
             bathrooms: listing.bathrooms || 0,
+            status: listing.status || "AVAILABLE",
+            bookedUntil: listing.bookedUntil || null,
             amenities: listing.amenities || [],
             propertyLocation: listing.propertyLocation,
             propertyType: listing.propertyType,
@@ -447,6 +486,14 @@ const HomeScreen = () => {
       console.error("[HomeScreen] Error fetching top picks:", error);
       setTopPicksListings([]);
     }
+  };
+
+  refreshAvailabilityRef.current = () => {
+    fetchTopPicksListings(locationFetched ? userLocation : null);
+    isForcedRefreshRef.current = true;
+    queryClient.invalidateQueries({ queryKey: ["exploreListings"] }).finally(() => {
+      isForcedRefreshRef.current = false;
+    });
   };
 
   // Initialize user data and profile setup
@@ -723,7 +770,7 @@ const HomeScreen = () => {
             if (curr === "EUR" || curr === "eur") return "€";
             return curr;
           })(),
-          pricingPeriod: listing.pricingPeriod || listing.propertyPrice?.pricingPeriod || "night",
+          pricingPeriod: listing.propertyPrice?.frequency || listing.propertyPrice?.pricingPeriod || listing.pricingPeriod || listing.priceUnit || listing.rentalPeriod || listing.rentFrequency || listing.frequency || "night",
           securityDeposit: listing.securityDeposit || listing.propertyPrice?.securityDeposit || 0,
           cleaningFee: listing.cleaningFee || listing.propertyPrice?.cleaningFee || 0,
           rating: listing.averageRating || listing.rating || null,

@@ -1,13 +1,12 @@
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
-  Dimensions,
   ScrollView,
   StyleSheet,
   Text,
-  View
+  View,
+  useWindowDimensions,
 } from "react-native";
-import { useWindowDimensions } from "react-native";
 import configService from "../../services/configService";
 import listingService from "../../services/listingService";
 import * as ImageUtils from "../../utils/imageUtils";
@@ -51,7 +50,6 @@ const TopPicksSection = ({
       console.log("[TopPicksSection] First external listing:", JSON.stringify(externalListings[0], null, 2));
       const getBase = async () => {
         try {
-          setLoading(true); // Ensure loading is set at start
           const baseURL = await configService.getBaseURL();
           console.log("[TopPicksSection] baseURL:", baseURL);
           // Transform external listings to ensure image format is correct
@@ -101,13 +99,23 @@ const TopPicksSection = ({
               title: listing.title || data.propertyName || data.propertyTitle || "Untitled",
               location: listing.location || data.city || "Nigeria",
               price: listing.price || data.propertyPrice?.price || data.price || 0,
-              currency: listing.currency || data.propertyPrice?.currency || data.currency || "NGN",
+              pricingPeriod: data.propertyPrice?.frequency || data.propertyPrice?.pricingPeriod || data.pricingPeriod || listing.pricingPeriod || data.priceUnit || data.rentalPeriod || data.rentFrequency || data.frequency || "night",
+              currency: (() => {
+                const value = listing.currencySymbol || listing.currency || data.propertyPrice?.currency || data.currency || "NGN";
+                const normalized = String(value).toUpperCase();
+                if (normalized === "NGN" || normalized === "NAIRA") return "₦";
+                if (normalized === "USD") return "$";
+                if (normalized === "GBP") return "£";
+                if (normalized === "EUR") return "€";
+                return value;
+              })(),
               rating: rating,
               bedrooms: bedrooms,
               bathrooms: bathrooms,
               amenities: Array.isArray(amenities) ? amenities : [],
               isFavorite: listing.isFavorite || false,
-              status: listing.status || data.status || "AVAILABLE",
+              status: data.status || listing.status || "AVAILABLE",
+              bookedUntil: data.bookedUntil || listing.bookedUntil || null,
               listingData: data,
             };
           });
@@ -193,9 +201,18 @@ const TopPicksSection = ({
             }
           })(),
           price: listing.propertyPrice?.price || listing.price || 0,
-          currency:
-            listing.propertyPrice?.currency || listing.currency || "NGN",
+          pricingPeriod: listing.propertyPrice?.frequency || listing.propertyPrice?.pricingPeriod || listing.pricingPeriod || listing.priceUnit || listing.rentalPeriod || listing.rentFrequency || listing.frequency || "night",
+          currency: (() => {
+            const value = listing.propertyPrice?.currency || listing.currency || "NGN";
+            const normalized = String(value).toUpperCase();
+            if (normalized === "NGN" || normalized === "NAIRA") return "₦";
+            if (normalized === "USD") return "$";
+            if (normalized === "GBP") return "£";
+            if (normalized === "EUR") return "€";
+            return value;
+          })(),
           rating: rating,
+          bookedUntil: listing.bookedUntil || null,
           isFavorite: false, // Can be enhanced with bookmark check
           host: listing.host || {},
           propertyType: listing.propertyType,
@@ -325,7 +342,11 @@ const TopPicksSection = ({
               title={listing.title}
               location={listing.location}
               price={listing.price}
+              pricingPeriod={listing.pricingPeriod}
+              currency={listing.currency || listing.currencySymbol || "₦"}
               rating={listing.rating}
+              status={listing.status}
+              bookedUntil={listing.bookedUntil}
               isFavorite={isFavorite}
               bedrooms={listing.bedrooms}
               bathrooms={listing.bathrooms}

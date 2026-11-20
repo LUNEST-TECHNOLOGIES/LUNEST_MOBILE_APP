@@ -1,8 +1,9 @@
 import { BlurView } from "expo-blur";
 import { Image } from "expo-image";
 import { usePathname, useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
+  Animated,
   Platform,
   Pressable,
   StyleSheet,
@@ -68,6 +69,9 @@ const GuestBottomNav = ({ activeTab: propActiveTab, onTabPress: propOnTabPress }
   const [profileAvatarUri, setProfileAvatarUri] = useState(null);
   const [resolvedAvatarUri, setResolvedAvatarUri] = useState(null);
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
+  const pressScales = useRef(
+    Object.fromEntries(TABS.map((tab) => [tab.key, new Animated.Value(1)])),
+  ).current;
 
   // Poll unread messages count silently for guest
   useEffect(() => {
@@ -245,14 +249,17 @@ const GuestBottomNav = ({ activeTab: propActiveTab, onTabPress: propOnTabPress }
                 key={tab.key}
                 style={styles.tab}
                 onPress={() => handleTabPress(tab)}
+                onPressIn={() => Animated.spring(pressScales[tab.key], { toValue: 0.94, useNativeDriver: true, speed: 28, bounciness: 5 }).start()}
+                onPressOut={() => Animated.spring(pressScales[tab.key], { toValue: 1, useNativeDriver: true, speed: 22, bounciness: 6 }).start()}
                 hitSlop={{ top: 8, bottom: 8, left: 2, right: 2 }}
               >
                 {({ pressed }) => (
-                  <View
+                  <Animated.View
                     style={[
                       styles.capsule,
                       isActive && styles.capsuleActive,
                       pressed && styles.pressed,
+                      { transform: [{ scale: pressScales[tab.key] }] },
                     ]}
                   >
                     {/* Tab Icon */}
@@ -309,7 +316,7 @@ const GuestBottomNav = ({ activeTab: propActiveTab, onTabPress: propOnTabPress }
                     >
                       {tab.label}
                     </Text>
-                  </View>
+                  </Animated.View>
                 )}
               </Pressable>
             );

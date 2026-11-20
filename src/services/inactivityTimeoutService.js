@@ -13,6 +13,7 @@ class InactivityTimeoutService {
     this.lastActivityTime = Date.now();
     this.appState = AppState.currentState;
     this.isEnabled = false;
+    this.externalFlowDepth = 0;
     this.onLogout = null;
     this.onWarning = null;
 
@@ -33,6 +34,7 @@ class InactivityTimeoutService {
     this.onLogout = onLogout;
     this.onWarning = onWarning;
     this.isEnabled = true;
+    this.externalFlowDepth = 0;
     this.lastActivityTime = Date.now();
 
     // Subscribe to app state changes
@@ -82,6 +84,14 @@ class InactivityTimeoutService {
     console.log("[InactivityTimeoutService] App state changed to:", state);
 
     if (state === "active") {
+      if (this.externalFlowDepth > 0) {
+        // Hosted checkout temporarily backgrounds the app. That is not user
+        // inactivity and must not invalidate the user's session on return.
+        this.lastActivityTime = Date.now();
+        this.clearTimers();
+        this.appState = state;
+        return;
+      }
       // App returned to foreground
       const backgroundDuration = Date.now() - this.lastActivityTime;
 
@@ -102,6 +112,19 @@ class InactivityTimeoutService {
     }
 
     this.appState = state;
+  }
+
+  suspendForExternalFlow() {
+    this.externalFlowDepth += 1;
+    this.clearTimers();
+  }
+
+  resumeAfterExternalFlow() {
+    this.externalFlowDepth = Math.max(0, this.externalFlowDepth - 1);
+    if (this.externalFlowDepth === 0 && this.isEnabled) {
+      this.lastActivityTime = Date.now();
+      this.resetInactivityTimer();
+    }
   }
 
   /**

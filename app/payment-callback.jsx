@@ -50,7 +50,7 @@ export default function PaymentCallbackScreen() {
     } else {
       animation.stopAnimation();
     }
-  }, [status]);
+  }, [status, animation]);
 
   // Show retry button after 8 seconds of processing
   useEffect(() => {
@@ -108,7 +108,7 @@ export default function PaymentCallbackScreen() {
 
   // ── CONTEXT RECOVERY ───────────────────────────────────────────────────────
 
-  const getStoredContext = async () => {
+  const getStoredContext = useCallback(async () => {
     try {
       const raw = Platform.OS === "web"
         ? localStorage.getItem("lunest_payment_context")
@@ -117,7 +117,29 @@ export default function PaymentCallbackScreen() {
     } catch (_) {
       return null;
     }
-  };
+  }, []);
+
+  const cancelPendingBooking = useCallback(async (fallbackBookingId, reason) => {
+    const context = await getStoredContext();
+    const bookingId = context?.bookingId || params.bookingId || fallbackBookingId;
+    if (!bookingId) throw new Error("No booking was found to release.");
+    const cancellation = await bookingService.updateBookingStatus(bookingId, "CANCELLED", {
+      cancelReason: reason,
+      cancelNote: "Payment checkout was cancelled or failed before completion.",
+    });
+    let cancelled = cancellation?.success || cancellation?.booking?.status === "CANCELLED";
+    if (!cancelled) {
+      const latest = await bookingService.fetchBookingById(bookingId).catch(() => null);
+      cancelled = ["CANCELLED", "EXPIRED"].includes(String(latest?.booking?.status || "").toUpperCase());
+    }
+    if (!cancelled) throw new Error(cancellation?.message || "The booking cancellation was not confirmed.");
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["bookings"] }),
+      queryClient.invalidateQueries({ queryKey: ["listing"] }),
+      queryClient.invalidateQueries({ queryKey: ["listings"] }),
+      queryClient.invalidateQueries({ queryKey: ["exploreListings"] }),
+    ]);
+  }, [getStoredContext, params.bookingId, queryClient]);
 
   // ── CORE VERIFICATION LOGIC ────────────────────────────────────────────────
 
@@ -229,6 +251,13 @@ export default function PaymentCallbackScreen() {
 
       } else {
         // ── FAILED ───────────────────────────────────────────────────────────
+        if (["FAILED", "CANCELLED", "DECLINED", "REJECTED", "ABORTED", "ERROR"].includes(String(result.status || "").toUpperCase())) {
+          try {
+            await cancelPendingBooking(result.bookingId, "PAYMENT_FAILED");
+          } catch {
+            console.warn("[PaymentCallback] Could not cancel failed payment booking.");
+          }
+        }
         setStatus("error");
         setMessage(result.message || "Payment verification failed. Please check your transaction history.");
       }
@@ -244,7 +273,7 @@ export default function PaymentCallbackScreen() {
         setMessage("Unable to verify payment. Please check your transaction history.");
       }
     }
-  }, [retryCount, params, queryClient, router, goFinal]);
+  }, [retryCount, params, queryClient, goFinal, cancelPendingBooking, getStoredContext]);
 
   // ── BOOT: RESOLVE REFERENCE AND START ─────────────────────────────────────
 
@@ -282,6 +311,7 @@ export default function PaymentCallbackScreen() {
         // Still verify with backend in case webhook succeeded in the background
         console.log(`[PaymentCallback] Incoming status is "${incomingStatus}" — checking status`);
         setMessage(isCancelledEvent ? "Checking payment status..." : "Confirming payment status...");
+        let verifiedResult = null;
         try {
           const result = await paymentService.verifyPayment(ref);
           console.log("[PaymentCallback] Verification result for event:", result?.status);
@@ -291,14 +321,31 @@ export default function PaymentCallbackScreen() {
             verifyPayment(ref);
             return;
           }
+          verifiedResult = result;
         } catch (verifyErr) {
           console.log("[PaymentCallback] Verification returned:", verifyErr?.message);
+        }
+
+        if (isCancelledEvent) {
+          try {
+            await cancelPendingBooking(verifiedResult?.bookingId, "PAYMENT_CANCELLED");
+          } catch {
+            setStatus("error");
+            setMessage("We couldn't confirm the cancellation yet. Please refresh your bookings or try again.");
+            return;
+          }
+        } else if (isFailedEvent && ["FAILED", "CANCELLED", "DECLINED", "REJECTED", "ABORTED", "ERROR"].includes(String(verifiedResult?.status || "").toUpperCase())) {
+          try {
+            await cancelPendingBooking(verifiedResult?.bookingId, "PAYMENT_FAILED");
+          } catch (cancelError) {
+            console.warn("[PaymentCallback] Could not confirm booking cleanup:", cancelError?.message);
+          }
         }
 
         setPaymentRef(ref);
         if (isCancelledEvent) {
           setStatus("cancelled");
-          setMessage("You cancelled the payment transaction. No charges were made to your account.");
+          setMessage("Payment was cancelled and the pending booking has been released.");
         } else {
           setStatus("error");
           setMessage("Payment was declined or could not be completed. Please try again.");
@@ -310,7 +357,7 @@ export default function PaymentCallbackScreen() {
     };
 
     boot();
-  }, []);
+  }, [cancelPendingBooking, getStoredContext, params, verifyPayment]);
 
   // ── RETRY HANDLER ─────────────────────────────────────────────────────────
 

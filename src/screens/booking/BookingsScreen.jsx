@@ -8,9 +8,10 @@
 
 import { useFocusEffect } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
     Alert,
+    AppState,
     RefreshControl,
     ScrollView,
     StyleSheet,
@@ -22,6 +23,7 @@ import useCachedFetch from "../../hooks/useCachedFetch";
 
 
 import ToastNotification, { TOAST_TYPE } from "../../components/common/ToastNotification";
+import authService from "../../services/authService";
 
 // Import booking components
 import {
@@ -268,7 +270,7 @@ const BookingsScreen = () => {
     { revalidateOnFocus: true, staleTTL: 5_000 },
   );
 
-  const safeBookings = bookings || [];
+  const safeBookings = useMemo(() => bookings || [], [bookings]);
 
   /**
    * Format date for display
@@ -332,18 +334,41 @@ const BookingsScreen = () => {
     return typeMap[typeStr] || "Daily";
   };
 
-  // Check for expired reservations on focus
   useFocusEffect(
     useCallback(() => {
-      checkAndCancelExpiredReservations();
-    }, []),
+      // The backend does not publish booking socket events. Keep the focused
+      // bookings view fresh so host/admin cancellations appear promptly.
+      const refreshTimer = setInterval(() => mutateBookings(), 10000);
+      const appStateSubscription = AppState.addEventListener("change", (state) => {
+        if (state === "active") mutateBookings();
+      });
+      const handleVisible = () => {
+        if (document.visibilityState === "visible") mutateBookings();
+      };
+      if (typeof document !== "undefined") {
+        document.addEventListener("visibilitychange", handleVisible);
+      }
+      if (typeof window !== "undefined") {
+        window.addEventListener("focus", mutateBookings);
+      }
+      return () => {
+        clearInterval(refreshTimer);
+        appStateSubscription.remove();
+        if (typeof document !== "undefined") {
+          document.removeEventListener("visibilitychange", handleVisible);
+        }
+        if (typeof window !== "undefined") {
+          window.removeEventListener("focus", mutateBookings);
+        }
+      };
+    }, [mutateBookings]),
   );
 
   /**
    * Check for expired reservations and auto-cancel them
    * This handles cases where reservations expired while app was in background
    */
-  const checkAndCancelExpiredReservations = async () => {
+  const checkAndCancelExpiredReservations = useCallback(async () => {
     try {
       const now = Date.now();
       const expiredBookings = safeBookings.filter((booking) => {
@@ -391,7 +416,13 @@ const BookingsScreen = () => {
         error,
       );
     }
-  };
+  }, [safeBookings, onCachedRefresh]);
+
+  useFocusEffect(
+    useCallback(() => {
+      checkAndCancelExpiredReservations();
+    }, [checkAndCancelExpiredReservations]),
+  );
 
   // Pull to refresh — delegates to the cached hook
   const onRefresh = () => {
@@ -514,7 +545,12 @@ const BookingsScreen = () => {
 
       if (result.success) {
         showToast("Your booking has been cancelled successfully.");
-        mutateBookings(); // Refresh bookings
+        mutateBookings(safeBookings.map((booking) =>
+          String(booking.id || booking._id) === String(actionBooking.id)
+            ? { ...booking, status: "cancelled", cancelledAt: new Date().toISOString() }
+            : booking,
+        ));
+        mutateBookings();
         setActionBooking(null);
       } else {
         showToast(result.message || "Failed to cancel booking", TOAST_TYPE.ERROR);

@@ -1,6 +1,7 @@
+import { useIsFocused } from "@react-navigation/native";
 import { Tabs, useRouter } from "expo-router";
 import React from "react";
-import { Platform, StatusBar, View } from "react-native";
+import { ActivityIndicator, Platform, StatusBar, View } from "react-native";
 import {
     DeactivatedAccountBanner,
     HostBottomNav,
@@ -16,20 +17,23 @@ import { USER_MODES, useUserMode } from "../../src/context";
  */
 export default function HostTabLayout() {
   const router = useRouter();
+  const isFocused = useIsFocused();
   const { currentMode, isHost, isLoading, isSwitching, syncMode } =
     useUserMode();
 
   React.useEffect(() => {
-    if (isLoading || isSwitching) return;
+    if (!isFocused || isLoading) return;
     if (!isHost) {
       syncMode(USER_MODES.GUEST);
       router.replace("/(tabs)");
       return;
     }
-    if (currentMode !== USER_MODES.HOST) {
-      syncMode(USER_MODES.HOST);
-    }
-  }, [currentMode, isHost, isLoading, isSwitching, router, syncMode]);
+    syncMode(USER_MODES.HOST);
+  }, [isFocused, currentMode, isHost, isLoading, isSwitching, router, syncMode]);
+
+  if (isLoading || !isHost) {
+    return <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#FFFFFF" }}><ActivityIndicator color="#276EE4" accessibilityLabel="Checking host access" /></View>;
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: "#FFFFFF" }}>

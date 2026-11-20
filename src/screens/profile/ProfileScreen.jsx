@@ -238,10 +238,7 @@ const ProfileScreen = ({ isHostMode: isHostModeProp = false }) => {
         if (isHost || hostApplicationStatus === HOST_APPLICATION_STATUS.APPROVED) {
           const success = await switchToHost();
           if (success) {
-            // Add a small delay for Android stabilization
-            setTimeout(() => {
-              router.replace("/(host-tabs)");
-            }, 100);
+            router.replace("/(host-tabs)");
           } else {
             console.error("[ProfileScreen] Mode switch to Host failed");
           }

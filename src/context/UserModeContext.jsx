@@ -1,170 +1,99 @@
-/**
- * User Mode Context
- * Manages switching between Guest and Host modes
- *
- * Guest Mode: Browse and book properties
- * Host Mode: Manage listings, view bookings, earnings
- *
- * NOTE: User mode is stored per-user to maintain unique preferences
- * Each mode switch triggers data prefetching to ensure unique user data is loaded
- */
-
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import {
-    createContext,
-    useCallback,
-    useContext,
-    useEffect,
-    useRef,
-    useState,
-} from "react";
+import { Platform } from "react-native";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import authService from "../services/authService";
 import storageService from "../services/storageService";
 
 const USER_MODE_KEY = "userMode";
 const LAST_SIDE_KEY = "@lunest_last_visited_side";
-
-// Mode constants
-export const USER_MODES = {
-  GUEST: "GUEST",
-  HOST: "HOST",
-};
-
+export const USER_MODES = { GUEST: "GUEST", HOST: "HOST" };
 const UserModeContext = createContext(undefined);
+const canHost = user => !!user && user.hostApplicationStatus !== "REVOKED" && (
+  ["HOST", "ADMIN", "SUPERADMIN"].includes(user.userType) || user.hostApplicationStatus === "APPROVED"
+);
+const identity = user => user?.id || user?._id || user?.emailAddress || user?.email || null;
+const bounded = (promise, ms, fallback = null) => new Promise(resolve => {
+  const timer = setTimeout(() => resolve(fallback), ms);
+  Promise.resolve(promise).then(resolve, () => resolve(fallback)).finally(() => clearTimeout(timer));
+});
 
 export const UserModeProvider = ({ children }) => {
   const [mode, setMode] = useState(USER_MODES.GUEST);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSwitching, setIsSwitching] = useState(false); // Loading state during mode switch
-  const [targetMode, setTargetMode] = useState(null); // Mode we are switching to
-  const [isHost, setIsHost] = useState(false); // Whether user has host privileges
-  const [userId, setUserId] = useState(null); // Current user ID for storage
+  const [isSwitching, setIsSwitching] = useState(false);
+  const [targetMode, setTargetMode] = useState(null);
+  const [isHost, setIsHost] = useState(false);
+  const modeRef = useRef(USER_MODES.GUEST);
+  const hostRef = useRef(false);
+  const userRef = useRef(null);
+  const transitionRef = useRef(null);
+  const timerRef = useRef(null);
+  const generation = useRef(0);
 
-  // Keep a ref of current mode to break recursion in callbacks
-  const modeRef = useRef(mode);
-  useEffect(() => {
-    modeRef.current = mode;
-  }, [mode]);
-
-  // Load saved mode on mount
-  useEffect(() => {
-    // Initial silent load from storage/URL
-    loadUserMode();
+  const finishSwitch = useCallback(() => {
+    clearTimeout(timerRef.current);
+    transitionRef.current = null;
+    setIsSwitching(false);
+    setTargetMode(null);
   }, []);
 
-  const isInitialLoad = useRef(false);
-  const loadUserMode = async () => {
-    if (isInitialLoad.current) return;
-    try {
-      isInitialLoad.current = true;
-      // Check if user has host privileges from locally stored data
-      const userData = await authService.getUserData();
-      const currentUserId = userData?.id || userData?.email;
-      setUserId(currentUserId);
+  const persist = useCallback(next => {
+    if (!userRef.current) return;
+    storageService.setUserItem(userRef.current, USER_MODE_KEY, next).catch(() => {});
+    // Kept for legacy entry points; never used as another account's preference.
+    AsyncStorage.setItem(LAST_SIDE_KEY, next === USER_MODES.HOST ? "host" : "guest").catch(() => {});
+  }, []);
 
-      // Determine host status from local data first (fast)
-      let userIsHost =
-        userData?.userType === "HOST" ||
-        userData?.userType === "ADMIN" ||
-        userData?.userType === "SUPERADMIN";
-
-      // SET INITIAL STATUS FROM CACHE (Fast UI update)
-      setIsHost(userIsHost);
-
-      // Also fetch fresh profile from server to get accurate hostApplicationStatus
-      // This prevents stale AsyncStorage data from showing host switch to guest users
-      try {
-        const loggedIn = await authService.isLoggedIn();
-        if (loggedIn) {
-          const serverProfile = await authService.fetchProfile();
-          if (serverProfile?.data) {
-            const serverType = serverProfile.data.userType;
-            const serverHostStatus = serverProfile.data.hostApplicationStatus;
-            userIsHost =
-              serverType === "HOST" ||
-              serverType === "ADMIN" ||
-              serverType === "SUPERADMIN" ||
-              serverHostStatus === "APPROVED";
-            
-            // UPDATE STATUS IF SERVER DIFFERS
-            setIsHost(userIsHost);
-          }
-        }
-      } catch (profileErr) {
-        // If server fetch fails, also check local hostApplicationStatus
-        if (userData?.hostApplicationStatus === "APPROVED") {
-          userIsHost = true;
-          setIsHost(true);
-        }
-        console.warn("[UserMode] Could not fetch server profile, using local data:", profileErr);
-      }
-
-      // Fallback: Check last visited side (last_side_key) - globally persistent even if userId is missing
-      let lastSide = await AsyncStorage.getItem(LAST_SIDE_KEY);
-      
-      // Web Hint: If we are on web, check the URL and localStorage for mode hints
-      let urlModeHint = null;
-      if (Platform.OS === 'web') {
-        // Sync check for localStorage on web to avoid async delays
-        const syncLastSide = localStorage.getItem(LAST_SIDE_KEY);
-        if (syncLastSide && !lastSide) {
-           lastSide = syncLastSide.replace(/"/g, ''); 
-        }
-
-        const path = window.location.pathname;
-        
-        // Host Paths
-        if (path.includes('/host') || path.includes('/create-listing') || path.includes('/manage-listings') || path.includes('/earnings')) {
-          urlModeHint = USER_MODES.HOST;
-        } 
-        // Explicit Guest-only Paths
-        else if (path.includes('/guest') || path.includes('/properties') || path.includes('/explore') || path.includes('/saved')) {
-          urlModeHint = USER_MODES.GUEST;
-        }
-        
-        console.log(`🌐 [UserMode] Web Refresh Sync - Path: ${path}, LastSide: ${lastSide}, URL Hint: ${urlModeHint}`);
-      }
-
-      if (currentUserId) {
-        // Load user-specific mode preference
-        const savedMode = await storageService.getUserItem(
-          currentUserId,
-          USER_MODE_KEY,
-        );
-        
-        // Priority: 1. User-specific Saved Preference | 2. URL Hint (Web) | 3. Device-wide Last Side Fallback
-        const preferredMode = savedMode || urlModeHint || (lastSide === 'host' ? USER_MODES.HOST : (lastSide === 'guest' ? USER_MODES.GUEST : null));
-
-        if (preferredMode && Object.values(USER_MODES).includes(preferredMode)) {
-          // Only allow host mode if user has host privileges OR if they were already in host mode
-          if (preferredMode === USER_MODES.HOST && !userIsHost && urlModeHint !== USER_MODES.HOST) {
-            setMode(USER_MODES.GUEST);
-          } else {
-            setMode(preferredMode);
-            console.log(`🔄 [UserMode] Restored mode for ${currentUserId}: ${preferredMode}`);
-          }
-        } else if (userIsHost) {
-          // If no preference found but user is a host, check lastSide one more time
-          if (lastSide === 'host') {
-             setMode(USER_MODES.HOST);
-          } else {
-             setMode(USER_MODES.GUEST);
-          }
-        }
-      } else {
-        // Logged out or still initializing - use URL or Last Side
-        const guestOrPublicMode = urlModeHint || (lastSide === 'host' ? USER_MODES.HOST : USER_MODES.GUEST);
-        if (guestOrPublicMode && Object.values(USER_MODES).includes(guestOrPublicMode)) {
-            setMode(guestOrPublicMode);
-            console.log(`🔄 [UserMode] Public/Initializing mode restored: ${guestOrPublicMode}`);
-        }
-      }
-    } catch (error) {
-      console.error("Error loading user mode:", error);
-    } finally {
+  const refreshHostStatus = useCallback(async (restore = false) => {
+    const version = ++generation.current;
+    const local = await authService.getUserData();
+    const id = identity(local);
+    const loggedIn = await authService.isLoggedIn();
+    if (version !== generation.current) return false;
+    if (!loggedIn || !id) {
+      userRef.current = null;
+      hostRef.current = false;
+      setIsHost(false);
+      modeRef.current = USER_MODES.GUEST;
+      setMode(USER_MODES.GUEST);
       setIsLoading(false);
+      return false;
     }
-  };
+    const changedAccount = userRef.current !== id;
+    userRef.current = id;
+    const response = await bounded(authService.fetchProfile(), 5000);
+    if (version !== generation.current) return false;
+    const allowed = canHost(response?.data || local);
+    hostRef.current = allowed;
+    setIsHost(allowed);
+    if (restore || changedAccount || !allowed) {
+      const saved = await bounded(storageService.getUserItem(id, USER_MODE_KEY), 500);
+      if (version !== generation.current) return false;
+      let hint = null;
+      if (Platform.OS === "web" && typeof window !== "undefined") {
+        const path = window.location.pathname;
+        if (/host|create-listing|manage-listings|earnings/.test(path)) hint = USER_MODES.HOST;
+        else if (/guest|properties|explore|saved/.test(path)) hint = USER_MODES.GUEST;
+      }
+      const preferred = hint || saved;
+      const next = allowed && preferred === USER_MODES.HOST ? USER_MODES.HOST : USER_MODES.GUEST;
+      modeRef.current = next;
+      setMode(next);
+    }
+    setIsLoading(false);
+    return allowed;
+  }, []);
+
+  useEffect(() => {
+    refreshHostStatus(true).catch(error => {
+      console.warn("[UserMode] Unable to restore mode", error);
+      setIsLoading(false);
+    });
+    return () => {
+      generation.current++;
+      clearTimeout(timerRef.current);
+    };
+  }, [refreshHostStatus]);
 
   /**
    * Prefetch data for guest mode (user-specific bookings, favorites, etc.)
@@ -225,237 +154,71 @@ export const UserModeProvider = ({ children }) => {
     }
   }, []);
 
-  const switchToGuest = useCallback(async () => {
-    if (isSwitching) return false;
-    if (modeRef.current === USER_MODES.GUEST) return true;
-    try {
-      setIsSwitching(true);
-      setTargetMode(USER_MODES.GUEST);
-      console.log("🔄 [UserMode] Switching to GUEST mode...");
-
-      // OPTIMISTIC UPDATE: Set mode and save preference immediately
-      setMode(USER_MODES.GUEST);
-      modeRef.current = USER_MODES.GUEST; // Sync ref immediately
-      
-      if (userId) {
-        storageService.setUserItem(
-          userId,
-          USER_MODE_KEY,
-          USER_MODES.GUEST,
-        ).catch(err => console.warn("Error saving guest mode preference:", err));
-      }
-      AsyncStorage.setItem(LAST_SIDE_KEY, "guest").catch(err => console.warn("Error saving last side:", err));
-
-      // SAFETY TIMEOUT: Force reset isSwitching after 10s if something hangs
-      const safetyTimeout = setTimeout(() => {
-        if (isSwitching) {
-            console.warn("⚠️ [UserMode] Guest switch safety timeout reached. Forcing reset.");
-            setIsSwitching(false);
-        }
-      }, 10000);
-
-      // Prefetch guest-specific data in the background
-      // We don't strictly await it so navigation can happen instantly
-      prefetchGuestData().finally(() => {
-        clearTimeout(safetyTimeout);
-        setIsSwitching(false);
-        setTargetMode(null);
-      });
-
-      console.log("✅ [UserMode] Optimistic switch to GUEST mode initiated");
-      return true;
-    } catch (error) {
-      console.error("Error switching to guest mode:", error);
-      setIsSwitching(false);
-      return false;
-    }
-  }, [isSwitching, prefetchGuestData, userId]);
-
-  const switchToHost = useCallback(async () => {
-    if (!isHost) {
-      console.warn("User does not have host privileges");
-      return false;
-    }
-    if (isSwitching) return false;
-    if (modeRef.current === USER_MODES.HOST) return true;
-    try {
-      setIsSwitching(true);
-      setTargetMode(USER_MODES.HOST);
-      console.log("🔄 [UserMode] Switching to HOST mode...");
-
-      // OPTIMISTIC UPDATE: Set mode and save preference immediately
-      setMode(USER_MODES.HOST);
-      modeRef.current = USER_MODES.HOST; // Sync ref immediately
-      
-      if (userId) {
-        storageService.setUserItem(
-          userId,
-          USER_MODE_KEY,
-          USER_MODES.HOST,
-        ).catch(err => console.warn("Error saving host mode preference:", err));
-      }
-      AsyncStorage.setItem(LAST_SIDE_KEY, "host").catch(err => console.warn("Error saving last side:", err));
-
-      // SAFETY TIMEOUT: Force reset isSwitching after 10s if something hangs
-      const safetyTimeout = setTimeout(() => {
-        if (isSwitching) {
-            console.warn("⚠️ [UserMode] Host switch safety timeout reached. Forcing reset.");
-            setIsSwitching(false);
-        }
-      }, 10000);
-
-      // Prefetch host-specific data in the background
-      prefetchHostData().finally(() => {
-        clearTimeout(safetyTimeout);
-        setIsSwitching(false);
-        setTargetMode(null);
-      });
-
-      console.log("✅ [UserMode] Optimistic switch to HOST mode initiated");
-      return true;
-    } catch (error) {
-      console.error("Error switching to host mode:", error);
-      setIsSwitching(false);
-      return false;
-    }
-  }, [isHost, isSwitching, prefetchHostData, userId]);
-
-  const toggleMode = useCallback(async () => {
-    if (isSwitching) return false;
-    if (modeRef.current === USER_MODES.GUEST) {
-      return await switchToHost();
-    } else {
-      await switchToGuest();
-      return true;
-    }
-  }, [isSwitching, switchToHost, switchToGuest]);
-
-  // Silent mode sync (no prefetch, no switching overlay)
-  // Always update storage when called by layout to ensure persistence matches the view
-  const syncMode = useCallback(async (targetMode) => {
-    if (!targetMode) return true;
-    
-    // Update memory if different
-    if (targetMode !== modeRef.current) {
-       setMode(targetMode);
-       modeRef.current = targetMode;
-    }
-
-    // ALWAYS sync to storage to ensure refresh works correctly
-    if (userId) {
-      storageService.setUserItem(userId, USER_MODE_KEY, targetMode).catch(e => {});
-    }
-    
-    AsyncStorage.setItem(
-      LAST_SIDE_KEY,
-      targetMode === USER_MODES.HOST ? "host" : "guest",
-    ).catch(e => {});
-    
+  const startSwitch = useCallback(next => {
+    if (transitionRef.current) return false;
+    if (next === USER_MODES.HOST && !hostRef.current) return false;
+    if (modeRef.current === next) return true;
+    // This ref locks synchronously, before React renders, including rapid double taps.
+    transitionRef.current = next;
+    modeRef.current = next;
+    setIsSwitching(true);
+    setTargetMode(next);
+    setMode(next);
+    persist(next);
+    // Navigation acknowledgement normally releases the overlay immediately.
+    // A stalled API or a failed route must never trap the user behind a spinner.
+    timerRef.current = setTimeout(finishSwitch, 1500);
+    const prefetch = next === USER_MODES.HOST ? prefetchHostData : prefetchGuestData;
+    Promise.resolve().then(prefetch).catch(() => {});
     return true;
-  }, [userId]);
+  }, [finishSwitch, persist, prefetchHostData, prefetchGuestData]);
 
-  // Refresh host status (call after becoming a host or on login)
-  const refreshHostStatus = useCallback(async () => {
-    const userData = await authService.getUserData();
-    const currentUserId = userData?.id || userData?.email;
-    setUserId(currentUserId);
+  const switchToGuest = useCallback(async () => startSwitch(USER_MODES.GUEST), [startSwitch]);
+  const switchToHost = useCallback(async () => startSwitch(USER_MODES.HOST), [startSwitch]);
+  const toggleMode = useCallback(async () => startSwitch(
+    modeRef.current === USER_MODES.HOST ? USER_MODES.GUEST : USER_MODES.HOST
+  ), [startSwitch]);
 
-    let userIsHost =
-      userData?.userType === "HOST" ||
-      userData?.userType === "ADMIN" ||
-      userData?.userType === "SUPERADMIN";
+  // Called only by the focused destination layout. An outgoing layout cannot undo a switch.
+  const syncMode = useCallback(async next => {
+    if (!Object.values(USER_MODES).includes(next)) return false;
+    if (next === USER_MODES.HOST && !hostRef.current) return false;
+    if (transitionRef.current && transitionRef.current !== next) return false;
+    modeRef.current = next;
+    setMode(next);
+    persist(next);
+    if (transitionRef.current === next) finishSwitch();
+    return true;
+  }, [finishSwitch, persist]);
 
-    // Also check hostApplicationStatus from server for accuracy
-    try {
-      const serverProfile = await authService.fetchProfile();
-      if (serverProfile?.data) {
-        const serverType = serverProfile.data.userType;
-        const serverHostStatus = serverProfile.data.hostApplicationStatus;
-        userIsHost =
-          serverType === "HOST" ||
-          serverType === "ADMIN" ||
-          serverType === "SUPERADMIN" ||
-          serverHostStatus === "APPROVED";
-      }
-    } catch (profileErr) {
-      if (userData?.hostApplicationStatus === "APPROVED") {
-        userIsHost = true;
-      }
-      console.warn("[UserMode] Could not fetch server profile during refresh:", profileErr);
-    }
-
-    setIsHost(userIsHost);
-    return userIsHost;
-  }, []);
-
-  // Clear state on logout
   const resetUserMode = useCallback(async () => {
-    console.log("🔄 [UserMode] Resetting user mode on logout...");
+    generation.current++;
+    finishSwitch();
+    hostRef.current = false;
+    userRef.current = null;
+    modeRef.current = USER_MODES.GUEST;
     setMode(USER_MODES.GUEST);
     setIsHost(false);
-    setUserId(null);
-    modeRef.current = USER_MODES.GUEST;
+    setIsLoading(false);
     await AsyncStorage.removeItem(LAST_SIDE_KEY);
     return true;
-  }, []);
-  
-  const cancelSwitch = useCallback(() => {
-    setIsSwitching(false);
-    setTargetMode(null);
-  }, []);
+  }, [finishSwitch]);
 
   const value = {
-    currentMode: mode,
-    mode,
+    currentMode: mode, mode,
     isGuest: mode === USER_MODES.GUEST,
     isHostMode: mode === USER_MODES.HOST,
-    isHost, // Whether user CAN be a host
-    isLoading,
-    isSwitching, // Loading state during mode switch
-    targetMode,
-    switchToGuest,
-    switchToHost,
-    toggleMode,
-    syncMode,
-    refreshHostStatus,
-    resetUserMode,
-    prefetchGuestData,
-    prefetchHostData,
-    cancelSwitch,
+    isHost, isLoading, isSwitching, targetMode,
+    switchToGuest, switchToHost, toggleMode, syncMode,
+    refreshHostStatus, resetUserMode, prefetchGuestData, prefetchHostData,
+    cancelSwitch: finishSwitch,
   };
-
-  return (
-    <UserModeContext.Provider value={value}>
-      {children}
-    </UserModeContext.Provider>
-  );
+  return <UserModeContext.Provider value={value}>{children}</UserModeContext.Provider>;
 };
 
 export const useUserMode = () => {
   const context = useContext(UserModeContext);
-  
-  if (context === undefined) {
-    // If the error persists after refreshes, this usually points to module duplication in Metro
-    console.warn("⚠️ [UserMode] useUserMode called outside of a Provider or Context instance mismatch!");
-    
-    // Return a stable fallback value to prevent "undefined of" crashes
-    return {
-      currentMode: USER_MODES.GUEST,
-      mode: USER_MODES.GUEST,
-      isGuest: true,
-      isHostMode: false,
-      isHost: false,
-      isLoading: true,
-      isSwitching: false,
-      switchToGuest: async () => false,
-      switchToHost: async () => false,
-      toggleMode: async () => false,
-      syncMode: async () => false,
-      refreshHostStatus: async () => false,
-      resetUserMode: async () => false,
-    };
-  }
+  if (context === undefined) throw new Error("useUserMode requires UserModeProvider");
   return context;
 };
-
 export default UserModeContext;

@@ -1,3 +1,4 @@
+import { useIsFocused } from "@react-navigation/native";
 import { Tabs, usePathname, useRouter } from "expo-router";
 import React from "react";
 import { Platform, StatusBar, View } from "react-native";
@@ -16,6 +17,7 @@ import { USER_MODES, useUserMode } from "../../src/context";
  */
 export default function TabLayout() {
   const router = useRouter();
+  const isFocused = useIsFocused();
   const pathname = usePathname();
   const [activeTab, setActiveTab] = React.useState("home");
   const { currentMode, isLoading, isSwitching, syncMode } = useUserMode();
@@ -41,11 +43,9 @@ export default function TabLayout() {
   }, [pathname]);
 
   React.useEffect(() => {
-    if (isLoading || isSwitching) return;
-    if (currentMode !== USER_MODES.GUEST) {
-      syncMode(USER_MODES.GUEST);
-    }
-  }, [currentMode, isLoading, isSwitching, syncMode]);
+    if (!isFocused || isLoading) return;
+    syncMode(USER_MODES.GUEST);
+  }, [isFocused, currentMode, isLoading, isSwitching, syncMode]);
 
   const handleTabPress = (tabKey) => {
     setActiveTab(tabKey);
